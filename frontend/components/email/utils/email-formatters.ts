@@ -2,6 +2,7 @@ import type { Email } from '@/lib/api/emails';
 import type { SenderContactMap } from '@/lib/api/contacts';
 import type { ThreadListItemData } from '@/components/email/list';
 import { getAvatarUrl } from '@/lib/utils/gravatar';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 
 /**
  * Extract email address from "Name <email@domain.com>" format
@@ -16,7 +17,7 @@ export function extractEmailAddress(from: string): string {
 /**
  * Format email data from API to ThreadListItemData
  */
-export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMap): ThreadListItemData {
+export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMap, timezone?: string, locale?: string): ThreadListItemData {
   const senderEmail = extractEmailAddress(email.from);
   const senderInfo = senderPhotos?.[senderEmail];
   // Known contact = found in senderPhotos (even if no photo)
@@ -27,7 +28,7 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
     from: email.from,
     subject: email.subject || '(No subject)',
     snippet: email.snippet || '',
-    date: new Date(email.receivedAt).toLocaleDateString(),
+    date: timezone ? formatDateInTz(email.receivedAt, timezone, locale) : new Date(email.receivedAt).toLocaleDateString(),
     isUnread: !email.isRead,
     isFlagged: email.isFlagged || email.isStarred,
     hasAttachments: (email.attachments?.length ?? 0) > 0,

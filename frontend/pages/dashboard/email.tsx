@@ -246,9 +246,11 @@ export default function EmailPage() {
   const { data: senderPhotos } = useSenderPhotos(senderEmails);
 
   // Render threads immediately without photos; enhance when photos arrive
+  const userTimezone = preferences?.timezone;
+  const userLocale = preferences?.language;
   const threads = useMemo(
-    () => emails.map((email) => formatEmailToThread(email, senderPhotos ?? undefined)),
-    [emails, senderPhotos]
+    () => emails.map((email) => formatEmailToThread(email, senderPhotos ?? undefined, userTimezone, userLocale)),
+    [emails, senderPhotos, userTimezone, userLocale]
   );
 
   // Optimistic update helpers

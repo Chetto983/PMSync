@@ -14,6 +14,9 @@ import {
 } from '@mui/material';
 import { useAdminUserSessions, useRevokeUserSessions } from '@/hooks/queries/use-admin';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 
 interface UserSessionsDialogProps {
   open: boolean;
@@ -32,6 +35,8 @@ interface AdminUserSessionRow {
 
 export function UserSessionsDialog({ open, onClose, userId, userName }: UserSessionsDialogProps) {
   const t = useTranslations();
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
   const { data: sessions, isLoading } = useAdminUserSessions(userId);
   const revokeAll = useRevokeUserSessions();
 
@@ -69,7 +74,7 @@ export function UserSessionsDialog({ open, onClose, userId, userName }: UserSess
                       {' | '}
                       {t.admin?.users.sessionsDialog.lastActive}:{' '}
                       {session.updatedAt
-                        ? new Date(session.updatedAt).toLocaleString()
+                        ? formatDateTimeInTz(session.updatedAt, timezone, locale)
                         : 'N/A'}
                     </>
                   }

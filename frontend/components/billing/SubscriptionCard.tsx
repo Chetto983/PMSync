@@ -16,6 +16,9 @@ import {
 } from '@mui/material';
 import { Crown, Sparkles, Building2, User } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import type { Subscription } from '@/lib/api/billing';
 
 interface SubscriptionCardProps {
@@ -51,6 +54,8 @@ export function SubscriptionCard({
 }: SubscriptionCardProps) {
   const t = useTranslations();
   const theme = useTheme();
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
 
   if (isLoading) {
     return (
@@ -120,13 +125,13 @@ export function SubscriptionCard({
 
         {subscription.currentPeriodEnd && (
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-            {t.billing?.usage?.resetDate || 'Resets on'}: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+            {t.billing?.usage?.resetDate || 'Resets on'}: {formatDateInTz(subscription.currentPeriodEnd, timezone, locale)}
           </Typography>
         )}
 
         {subscription.cancelAt && (
           <Chip
-            label={`Cancels ${new Date(subscription.cancelAt).toLocaleDateString()}`}
+            label={`Cancels ${formatDateInTz(subscription.cancelAt, timezone, locale)}`}
             size="small"
             color="warning"
             variant="outlined"

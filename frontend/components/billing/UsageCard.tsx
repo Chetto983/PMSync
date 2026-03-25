@@ -13,6 +13,9 @@ import {
 } from '@mui/material';
 import { Mail, Sparkles } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import type { Subscription } from '@/lib/api/billing';
 
 interface UsageCardProps {
@@ -23,6 +26,8 @@ interface UsageCardProps {
 export function UsageCard({ subscription, isLoading }: UsageCardProps) {
   const theme = useTheme();
   const t = useTranslations();
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
 
   if (isLoading || !subscription) {
     return (
@@ -125,7 +130,7 @@ export function UsageCard({ subscription, isLoading }: UsageCardProps) {
         {/* Reset Date */}
         {usageResetAt && (
           <Typography variant="caption" color="text.secondary">
-            {t.billing?.usage?.resetDate || 'Resets on'}: {new Date(usageResetAt).toLocaleDateString()}
+            {t.billing?.usage?.resetDate || 'Resets on'}: {formatDateInTz(usageResetAt, timezone, locale)}
           </Typography>
         )}
       </CardContent>

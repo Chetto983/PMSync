@@ -30,6 +30,9 @@ import { Ban, CheckCircle2, UserSearch, Monitor, LockOpen, Shield } from 'lucide
 import { useAdminUsers, useImpersonateUser, useUnbanUser } from '@/hooks/queries/use-admin';
 import { authClient, type SessionUser } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import { EmptyState } from '@/components/common/EmptyState';
 import { BanUserDialog } from './BanUserDialog';
@@ -60,6 +63,8 @@ export function UserListTable() {
   const t = useTranslations();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
   const { data: session } = authClient.useSession();
   const currentUser = session?.user as SessionUser | undefined;
 
@@ -112,7 +117,7 @@ export function UserListTable() {
   }, [unbanUser, unbanTarget]);
 
   const formatDate = (date: string | Date) => {
-    try { return new Date(date).toLocaleDateString(); }
+    try { return formatDateInTz(date, timezone, locale); }
     catch { return '-'; }
   };
 

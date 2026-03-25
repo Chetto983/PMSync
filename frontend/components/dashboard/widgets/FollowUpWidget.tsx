@@ -7,6 +7,8 @@
 import { useState, useCallback } from 'react';
 import { useFollowUps, useSnoozeFollowUp } from '@/hooks/queries';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import { BaseWidget } from './BaseWidget';
 import {
   Typography,
@@ -29,6 +31,7 @@ import { useRouter } from 'next/navigation';
 export function FollowUpWidget() {
   const t = useTranslations();
   const { locale } = useLocale();
+  const timezone = useUserTimezone();
   const dl = locale === 'it' ? { locale: itLocale } : undefined;
   const router = useRouter();
   const { data, isLoading, error, refetch } = useFollowUps({ limit: 5 });
@@ -124,7 +127,7 @@ export function FollowUpWidget() {
             >
               <ListItemText
                 primary={followUp.subject}
-                secondary={`${followUp.contactName} • ${formatDistanceToNow(new Date(followUp.dueDate), { addSuffix: true, ...dl })}`}
+                secondary={`${followUp.contactName} • ${formatDistanceToNow(new Date(followUp.dueDate), { addSuffix: true, ...dl })} — ${formatDateTimeInTz(followUp.dueDate, timezone, locale)}`}
                 slotProps={{
                   primary: {
                     variant: 'body2',

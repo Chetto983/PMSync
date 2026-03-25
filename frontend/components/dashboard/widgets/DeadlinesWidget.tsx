@@ -7,6 +7,8 @@
 import { useDeadlines } from '@/hooks/queries/use-dashboard';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import { BaseWidget } from './BaseWidget';
 import { Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,6 +17,7 @@ import { it as itLocale } from 'date-fns/locale';
 export function DeadlinesWidget() {
     const t = useTranslations();
     const { locale } = useLocale();
+    const timezone = useUserTimezone();
     const dl = locale === 'it' ? { locale: itLocale } : undefined;
     const { data, isLoading, error, refetch } = useDeadlines({ limit: 5 });
 
@@ -38,7 +41,7 @@ export function DeadlinesWidget() {
                         <ListItem key={deadline.id} disablePadding sx={{ mb: 1 }}>
                             <ListItemText
                                 primary={deadline.title}
-                                secondary={formatDistanceToNow(new Date(deadline.dueDate), { addSuffix: true, ...dl })}
+                                secondary={`${formatDistanceToNow(new Date(deadline.dueDate), { addSuffix: true, ...dl })} — ${formatDateInTz(deadline.dueDate, timezone, locale)}`}
                                 slotProps={{
                                     primary: {
                                         variant: 'body2',

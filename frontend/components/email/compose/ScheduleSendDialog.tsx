@@ -28,17 +28,9 @@ import {
 } from '@mui/material';
 import { X, Clock, Calendar, Sun, Coffee, Briefcase } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-
-// Helper to format date/time
-function formatDateTime(date: Date, locale: string = 'en'): string {
-  return new Intl.DateTimeFormat(locale, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
-}
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatScheduleDateInTz } from '@/lib/utils/format-date-tz';
 
 // Quick schedule options
 interface QuickOption {
@@ -60,6 +52,8 @@ export function ScheduleSendDialog({
   onSchedule,
 }: ScheduleSendDialogProps) {
   const t = useTranslations();
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
 
   // State for custom date/time
   const [customDate, setCustomDate] = useState('');
@@ -189,7 +183,7 @@ export function ScheduleSendDialog({
                   </ListItemIcon>
                   <ListItemText
                     primary={t.email?.scheduleSend?.options?.[option.labelKey] || option.labelKey}
-                    secondary={formatDateTime(option.getDate())}
+                    secondary={formatScheduleDateInTz(option.getDate(), timezone, locale)}
                   />
                 </ListItemButton>
               </ListItem>

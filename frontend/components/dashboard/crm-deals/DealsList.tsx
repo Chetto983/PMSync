@@ -22,6 +22,9 @@ import {
 import { Search, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import { useDeals, useDeleteDeal } from '@/hooks/queries/use-crm-deals';
 import { usePipelines } from '@/hooks/queries/use-crm-pipelines';
 import { useGlobalToast } from '@/lib/context/toast-context';
@@ -42,17 +45,19 @@ function formatAmount(amount: string | null, currency: string): string {
   }).format(num);
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString();
-}
-
 export function DealsList() {
   const t = useTranslations();
   const td = t.crmDeals;
   const tc = t.common;
   const toast = useGlobalToast();
   const router = useRouter();
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
+
+  const formatDate = useCallback((dateStr: string | null): string => {
+    if (!dateStr) return '—';
+    return formatDateInTz(dateStr, timezone, locale);
+  }, [timezone, locale]);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
