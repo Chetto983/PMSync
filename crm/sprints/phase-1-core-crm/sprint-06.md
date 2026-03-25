@@ -40,17 +40,17 @@
 
 ## Definition of Done
 
-- [ ] Deal detail mostra tutte le informazioni con stage progress bar
-- [ ] Timeline mostra attività, note e cambi stage in ordine cronologico
-- [ ] Creazione attività funziona (call, email, meeting, task)
-- [ ] Note CRUD funziona con editor testo
-- [ ] Automazione su cambio stage esegue azioni configurate
-- [ ] Notifica in-app inviata su stage change (se configurata)
-- [ ] Task creata automaticamente su stage change (se configurata)
-- [ ] Config automazioni accessibile da Pipeline settings
-- [ ] No automation loop possibili
-- [ ] `cd backend && npx tsc --noEmit` passa
-- [ ] `cd frontend && npx tsc --noEmit` passa
+- [x] Deal detail mostra tutte le informazioni con stage progress bar
+- [x] Timeline mostra attività, note e cambi stage in ordine cronologico
+- [x] Creazione attività funziona (call, email, meeting, task)
+- [x] Note CRUD funziona con editor testo
+- [x] Automazione su cambio stage esegue azioni configurate
+- [x] Notifica in-app inviata su stage change (se configurata)
+- [x] Task creata automaticamente su stage change (se configurata)
+- [x] Config automazioni accessibile da Pipeline settings
+- [x] No automation loop possibili
+- [x] `cd backend && npx tsc --noEmit` passa
+- [x] `cd frontend && npx tsc --noEmit` passa
 
 ## Deliverable Attesi
 

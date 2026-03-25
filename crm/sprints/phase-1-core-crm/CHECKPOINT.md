@@ -1,77 +1,67 @@
-# Sprint 05 — Checkpoint
+# Sprint 06 — Checkpoint
 
 ## Stato
-- **Sprint:** 05 — Kanban Board & Drag-Drop
-- **Last Task Completed:** T-0511 — Translations, type-check, audit fixes
-- **Next Task:** Sprint 06 — (next sprint)
-- **Tasks Done:** 11/11
-- **SP Completed:** 20/20
-- **Last Updated:** 2026-03-25
-- **Production Validated:** ✅ 2026-03-25
+- **Sprint:** 06 — Deal Detail & Stage Automations
+- **Last Task Completed:** T-0610 — UI automation config in Pipeline settings
+- **Next Task:** Sprint complete — proceed to production validation
+- **Tasks Done:** 10/10
+- **SP Completed:** 17/17
+- **Last Updated:** 2026-03-25 22:30
 
 ## Last Modified Files
-- backend/src/modules/crm/pipeline/services/pipeline.service.ts ← BUG FIX: added stages include to listPipelines
-- backend/src/modules/crm/deal/controllers/deal.controller.ts
-- backend/src/modules/crm/deal/services/deal.service.ts
-- backend/src/modules/crm/deal/dto/deal.dto.ts
+- backend/src/modules/crm/automation/automation.module.ts
+- backend/src/modules/crm/automation/stage-automation.service.ts
+- backend/src/modules/crm/automation/stage-automation.worker.ts
+- backend/src/modules/crm/automation/types.ts
+- backend/src/modules/crm/crm.module.ts
 - backend/src/modules/crm/deal/deal.module.ts
+- backend/src/modules/crm/deal/services/deal.service.ts
+- backend/src/modules/crm/deal/controllers/deal.controller.ts
+- backend/src/modules/crm/deal/dto/deal.dto.ts
+- backend/src/modules/crm/pipeline/dto/pipeline.dto.ts
+- backend/src/modules/crm/pipeline/services/pipeline.service.ts
+- backend/src/common/config/queue.config.ts
+- backend/prisma/schema.prisma
 - backend/src/modules/realtime/types/realtime.types.ts
 - backend/src/modules/realtime/services/realtime-events.service.ts
-- frontend/components/dashboard/crm-deals/KanbanBoard.tsx
-- frontend/components/dashboard/crm-deals/DealCard.tsx
-- frontend/components/dashboard/crm-deals/DealsList.tsx
+- frontend/components/dashboard/crm-deals/DealDetail.tsx
+- frontend/components/dashboard/crm-deals/DealDetailParts.tsx
+- frontend/components/dashboard/crm-deals/DealTimeline.tsx
+- frontend/components/dashboard/crm-deals/CreateActivityDialog.tsx
+- frontend/components/dashboard/crm-deals/DealNotes.tsx
+- frontend/components/dashboard/crm-pipelines/StageAutomationsDialog.tsx
+- frontend/components/dashboard/crm-pipelines/SortableStageList.tsx
 - frontend/lib/api/crm-deals.ts
+- frontend/lib/api/crm-pipelines.ts
 - frontend/hooks/queries/use-crm-deals.ts
-- frontend/lib/websocket-client.ts
+- frontend/hooks/queries/crm-deals-keys.ts
 - frontend/locales/en.ts
 - frontend/locales/it.ts
 - frontend/locales/index.ts
-- scripts/validate-crm-sprint05-e2e.mjs
 
 ## Key Decisions Made
-
-- Used @dnd-kit/core v6 (already installed) instead of @hello-pangea/dnd (sprint spec mentioned it but dnd-kit was already in deps)
-- KanbanBoard + DealCard placed in `frontend/components/dashboard/crm-deals/` alongside existing deal components (not separate kanban/ dir)
-- List/Kanban view toggle added to DealsList header with ToggleButtonGroup
-- Kanban requires pipeline selection (shows prompt if none selected)
-- Stage transition uses dedicated PATCH /crm/deals/:id/stage endpoint (lighter than full update)
-- Socket.IO event name: `crm:deal:stage-changed` (namespaced under crm: prefix)
-- DealCard uses useDraggable (not useSortable) — cards drop into stage columns, no intra-column reordering
-- Optimistic update uses queryClient.setQueryData with rollback on mutation error
-
-## Bug Fixes
-
-- **listPipelines missing stages include** — `PipelineService.listPipelines()` only had `_count: { select: { stages: true } }` but did NOT include the actual `stages` array. This caused the Stage dropdown in CreateDealDialog and DealDetail to be empty, blocking deal creation entirely. Fixed by adding `stages: { select: { id, name, color, probability, position }, orderBy: { position: 'asc' } }` to the Prisma include.
+- DealDetail extracted into DealDetailParts.tsx when main file exceeded 500 lines
+- Notes stored as CrmActivity type=NOTE for unified timeline, with full CRUD
+- Note endpoints under `/crm/deals/:id/notes/:noteId` (not separate controller)
+- DealDetail tabs: Info, Contacts, Notes, Products, Activity
+- Stage automations stored as JSON array on CrmStage.automations field
+- BullMQ worker handles NOTIFY (Socket.IO + activity) and CREATE_TASK (activity)
+- Loop prevention via triggeredByAutomation flag on job data
+- StageAutomationsDialog uses Zap icon button per stage in sortable list
 
 ## Patterns Established
-- CRM realtime events: `CrmDealStageChangedPayload` type, `emitCrmDealStageChanged` method
-- Frontend websocket handler: `websocketClient.onCrmDealStageChanged()`
-- KanbanBoard accepts pipelineId prop, fetches deals with limit=500 for that pipeline
-- StageColumn uses useDroppable, DealCard uses useDraggable
-- Stage header shows: count, total value, weighted value (amount * probability/100)
-- View mode toggle: ToggleButtonGroup with List/Kanban icons from lucide-react
+- CRM activity endpoints: GET/POST /crm/deals/:id/activities
+- CRM note endpoints: GET/POST /crm/deals/:id/notes, PATCH/DELETE /crm/deals/:id/notes/:noteId
+- Automation module: backend/src/modules/crm/automation/
+- Stage automation types: NOTIFY, CREATE_TASK (extensible via AutomationType union)
+- Realtime events: crm:automation:notify via emitCrmAutomationNotify()
+- Queue name: CRM_STAGE_AUTOMATION in centralized QUEUE_NAMES
 
 ## Blockers / Notes
+- None currently
 
-- @dnd-kit/sortable v10 is installed but not used for Kanban (sortable is for reordering within a list, not cross-container moves)
-- Deal cards don't support intra-column reordering (not in sprint scope)
-- Kanban fetches up to 500 deals per pipeline — may need virtualization for larger datasets (Sprint risk #2)
-
-## Audit Results (Skills + Dev Tools)
-
+## Validation Status
 - Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing (pre-existing errors in email/org components, not from CRM)
-- Circular deps: ✅ zero (madge --circular)
-- UX anti-patterns: ✅ optimistic update + rollback, loading skeletons, empty states
-- React perf (vercel-react-best-practices): ✅ React.memo on StageColumn, useMemo for derived data
-- Mobile design: ✅ horizontal scroll, touch-action: none on draggable, 44px+ touch targets
-- Accessibility: ⚠️ acceptable — KeyboardSensor enabled, semantic HTML, ARIA via dnd-kit built-in
-- MUI: ✅ theme tokens only, no hardcoded colors
-
-## Production Validation (2026-03-25)
-
-- Railway: ✅ /health → 200, /api/v1/crm/pipelines → 401 (auth guard active)
-- Vercel: ✅ /dashboard/crm/deals → 307 (auth redirect working)
-- Browser (Edge CDP): ✅ Kanban renders, stages populated, deals visible, drag-drop functional
-- E2E script: `scripts/validate-crm-sprint05-e2e.mjs` — pipeline creation, stage addition, deal creation, kanban view, drag-drop, mobile viewport
-- Screenshots: `scripts/screenshots/sprint05/`
+- Frontend tsc: ✅ passing
+- Circular deps: pending check
+- Production validation: pending (push + deploy needed)
