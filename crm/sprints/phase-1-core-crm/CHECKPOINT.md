@@ -1,52 +1,60 @@
-# Sprint 03 — Checkpoint
+# Sprint 04 — Checkpoint
 
 ## Stato
-- **Sprint:** 03 — Pipeline & Stage Foundation
-- **Last Task Completed:** T-0308 — Pipeline settings page with drag-sort stages
-- **Next Task:** Sprint 03 COMPLETE — proceed to Sprint 04
-- **Tasks Done:** 10/10
+- **Sprint:** 04 — Deal CRUD & Associations
+- **Last Task Completed:** T-0411 — CRM sidebar navigation
+- **Next Task:** Sprint 05 — (next sprint)
+- **Tasks Done:** 11/11
 - **SP Completed:** 18/18
-- **Last Updated:** 2026-03-24 (session 1)
+- **Last Updated:** 2026-03-25
 
 ## Last Modified Files
-- backend/src/modules/crm/pipeline/pipeline.module.ts
-- backend/src/modules/crm/pipeline/controllers/pipeline.controller.ts
-- backend/src/modules/crm/pipeline/services/pipeline.service.ts
-- backend/src/modules/crm/pipeline/dto/pipeline.dto.ts
+- backend/src/modules/crm/deal/deal.module.ts
+- backend/src/modules/crm/deal/controllers/deal.controller.ts
+- backend/src/modules/crm/deal/services/deal.service.ts
+- backend/src/modules/crm/deal/dto/deal.dto.ts
 - backend/src/modules/crm/crm.module.ts
-- frontend/lib/api/crm-pipelines.ts
-- frontend/hooks/queries/crm-pipelines-keys.ts
-- frontend/hooks/queries/use-crm-pipelines.ts
-- frontend/components/dashboard/crm-pipelines/PipelinesList.tsx
-- frontend/components/dashboard/crm-pipelines/PipelineSettings.tsx
-- frontend/components/dashboard/crm-pipelines/SortableStageList.tsx
-- frontend/pages/dashboard/crm/pipelines.tsx
-- frontend/pages/dashboard/crm/pipelines/[id]/settings.tsx
+- frontend/lib/api/crm-deals.ts
+- frontend/hooks/queries/crm-deals-keys.ts
+- frontend/hooks/queries/use-crm-deals.ts
+- frontend/hooks/queries/index.ts
+- frontend/components/dashboard/crm-deals/CreateDealDialog.tsx
+- frontend/components/dashboard/crm-deals/DealsList.tsx
+- frontend/components/dashboard/crm-deals/DealDetail.tsx
+- frontend/pages/dashboard/crm/deals/index.tsx
+- frontend/pages/dashboard/crm/deals/[id].tsx
 - frontend/components/layout/Sidebar.tsx
 - frontend/locales/en.ts
 - frontend/locales/it.ts
 - frontend/locales/index.ts
 
 ## Key Decisions Made
-- Used @dnd-kit/sortable v10 for stage drag-and-drop (already in package.json)
-- Separate StageController at /crm/stages for update/delete (no pipeline param needed)
-- Atomic reorder uses negative-position trick to avoid unique constraint violations during swap
-- Serializable isolation level on reorder transaction to prevent race conditions
-- PipelineNameEditor and PipelineDescEditor are local to PipelineSettings (not shared with AccountDetail's InlineEditField which has different API)
-- Color picker uses native HTML `<input type="color">` — simple, no extra deps
-- Default pipeline seed: Lead (10%), Qualified (25%), Proposal (50%), Negotiation (75%), Won (100%), Lost (0%)
+- DealModule follows same pattern as PipelineModule (PrismaModule import, TenantGuard + RolesGuard)
+- Stage-pipeline cross-validation: backend rejects stageId not belonging to pipelineId
+- Account validation: accountId must belong to same tenant, nullable (can clear)
+- Pipeline change requires stageId (auto-selects first stage in frontend)
+- Deal-Contact associations with role field, same pattern as AccountContact
+- Amount stored as Decimal(15,2), comes as string from Prisma — frontend parses with parseFloat
+- DealsList uses MUI Table (not DataGrid) to match AccountsList pattern
+- ConfirmDialog for delete (not window.confirm), useGlobalToast for feedback
+- CreateDealDialog: pipeline→stage cascade with useEffect reset
+- DealDetail: inline-edit name, stage chip in header, amount display
+- Contacts/Products/Activity tabs are placeholders for future sprints
 
 ## Patterns Established
-- CRM pipeline query hooks: `frontend/hooks/queries/use-crm-pipelines.ts`
-- CRM pipeline API module: `frontend/lib/api/crm-pipelines.ts`
-- Pipeline list page: card grid layout with create dialog
-- Pipeline settings page: breadcrumb + inline edit + toggles + sortable stage list
-- Backend: PipelineModule follows same pattern as AccountModule (PrismaModule import, TenantGuard + RolesGuard)
-- Stage CRUD auto-assigns position on create, re-numbers on delete
+- CRM deal query hooks: `frontend/hooks/queries/use-crm-deals.ts`
+- CRM deal API module: `frontend/lib/api/crm-deals.ts`
+- Deal list page: table with search + pipeline filter + pagination
+- Deal detail page: breadcrumb + inline edit + stage badge + info card with selects
+- Deal-Contact link/unlink via `POST/DELETE /crm/deals/:id/contacts`
+- DealService.validateStageInPipeline() for cross-entity validation
+- DealService.validateAccount() for tenant-scoped account verification
 
 ## Blockers / Notes
-- Deals tab and Activity tab on accounts are still placeholders ("coming in Sprint 04")
-- Default pipeline creation is a service method `createDefaultPipeline(tenantId)` — not yet hooked to tenant setup flow (can be called from seed or on first pipeline list load)
+- Contacts tab on deal detail is placeholder ("Coming in Sprint 05")
+- Products tab placeholder ("Coming in Sprint 06")
+- Activity tab placeholder ("Coming in Sprint 07")
+- Deal create dialog uses basic Select for accounts (not Autocomplete) — sufficient for current scale
 
 ## Validation Status
 - Backend tsc: ✅ passing
