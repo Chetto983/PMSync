@@ -8,6 +8,16 @@ import { apiClient } from '../api-client';
 
 // ---- Types ----
 
+export interface StageAutomationRule {
+  type: 'NOTIFY' | 'CREATE_TASK';
+  enabled: boolean;
+  params: {
+    message?: string;
+    taskTitle?: string;
+    taskDescription?: string;
+  };
+}
+
 export interface CrmStage {
   id: string;
   pipelineId: string;
@@ -17,6 +27,7 @@ export interface CrmStage {
   color: string | null;
   isWon: boolean;
   isLost: boolean;
+  automations: StageAutomationRule[] | null;
   createdAt: string;
   updatedAt: string;
   _count?: { deals: number };
@@ -63,6 +74,7 @@ export interface UpdateStageDto {
   color?: string;
   isWon?: boolean;
   isLost?: boolean;
+  automations?: StageAutomationRule[];
 }
 
 // ---- API ----

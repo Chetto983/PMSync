@@ -177,6 +177,7 @@ export class PipelineService {
           ...(dto.color !== undefined && { color: dto.color }),
           ...(dto.isWon !== undefined && { isWon: dto.isWon }),
           ...(dto.isLost !== undefined && { isLost: dto.isLost }),
+          ...(dto.automations !== undefined && { automations: dto.automations }),
         },
       });
     } catch (error: any) {

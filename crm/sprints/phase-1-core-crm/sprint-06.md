@@ -18,10 +18,10 @@
 - [x] T-0604 — Form creazione attività (MUI Dialog): tipo, data/ora, descrizione, durata opzionale — [1 SP] — ✅ DONE
 - [x] T-0605 — API note deal: `POST /crm/deals/:id/notes` (content), `GET /crm/deals/:id/notes`, `PATCH /crm/deals/:id/notes/:noteId`, `DELETE /crm/deals/:id/notes/:noteId` — [2 SP] — ✅ DONE
 - [x] T-0606 — Componente note con editor testo semplice, lista note con autore e timestamp — [1 SP] — ✅ DONE
-- [ ] T-0607 — Creare `StageAutomationProcessor` BullMQ: job triggered su evento `deal:stage-changed`, esegue regole configurate per lo stage di destinazione — [3 SP] — 📋 TODO
-- [ ] T-0608 — Implementare azione automazione: invio notifica in-app (tramite sistema notifiche PMSync esistente) su cambio stage — [1 SP] — 📋 TODO
-- [ ] T-0609 — Implementare azione automazione: creazione task automatica su cambio stage (es. "Prepara proposta" quando deal entra in stage Proposal) — [1 SP] — 📋 TODO
-- [ ] T-0610 — UI configurazione automazioni base: in Pipeline settings, per ogni stage, lista azioni (notify, create task) con toggle on/off e parametri — [2 SP] — 📋 TODO
+- [x] T-0607 — Creare `StageAutomationProcessor` BullMQ: job triggered su evento `deal:stage-changed`, esegue regole configurate per lo stage di destinazione — [3 SP] — ✅ DONE
+- [x] T-0608 — Implementare azione automazione: invio notifica in-app (tramite sistema notifiche PMSync esistente) su cambio stage — [1 SP] — ✅ DONE
+- [x] T-0609 — Implementare azione automazione: creazione task automatica su cambio stage (es. "Prepara proposta" quando deal entra in stage Proposal) — [1 SP] — ✅ DONE
+- [x] T-0610 — UI configurazione automazioni base: in Pipeline settings, per ogni stage, lista azioni (notify, create task) con toggle on/off e parametri — [2 SP] — ✅ DONE
 
 ---
 

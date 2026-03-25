@@ -4231,6 +4231,22 @@ export interface AppTranslations {
       stageUpdateError?: string;
       stageDeleted?: string;
       stageDeleteError?: string;
+      automations?: {
+        title?: string;
+        description?: string;
+        notify?: string;
+        notifyDescription?: string;
+        notifyMessage?: string;
+        notifyMessagePlaceholder?: string;
+        createTask?: string;
+        createTaskDescription?: string;
+        taskTitle?: string;
+        taskTitlePlaceholder?: string;
+        taskDescription?: string;
+        taskDescriptionPlaceholder?: string;
+        saveSuccess?: string;
+        saveError?: string;
+      };
     };
     breadcrumb?: {
       pipelines?: string;

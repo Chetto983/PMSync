@@ -14,9 +14,10 @@ import {
   FormControlLabel,
   Paper,
 } from '@mui/material';
-import { GripVertical, Pencil, Trash2, Plus, Check, X } from 'lucide-react';
+import { GripVertical, Pencil, Trash2, Plus, Check, X, Zap } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ColorPicker, ColorPickerPopover } from '@/components/common/ColorPicker';
+import { StageAutomationsDialog } from './StageAutomationsDialog';
 import {
   DndContext,
   closestCenter,
@@ -47,7 +48,7 @@ interface SortableStageListProps {
   tc: CommonTranslations;
   onReorder: (orderedIds: string[]) => void;
   onCreateStage: (dto: { name: string; probability?: number; color?: string; isWon?: boolean; isLost?: boolean }) => void;
-  onUpdateStage: (stageId: string, dto: { name?: string; probability?: number; color?: string; isWon?: boolean; isLost?: boolean }) => void;
+  onUpdateStage: (stageId: string, dto: { name?: string; probability?: number; color?: string; isWon?: boolean; isLost?: boolean; automations?: import('@/lib/api/crm-pipelines').StageAutomationRule[] }) => void;
   onDeleteStage: (stageId: string) => void;
 }
 
@@ -116,6 +117,7 @@ export function SortableStageList({
                 key={stage.id}
                 stage={stage}
                 ts={ts}
+                tc={tc}
                 onUpdate={onUpdateStage}
                 onDelete={onDeleteStage}
               />
@@ -140,16 +142,18 @@ export function SortableStageList({
 interface SortableStageItemProps {
   stage: CrmStage;
   ts: SettingsTranslations;
-  onUpdate: (stageId: string, dto: { name?: string; probability?: number; color?: string }) => void;
+  tc: CommonTranslations;
+  onUpdate: (stageId: string, dto: { name?: string; probability?: number; color?: string; automations?: import('@/lib/api/crm-pipelines').StageAutomationRule[] }) => void;
   onDelete: (stageId: string) => void;
 }
 
-function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemProps) {
+function SortableStageItem({ stage, ts, tc, onUpdate, onDelete }: SortableStageItemProps) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(stage.name);
   const [editProb, setEditProb] = useState(String(stage.probability));
   const [editColor, setEditColor] = useState(stage.color ?? '#6B7280');
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [automationsOpen, setAutomationsOpen] = useState(false);
   const [colorAnchor, setColorAnchor] = useState<HTMLElement | null>(null);
 
   const {
@@ -282,6 +286,11 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
           {stage.isLost && (
             <Typography variant="caption" color="error.main" fontWeight={600}>Lost</Typography>
           )}
+          <Tooltip title={ts?.automations?.title ?? 'Automations'}>
+            <IconButton onClick={() => setAutomationsOpen(true)} aria-label={ts?.automations?.title ?? 'Automations'}>
+              <Zap size={16} />
+            </IconButton>
+          </Tooltip>
           <Tooltip title={ts?.editStage ?? 'Edit'}>
             <IconButton onClick={() => setEditing(true)} aria-label={ts?.editStage ?? 'Edit stage'}>
               <Pencil size={16} />
@@ -294,6 +303,18 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
           </Tooltip>
         </>
       )}
+
+      <StageAutomationsDialog
+        open={automationsOpen}
+        onClose={() => setAutomationsOpen(false)}
+        stage={stage}
+        ta={ts?.automations}
+        tc={tc}
+        onSave={(automations) => {
+          onUpdate(stage.id, { automations });
+          setAutomationsOpen(false);
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDeleteOpen}

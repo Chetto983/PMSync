@@ -15,6 +15,7 @@ import {
   type ValidationArguments,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import type { Prisma } from '@prisma/client';
 
 @ValidatorConstraint({ name: 'wonLostExclusive', async: false })
 class WonLostExclusiveConstraint implements ValidatorConstraintInterface {
@@ -120,6 +121,9 @@ export class UpdateStageDto {
   @IsBoolean()
   @Validate(WonLostExclusiveConstraint)
   isLost?: boolean;
+
+  @IsOptional()
+  automations?: Prisma.InputJsonValue;
 }
 
 export class ReorderStagesDto {
