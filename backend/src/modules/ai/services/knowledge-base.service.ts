@@ -8,6 +8,8 @@ import { AiError } from '../errors';
 import { EmbeddingComposerService } from './embedding-composer.service';
 import { EmbeddingCrudService } from './embedding-crud.service';
 import { EmbeddingSearchService, SearchOptions, SearchResult, KnowledgeBaseSearchHit } from './embedding-search.service';
+// Phase 109: Entity extraction for graph RAG
+import { EntityExtractionService } from './entity-extraction.service';
 // Re-export for backward compatibility with controllers
 export type { KnowledgeBaseSearchHit };
 import { EmbeddingBackfillService, BackfillOptions, BackfillResult, EmbeddingStats } from './embedding-backfill.service';
@@ -42,6 +44,8 @@ export class KnowledgeBaseService {
     private readonly crudService: EmbeddingCrudService,
     private readonly searchService: EmbeddingSearchService,
     private readonly backfillService: EmbeddingBackfillService,
+    // Phase 109: Entity extraction for graph RAG
+    private readonly entityExtractionService: EntityExtractionService,
   ) {}
 
   // ============================================================================
@@ -313,7 +317,21 @@ export class KnowledgeBaseService {
         }
       }
 
-      return successfulChunks > 0;
+      const success = successfulChunks > 0;
+
+      // Phase 109: Entity extraction (fire-and-forget, non-blocking)
+      if (success) {
+        this.entityExtractionService.extractAndUpsert(options.tenantId, {
+          type: 'email',
+          emailId: options.emailId,
+          from: options.from ?? null,
+          to: null, // Not available in CreateEmailEmbeddingOptions
+          subject: options.subject,
+          bodySnippet: (options.bodyText || options.bodyHtml || options.snippet || '').slice(0, 500),
+        }).catch(err => this.logger.warn(`Entity extraction failed for email ${options.emailId}: ${err.message}`));
+      }
+
+      return success;
     } catch (error) {
       const message = AiError.fromError(error).message;
       this.logger.warn(
@@ -502,7 +520,21 @@ export class KnowledgeBaseService {
         }
       }
 
-      return successfulChunks > 0;
+      const success = successfulChunks > 0;
+
+      // Phase 109: Contact node extraction (fire-and-forget, non-blocking)
+      if (success) {
+        this.entityExtractionService.extractAndUpsert(options.tenantId, {
+          type: 'contact',
+          contactId: options.contactId,
+          displayName: options.displayName ?? null,
+          company: options.company ?? null,
+          jobTitle: options.jobTitle ?? null,
+          emails: options.emails ?? null,
+        }).catch(err => this.logger.warn(`Entity extraction failed for contact ${options.contactId}: ${err.message}`));
+      }
+
+      return success;
     } catch (error) {
       const message = AiError.fromError(error).message;
       this.logger.warn(`Failed to create embedding for contact ${options.contactId}: ${message}`);

@@ -61,6 +61,8 @@ model Tenant {
   crmPipelines             CrmPipeline[]
   crmDeals                 CrmDeal[]
   crmProducts              CrmProduct[]
+  graphNodes               GraphNode[]
+  graphEdges               GraphEdge[]
 
   @@map("tenants")
 }
@@ -1155,6 +1157,8 @@ model AIMemory {
   category   String?
   tags       String?
   metadata   Json?
+  contactId  String?
+  emailId    String?
   expiresAt  DateTime?
   createdAt  DateTime               @default(now())
   updatedAt  DateTime               @updatedAt
@@ -1165,6 +1169,8 @@ model AIMemory {
   @@index([tenantId, userId])
   @@index([tenantId, userId, memoryType])
   @@index([tenantId, userId, category])
+  @@index([tenantId, contactId])
+  @@index([tenantId, emailId])
   @@index([expiresAt])
   @@index([content(ops: raw("gin_trgm_ops"))], map: "ai_memories_content_gin_idx", type: Gin)
   @@index([vector], map: "ai_memories_vector_hnsw_idx")
@@ -1486,6 +1492,8 @@ model AiRunLedger {
   promptVersion    String?     // Correlate cost changes to prompt changes
   qualityScore     Float?      // 0.0-1.0 retroactive quality rating (NeMo evaluator)
   qualityMethod    String?     // 'schema-completeness', 'user-action'
+  rawContextTokens       Int?  // Token count before context assembly
+  assembledContextTokens Int?  // Token count after context assembly
   createdAt        DateTime    @default(now())
 
   @@index([tenantId, createdAt(sort: Desc)])
@@ -1861,4 +1869,57 @@ model DealContact {
   @@index([dealId])
   @@index([contactId, tenantId])
   @@map("crm_deal_contacts")
+}
+
+/// ========================================================================
+/// Graph RAG — Entity Graph (Phase 109)
+/// Adjacency-list graph model for multi-hop RAG traversal.
+/// Nodes represent entities (contacts, emails, topics, etc.),
+/// edges represent typed relationships between them.
+/// ========================================================================
+
+model GraphNode {
+  id         String                 @id @default(cuid())
+  tenantId   String
+  nodeType   String                 // 'contact', 'email', 'thread', 'calendar_event', 'topic', 'memory'
+  externalId String?                // FK to source record (emailId, contactId, etc.)
+  label      String                 // Display name / subject / topic name
+  metadata   Json                   @default("{}")
+  vector     Unsupported("vector")? // Optional 1024-dim embedding
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  outEdges   GraphEdge[]            @relation("EdgeSource")
+  inEdges    GraphEdge[]            @relation("EdgeTarget")
+
+  @@index([tenantId])
+  @@index([tenantId, nodeType])
+  @@index([tenantId, externalId])
+  @@index([label(ops: raw("gin_trgm_ops"))], map: "graph_nodes_label_gin_idx", type: Gin)
+  @@map("graph_nodes")
+}
+
+model GraphEdge {
+  id        String    @id @default(cuid())
+  tenantId  String
+  sourceId  String
+  targetId  String
+  edgeType  String    // 'sent', 'received', 'mentions', 'replies_to', 'about', 'attended', 'anchored_to'
+  weight    Float     @default(1.0)
+  metadata  Json      @default("{}")
+  createdAt DateTime  @default(now())
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  source    GraphNode @relation("EdgeSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target    GraphNode @relation("EdgeTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sourceId, targetId, edgeType])
+  @@index([tenantId])
+  @@index([sourceId])
+  @@index([targetId])
+  @@index([tenantId, edgeType])
+  @@index([sourceId, edgeType])
+  @@map("graph_edges")
 }
