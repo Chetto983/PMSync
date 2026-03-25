@@ -1,58 +1,64 @@
-# Sprint 01 — Checkpoint
+# Sprint 02 — Checkpoint
 
 ## Status
 
-- **Sprint:** 01 — Label Mapping & Folder Determination
-- **Last Task Completed:** T-0105 — Validate existing data consistency
-- **Next Task:** Sprint 02 — Sync Processor & Race Conditions
+- **Sprint:** 02 — Sync Processor & Race Condition Fixes
+- **Last Task Completed:** T-0205 — Data migration for existing inconsistencies
+- **Next Task:** Sprint 03 — Label Schema & aiPrompt Column
 - **Tasks Done:** 5/5
-- **SP Completed:** 13/13
-- **Last Updated:** 2026-03-25 17:10
+- **SP Completed:** 11/11
+- **Last Updated:** 2026-03-25 18:10
 
 ## Audit Findings Addressed
 
-- C1: Stale Gmail label IDs — ✅ fixed (T-0102 mapping, T-0103 cleanup)
-- C2: Custom-label-only emails default to INBOX — ✅ fixed (T-0101 → ARCHIVE)
-- M1: DRAFT vs DRAFTS inconsistency — ✅ verified false alarm (T-0104)
-- M7: CATEGORY_PERSONAL excluded from sync — ✅ verified handled correctly
+- C1: Stale Gmail label IDs — ✅ fixed in S01 (T-0102, T-0103)
+- C2: Custom-label-only emails default to INBOX — ✅ fixed in S01 (T-0101)
+- C3: Dual folder count query paths — ✅ fixed (T-0203, OR unification)
+- H5: Atomic label array overwrite during sync — ✅ fixed (T-0202, merge logic)
+- M1: DRAFT vs DRAFTS inconsistency — ✅ verified false alarm (S01)
+- M6: No GIN index on Email.labels[] — ✅ fixed (T-0201)
+- M7: CATEGORY_PERSONAL excluded from sync — ✅ verified handled correctly (S01)
 
 ## Last Modified Files
 
-- backend/src/modules/email-sync/drivers/google/services/gmail-message.service.ts
-- backend/src/modules/email-sync/services/gmail/gmail-folder.service.ts
-- backend/src/modules/email-sync/services/gmail/__tests__/gmail-folder.service.spec.ts
-- scripts/audit/validate-email-labels.mjs
+- backend/prisma/schema.prisma (GIN index)
+- backend/prisma/migrations/20260325180000_gin_index_email_labels/migration.sql
+- backend/src/modules/email-sync/services/sync-message-processor.service.ts (label merge)
+- backend/src/modules/email/services/email-folder.service.ts (unified counts)
+- backend/src/modules/email/services/email-crud.service.ts (folder/labels sync)
+- scripts/audit/fix-email-folder-drift.mjs (data migration)
 
 ## Key Decisions Made
 
-- Used ARCHIVE as folder for custom-label-only emails (C2 fix)
-- No Redis cache for label mapping — DB Folder records already store externalId + name
-- Stale label cleanup runs inside syncGmailFolders() using PostgreSQL array operators
-- SYSTEM_LABEL_IDS whitelist prevents system labels from being flagged as stale
-- cleanStaleLabels uses batch SQL (not per-email) with 5000 row limit
-
-## Data Validation Results (T-0105)
-
-- 11,488 total emails across 4 providers
-- 16 folder mismatches (0.2%):
-  - 1 email: folder=INBOX but labels=["IMPORTANT"] → should be ARCHIVE (C2)
-  - 15 emails: folder=TRASH but labels still show old categories (stale after move)
-- 0 stale label IDs
-- 48 emails with empty labels (non-Google provider)
+- Label merge: system labels trust Gmail, custom labels (Label_*) preserved in DB
+- SYSTEM_LABELS static set in sync processor for O(1) lookup
+- Google folder counts now use OR(labels, folder) matching buildEmailWhere
+- Folder change in updateEmail also updates labels[] via updateLabelsForFolderChange()
+- Data migration skips manually trashed/spammed emails (user intent > stale labels)
+- CRM import-export tsc errors fixed as side-effect (excel-export JsonValue cast)
 
 ## Patterns Established
 
-- Audit scripts in: scripts/audit/
-- Test mock setup: PrismaService needs $queryRaw, $executeRaw, RealtimeEventsService mock
-- determineFolderFromLabels exists in TWO places — both must be kept in sync
+- mergeLabels() / isSystemLabel() in sync-message-processor.service.ts
+- updateLabelsForFolderChange() in email-crud.service.ts with folderToLabel map
+- Audit fix scripts in scripts/audit/ with --dry-run support and idempotency
+
+## Data Migration Results (T-0205)
+
+- 11,456 Google emails checked
+- 21 mismatches detected (7 real INBOX→ARCHIVE, 14 stale TRASH labels)
+- 7 fixed, 14 skipped (manually trashed, user intent preserved)
+- Re-run: 0 mismatches (idempotent)
 
 ## Blockers / Notes
 
-- gmail-folder.service.ts is 585 lines (over 500 limit) — needs extraction if more code added
-- Pre-existing tsc errors in CRM stage-automation.worker.ts (unrelated)
+- sync-message-processor.service.ts is 697 lines (over 500 limit) — needs extraction if more code added
+- Pre-commit hook sometimes stages unrelated files during commit (CRM WIP files)
+- scripts/audit/ is in .gitignore — need `git add -f` for audit scripts
 
 ## Validation Status
 
-- Backend tsc: ✅ passing (only pre-existing CRM errors)
+- Backend tsc: ✅ passing
 - Frontend tsc: N/A (no frontend changes)
-- Existing tests: ✅ 66 passing in gmail-folder.service.spec.ts
+- Existing tests: ✅ 31 passing in sync-message-processor.service.spec.ts
+- Data consistency: ✅ 0 mismatches after migration
