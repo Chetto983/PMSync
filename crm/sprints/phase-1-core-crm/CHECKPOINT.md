@@ -1,61 +1,39 @@
-# Sprint 06 — Checkpoint
+# Sprint 07 — Checkpoint
 
 ## Stato
-- **Sprint:** 06 — Deal Detail & Stage Automations
-- **Last Task Completed:** T-0610 — UI automation config in Pipeline settings
-- **Next Task:** Sprint complete — proceed to production validation
-- **Tasks Done:** 10/10
-- **SP Completed:** 17/17
-- **Last Updated:** 2026-03-25 22:30
+- **Sprint:** 07 — Contact Enhancements & Custom Fields
+- **Last Task Completed:** T-0708 — Admin UI for custom fields configuration
+- **Next Task:** Sprint complete — all 9/9 tasks done
+- **Tasks Done:** 9/9
+- **SP Completed:** 18/18
+- **Last Updated:** 2026-03-25 23:45
 
 ## Last Modified Files
-- backend/src/modules/crm/automation/automation.module.ts
-- backend/src/modules/crm/automation/stage-automation.service.ts
-- backend/src/modules/crm/automation/stage-automation.worker.ts
-- backend/src/modules/crm/automation/types.ts
-- backend/src/modules/crm/crm.module.ts
-- backend/src/modules/crm/deal/deal.module.ts
-- backend/src/modules/crm/deal/services/deal.service.ts
-- backend/src/modules/crm/deal/controllers/deal.controller.ts
-- backend/src/modules/crm/deal/dto/deal.dto.ts
-- backend/src/modules/crm/pipeline/dto/pipeline.dto.ts
-- backend/src/modules/crm/pipeline/services/pipeline.service.ts
-- backend/src/common/config/queue.config.ts
-- backend/prisma/schema.prisma
-- backend/src/modules/realtime/types/realtime.types.ts
-- backend/src/modules/realtime/services/realtime-events.service.ts
-- frontend/components/dashboard/crm-deals/DealDetail.tsx
-- frontend/components/dashboard/crm-deals/DealDetailParts.tsx
-- frontend/components/dashboard/crm-deals/DealTimeline.tsx
-- frontend/components/dashboard/crm-deals/CreateActivityDialog.tsx
-- frontend/components/dashboard/crm-deals/DealNotes.tsx
-- frontend/components/dashboard/crm-pipelines/StageAutomationsDialog.tsx
-- frontend/components/dashboard/crm-pipelines/SortableStageList.tsx
-- frontend/lib/api/crm-deals.ts
-- frontend/lib/api/crm-pipelines.ts
-- frontend/hooks/queries/use-crm-deals.ts
-- frontend/hooks/queries/crm-deals-keys.ts
-- frontend/locales/en.ts
-- frontend/locales/it.ts
-- frontend/locales/index.ts
+- frontend/lib/api/crm-custom-fields.ts
+- frontend/hooks/queries/crm-custom-fields-keys.ts
+- frontend/hooks/queries/use-crm-custom-fields.ts
+- frontend/hooks/queries/index.ts
+- frontend/components/dashboard/crm-custom-fields/CustomFieldRenderer.tsx
+- frontend/components/dashboard/crm-custom-fields/CustomFieldsSection.tsx
+- frontend/components/dashboard/crm-custom-fields/CustomFieldsAdmin.tsx
+- frontend/components/dashboard/crm-custom-fields/index.ts
+- frontend/components/dashboard/crm-import/ImportContactsDialog.tsx
+- frontend/components/dashboard/Contacts.tsx
+- frontend/pages/dashboard/crm/settings/custom-fields.tsx
+- crm/sprints/phase-1-core-crm/sprint-07.md
 
 ## Key Decisions Made
-- DealDetail extracted into DealDetailParts.tsx when main file exceeded 500 lines
-- Notes stored as CrmActivity type=NOTE for unified timeline, with full CRUD
-- Note endpoints under `/crm/deals/:id/notes/:noteId` (not separate controller)
-- DealDetail tabs: Info, Contacts, Notes, Products, Activity
-- Stage automations stored as JSON array on CrmStage.automations field
-- BullMQ worker handles NOTIFY (Socket.IO + activity) and CREATE_TASK (activity)
-- Loop prevention via triggeredByAutomation flag on job data
-- StageAutomationsDialog uses Zap icon button per stage in sortable list
+- No @mui/x-date-pickers dependency — using native TextField type="date" for date custom fields
+- CustomFieldRenderer is a standalone component; CustomFieldsSection is the drop-in section for entity detail pages
+- Admin page at /dashboard/crm/settings/custom-fields with entity tabs (Contact, Account, Deal)
+- Import dialog was already built but never rendered in Contacts.tsx — fixed the missing render
 
 ## Patterns Established
-- CRM activity endpoints: GET/POST /crm/deals/:id/activities
-- CRM note endpoints: GET/POST /crm/deals/:id/notes, PATCH/DELETE /crm/deals/:id/notes/:noteId
-- Automation module: backend/src/modules/crm/automation/
-- Stage automation types: NOTIFY, CREATE_TASK (extensible via AutomationType union)
-- Realtime events: crm:automation:notify via emitCrmAutomationNotify()
-- Queue name: CRM_STAGE_AUTOMATION in centralized QUEUE_NAMES
+- Custom fields API module: frontend/lib/api/crm-custom-fields.ts
+- Custom fields query hooks: frontend/hooks/queries/use-crm-custom-fields.ts
+- Custom fields components: frontend/components/dashboard/crm-custom-fields/
+- Admin settings pages: frontend/pages/dashboard/crm/settings/
+- Backend custom fields: backend/src/modules/crm/custom-fields/ (controller, service, DTO, module)
 
 ## Blockers / Notes
 - None currently
@@ -63,8 +41,7 @@
 ## Validation Status
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Circular deps: ✅ zero
-- Railway deploy: ✅ /health 200, CRM endpoints 401 (auth guard active)
-- Vercel deploy: ✅ /dashboard/crm/deals 307 (auth redirect)
-- Browser (Edge CDP): ✅ Deal detail renders (5 tabs, progress bar, stage nav), Notes tab empty state, Activity tab empty state, mobile viewport clean
-- Screenshots reviewed: 2026-03-25
+- Circular deps: not checked (no new backend modules)
+- Railway deploy: ⏳ pending push
+- Vercel deploy: ⏳ pending push
+- Browser (Edge CDP): ⏳ pending production validation
