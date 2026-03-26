@@ -428,8 +428,8 @@ export class IcsParserService {
   /**
    * Map event status to standard values
    */
-  private mapEventStatus(status?: string): ParsedCalendarInvite['status'] {
-    if (!status) return undefined;
+  private mapEventStatus(status?: unknown): ParsedCalendarInvite['status'] {
+    if (!status || typeof status !== 'string') return undefined;
 
     const upper = status.toUpperCase();
     if (upper === 'TENTATIVE' || upper === 'CONFIRMED' || upper === 'CANCELLED') {
