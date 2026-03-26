@@ -44,14 +44,14 @@ export type ExtractionParams = EmailExtractionParams | ContactExtractionParams;
 const entitySchema = z.object({
   type: z.enum(['person', 'organization', 'topic']),
   name: z.string(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
 
 const relationshipSchema = z.object({
   source: z.string(),
   target: z.string(),
   type: z.enum(['sent', 'received', 'mentions', 'about']),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
 
 const extractionResultSchema = z.object({

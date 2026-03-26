@@ -112,7 +112,7 @@ export class PushDispatchHandler implements OnModuleInit, OnModuleDestroy {
             },
             {
               delay: 60_000, // 60-second grouping window
-              jobId: dedupKey, // Prevent duplicate delayed jobs
+              jobId: dedupKey.replaceAll(':', '_'), // BullMQ forbids : in custom job IDs
             },
           );
         }
