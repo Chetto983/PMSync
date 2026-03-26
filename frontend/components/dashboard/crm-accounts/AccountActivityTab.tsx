@@ -209,7 +209,7 @@ function ActivityItem({
   return (
     <TimelineItem>
       <TimelineOppositeContent
-        sx={{ flex: 0.25, py: 1.5, px: 1 }}
+        sx={{ flex: { xs: 0.35, sm: 0.25 }, py: 1.5, px: 1 }}
         variant="caption"
         color="text.secondary"
       >
