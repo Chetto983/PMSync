@@ -4320,6 +4320,26 @@ export interface AppTranslations {
       dealsByStage?: string;
       loadError?: string;
     };
+    savedViews?: {
+      title?: string;
+      saveCurrentView?: string;
+      noViews?: string;
+      noViewsDescription?: string;
+      nameLabel?: string;
+      namePlaceholder?: string;
+      filters?: string;
+      save?: string;
+      delete?: string;
+      deleteConfirm?: string;
+      createSuccess?: string;
+      createError?: string;
+      updateSuccess?: string;
+      updateError?: string;
+      deleteSuccess?: string;
+      deleteError?: string;
+      applied?: string;
+      loadError?: string;
+    };
   };
   crmDeals?: {
     title?: string;

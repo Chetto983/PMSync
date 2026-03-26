@@ -5,6 +5,8 @@ import {
   type UpdatePipelineDto,
   type CreateStageDto,
   type UpdateStageDto,
+  type CreateSavedViewDto,
+  type UpdateSavedViewDto,
 } from '@/lib/api/crm-pipelines';
 import { crmPipelinesKeys } from './crm-pipelines-keys';
 
@@ -143,6 +145,62 @@ export function useReorderStages(pipelineId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: crmPipelinesKeys.detail(pipelineId),
+      });
+    },
+  });
+}
+
+// ---- Saved View Options & Hooks ----
+
+export function crmSavedViewsOptions(pipelineId: string) {
+  return queryOptions({
+    queryKey: crmPipelinesKeys.views(pipelineId),
+    queryFn: () => crmPipelinesApi.listViews(pipelineId).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!pipelineId,
+  });
+}
+
+export function useSavedViews(pipelineId: string) {
+  return useQuery(crmSavedViewsOptions(pipelineId));
+}
+
+export function useCreateSavedView(pipelineId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateSavedViewDto) =>
+      crmPipelinesApi.createView(pipelineId, dto).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: crmPipelinesKeys.views(pipelineId),
+      });
+    },
+  });
+}
+
+export function useUpdateSavedView(pipelineId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ viewId, dto }: { viewId: string; dto: UpdateSavedViewDto }) =>
+      crmPipelinesApi.updateView(viewId, dto).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: crmPipelinesKeys.views(pipelineId),
+      });
+    },
+  });
+}
+
+export function useDeleteSavedView(pipelineId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (viewId: string) =>
+      crmPipelinesApi.deleteView(viewId).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: crmPipelinesKeys.views(pipelineId),
       });
     },
   });

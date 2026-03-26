@@ -15,6 +15,7 @@ import {
   UpdateStageDto,
   ReorderStagesDto,
 } from '../dto/pipeline.dto';
+import { CreateSavedViewDto, UpdateSavedViewDto } from '../dto/saved-view.dto';
 
 @Injectable()
 export class PipelineService {
@@ -421,6 +422,80 @@ export class PipelineService {
       lostDeals: lostDeals.length,
       stageMetrics,
     };
+  }
+
+  // ---- Saved Views ----
+
+  async listSavedViews(tenantId: string, pipelineId: string) {
+    await this.findPipelineById(tenantId, pipelineId);
+    return this.prisma.crmSavedView.findMany({
+      where: { tenantId, pipelineId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createSavedView(
+    tenantId: string,
+    pipelineId: string,
+    dto: CreateSavedViewDto,
+  ) {
+    await this.findPipelineById(tenantId, pipelineId);
+
+    try {
+      return await this.prisma.crmSavedView.create({
+        data: {
+          tenantId,
+          pipelineId,
+          name: dto.name,
+          filters: dto.filters as any,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(`Saved view "${dto.name}" already exists`);
+      }
+      throw error;
+    }
+  }
+
+  async updateSavedView(
+    tenantId: string,
+    viewId: string,
+    dto: UpdateSavedViewDto,
+  ) {
+    const view = await this.prisma.crmSavedView.findFirst({
+      where: { id: viewId, tenantId },
+    });
+    if (!view) {
+      throw new NotFoundException(`Saved view ${viewId} not found`);
+    }
+
+    try {
+      return await this.prisma.crmSavedView.update({
+        where: { id: viewId },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.filters !== undefined && { filters: dto.filters as any }),
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(`Saved view "${dto.name}" already exists`);
+      }
+      throw error;
+    }
+  }
+
+  async deleteSavedView(tenantId: string, viewId: string) {
+    const view = await this.prisma.crmSavedView.findFirst({
+      where: { id: viewId, tenantId },
+    });
+    if (!view) {
+      throw new NotFoundException(`Saved view ${viewId} not found`);
+    }
+
+    await this.prisma.crmSavedView.delete({ where: { id: viewId } });
+    return { deleted: true };
   }
 
   // ---- Helpers ----

@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CreateDealDialog } from './CreateDealDialog';
 import { KanbanBoard } from './KanbanBoard';
 import { DealScoreBadge } from './DealScoreBadge';
+import { SavedViewsPanel } from './SavedViewsPanel';
 import type { CrmDeal, ListDealsQuery } from '@/lib/api/crm-deals';
 import type { CrmPipeline } from '@/lib/api/crm-pipelines';
 
@@ -73,6 +74,12 @@ export function DealsList() {
   const [filterPipeline, setFilterPipeline] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+
+  const handleApplySavedView = useCallback((filters: Record<string, unknown>) => {
+    if (filters.search != null) setSearch(String(filters.search));
+    if (filters.pipelineId != null) setFilterPipeline(String(filters.pipelineId));
+    setPage(0);
+  }, []);
 
   // Debounce search to avoid API call on every keystroke
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -209,6 +216,17 @@ export function DealsList() {
           ))}
         </TextField>
       </Box>
+
+      {/* Saved Views */}
+      {filterPipeline && (
+        <Box sx={{ mb: 2 }}>
+          <SavedViewsPanel
+            pipelineId={filterPipeline}
+            currentFilters={{ search: debouncedSearch || undefined, pipelineId: filterPipeline }}
+            onApplyView={handleApplySavedView}
+          />
+        </Box>
+      )}
 
       {/* Kanban View */}
       {viewMode === 'kanban' ? (

@@ -12,14 +12,14 @@
 
 ## Sprint Backlog
 
-- [ ] T-0801 — Creare pagina Pipeline dashboard in `frontend/src/pages/dashboard/crm/pipelines/[id]/dashboard.tsx`: layout con card metriche e grafici — [2 SP] — 📋 TODO
-- [ ] T-0802 — API metriche pipeline: `GET /crm/pipelines/:id/metrics` — calcolo conversion rate per stage (deal entrati vs usciti), average deal velocity (giorni medi per stage), win rate (won / total closed) — [3 SP] — 📋 TODO
-- [ ] T-0803 — Grafici dashboard: funnel conversion (MUI/recharts bar chart), deal velocity trend (line chart), win rate gauge — [2 SP] — 📋 TODO
-- [ ] T-0804 — Motore deal scoring rule-based: `DealScoringService` con regole configurabili (field, condition, points) — score calcolato 0-100, salvato su deal, ricalcolo su update — [2 SP] — 📋 TODO
-- [ ] T-0805 — UI deal score: badge score nel DealCard Kanban e nel Deal detail header, colonna score nella Deal list DataGrid — [1 SP] — 📋 TODO
+- [x] T-0801 — Creare pagina Pipeline dashboard in `frontend/src/pages/dashboard/crm/pipelines/[id]/dashboard.tsx`: layout con card metriche e grafici — [2 SP] — ✅ DONE
+- [x] T-0802 — API metriche pipeline: `GET /crm/pipelines/:id/metrics` — calcolo conversion rate per stage (deal entrati vs usciti), average deal velocity (giorni medi per stage), win rate (won / total closed) — [3 SP] — ✅ DONE
+- [x] T-0803 — Grafici dashboard: funnel conversion (MUI/recharts bar chart), deal velocity trend (line chart), win rate gauge — [2 SP] — ✅ DONE
+- [x] T-0804 — Motore deal scoring rule-based: `DealScoringService` con regole configurabili (field, condition, points) — score calcolato 0-100, salvato su deal, ricalcolo su update — [2 SP] — ✅ DONE
+- [x] T-0805 — UI deal score: badge score nel DealCard Kanban e nel Deal detail header, colonna score nella Deal list DataGrid — [1 SP] — ✅ DONE
 - [x] T-0806 — ~~Product CRUD API~~ — MOVED to Sprint 07.1 (T-0711/T-0712) — [0 SP]
 - [x] T-0807 — ~~Deal-Product association UI~~ — MOVED to Sprint 07.1 (T-0713/T-0714) — [0 SP]
-- [ ] T-0808 — Viste salvate pipeline: serializzazione filtri (stage[], dateRange, amountRange, assignee) come `SavedView` — `GET /crm/pipelines/:id/views`, `POST`, `DELETE` — [2 SP] — 📋 TODO
+- [x] T-0808 — Viste salvate pipeline: serializzazione filtri (stage[], dateRange, amountRange, assignee) come `SavedView` — `GET /crm/pipelines/:id/views`, `POST`, `DELETE` — [2 SP] — ✅ DONE
 - [ ] T-0809 — Toggle vista pipeline: switch Kanban / List nella pagina pipeline (riutilizza Kanban di S05 e DataGrid di S04) — [1 SP] — 📋 TODO
 - [ ] T-0810 — Bug fix da sprint S01-S07: riservare capacity per fix accumulati durante gli sprint precedenti — [1 SP] — 📋 TODO
 - [ ] T-0811 — Alpha smoke testing: test manuale end-to-end di tutti i flussi CRM principali (create account → create deal → move through pipeline → won), type-check finale — [1 SP] — 📋 TODO

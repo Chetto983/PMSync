@@ -22,6 +22,7 @@ import {
   UpdateStageDto,
   ReorderStagesDto,
 } from '../dto/pipeline.dto';
+import { CreateSavedViewDto, UpdateSavedViewDto } from '../dto/saved-view.dto';
 
 @ApiTags('CRM - Pipelines')
 @ApiBearerAuth()
@@ -84,6 +85,49 @@ export class PipelineController {
   @ApiResponse({ status: 404, description: 'Pipeline not found' })
   async getMetrics(@Req() req: any, @Param('id') id: string) {
     return this.pipelineService.getMetrics(req.user.tenantId, id);
+  }
+
+  // ---- Saved Views ----
+
+  @Get(':id/views')
+  @ApiOperation({ summary: 'List saved views for pipeline' })
+  @ApiResponse({ status: 200, description: 'Saved views returned' })
+  async listViews(@Req() req: any, @Param('id') pipelineId: string) {
+    return this.pipelineService.listSavedViews(req.user.tenantId, pipelineId);
+  }
+
+  @Post(':id/views')
+  @ApiOperation({ summary: 'Create saved view for pipeline' })
+  @ApiResponse({ status: 201, description: 'Saved view created' })
+  async createView(
+    @Req() req: any,
+    @Param('id') pipelineId: string,
+    @Body() dto: CreateSavedViewDto,
+  ) {
+    return this.pipelineService.createSavedView(
+      req.user.tenantId,
+      pipelineId,
+      dto,
+    );
+  }
+
+  @Patch('views/:viewId')
+  @ApiOperation({ summary: 'Update saved view' })
+  @ApiResponse({ status: 200, description: 'Saved view updated' })
+  async updateView(
+    @Req() req: any,
+    @Param('viewId') viewId: string,
+    @Body() dto: UpdateSavedViewDto,
+  ) {
+    return this.pipelineService.updateSavedView(req.user.tenantId, viewId, dto);
+  }
+
+  @Delete('views/:viewId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete saved view' })
+  @ApiResponse({ status: 200, description: 'Saved view deleted' })
+  async deleteView(@Req() req: any, @Param('viewId') viewId: string) {
+    return this.pipelineService.deleteSavedView(req.user.tenantId, viewId);
   }
 
   // ---- Stage endpoints ----

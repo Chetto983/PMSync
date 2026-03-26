@@ -64,6 +64,7 @@ model Tenant {
   graphNodes               GraphNode[]
   graphEdges               GraphEdge[]
   crmCustomFields          CrmCustomField[]
+  crmSavedViews            CrmSavedView[]
 
   @@map("tenants")
 }
@@ -1717,9 +1718,10 @@ model CrmPipeline {
   updatedAt   DateTime   @updatedAt
   deletedAt   DateTime?
 
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   stages      CrmStage[]
   deals       CrmDeal[]
+  savedViews  CrmSavedView[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -1782,6 +1784,23 @@ model CrmDeal {
   @@index([tenantId, expectedCloseDate])
   @@index([tenantId, score])
   @@map("crm_deals")
+}
+
+model CrmSavedView {
+  id         String      @id @default(cuid())
+  tenantId   String
+  pipelineId String
+  name       String
+  filters    Json        // { stageIds[], dateRange, amountRange, assignee, priority }
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline   CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, pipelineId, name])
+  @@index([tenantId, pipelineId])
+  @@map("crm_saved_views")
 }
 
 model CrmActivity {

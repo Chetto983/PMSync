@@ -101,6 +101,28 @@ export interface PipelineMetrics {
   stageMetrics: StageMetric[];
 }
 
+// ---- Saved View Types ----
+
+export interface CrmSavedView {
+  id: string;
+  tenantId: string;
+  pipelineId: string;
+  name: string;
+  filters: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSavedViewDto {
+  name: string;
+  filters: Record<string, unknown>;
+}
+
+export interface UpdateSavedViewDto {
+  name?: string;
+  filters?: Record<string, unknown>;
+}
+
 // ---- API ----
 
 export const crmPipelinesApi = {
@@ -147,5 +169,22 @@ export const crmPipelinesApi = {
   // Metrics
   getMetrics(pipelineId: string) {
     return apiClient.get<PipelineMetrics>(`/crm/pipelines/${pipelineId}/metrics`);
+  },
+
+  // Saved Views
+  listViews(pipelineId: string) {
+    return apiClient.get<CrmSavedView[]>(`/crm/pipelines/${pipelineId}/views`);
+  },
+
+  createView(pipelineId: string, dto: CreateSavedViewDto) {
+    return apiClient.post<CrmSavedView>(`/crm/pipelines/${pipelineId}/views`, dto);
+  },
+
+  updateView(viewId: string, dto: UpdateSavedViewDto) {
+    return apiClient.patch<CrmSavedView>(`/crm/pipelines/views/${viewId}`, dto);
+  },
+
+  deleteView(viewId: string) {
+    return apiClient.delete<{ deleted: boolean }>(`/crm/pipelines/views/${viewId}`);
   },
 };
