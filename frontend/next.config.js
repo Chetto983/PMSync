@@ -11,7 +11,7 @@ const withSerwist = withSerwistInit({
   disable: process.env.NODE_ENV === 'development',
   register: true,
   reloadOnOnline: false,
-  cacheOnNavigation: true,
+  cacheOnNavigation: false,
   additionalPrecacheEntries: [
     { url: '/offline.html', revision: Date.now().toString() },
   ],
