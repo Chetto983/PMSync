@@ -3,6 +3,7 @@ import type { SenderContactMap } from '@/lib/api/contacts';
 import type { ThreadListItemData } from '@/components/email/list';
 import { getAvatarUrl } from '@/lib/utils/gravatar';
 import { formatDateInTz } from '@/lib/utils/format-date-tz';
+import { isValidHexColor } from '@/lib/label-colors';
 
 /**
  * Extract email address from "Name <email@domain.com>" format
@@ -37,11 +38,14 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
     avatarUrl: getAvatarUrl(senderEmail, senderInfo?.photoUrl, isKnownContact), // Contact photo > initials > Gravatar
     // Map emailLabels to the format expected by ThreadListItem
     // Backend returns el.label.id, not el.labelId
-    labels: email.emailLabels?.map((el) => ({
-      id: el.label?.id || '',
-      name: el.label?.name || 'Label',
-      color: el.label?.color?.backgroundColor || '#9E9E9E',
-    })).filter((l) => l.id),
+    labels: email.emailLabels?.map((el) => {
+      const bg = el.label?.color?.backgroundColor;
+      return {
+        id: el.label?.id || '',
+        name: el.label?.name || 'Label',
+        color: bg && isValidHexColor(bg) ? bg : '#9E9E9E',
+      };
+    }).filter((l) => l.id),
     isDraft: email.isDraft,
     // AI Auto-Triage fields (VoltAgent analysis results)
     aiPriority: email.aiPriority,
