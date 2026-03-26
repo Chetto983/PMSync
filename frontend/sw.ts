@@ -46,6 +46,7 @@ const filteredCache = defaultCache.filter((entry) => {
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
+  skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
   precacheOptions: {
@@ -163,7 +164,15 @@ self.addEventListener('notificationclick', (evt: Event) => {
   );
 });
 
-// PLSH-01: Allow controlled SW updates via snackbar
+// Force immediate activation — never leave an old SW running.
+// clientsClaim (above) takes over existing tabs; skipWaiting here
+// ensures the new SW activates as soon as it's installed, without
+// waiting for the user to close all tabs or click "update".
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+// Also accept explicit SKIP_WAITING messages from the update snackbar.
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
