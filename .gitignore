@@ -169,3 +169,9 @@ frontend/docs/screenshots/*
 frontend/e2e/visual-regression-splits.spec.ts-snapshots/*
 frontend/playwright-report/*
 scripts/*
+!scripts/validate-full-sync.mjs
+!scripts/lib/
+!scripts/lib/validation-helpers.mjs
+!scripts/lib/validate-gmail.mjs
+!scripts/lib/validate-outlook.mjs
+!scripts/lib/validate-imap.mjs
