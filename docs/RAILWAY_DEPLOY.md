@@ -40,6 +40,9 @@ railway variables set API_PUBLIC_URL=https://<your-railway-domain>.up.railway.ap
 
 # Database (Neon — external)
 railway variables set DATABASE_URL="postgresql://neondb_owner:<pw>@<host>/neondb?sslmode=verify-full&connection_limit=20&pool_timeout=20"
+# Verify this value points at the intended production database before deploy.
+# Do not rely on attaching a fresh Railway Postgres service unless that is the
+# deliberate production target.
 
 # Redis (Railway plugin auto-injects REDIS_URL, but we need components)
 railway variables set REDIS_TLS_ENABLED=false
@@ -170,5 +173,6 @@ NEXT_PUBLIC_SITE_URL=https://<your-vercel-domain>.vercel.app
 
 - **Port issues**: Railway sets `PORT` automatically. Backend reads `PORT || API_PORT || 3000`
 - **Redis TLS**: Railway Redis private/proxy hosts use plain TCP. Keep `REDIS_TLS_ENABLED=false` unless you switch to a Redis host that actually requires TLS.
-- **Migrations**: Run automatically before boot via `preDeployCommand` in `railway.toml`
+- **Migrations**: Current `backend/railway.toml` starts the app with `node dist/main`. Run `npx prisma migrate deploy` explicitly as part of deploy when schema changes are pending.
 - **Health check**: `GET /health` must return 200 within 30s
+- **Production seed safety**: `prisma/seed.ts` refuses to run in production-like environments unless `ALLOW_PRODUCTION_SEED=true` is set for an explicit, reviewed operation.

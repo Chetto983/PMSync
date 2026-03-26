@@ -18,14 +18,18 @@ while [ $attempt -le $max_attempts ]; do
   attempt=$((attempt + 1))
 done
 
-echo "Setting up database schema..."
-# Use db push for initial setup (creates tables from schema)
-# Accept data loss warnings since this is initialization
-npx prisma db push --skip-generate --accept-data-loss
+if [ "${NODE_ENV}" = "production" ] || [ "${RAILWAY_ENVIRONMENT}" = "production" ]; then
+  echo "Applying Prisma migrations..."
+  npx prisma migrate deploy
+  echo "Skipping seed in production."
+else
+  echo "Setting up database schema for non-production..."
+  npx prisma db push --skip-generate
 
-echo "Seeding database..."
-# Try to seed, but don't fail if seed script doesn't exist
-npx prisma db seed || echo "Warning: Database seeding failed or not configured. Application will start anyway."
+  echo "Seeding database for non-production..."
+  # Try to seed, but don't fail if seed script doesn't exist
+  npx prisma db seed || echo "Warning: Database seeding failed or not configured. Application will start anyway."
+fi
 
 echo "Starting application..."
 exec npm run start:prod

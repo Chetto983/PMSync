@@ -4,6 +4,29 @@ import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 
 const prisma = createPrismaClient();
 
+function isProductionLikeSeedTarget(): boolean {
+  const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+  const railwayEnv = (process.env.RAILWAY_ENVIRONMENT || '').toLowerCase();
+  const vercelEnv = (process.env.VERCEL_ENV || '').toLowerCase();
+
+  return (
+    nodeEnv === 'production' ||
+    railwayEnv === 'production' ||
+    vercelEnv === 'production'
+  );
+}
+
+function assertSeedingAllowed(): void {
+  const allowProductionSeed =
+    (process.env.ALLOW_PRODUCTION_SEED || '').toLowerCase() === 'true';
+
+  if (isProductionLikeSeedTarget() && !allowProductionSeed) {
+    throw new Error(
+      'Refusing to run prisma seed against a production-like environment. Set ALLOW_PRODUCTION_SEED=true only for an explicit, reviewed operation.',
+    );
+  }
+}
+
 async function hashBetterAuthPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
   const derivedKey = scryptSync(password.normalize('NFKC'), salt, 64, {
@@ -138,6 +161,8 @@ async function seedUser(params: {
 }
 
 async function main() {
+  assertSeedingAllowed();
+
   console.log('Seeding database with test data...');
   console.log('');
 
