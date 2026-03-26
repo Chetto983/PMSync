@@ -103,14 +103,15 @@ function useThreadRuntime() {
     sendAutomaticallyWhen: (opts) => {
       const result = lastAssistantMessageIsCompleteWithApprovalResponses(opts);
       // DEBUG: remove after validation
-      console.log('[HITL-debug] sendAutomaticallyWhen called', { result, status: chat.status, msgCount: opts.messages.length });
-      if (opts.messages.length > 0) {
-        const last = opts.messages[opts.messages.length - 1];
-        if (last?.role === 'assistant') {
-          const toolParts = last.parts?.filter((p: { type: string }) => p.type?.includes('tool'));
-          console.log('[HITL-debug] tool parts in last msg:', JSON.stringify(toolParts?.map((p: { type: string; state?: string; approval?: unknown }) => ({ type: p.type, state: p.state, approval: p.approval }))));
-        }
-      }
+      const last = opts.messages[opts.messages.length - 1];
+      const allToolParts = opts.messages.flatMap((m: { parts?: Array<{ type: string; state?: string; approval?: unknown }> }) =>
+        (m.parts || []).filter((p) => p.type?.includes('tool')).map((p) => ({ type: p.type, state: p.state, approval: p.approval }))
+      );
+      console.log('[HITL-debug] sendAutomaticallyWhen', {
+        result, status: chat.status, chatId: id, msgCount: opts.messages.length,
+        lastMsgRole: last?.role, lastMsgId: last?.id,
+        toolPartsTotal: allToolParts.length, toolParts: JSON.stringify(allToolParts),
+      });
       return result;
     },
   });
