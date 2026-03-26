@@ -237,4 +237,95 @@ describe('createPmSyncThreadListAdapter', () => {
       ],
     });
   });
+
+  it('converts stored assistant tool-call parts into dynamic-tool UI parts', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        conversation: {
+          id: 'conv-1',
+          messages: [
+            {
+              id: 'assistant-1',
+              role: 'assistant',
+              content: [
+                { type: 'text', text: 'I can send that email.' },
+                {
+                  type: 'tool-call',
+                  toolCallId: 'call-approve-1',
+                  toolName: 'send_email',
+                  input: { to: 'test@example.com', subject: 'Hello' },
+                },
+              ],
+              createdAt: '2026-03-19T10:00:02.000Z',
+            },
+          ],
+        },
+      },
+    });
+
+    const adapter = createPmSyncThreadListAdapter();
+    const Provider = adapter.unstable_Provider;
+
+    render(
+      createElement(
+        Provider,
+        null,
+        createElement('div', null, 'child'),
+      ),
+    );
+
+    const providerProps = runtimeAdapterProviderMock.mock.calls.at(-1)?.[0] as
+      | {
+          adapters?: {
+            history?: {
+              withFormat?: (format: {
+                format: string;
+                encode: (value: unknown) => unknown;
+                decode: (value: unknown) => unknown;
+                getId: (message: { id: string }) => string;
+              }) => {
+                load: () => Promise<{
+                  headId?: string | null;
+                  messages: Array<{
+                    parentId: string | null;
+                    message: {
+                      id: string;
+                      role: string;
+                      parts: Array<Record<string, unknown>>;
+                    };
+                  }>;
+                }>;
+              };
+            };
+          };
+        }
+      | undefined;
+
+    const repo = await providerProps!.adapters!.history!.withFormat!({
+      format: 'ai-sdk/v6',
+      encode: (value) => value,
+      decode: (value) => value,
+      getId: (message) => message.id,
+    }).load();
+
+    expect(repo.messages).toEqual([
+      {
+        parentId: null,
+        message: {
+          id: 'assistant-1',
+          role: 'assistant',
+          parts: [
+            { type: 'text', text: 'I can send that email.' },
+            {
+              type: 'dynamic-tool',
+              toolName: 'send_email',
+              toolCallId: 'call-approve-1',
+              state: 'input-available',
+              input: { to: 'test@example.com', subject: 'Hello' },
+            },
+          ],
+        },
+      },
+    ]);
+  });
 });

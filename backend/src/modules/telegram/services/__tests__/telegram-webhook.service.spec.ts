@@ -10,6 +10,8 @@ import {
 import { AiChatService } from '../../../ai-chat/services/ai-chat.service';
 import { ConversationService } from '../../../ai-chat/services/conversation.service';
 import { CorrelationContext } from '../../../../common/services/correlation-context.service';
+import { AuditService } from '../../../../common/services/audit.service';
+import { PiiResolutionService } from '../../../ai/guards/pii-resolution.service';
 
 describe('TelegramWebhookService', () => {
   let service: TelegramWebhookService;
@@ -33,10 +35,13 @@ describe('TelegramWebhookService', () => {
     sendMessage: jest.fn().mockResolvedValue(undefined),
     sendChatAction: jest.fn().mockResolvedValue(undefined),
     answerCallbackQuery: jest.fn().mockResolvedValue(undefined),
+    sendToolApproval: jest.fn().mockResolvedValue(101),
+    editMessageText: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockCacheService = {
     get: jest.fn(),
+    set: jest.fn().mockResolvedValue(undefined),
     del: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -47,6 +52,15 @@ describe('TelegramWebhookService', () => {
 
   const mockConversationService = {
     getOrCreateConversation: jest.fn().mockResolvedValue({ id: 'conv-1' }),
+  };
+
+  const mockAuditService = {
+    logHitlDecision: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockPiiResolutionService = {
+    resolveText: jest.fn().mockImplementation(async (_tenantId, _conversationId, value) => value),
+    resolvePayload: jest.fn().mockImplementation(async (_tenantId, _conversationId, value) => value),
   };
 
   beforeEach(async () => {
@@ -64,6 +78,8 @@ describe('TelegramWebhookService', () => {
         { provide: CacheService, useValue: mockCacheService },
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: ConversationService, useValue: mockConversationService },
+        { provide: AuditService, useValue: mockAuditService },
+        { provide: PiiResolutionService, useValue: mockPiiResolutionService },
       ],
     }).compile();
 
@@ -74,10 +90,8 @@ describe('TelegramWebhookService', () => {
     jest.restoreAllMocks();
   });
 
-  // ── 1. handleUpdate routing ─────────────────────────────────
-
   describe('handleUpdate routing', () => {
-    it('should route callback_query to handleCallbackQuery', async () => {
+    it('routes callback_query to handleCallbackQuery', async () => {
       const spy = jest
         .spyOn(service as any, 'handleCallbackQuery')
         .mockResolvedValue(undefined);
@@ -90,7 +104,7 @@ describe('TelegramWebhookService', () => {
       expect(spy).toHaveBeenCalledWith(update.callback_query);
     });
 
-    it('should route message with text to handleMessage', async () => {
+    it('routes message with text to handleMessage', async () => {
       const spy = jest
         .spyOn(service as any, 'handleMessage')
         .mockResolvedValue(undefined);
@@ -101,7 +115,7 @@ describe('TelegramWebhookService', () => {
       expect(spy).toHaveBeenCalledWith(update.message);
     });
 
-    it('should do nothing for message without text', async () => {
+    it('ignores messages without text', async () => {
       const spy = jest
         .spyOn(service as any, 'handleMessage')
         .mockResolvedValue(undefined);
@@ -111,24 +125,24 @@ describe('TelegramWebhookService', () => {
     });
   });
 
-  // ── 2. /start with valid token ──────────────────────────────
-
-  describe('/start with valid token', () => {
-    it('should link user and send success message', async () => {
+  describe('/start handling', () => {
+    it('links a user for a valid token', async () => {
       const payload = { userId: 'user1', tenantId: 'tenant1' };
       mockCacheService.get.mockResolvedValue(payload);
       mockPrisma.telegramSettings.upsert.mockResolvedValue({} as any);
 
-      const update = {
+      await service.handleUpdate({
         message: {
           chat: { id: 99999 },
           text: '/start valid-token-abc',
           from: { id: 77, first_name: 'Davide' },
         },
-      };
-      await service.handleUpdate(update as any);
+      } as any);
 
       expect(mockCacheService.get).toHaveBeenCalledWith('valid-token-abc', {
+        namespace: CacheNamespace.TELEGRAM_LINK,
+      });
+      expect(mockCacheService.del).toHaveBeenCalledWith('valid-token-abc', {
         namespace: CacheNamespace.TELEGRAM_LINK,
       });
       expect(mockPrisma.telegramSettings.upsert).toHaveBeenCalledWith(
@@ -144,66 +158,61 @@ describe('TelegramWebhookService', () => {
       );
       expect(mockBotService.sendMessage).toHaveBeenCalledWith(
         '99999',
-        expect.stringContaining('riuscito'),
+        expect.stringContaining('Successfully linked'),
       );
     });
-  });
 
-  // ── 3. /start with expired token ────────────────────────────
-
-  describe('/start with expired/invalid token', () => {
-    it('should return error message when token not in cache', async () => {
+    it('returns an error for an expired token', async () => {
       mockCacheService.get.mockResolvedValue(null);
 
-      const update = {
+      await service.handleUpdate({
         message: { chat: { id: 99999 }, text: '/start expired-token' },
-      };
-      await service.handleUpdate(update as any);
+      } as any);
 
-      expect(mockCacheService.get).toHaveBeenCalledWith('expired-token', {
-        namespace: CacheNamespace.TELEGRAM_LINK,
-      });
       expect(mockPrisma.telegramSettings.upsert).not.toHaveBeenCalled();
       expect(mockBotService.sendMessage).toHaveBeenCalledWith(
         '99999',
         expect.stringContaining('scaduto'),
       );
     });
-  });
 
-  // ── 4. /start with no token ─────────────────────────────────
-
-  describe('/start with no token', () => {
-    it('should send welcome message', async () => {
-      const update = {
+    it('sends the welcome message for plain /start', async () => {
+      await service.handleUpdate({
         message: { chat: { id: 99999 }, text: '/start' },
-      };
-      await service.handleUpdate(update as any);
+      } as any);
 
       expect(mockCacheService.get).not.toHaveBeenCalled();
       expect(mockBotService.sendMessage).toHaveBeenCalledWith(
         '99999',
-        expect.stringContaining('Benvenuto'),
+        expect.stringContaining('Welcome'),
         expect.objectContaining({ parse_mode: 'Markdown' }),
       );
     });
   });
 
-  // ── 5. Plain text relay — success ───────────────────────────
-
   describe('plain text relay', () => {
     const chatId = 12345;
-    const linkedSettings = { id: 'settings-1', tenantId: 'tenant1', userId: 'user1', aiConversationId: null };
+    const linkedSettings = {
+      id: 'settings-1',
+      tenantId: 'tenant1',
+      userId: 'user1',
+      aiConversationId: null,
+    };
 
-    it('should relay to AI chat and send response back', async () => {
+    beforeEach(() => {
       mockPrisma.telegramSettings.findFirst.mockResolvedValue(linkedSettings);
+    });
 
-      mockAiChatService.generateChat.mockResolvedValue({ text: 'Hello world', conversationId: 'conv-1' });
+    it('relays a plain text message to AI chat and sends the response back', async () => {
+      mockAiChatService.generateChat.mockResolvedValue({
+        text: 'Hello world',
+        conversationId: 'conv-1',
+        pendingApprovals: [],
+      });
 
-      const update = {
+      await service.handleUpdate({
         message: { chat: { id: chatId }, text: 'What is the weather?' },
-      };
-      await service.handleUpdate(update as any);
+      } as any);
 
       expect(mockPrisma.telegramSettings.findFirst).toHaveBeenCalledWith({
         where: { telegramChatId: String(chatId), isActive: true },
@@ -224,46 +233,226 @@ describe('TelegramWebhookService', () => {
       );
     });
 
-    // ── 6. Unlinked user gets error ─────────────────────────
-
-    it('should send error when user is not linked', async () => {
+    it('sends an error when the account is not linked', async () => {
       mockPrisma.telegramSettings.findFirst.mockResolvedValue(null);
 
-      const update = {
+      await service.handleUpdate({
         message: { chat: { id: chatId }, text: 'hello' },
-      };
-      await service.handleUpdate(update as any);
+      } as any);
 
       expect(mockAiChatService.generateChat).not.toHaveBeenCalled();
       expect(mockBotService.sendMessage).toHaveBeenCalledWith(
         String(chatId),
-        expect.stringContaining('collegato'),
+        expect.stringContaining('not linked'),
       );
     });
 
-    // ── 7. Long response splits correctly ───────────────────
+    it('splits long responses into multiple Telegram messages', async () => {
+      const longText = ('A'.repeat(3900) + '\n').repeat(2);
+      mockAiChatService.generateChat.mockResolvedValue({
+        text: longText,
+        conversationId: 'conv-1',
+        pendingApprovals: [],
+      });
 
-    it('should split long responses into multiple messages', async () => {
-      mockPrisma.telegramSettings.findFirst.mockResolvedValue(linkedSettings);
-
-      // Build a string > 4000 chars with newlines to allow splitting
-      const longText = ('A'.repeat(3900) + '\n').repeat(2); // ~7802 chars
-      mockAiChatService.generateChat.mockResolvedValue({ text: longText, conversationId: 'conv-1' });
-
-      const update = {
+      await service.handleUpdate({
         message: { chat: { id: chatId }, text: 'give long response' },
-      };
-      await service.handleUpdate(update as any);
+      } as any);
 
-      // Should have been called at least twice due to splitting
       expect(mockBotService.sendMessage.mock.calls.length).toBeGreaterThanOrEqual(2);
       for (const call of mockBotService.sendMessage.mock.calls) {
         expect(call[1].length).toBeLessThanOrEqual(4000);
       }
     });
+
+    it('stores pending approvals and sends approval cards when AI pauses for HITL', async () => {
+      const pendingApproval = {
+        approvalId: 'approval-1',
+        toolCallId: 'call-1',
+        toolName: 'send_email',
+        input: { to: 'test@example.com', subject: 'Hello' },
+      };
+      mockAiChatService.generateChat.mockResolvedValue({
+        text: 'Please review this action.',
+        conversationId: 'conv-1',
+        pendingApprovals: [pendingApproval],
+        responseMessages: [
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolCallId: 'call-1',
+                toolName: 'send_email',
+                input: pendingApproval.input,
+              },
+            ],
+          },
+        ],
+      });
+
+      await service.handleUpdate({
+        message: { chat: { id: chatId }, text: 'Send that email' },
+      } as any);
+
+      expect(mockBotService.sendToolApproval).toHaveBeenCalledWith(
+        String(chatId),
+        'approval-1',
+        'send_email',
+        pendingApproval.input,
+      );
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        'approval-1',
+        expect.objectContaining({
+          conversationId: 'conv-1',
+          approvals: [pendingApproval],
+          approvalMessageIds: [101],
+        }),
+        expect.objectContaining({
+          namespace: CacheNamespace.TELEGRAM_APPROVAL,
+        }),
+      );
+    });
   });
 
-  // ── 8. Callback query done: — completes reminder ───────────
+  describe('HITL callback handling', () => {
+    const pendingApproval = {
+      approvalId: 'approval-1',
+      toolCallId: 'call-1',
+      toolName: 'send_email',
+      input: { to: 'test@example.com', subject: 'Hello' },
+    };
+
+    const approvalState = {
+      approvals: [pendingApproval],
+      conversationId: 'conv-1',
+      chatId: '77777',
+      tenantId: 'tenant1',
+      userId: 'user1',
+      responseMessages: [
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call-1',
+              toolName: 'send_email',
+              input: pendingApproval.input,
+            },
+            {
+              type: 'tool-approval-request',
+              approvalId: 'approval-1',
+              toolCallId: 'call-1',
+            },
+          ],
+        },
+      ],
+      approvalMessageIds: [101],
+    };
+
+    it('resubmits approved callbacks with approved=true and sends the resolved response', async () => {
+      mockCacheService.get.mockResolvedValue(approvalState);
+      mockAiChatService.generateChat.mockResolvedValue({
+        text: 'Email queued.',
+        conversationId: 'conv-1',
+        pendingApprovals: [],
+      });
+
+      await service.handleUpdate({
+        callback_query: { id: 'cq-1', data: 'approve:approval-1', from: { id: 77777 } },
+      } as any);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith('approval-1', {
+        namespace: CacheNamespace.TELEGRAM_APPROVAL,
+      });
+      expect(mockBotService.answerCallbackQuery).toHaveBeenCalledWith(
+        'cq-1',
+        'Approved',
+      );
+      expect(mockBotService.editMessageText).toHaveBeenCalledWith(
+        '77777',
+        101,
+        expect.stringContaining('Approved'),
+        'plain',
+      );
+      expect(mockAiChatService.generateChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant1',
+          userId: 'user1',
+          conversationId: 'conv-1',
+          message: '',
+          modelMessagesOverride: expect.arrayContaining([
+            expect.objectContaining({ role: 'assistant' }),
+            expect.objectContaining({
+              role: 'tool',
+              content: [
+                expect.objectContaining({
+                  type: 'tool-approval-response',
+                  approvalId: 'approval-1',
+                  approved: true,
+                }),
+              ],
+            }),
+          ]),
+        }),
+      );
+      expect(mockBotService.sendMessage).toHaveBeenCalledWith(
+        '77777',
+        'Email queued.',
+        expect.objectContaining({ parse_mode: 'Markdown' }),
+      );
+      expect(mockAuditService.logHitlDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          decision: 'approved',
+          toolName: 'send_email',
+        }),
+      );
+    });
+
+    it('does not execute the tool when the callback is rejected', async () => {
+      mockCacheService.get.mockResolvedValue(approvalState);
+
+      await service.handleUpdate({
+        callback_query: { id: 'cq-2', data: 'reject:approval-1', from: { id: 77777 } },
+      } as any);
+
+      expect(mockAiChatService.generateChat).not.toHaveBeenCalled();
+      expect(mockBotService.answerCallbackQuery).toHaveBeenCalledWith(
+        'cq-2',
+        'Rejected',
+      );
+      expect(mockBotService.editMessageText).toHaveBeenCalledWith(
+        '77777',
+        101,
+        expect.stringContaining('Rejected'),
+        'plain',
+      );
+      expect(mockBotService.sendMessage).toHaveBeenCalledWith(
+        '77777',
+        expect.stringContaining('Action rejected.'),
+      );
+      expect(mockAuditService.logHitlDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          decision: 'rejected',
+          toolName: 'send_email',
+        }),
+      );
+    });
+
+    it('returns an expired message when the approval is gone from cache', async () => {
+      mockCacheService.get.mockResolvedValue(null);
+
+      await service.handleUpdate({
+        callback_query: { id: 'cq-3', data: 'approve:approval-1', from: { id: 77777 } },
+      } as any);
+
+      expect(mockAiChatService.generateChat).not.toHaveBeenCalled();
+      expect(mockBotService.answerCallbackQuery).toHaveBeenCalledWith(
+        'cq-3',
+        'Approval expired or already handled.',
+      );
+    });
+  });
 
   describe('handleCallbackQuery done:{reminderId}', () => {
     const callbackQuery = {
@@ -274,7 +463,7 @@ describe('TelegramWebhookService', () => {
 
     const settings = { tenantId: 'tenant1', userId: 'user1' };
 
-    it('should complete reminder with tenant scoping', async () => {
+    it('completes the reminder with tenant scoping', async () => {
       mockPrisma.telegramSettings.findFirst.mockResolvedValue(settings);
       mockPrisma.reminder.findFirst.mockResolvedValue({
         id: 'reminder-123',
@@ -310,9 +499,7 @@ describe('TelegramWebhookService', () => {
       );
     });
 
-    // ── 9. Unlinked user gets rejection ─────────────────────
-
-    it('should reject if user is not linked', async () => {
+    it('rejects unlinked users', async () => {
       mockPrisma.telegramSettings.findFirst.mockResolvedValue(null);
 
       await service.handleUpdate({ callback_query: callbackQuery } as any);
@@ -321,13 +508,11 @@ describe('TelegramWebhookService', () => {
       expect(mockPrisma.reminder.update).not.toHaveBeenCalled();
       expect(mockBotService.answerCallbackQuery).toHaveBeenCalledWith(
         'cb1',
-        expect.stringContaining('collegato'),
+        expect.stringContaining('not linked'),
       );
     });
 
-    // ── 10. Reminder not found / wrong tenant ───────────────
-
-    it('should reject if reminder not found or wrong tenant', async () => {
+    it('rejects missing reminders', async () => {
       mockPrisma.telegramSettings.findFirst.mockResolvedValue(settings);
       mockPrisma.reminder.findFirst.mockResolvedValue(null);
 

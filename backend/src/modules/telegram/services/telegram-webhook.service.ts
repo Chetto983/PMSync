@@ -365,7 +365,7 @@ export class TelegramWebhookService {
           content: state.approvals.map((a) => ({
             type: 'tool-approval-response',
             approvalId: a.approvalId,
-            approved: true,
+            approved,
           })),
         },
       ];

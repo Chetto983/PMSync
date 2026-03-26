@@ -51,36 +51,93 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeTextParts(content: unknown): UIMessage['parts'] {
+function convertStoredPartToUIParts(part: unknown): UIMessage['parts'] {
+  if (!part || typeof part !== 'object') {
+    return [];
+  }
+
+  const record = part as Record<string, unknown>;
+  const type = typeof record.type === 'string' ? record.type : undefined;
+
+  if (type === 'text' && typeof record.text === 'string' && record.text.length > 0) {
+    return [{ type: 'text', text: record.text }];
+  }
+
+  if (type === 'reasoning' && typeof record.text === 'string' && record.text.length > 0) {
+    return [{ type: 'reasoning', text: record.text }];
+  }
+
+  if (type === 'tool-call') {
+    const toolName =
+      typeof record.toolName === 'string' ? record.toolName : 'unknown';
+    const toolCallId =
+      typeof record.toolCallId === 'string'
+        ? record.toolCallId
+        : `${toolName}-stored-call`;
+
+    return [
+      {
+        type: 'dynamic-tool',
+        toolName,
+        toolCallId,
+        state: 'input-available',
+        input: record.input ?? {},
+        ...(typeof record.providerExecuted === 'boolean'
+          ? { providerExecuted: record.providerExecuted }
+          : {}),
+        ...(typeof record.title === 'string' ? { title: record.title } : {}),
+      },
+    ];
+  }
+
+  if (type === 'source-url' && typeof record.sourceId === 'string' && typeof record.url === 'string') {
+    return [
+      {
+        type: 'source-url',
+        sourceId: record.sourceId,
+        url: record.url,
+        ...(typeof record.title === 'string' ? { title: record.title } : {}),
+      },
+    ];
+  }
+
+  if (
+    type === 'source-document' &&
+    typeof record.sourceId === 'string' &&
+    typeof record.mediaType === 'string' &&
+    typeof record.title === 'string'
+  ) {
+    return [
+      {
+        type: 'source-document',
+        sourceId: record.sourceId,
+        mediaType: record.mediaType,
+        title: record.title,
+        ...(typeof record.filename === 'string' ? { filename: record.filename } : {}),
+      },
+    ];
+  }
+
+  const text =
+    typeof record.text === 'string'
+      ? record.text
+      : typeof record.content === 'string'
+        ? record.content
+        : '';
+
+  return text.length > 0 ? [{ type: 'text', text }] : [];
+}
+
+function normalizeStoredParts(content: unknown): UIMessage['parts'] {
   if (Array.isArray(content)) {
-    return content.filter(
-      (part): part is UIMessage['parts'][number] =>
-        Boolean(
-          part &&
-            typeof part === 'object' &&
-            'type' in part &&
-            typeof (part as { type?: unknown }).type === 'string',
-        ),
-    );
+    return content.flatMap((part) => convertStoredPartToUIParts(part));
   }
 
   if (typeof content === 'string') {
     return content.length > 0 ? [{ type: 'text', text: content }] : [];
   }
 
-  if (content && typeof content === 'object') {
-    const record = content as Record<string, unknown>;
-    const text =
-      typeof record.text === 'string'
-        ? record.text
-        : typeof record.content === 'string'
-          ? record.content
-          : '';
-
-    return text.length > 0 ? [{ type: 'text', text }] : [];
-  }
-
-  return [];
+  return convertStoredPartToUIParts(content);
 }
 
 function convertStoredToolResultToUIMessage(
@@ -139,7 +196,7 @@ function convertDbMessagesToUIMessages(
       return {
         id: message.id,
         role: message.role,
-        parts: normalizeTextParts(message.content),
+        parts: normalizeStoredParts(message.content),
       } satisfies UIMessage;
     })
     .filter((message): message is UIMessage => Boolean(message));
