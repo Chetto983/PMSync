@@ -30,6 +30,7 @@ type PiiResolveFn = (
 /** Zod schemas for email tools -- shared between tool() calls and registry */
 const schemas = {
   send_email: z.object({
+    from: z.string().optional().describe('Sender email address (from connected accounts). Omit to use default account.'),
     to: z.string().describe('Recipient email address'),
     cc: z.string().optional().describe('CC recipients, comma-separated'),
     bcc: z.string().optional().describe('BCC recipients, comma-separated'),
@@ -54,16 +55,19 @@ const schemas = {
     emailId: z.string().describe('The ID of the email to delete'),
   }),
   forward_email: z.object({
+    from: z.string().optional().describe('Sender email address (from connected accounts). Omit to use default account.'),
     emailId: z.string().describe('The ID of the email to forward'),
     to: z.string().describe('Recipient email address for forwarding'),
     message: z.string().max(10000).optional().describe('Optional message to prepend'),
   }),
   reply_email: z.object({
+    from: z.string().optional().describe('Sender email address (from connected accounts). Omit to use default account.'),
     emailId: z.string().describe('The ID of the email to reply to'),
     body: z.string().max(50000).describe('Reply message body'),
     replyAll: z.boolean().optional().describe('Reply to all recipients (default false)'),
   }),
   draft_email: z.object({
+    from: z.string().optional().describe('Sender email address (from connected accounts). Omit to use default account.'),
     to: z.string().describe('Recipient email address'),
     subject: z.string().max(500).describe('Email subject line'),
     body: z.string().max(50000).describe('Email body content'),
@@ -145,7 +149,7 @@ export class EmailToolsService implements OnModuleInit {
       needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
-        const provider = await this.getDefaultProvider(tenantId);
+        const provider = await this.getDefaultProvider(tenantId, resolved.from);
         const toAddresses = resolved.to.split(',').map((e) => e.trim());
         const ccAddresses = resolved.cc?.split(',').map((e) => e.trim());
         const bccAddresses = resolved.bcc?.split(',').map((e) => e.trim());
@@ -340,7 +344,7 @@ export class EmailToolsService implements OnModuleInit {
           return truncateToolResult({ error: 'Original email not found', emailId: resolved.emailId });
         }
 
-        const provider = await this.getDefaultProvider(tenantId);
+        const provider = await this.getDefaultProvider(tenantId, resolved.from);
         const forwardBody = `${resolved.message ?? ''}\n\n---------- Forwarded message ----------\nFrom: ${original.from}\nSubject: ${original.subject}\n\n${original.bodyText ?? original.snippet ?? ''}`;
 
         const result = await this.emailSendService.queueSend({
@@ -383,7 +387,7 @@ export class EmailToolsService implements OnModuleInit {
           return truncateToolResult({ error: 'Original email not found', emailId: resolved.emailId });
         }
 
-        const provider = await this.getDefaultProvider(tenantId);
+        const provider = await this.getDefaultProvider(tenantId, resolved.from);
         const toAddress = typeof original.from === 'string' ? original.from : '';
         const ccAddresses = resolved.replyAll
           ? Array.from(
@@ -431,7 +435,7 @@ export class EmailToolsService implements OnModuleInit {
       needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
-        const provider = await this.getDefaultProvider(tenantId);
+        const provider = await this.getDefaultProvider(tenantId, resolved.from);
 
         // Save draft via EmailCrudService — syncs to Google/IMAP provider
         const draft = await this.emailCrudService.saveDraft(tenantId, {
@@ -453,9 +457,22 @@ export class EmailToolsService implements OnModuleInit {
   }
 
   /**
-   * Get the user's default active email provider.
+   * Get email provider by sender address, or fall back to default (first active).
    */
-  private async getDefaultProvider(tenantId: string) {
+  private async getDefaultProvider(tenantId: string, fromEmail?: string) {
+    if (fromEmail) {
+      const matched = await this.prisma.providerConfig.findFirst({
+        where: {
+          tenantId,
+          isActive: true,
+          supportsEmail: true,
+          email: fromEmail,
+        },
+      });
+      if (matched) return matched;
+      this.logger.warn(`No provider found for from="${fromEmail}", falling back to default`);
+    }
+
     const provider = await this.prisma.providerConfig.findFirst({
       where: {
         tenantId,

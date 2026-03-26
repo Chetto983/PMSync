@@ -285,6 +285,12 @@ export function buildRuntimeContext(
   return lines.join('\n');
 }
 
+export interface EmailAccountInfo {
+  email?: string;
+  displayName?: string;
+  providerType: string;
+}
+
 export interface ExtendedRuntimeContextMetadata {
   timezone?: string;
   providerType?: string;
@@ -294,6 +300,7 @@ export interface ExtendedRuntimeContextMetadata {
   communicationStyle?: string;
   responseLength?: string;
   proactivityLevel?: string;
+  emailAccounts?: EmailAccountInfo[];
 }
 
 export function buildExtendedRuntimeContext(
@@ -329,6 +336,18 @@ export function buildExtendedRuntimeContext(
   if (profileLines.length > 0) {
     lines.push('Saved AI profile preferences:');
     lines.push(...profileLines);
+  }
+
+  // Multi-provider: list all connected email accounts so the LLM can ask which to use
+  if (metadata.emailAccounts && metadata.emailAccounts.length > 1) {
+    lines.push('Connected email accounts:');
+    for (let i = 0; i < metadata.emailAccounts.length; i++) {
+      const acc = metadata.emailAccounts[i];
+      const label = acc.displayName ? `${acc.displayName} (${acc.providerType})` : acc.providerType;
+      const isDefault = i === 0 ? ' [default]' : '';
+      lines.push(`  - ${acc.email ?? 'unknown'}  (${label})${isDefault}`);
+    }
+    lines.push('When sending/drafting/forwarding/replying to email, if the user does not specify which account, use the default. If ambiguous, ask which account to send from using ask_user.');
   }
 
   return lines.join('\n');
