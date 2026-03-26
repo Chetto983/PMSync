@@ -218,10 +218,16 @@ export class AiChatService {
     if (isApprovalResubmit) {
       if (params.modelMessagesOverride?.length) {
         // Telegram approval re-submit: pre-built model messages with approval responses.
+        // Load conversation history first — the override only has the assistant's
+        // last response + approval. The provider needs the full message chain
+        // starting with a user message.
         this.logger.log(
           `HITL Telegram approval re-submit for conversation ${conversation.id}`,
         );
-        messages = params.modelMessagesOverride;
+        const historyMessages = await this.conversationService.getMessagesForContext(
+          conversation.id, 20, tenantId,
+        );
+        messages = [...historyMessages, ...params.modelMessagesOverride];
       } else {
         // Web HITL approval re-submit: convert client UIMessages to ModelMessages.
         // The client sends the full messages[] with approval responses embedded
