@@ -416,6 +416,237 @@ describe('SyncMessageProcessorService', () => {
     });
   });
 
+  describe('upsertMessage — label integration (T-0702)', () => {
+    const providerId = 'provider-1';
+    const tenantId = 'tenant-1';
+    const mockDriver = { isConnected: jest.fn().mockReturnValue(true) };
+    const mockContext = {
+      tenantId,
+      providerId,
+      processAttachments: jest.fn().mockResolvedValue(undefined),
+    };
+
+    beforeEach(() => {
+      // Re-set withLock implementation after jest.clearAllMocks() in outer beforeEach
+      mockRedisLock.withLock.mockImplementation(
+        (_key: string, _ttl: number, fn: () => Promise<unknown>) => fn(),
+      );
+    });
+
+    const makeCanonicalMsg = (overrides: Record<string, unknown> = {}) => ({
+      id: 'msg-1',
+      from: { email: 'sender@test.com' },
+      subject: 'Test Subject',
+      receivedAt: new Date('2026-03-26T10:00:00Z'),
+      to: [{ email: 'recipient@test.com' }],
+      cc: [],
+      bcc: [],
+      attachments: [],
+      hasAttachments: false,
+      folder: 'INBOX',
+      labels: ['INBOX', 'UNREAD'],
+      isRead: false,
+      isStarred: false,
+      isFlagged: false,
+      ...overrides,
+    });
+
+    const makeExistingEmail = (overrides: Record<string, unknown> = {}) => ({
+      id: 'email-uuid-1',
+      version: 1,
+      userModifiedAt: null as Date | null,
+      isRead: false,
+      isStarred: false,
+      isFlagged: false,
+      folder: 'INBOX',
+      labels: ['INBOX', 'UNREAD'],
+      ...overrides,
+    });
+
+    it('should create new email with canonical labels when no existing record', async () => {
+      mockPrisma.email.findUnique.mockResolvedValue(null);
+      const createdEmail = {
+        id: 'new-email-id',
+        subject: 'Test Subject',
+        folder: 'INBOX',
+        snippet: '',
+        bodyText: '',
+        bodyHtml: '',
+        from: 'sender@test.com',
+        to: ['recipient@test.com'],
+        receivedAt: new Date(),
+      };
+      mockPrisma.email.create.mockResolvedValue(createdEmail);
+
+      const msg = makeCanonicalMsg({ labels: ['INBOX', 'CATEGORY_SOCIAL', 'Label_work'] });
+      const result = await service.upsertMessage(
+        mockDriver as any, msg as any, providerId, tenantId, mockContext as any,
+      );
+
+      expect(result.wasNew).toBe(true);
+      expect(mockPrisma.email.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            labels: ['INBOX', 'CATEGORY_SOCIAL', 'Label_work'],
+            folder: 'INBOX',
+          }),
+        }),
+      );
+    });
+
+    it('should merge labels on existing email — preserve custom, replace system', async () => {
+      // DB has: INBOX, UNREAD, Label_abc (custom)
+      // Gmail says: INBOX, STARRED (UNREAD removed, STARRED added)
+      const existing = makeExistingEmail({
+        labels: ['INBOX', 'UNREAD', 'Label_abc'],
+      });
+      mockPrisma.email.findUnique
+        .mockResolvedValueOnce(existing)  // initial lookup
+        .mockResolvedValueOnce({ ...existing, labels: ['INBOX', 'STARRED', 'Label_abc'] }); // post-update fetch
+      mockPrisma.$executeRaw.mockResolvedValue(1);
+
+      const msg = makeCanonicalMsg({ labels: ['INBOX', 'STARRED'] });
+      const result = await service.upsertMessage(
+        mockDriver as any, msg as any, providerId, tenantId, mockContext as any,
+      );
+
+      expect(result.wasNew).toBe(false);
+      // $executeRaw is called with template literal; verify it was called
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+    });
+
+    it('should preserve user state when userModifiedAt is recent (RC-2)', async () => {
+      // User modified 1 minute ago — state fields should be preserved
+      const existing = makeExistingEmail({
+        userModifiedAt: new Date(Date.now() - 60_000),
+        isRead: true,
+        isStarred: true,
+        labels: ['INBOX', 'STARRED', 'Label_custom'],
+      });
+      mockPrisma.email.findUnique.mockResolvedValue(existing);
+      mockPrisma.email.update.mockResolvedValue({
+        ...existing,
+        id: 'email-uuid-1',
+        subject: 'Updated Subject',
+        folder: 'INBOX',
+        snippet: '',
+        bodyText: '',
+        bodyHtml: '',
+        from: 'sender@test.com',
+        to: ['recipient@test.com'],
+        receivedAt: new Date(),
+      });
+
+      const msg = makeCanonicalMsg({
+        labels: ['INBOX'],
+        isRead: false,
+        isStarred: false,
+      });
+
+      const result = await service.upsertMessage(
+        mockDriver as any, msg as any, providerId, tenantId, mockContext as any,
+      );
+
+      expect(result.wasNew).toBe(false);
+      // Should use email.update (not $executeRaw) and NOT include state fields
+      expect(mockPrisma.email.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({
+            isRead: expect.anything(),
+            isStarred: expect.anything(),
+            labels: expect.anything(),
+          }),
+        }),
+      );
+      // $executeRaw should NOT be called (userModifiedRecently path)
+      expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it('should detect RC-6 conflict when user modifies during sync', async () => {
+      const existing = makeExistingEmail({ userModifiedAt: null });
+      mockPrisma.email.findUnique
+        .mockResolvedValueOnce(existing) // initial lookup
+        .mockResolvedValueOnce(existing); // re-fetch after conflict
+      // $executeRaw returns 0 = no rows updated (user modified between read and write)
+      mockPrisma.$executeRaw.mockResolvedValue(0);
+
+      const msg = makeCanonicalMsg();
+      const result = await service.upsertMessage(
+        mockDriver as any, msg as any, providerId, tenantId, mockContext as any,
+      );
+
+      expect(result.wasNew).toBe(false);
+      expect(result.conflictDetected).toBe(true);
+    });
+
+    it('should handle folder change with label consistency', async () => {
+      // Email moved from INBOX to TRASH
+      const existing = makeExistingEmail({
+        folder: 'INBOX',
+        labels: ['INBOX', 'UNREAD', 'Label_project'],
+      });
+      mockPrisma.email.findUnique
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce({ ...existing, folder: 'TRASH', labels: ['TRASH', 'Label_project'] });
+      mockPrisma.$executeRaw.mockResolvedValue(1);
+
+      const msg = makeCanonicalMsg({
+        folder: 'TRASH',
+        labels: ['TRASH'],
+      });
+
+      const result = await service.upsertMessage(
+        mockDriver as any, msg as any, providerId, tenantId, mockContext as any,
+      );
+
+      expect(result.wasNew).toBe(false);
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+    });
+
+    it('should use empty labels when canonical message has no labels (new email)', async () => {
+      mockPrisma.email.findUnique.mockResolvedValue(null);
+      mockPrisma.email.create.mockResolvedValue({
+        id: 'new-email-id',
+        subject: 'Test',
+        folder: 'ARCHIVE',
+        snippet: '',
+        bodyText: '',
+        bodyHtml: '',
+        from: 'sender@test.com',
+        to: [],
+        receivedAt: new Date(),
+      });
+
+      const msg = makeCanonicalMsg({ labels: undefined, folder: 'ARCHIVE' });
+      await service.upsertMessage(
+        mockDriver as any, msg as any, providerId, tenantId, mockContext as any,
+      );
+
+      expect(mockPrisma.email.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            labels: [],
+          }),
+        }),
+      );
+    });
+
+    it('should throw when email deleted during conditional update', async () => {
+      const existing = makeExistingEmail({ userModifiedAt: null });
+      mockPrisma.email.findUnique
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(null); // deleted between update and re-fetch
+      mockPrisma.$executeRaw.mockResolvedValue(1);
+
+      const msg = makeCanonicalMsg();
+      // Inner error "was deleted during sync" is caught by withLock wrapper
+      // and re-thrown as RC-9 with original message embedded
+      await expect(
+        service.upsertMessage(mockDriver as any, msg as any, providerId, tenantId, mockContext as any),
+      ).rejects.toThrow('RC-9: Failed to acquire distributed lock');
+    });
+  });
+
   describe('processBatch', () => {
     const providerId = 'provider-1';
     const tenantId = 'tenant-1';

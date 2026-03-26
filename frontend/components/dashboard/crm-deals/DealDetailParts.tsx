@@ -137,7 +137,7 @@ export function PipelineProgressBar({
         }}
       >
         {stages.map((stage) => (
-          <Step key={stage.id} completed={stages.indexOf(stage) <= currentIndex}>
+          <Step key={stage.id}>
             <StepLabel
               StepIconProps={{
                 sx: {

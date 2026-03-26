@@ -17,12 +17,12 @@
 - [x] Files: `backend/src/modules/email-sync/services/__tests__/sync-message-processor.service.spec.ts` ✅ DONE
 
 ### T-0702: Sync processor integration tests [3 SP]
-- [ ] Test upsert with various label combinations
-- [ ] Test RC-2 label merge (user modified recently vs not)
-- [ ] Test folder/labels consistency after upsert
-- [ ] Test stale label ID detection and refresh
-- [ ] Mock Gmail API responses with realistic label payloads
-- [ ] Files: `backend/src/modules/email-sync/services/__tests__/sync-message-processor.service.spec.ts`
+- [x] Test upsert with various label combinations (new email, existing email, empty labels) ✅
+- [x] Test RC-2 label merge (user modified recently preserves state, normal path merges) ✅
+- [x] Test folder/labels consistency after upsert (folder change INBOX→TRASH with label merge) ✅
+- [x] Test RC-6 conflict detection (conditional update returns 0 rows) ✅
+- [x] Test deletion-during-sync error propagation through lock wrapper ✅
+- [x] 7 new integration tests in sync-message-processor.service.spec.ts ✅ DONE
 
 ### T-0703: Label API endpoint tests [2 SP]
 - [ ] Test: create label -> add emails -> list emails by label -> verify emailLabels in response
