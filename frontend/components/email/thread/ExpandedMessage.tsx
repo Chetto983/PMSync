@@ -22,6 +22,7 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Chip,
 } from '@mui/material';
 import {
   Reply,
@@ -34,6 +35,7 @@ import {
   FolderInput,
   Inbox,
   Paperclip,
+  X,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
@@ -62,6 +64,7 @@ interface ExpandedMessageProps {
     aiPriorityReason?: string | null;
     aiSentiment?: string | null;
     aiLabels?: string[] | null;
+    labels?: Array<{ id: string; name: string; color: string }>;
   };
   onCollapse: () => void;
   onReply: (messageId: string) => void;
@@ -79,6 +82,8 @@ interface ExpandedMessageProps {
   onMoveToFolder?: (messageId: string, folder: string) => void;
   /** Callback when attachment download is clicked */
   onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
+  /** Callback when a label is removed from the email */
+  onRemoveLabel?: (messageId: string, labelId: string) => void;
 }
 
 /**
@@ -179,6 +184,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   onMove,
   onMoveToFolder,
   onDownloadAttachment,
+  onRemoveLabel,
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
   const t = useTranslations();
@@ -587,6 +593,48 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         showSummary={showSummary}
         summary={summary}
       />
+
+      {/* User Labels */}
+      {message.labels && message.labels.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 0.75,
+            px: { xs: 1.5, sm: 2 },
+            pl: { xs: 1.5, sm: 7.5 },
+            py: 1,
+          }}
+        >
+          {message.labels.map((label) => (
+            <Chip
+              key={label.id}
+              label={label.name}
+              size="small"
+              deleteIcon={
+                onRemoveLabel ? (
+                  <Tooltip title={t.email?.labels?.removeFromEmail || 'Remove label from email'}>
+                    <X size={12} />
+                  </Tooltip>
+                ) : undefined
+              }
+              onDelete={onRemoveLabel ? () => onRemoveLabel(message.id, label.id) : undefined}
+              sx={{
+                height: 22,
+                fontSize: '0.75rem',
+                bgcolor: label.color,
+                color: 'white',
+                '& .MuiChip-label': { px: 0.75 },
+                '& .MuiChip-deleteIcon': {
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: 12,
+                  '&:hover': { color: 'white' },
+                },
+              }}
+            />
+          ))}
+        </Box>
+      )}
 
       {/* Body — max-width for comfortable line length */}
       <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: 2, pl: { xs: 1.5, sm: 7.5 }, maxWidth: { xs: '100%', sm: 720 } }}>

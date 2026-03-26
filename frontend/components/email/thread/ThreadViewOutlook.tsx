@@ -47,6 +47,7 @@ export interface ThreadMessageData {
   attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
   avatarUrl?: string;
   isAutoReply?: boolean;
+  labels?: Array<{ id: string; name: string; color: string }>;
 }
 
 interface ThreadViewOutlookProps {
@@ -70,6 +71,8 @@ interface ThreadViewOutlookProps {
   onAddLabelsToThread?: () => void;
   /** Callback for adding labels to a single message */
   onLabelsMessage?: (messageId: string) => void;
+  /** Callback when a label is removed from a message */
+  onRemoveLabel?: (messageId: string, labelId: string) => void;
 }
 
 // Re-export as ThreadView for backward compatibility
@@ -94,6 +97,7 @@ export function ThreadViewOutlook({
   onUnflagAllMessages,
   onAddLabelsToThread,
   onLabelsMessage,
+  onRemoveLabel,
 }: ThreadViewOutlookProps) {
   const t = useTranslations();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -357,6 +361,7 @@ export function ThreadViewOutlook({
                 onForward={onForward}
                 onFlag={onFlag}
                 onLabels={onLabelsMessage}
+                onRemoveLabel={onRemoveLabel}
                 onDownloadAttachment={onDownloadAttachment}
               />
             ) : (

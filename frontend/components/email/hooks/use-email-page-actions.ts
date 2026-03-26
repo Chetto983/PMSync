@@ -10,6 +10,7 @@ import {
   useUpdateEmail,
   useDeleteEmail,
   useUpdatePreferences,
+  useRemoveEmailFromLabel,
 } from '@/hooks/queries';
 import { emailsApi } from '@/lib/api';
 import type { Email, ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
@@ -18,6 +19,7 @@ import type { ThreadListItemData } from '@/components/email/list';
 import type { SenderContactMap } from '@/lib/api/contacts';
 import { extractEmailAddress } from '@/components/email/utils/email-formatters';
 import { getAvatarUrl } from '@/lib/utils/gravatar';
+import { isValidHexColor } from '@/lib/label-colors';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import type { QueryKey } from '@tanstack/react-query';
 
@@ -89,6 +91,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   const updateEmail = useUpdateEmail();
   const deleteEmail = useDeleteEmail();
   const updatePreferences = useUpdatePreferences();
+  const removeEmailFromLabel = useRemoveEmailFromLabel();
 
   const shouldRemoveMovedEmailsFromCurrentView = useCallback(
     (targetFolder: string) => {
@@ -128,6 +131,14 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       aiPriorityReason: selectedEmail.aiPriorityReason ?? null,
       aiSentiment: selectedEmail.aiSentiment ?? null,
       aiLabels: selectedEmail.aiLabels ?? null,
+      labels: selectedEmail.emailLabels?.map((el) => {
+        const bg = el.label?.color?.backgroundColor;
+        return {
+          id: el.label?.id || '',
+          name: el.label?.name || 'Label',
+          color: bg && isValidHexColor(bg) ? bg : '#9E9E9E',
+        };
+      }).filter((l) => l.id),
     };
   }, [selectedEmail, senderPhotos, _actionsTz]);
 
@@ -159,6 +170,16 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     setLabelPickerEmailIds([messageId]);
     setLabelPickerOpen(true);
   }, [setLabelPickerEmailIds, setLabelPickerOpen]);
+
+  const handleRemoveLabel = useCallback(async (_messageId: string, labelId: string) => {
+    if (!selectedEmailData) return;
+    try {
+      await removeEmailFromLabel.mutateAsync({ labelId, emailId: selectedEmailData.id });
+      toast.success(t.email?.labels?.labelRemoved || 'Label removed');
+    } catch {
+      toast.error(t.email?.labels?.labelRemoveFailed || 'Failed to remove label');
+    }
+  }, [selectedEmailData, removeEmailFromLabel, toast, t]);
 
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     const snapshot = captureEmailsState();
@@ -521,7 +542,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
 
   return {
     handleReply, handleReplyAll, handleForward, handleFlagMessage,
-    handleLabelsMessage, handleDeleteMessage, handleArchiveMessage,
+    handleLabelsMessage, handleRemoveLabel, handleDeleteMessage, handleArchiveMessage,
     handleMoveMessage, handleMoveMessageToFolder, handleDownloadAttachment,
     handleBulkMarkAsRead, handleBulkMarkAsUnread, handleBulkArchive,
     handleBulkDelete, handleBulkMove, handleBulkLabel,

@@ -14,6 +14,7 @@ import {
   useBulkMarkImportant,
   useBulkDeleteEmails,
   useUpdateEmail,
+  useRemoveEmailFromLabel,
 } from '@/hooks/queries';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
@@ -23,6 +24,7 @@ import type { Email } from '@/lib/api/emails';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
+import { isValidHexColor } from '@/lib/label-colors';
 
 /**
  * Thread Detail Page
@@ -50,6 +52,14 @@ function mapEmailToThreadMessage(email: Email, timezone: string): ThreadMessageD
       name: att.filename,
       size: att.size,
     })),
+    labels: email.emailLabels?.map((el) => {
+      const bg = el.label?.color?.backgroundColor;
+      return {
+        id: el.label?.id || '',
+        name: el.label?.name || 'Label',
+        color: bg && isValidHexColor(bg) ? bg : '#9E9E9E',
+      };
+    }).filter((l) => l.id),
   };
 }
 
@@ -79,6 +89,7 @@ export default function ThreadDetailPage() {
   const bulkFlag = useBulkMarkImportant();
   const bulkDelete = useBulkDeleteEmails();
   const updateEmail = useUpdateEmail();
+  const removeEmailFromLabel = useRemoveEmailFromLabel();
 
   // Map emails to ThreadMessageData format
   const messages = useMemo(() => {
@@ -285,6 +296,17 @@ export default function ThreadDetailPage() {
     setLabelPickerOpen(true);
   }, []);
 
+  // Remove label from a single message
+  const handleRemoveLabel = useCallback(async (_messageId: string, labelId: string) => {
+    try {
+      await removeEmailFromLabel.mutateAsync({ labelId, emailId: _messageId });
+      toast.success(t.email?.labels?.labelRemoved || 'Label removed');
+      refetch();
+    } catch {
+      toast.error(t.email?.labels?.labelRemoveFailed || 'Failed to remove label');
+    }
+  }, [removeEmailFromLabel, toast, t, refetch]);
+
   // Loading state
   if (isLoading || !router.isReady) {
     return (
@@ -390,6 +412,7 @@ export default function ThreadDetailPage() {
             onFlagAllMessages={hasUnflaggedMessages ? handleFlagAllMessages : undefined}
             onUnflagAllMessages={hasFlaggedMessages ? handleUnflagAllMessages : undefined}
             onAddLabelsToThread={handleAddLabelsToThread}
+            onRemoveLabel={handleRemoveLabel}
           />
           <FolderPickerDialog
             open={folderPickerOpen}
