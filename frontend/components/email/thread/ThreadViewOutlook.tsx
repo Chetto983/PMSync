@@ -12,7 +12,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Box, Typography, IconButton, Button, Tooltip, Menu, MenuItem, Divider } from '@mui/material';
+import { Box, Typography, IconButton, Button, Tooltip, Menu, MenuItem, Divider, useMediaQuery, useTheme } from '@mui/material';
 import {
   ArrowLeft,
   ChevronDown,
@@ -100,6 +100,8 @@ export function ThreadViewOutlook({
   onRemoveLabel,
 }: ThreadViewOutlookProps) {
   const t = useTranslations();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Menu state
@@ -157,6 +159,33 @@ export function ThreadViewOutlook({
     setExpandedId(null);
   }, []);
 
+  const showInlineReplyAll = !!onReplyAll && !isMobile;
+  const showInlineThreadActions = !isMobile;
+  const hasInlineThreadActions = showInlineThreadActions && (
+    !!onArchiveThread ||
+    !!onMoveThread ||
+    !!onDeleteThread ||
+    !!onAddLabelsToThread
+  );
+  const hasMobileOverflowActions = isMobile && (
+    !!onReplyAll ||
+    !!onArchiveThread ||
+    !!onDeleteThread
+  );
+  const hasAdditionalMenuActions = (
+    !!onMarkThreadRead ||
+    !!onMarkThreadUnread ||
+    !!onFlagAllMessages ||
+    !!onUnflagAllMessages ||
+    !!onMoveThread ||
+    !!onAddLabelsToThread
+  );
+  const headerIconButtonSx = {
+    minWidth: { xs: 40, sm: 44 },
+    minHeight: { xs: 40, sm: 44 },
+    flexShrink: 0,
+  } as const;
+
   // Scroll to bottom when thread opens (show most recent)
   useEffect(() => {
     if (scrollRef.current) {
@@ -187,16 +216,16 @@ export function ThreadViewOutlook({
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 1.5,
-            px: 2,
-            py: 1.5,
+            gap: { xs: 1, sm: 1.5 },
+            px: { xs: 1, sm: 2 },
+            py: { xs: 1, sm: 1.5 },
           }}
         >
           <IconButton
             size="small"
             onClick={onBack}
             aria-label={t.common.close}
-            sx={{ minWidth: 44, minHeight: 44 }}
+            sx={headerIconButtonSx}
           >
             <ArrowLeft size={20} />
           </IconButton>
@@ -205,6 +234,7 @@ export function ThreadViewOutlook({
             variant="h6"
             sx={{
               flex: 1,
+              minWidth: 0,
               fontSize: '1.125rem',
               fontWeight: 600,
               overflow: 'hidden',
@@ -216,24 +246,26 @@ export function ThreadViewOutlook({
           </Typography>
 
           {/* Toolbar Actions */}
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0, sm: 0.5 }, flexShrink: 0 }}>
             <Tooltip title={t.threadMessage?.reply || 'Reply'}>
               <IconButton
                 size="small"
                 onClick={() => expandedId && onReply(expandedId)}
                 disabled={!expandedId}
-                sx={{ minWidth: 44, minHeight: 44 }}
+                aria-label={t.threadMessage?.reply || 'Reply'}
+                sx={headerIconButtonSx}
               >
                 <Reply size={18} />
               </IconButton>
             </Tooltip>
-            {onReplyAll && (
+            {showInlineReplyAll && (
               <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
                 <IconButton
                   size="small"
                   onClick={() => expandedId && onReplyAll(expandedId)}
                   disabled={!expandedId}
-                  sx={{ minWidth: 44, minHeight: 44 }}
+                  aria-label={t.threadMessage?.replyAll || 'Reply all'}
+                  sx={headerIconButtonSx}
                 >
                   <ReplyAll size={18} />
                 </IconButton>
@@ -244,38 +276,61 @@ export function ThreadViewOutlook({
                 size="small"
                 onClick={() => expandedId && onForward(expandedId)}
                 disabled={!expandedId}
-                sx={{ minWidth: 44, minHeight: 44 }}
+                aria-label={t.threadMessage?.forward || 'Forward'}
+                sx={headerIconButtonSx}
               >
                 <Forward size={18} />
               </IconButton>
             </Tooltip>
 
-            <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: 'center' }} />
+            {hasInlineThreadActions && (
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: 'center' }} />
+            )}
 
-            {onArchiveThread && (
+            {showInlineThreadActions && onArchiveThread && (
               <Tooltip title={t.threadActions?.archiveThread || 'Archive'}>
-                <IconButton size="small" onClick={onArchiveThread} sx={{ minWidth: 44, minHeight: 44 }}>
+                <IconButton
+                  size="small"
+                  onClick={onArchiveThread}
+                  aria-label={t.threadActions?.archiveThread || 'Archive'}
+                  sx={headerIconButtonSx}
+                >
                   <Archive size={18} />
                 </IconButton>
               </Tooltip>
             )}
-            {onMoveThread && (
+            {showInlineThreadActions && onMoveThread && (
               <Tooltip title={t.threadActions?.moveThread || 'Move to folder'}>
-                <IconButton size="small" onClick={onMoveThread} sx={{ minWidth: 44, minHeight: 44 }}>
+                <IconButton
+                  size="small"
+                  onClick={onMoveThread}
+                  aria-label={t.threadActions?.moveThread || 'Move to folder'}
+                  sx={headerIconButtonSx}
+                >
                   <FolderInput size={18} />
                 </IconButton>
               </Tooltip>
             )}
-            {onDeleteThread && (
+            {showInlineThreadActions && onDeleteThread && (
               <Tooltip title={t.threadActions?.deleteThread || 'Delete'}>
-                <IconButton size="small" onClick={onDeleteThread} sx={{ color: 'error.main', minWidth: 44, minHeight: 44 }}>
+                <IconButton
+                  size="small"
+                  onClick={onDeleteThread}
+                  aria-label={t.threadActions?.deleteThread || 'Delete'}
+                  sx={{ ...headerIconButtonSx, color: 'error.main' }}
+                >
                   <Trash2 size={18} />
                 </IconButton>
               </Tooltip>
             )}
-            {onAddLabelsToThread && (
+            {showInlineThreadActions && onAddLabelsToThread && (
               <Tooltip title={t.email?.labels?.addLabels || 'Add labels'}>
-                <IconButton size="small" onClick={onAddLabelsToThread} sx={{ minWidth: 44, minHeight: 44 }}>
+                <IconButton
+                  size="small"
+                  onClick={onAddLabelsToThread}
+                  aria-label={t.email?.labels?.addLabels || 'Add labels'}
+                  sx={headerIconButtonSx}
+                >
                   <Tag size={18} />
                 </IconButton>
               </Tooltip>
@@ -285,7 +340,7 @@ export function ThreadViewOutlook({
               size="small"
               onClick={handleMenuOpen}
               aria-label={t.threadView?.actionsLabel || 'More actions'}
-              sx={{ minWidth: 44, minHeight: 44 }}
+              sx={headerIconButtonSx}
             >
               <MoreHorizontal size={18} />
             </IconButton>
@@ -298,6 +353,28 @@ export function ThreadViewOutlook({
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           >
+            {isMobile && onReplyAll && (
+              <MenuItem
+                onClick={() => handleAction(() => expandedId && onReplyAll(expandedId))}
+                disabled={!expandedId}
+              >
+                <ReplyAll size={16} style={{ marginRight: 8 }} />
+                {t.threadMessage?.replyAll || 'Reply all'}
+              </MenuItem>
+            )}
+            {isMobile && onArchiveThread && (
+              <MenuItem onClick={() => handleAction(onArchiveThread)}>
+                <Archive size={16} style={{ marginRight: 8 }} />
+                {t.threadActions?.archiveThread || 'Archive'}
+              </MenuItem>
+            )}
+            {isMobile && onDeleteThread && (
+              <MenuItem onClick={() => handleAction(onDeleteThread)} sx={{ color: 'error.main' }}>
+                <Trash2 size={16} style={{ marginRight: 8 }} />
+                {t.threadActions?.deleteThread || 'Delete'}
+              </MenuItem>
+            )}
+            {hasMobileOverflowActions && hasAdditionalMenuActions && <Divider />}
             {onMarkThreadRead && (
               <MenuItem onClick={() => handleAction(onMarkThreadRead)}>
                 <MailOpen size={16} style={{ marginRight: 8 }} />
