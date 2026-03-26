@@ -913,9 +913,9 @@ export class AiChatService {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-        // Only keep valid ModelMessage content parts: 'text' and 'tool-call'.
-        // Non-model parts like 'reasoning' are stored for display but must
-        // NOT be sent to the model — they cause InvalidPromptError.
+        // Keep valid ModelMessage content parts: 'text', 'tool-call', and
+        // HITL approval parts ('tool-approval-request'). Non-model parts
+        // like 'reasoning' cause InvalidPromptError and are stripped.
         const validParts = (msg.content).filter((part) => {
           if (!part || typeof part !== 'object' || !('type' in part)) return false;
           if (part.type === 'tool-call') {
@@ -923,6 +923,8 @@ export class AiChatService {
             knownToolCallIds.add(part.toolCallId);
             return true;
           }
+          // Preserve HITL approval-request parts — required by collectToolApprovals
+          if (part.type === 'tool-approval-request') return true;
           return part.type === 'text';
         });
         if (validParts.length === 0) {
@@ -936,10 +938,19 @@ export class AiChatService {
 
     // Pass 2: drop tool messages referencing unknown toolCallIds,
     // collect answered toolCallIds, and normalize output format.
+    // Also preserve HITL tool-approval-response messages.
     const answeredToolCallIds = new Set<string>();
     const filtered = messages.filter((msg) => {
       if (msg.role !== 'tool') return true;
       if (!Array.isArray(msg.content) || (msg.content).length === 0) return false;
+
+      // HITL: preserve tool messages containing approval responses.
+      // These have type 'tool-approval-response' with approvalId (not toolCallId).
+      const hasApprovalResponse = (msg.content as any[]).some(
+        (p) => p?.type === 'tool-approval-response',
+      );
+      if (hasApprovalResponse) return true;
+
       const part = (msg.content)[0] as any;
       const toolCallId = part?.toolCallId;
       if (typeof toolCallId !== 'string' || !knownToolCallIds.has(toolCallId)) return false;
@@ -957,12 +968,21 @@ export class AiChatService {
 
     // Pass 3: strip tool-call parts from assistant messages when the
     // corresponding tool-result is missing (AI_MissingToolResultsError fix).
+    // HITL exception: tool-calls awaiting approval have no tool-result yet —
+    // they are answered by tool-approval-response, not tool-result.
+    const hasAnyApprovalResponse = filtered.some(
+      (msg) => msg.role === 'tool' && Array.isArray(msg.content)
+        && (msg.content as any[]).some((p) => p?.type === 'tool-approval-response'),
+    );
     for (const msg of filtered) {
       if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
       const hasOrphanedToolCall = (msg.content as any[]).some(
         (p) => p?.type === 'tool-call' && !answeredToolCallIds.has(p.toolCallId),
       );
       if (!hasOrphanedToolCall) continue;
+      // If there are approval responses, keep tool-calls that have matching
+      // approval-request parts (they're awaiting HITL execution, not orphaned).
+      if (hasAnyApprovalResponse) continue;
       const cleaned = (msg.content as any[]).filter(
         (p) => p?.type !== 'tool-call' || answeredToolCallIds.has(p.toolCallId),
       );

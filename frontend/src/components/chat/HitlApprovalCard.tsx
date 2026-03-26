@@ -100,22 +100,11 @@ export function HitlApprovalWrapper({
 
   const handleApprove = () => {
     setBusy('approve');
-    // Use AI SDK's addToolApprovalResponse which sets state to 'approval-responded'.
-    // This triggers sendAutomaticallyWhen and the auto-resubmit to the backend.
     const approvalId = interrupt?.payload?.id;
     const approvalFn = getAddToolApprovalResponse();
-    console.log('[HITL] handleApprove', { approvalId, hasApprovalFn: !!approvalFn, interrupt: JSON.stringify(interrupt), statusType: status.type });
     if (approvalId && approvalFn) {
-      console.log('[HITL] Calling addToolApprovalResponse with id:', approvalId);
-      try {
-        approvalFn({ id: approvalId, approved: true });
-        console.log('[HITL] addToolApprovalResponse returned successfully');
-      } catch (err) {
-        console.error('[HITL] addToolApprovalResponse threw:', err);
-      }
+      approvalFn({ id: approvalId, approved: true });
     } else {
-      // Fallback: addResult still updates the UI but won't trigger auto-resubmit
-      console.warn('[HITL] Falling back to addResult — interrupt or approvalFn missing');
       addResult({ approved: true });
     }
   };
