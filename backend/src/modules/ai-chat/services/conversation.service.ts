@@ -136,6 +136,29 @@ export class ConversationService {
   }
 
   /**
+   * Get the last user message text from a conversation.
+   * Used by HITL re-submit to prepend a user message for provider compatibility.
+   */
+  async getLastUserMessage(
+    conversationId: string,
+    tenantId?: string,
+  ): Promise<string | null> {
+    const msg = await this.prisma.aiMessage.findFirst({
+      where: {
+        conversationId,
+        role: 'user',
+        ...(tenantId ? { conversation: { tenantId } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { content: true },
+    });
+    if (!msg) return null;
+    const content = msg.content as Record<string, unknown>;
+    if (typeof content === 'string') return content;
+    return (content as { text?: string })?.text ?? null;
+  }
+
+  /**
    * Persist a user message to the conversation.
    */
   async saveUserMessage(

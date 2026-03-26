@@ -352,6 +352,12 @@ export class TelegramWebhookService {
     await this.telegramBot.sendChatAction(chatId, 'typing');
 
     try {
+      // Build the full message chain for HITL re-submit:
+      // state.responseMessages = result.response.messages from initial call
+      //   (contains assistant message with tool-call + tool-approval-request parts)
+      // + approval-response tool message
+      // ai-chat.service will NOT load DB history — it uses these messages directly
+      // with only a user-message prepended for provider compatibility.
       const messages = [
         ...state.responseMessages,
         {

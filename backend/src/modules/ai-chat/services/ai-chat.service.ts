@@ -218,16 +218,23 @@ export class AiChatService {
     if (isApprovalResubmit) {
       if (params.modelMessagesOverride?.length) {
         // Telegram approval re-submit: pre-built model messages with approval responses.
-        // Load conversation history first — the override only has the assistant's
-        // last response + approval. The provider needs the full message chain
-        // starting with a user message.
+        // modelMessagesOverride contains: result.response.messages (assistant message
+        // with tool-call + tool-approval-request parts) + approval-response tool message.
+        //
+        // We do NOT load full DB history here — onStepFinish already saved the
+        // assistant's tool-call to DB, so loading history would duplicate it and
+        // cause an infinite HITL loop. Instead, prepend only the user's last message
+        // so the provider sees a valid user-first sequence.
         this.logger.log(
           `HITL Telegram approval re-submit for conversation ${conversation.id}`,
         );
-        const historyMessages = await this.conversationService.getMessagesForContext(
-          conversation.id, 20, tenantId,
+        const lastUserMsg = await this.conversationService.getLastUserMessage(
+          conversation.id, tenantId,
         );
-        messages = [...historyMessages, ...params.modelMessagesOverride];
+        messages = [
+          { role: 'user', content: lastUserMsg ?? '' },
+          ...params.modelMessagesOverride,
+        ];
       } else {
         // Web HITL approval re-submit: convert client UIMessages to ModelMessages.
         // The client sends the full messages[] with approval responses embedded
@@ -349,10 +356,6 @@ export class AiChatService {
       }
     }
 
-    // DEBUG: Log message structure to diagnose ModelMessage[] schema errors
-    this.logger.warn(
-      `[DIAG] Message chain (${messages.length} msgs): ${messages.map((m, i) => `[${i}] role=${m.role} contentType=${typeof m.content === 'string' ? 'string' : Array.isArray(m.content) ? 'array(' + (m.content).length + ')' : typeof m.content}`).join(' | ')}`,
-    );
 
     // 7. Audit log (fire-and-forget)
     this.auditService
@@ -719,11 +722,6 @@ export class AiChatService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private buildGenerateChatResult(result: any, conversationId: string): GenerateChatResult {
     const pendingApprovals: PendingToolApproval[] = [];
-
-    // DEBUG: Log all content parts to trace HITL approval detection
-    this.logger.log(
-      `[HITL-DEBUG] result.content parts: ${(result.content ?? []).map((p: any) => `${p.type}${p.toolName ? ':' + p.toolName : ''}${p.approvalId ? ':aid=' + p.approvalId : ''}`).join(', ') || 'EMPTY'}`,
-    );
 
     for (const part of result.content) {
       if (part.type === 'tool-approval-request') {
