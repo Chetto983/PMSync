@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { authClient } from '@/lib/auth-client';
+import { getSafeReturnToPath, resolvePostLoginPath } from '@/lib/auth-redirects';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
@@ -44,7 +45,7 @@ function isAccountNotFoundError(error: AuthClientError | null | undefined) {
 export default function LoginPage() {
   const t = useTranslations();
   const router = useRouter();
-  const returnTo = (router.query.returnTo as string) || '/dashboard';
+  const returnTo = getSafeReturnToPath(router.query.returnTo);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,14 +98,16 @@ export default function LoginPage() {
           setError(t.errors.invalidCredentials);
           return;
         }
-        router.push(returnTo);
+
+        const destination = resolvePostLoginPath(returnTo, document.cookie);
+        window.location.assign(destination);
       } catch {
         setError(t.common.genericError);
       } finally {
         setLoading(false);
       }
     },
-    [email, password, returnTo, router, t],
+    [email, password, returnTo, t],
   );
 
   const auth = t.auth.login;

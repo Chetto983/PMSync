@@ -34,13 +34,33 @@ interface NotificationEvent extends Event {
   waitUntil(promise: Promise<unknown>): void;
 }
 
-// Filter out any defaultCache entries that match /api/ routes.
-// Serwist's defaultCache may include rules for /api/ which
-// would cache API responses and break httpOnly cookie auth + SSE streams.
+const excludedDefaultCacheNames = new Set([
+  'apis',
+  'next-data',
+  'pages-rsc-prefetch',
+  'pages-rsc',
+  'pages',
+  'others',
+  'static-data-assets',
+]);
+
+// Serwist's Next.js default cache list includes generic NetworkFirst rules for
+// HTML, RSC, and JSON responses. Those are too broad for this app: they can
+// intercept auth redirects and dashboard navigations, then throw `no-response`
+// when the network request fails before anything has been cached.
+//
+// Keep only the safe static-asset rules from defaultCache and handle auth/API,
+// Next data, and document navigations explicitly below.
 const filteredCache = defaultCache.filter((entry) => {
   const pattern = entry.matcher;
-  if (pattern instanceof RegExp) return !pattern.source.includes('api');
-  if (typeof pattern === 'string') return !pattern.includes('/api');
+  if (pattern instanceof RegExp && pattern.source.includes('api')) return false;
+  if (typeof pattern === 'string' && pattern.includes('/api')) return false;
+
+  const cacheName = (entry.handler as { cacheName?: string } | undefined)?.cacheName;
+  if (cacheName && excludedDefaultCacheNames.has(cacheName)) {
+    return false;
+  }
+
   return true;
 });
 

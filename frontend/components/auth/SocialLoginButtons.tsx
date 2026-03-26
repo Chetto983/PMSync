@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Button, Divider, Typography, SvgIcon } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { authClient } from '@/lib/auth-client';
+import { getSafeReturnToPath } from '@/lib/auth-redirects';
 
 type SocialLoginIntent = 'login' | 'register';
 
@@ -51,8 +52,7 @@ export function SocialLoginButtons({ intent = 'login' }: SocialLoginButtonsProps
     setLoading(provider);
     try {
       const currentUrl = new URL(window.location.href);
-      const returnTo = currentUrl.searchParams.get('returnTo');
-      const callbackPath = returnTo && returnTo.startsWith('/') ? returnTo : '/dashboard';
+      const callbackPath = getSafeReturnToPath(currentUrl.searchParams.get('returnTo'));
 
       await authClient.signIn.social({
         provider,
