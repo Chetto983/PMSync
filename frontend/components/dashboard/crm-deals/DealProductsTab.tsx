@@ -163,7 +163,7 @@ function AddProductDialog({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1,
-                    py: 1,
+                    py: 1.5,
                     px: 1.5,
                     borderRadius: 1,
                     cursor: 'pointer',
@@ -208,7 +208,7 @@ function AddProductDialog({
               </Button>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
               <TextField
                 label={tp?.form?.quantity ?? 'Quantity'}
                 type="number"
@@ -216,7 +216,7 @@ function AddProductDialog({
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                 slotProps={{ htmlInput: { min: 1 } }}
-                sx={{ flex: 1 }}
+                sx={{ flex: { xs: '1 1 100%', sm: '1 1 30%' } }}
               />
               <TextField
                 label={tp?.form?.unitPrice ?? 'Unit Price'}
@@ -225,7 +225,7 @@ function AddProductDialog({
                 value={unitPrice}
                 onChange={(e) => setUnitPrice(e.target.value)}
                 slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                sx={{ flex: 1 }}
+                sx={{ flex: { xs: '1 1 100%', sm: '1 1 30%' } }}
               />
               <TextField
                 label={tp?.form?.discount ?? 'Discount %'}
@@ -234,7 +234,7 @@ function AddProductDialog({
                 value={discount}
                 onChange={(e) => setDiscount(e.target.value)}
                 slotProps={{ htmlInput: { min: 0, max: 100, step: 0.01 } }}
-                sx={{ flex: 1 }}
+                sx={{ flex: { xs: '1 1 100%', sm: '1 1 30%' } }}
               />
             </Box>
           </Box>
