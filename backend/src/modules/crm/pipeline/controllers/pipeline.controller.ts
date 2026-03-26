@@ -76,6 +76,16 @@ export class PipelineController {
     return this.pipelineService.deletePipeline(req.user.tenantId, id);
   }
 
+  // ---- Metrics ----
+
+  @Get(':id/metrics')
+  @ApiOperation({ summary: 'Get pipeline metrics (conversion, velocity, win rate)' })
+  @ApiResponse({ status: 200, description: 'Pipeline metrics returned' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  async getMetrics(@Req() req: any, @Param('id') id: string) {
+    return this.pipelineService.getMetrics(req.user.tenantId, id);
+  }
+
   // ---- Stage endpoints ----
 
   @Post(':id/stages')

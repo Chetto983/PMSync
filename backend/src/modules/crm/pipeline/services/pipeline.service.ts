@@ -320,6 +320,109 @@ export class PipelineService {
     });
   }
 
+  // ---- Metrics ----
+
+  async getMetrics(tenantId: string, pipelineId: string) {
+    const pipeline = await this.findPipelineById(tenantId, pipelineId);
+
+    // Get all non-deleted deals for this pipeline
+    const deals = await this.prisma.crmDeal.findMany({
+      where: { pipelineId, tenantId, deletedAt: null },
+      select: {
+        id: true,
+        amount: true,
+        stageId: true,
+        closedAt: true,
+        createdAt: true,
+        stage: { select: { isWon: true, isLost: true, probability: true } },
+      },
+    });
+
+    // Get stages ordered by position
+    const stages = pipeline.stages ?? [];
+
+    // Calculate per-stage metrics
+    const stageMetrics = stages.map((stage) => {
+      const stageDeals = deals.filter((d) => d.stageId === stage.id);
+      const totalValue = stageDeals.reduce(
+        (sum, d) => sum + (d.amount ? Number(d.amount) : 0),
+        0,
+      );
+
+      // Average days in stage: for closed deals, use closedAt-createdAt as proxy
+      // For open deals, use now-createdAt
+      const now = new Date();
+      const daysInStage = stageDeals.map((d) => {
+        const end = d.closedAt ?? now;
+        return (end.getTime() - d.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      });
+      const avgDaysInStage =
+        daysInStage.length > 0
+          ? daysInStage.reduce((a, b) => a + b, 0) / daysInStage.length
+          : 0;
+
+      return {
+        stageId: stage.id,
+        stageName: stage.name,
+        stageColor: stage.color,
+        dealCount: stageDeals.length,
+        totalValue,
+        avgDaysInStage: Math.round(avgDaysInStage * 10) / 10,
+      };
+    });
+
+    // Aggregate metrics
+    const wonDeals = deals.filter((d) => d.stage.isWon);
+    const lostDeals = deals.filter((d) => d.stage.isLost);
+    const closedDeals = wonDeals.length + lostDeals.length;
+    const openDeals = deals.filter((d) => !d.stage.isWon && !d.stage.isLost);
+
+    const totalValue = openDeals.reduce(
+      (sum, d) => sum + (d.amount ? Number(d.amount) : 0),
+      0,
+    );
+
+    const weightedValue = openDeals.reduce((sum, d) => {
+      const amount = d.amount ? Number(d.amount) : 0;
+      return sum + amount * (d.stage.probability / 100);
+    }, 0);
+
+    const winRate = closedDeals > 0 ? (wonDeals.length / closedDeals) * 100 : 0;
+
+    // Conversion rate: deals that moved beyond first stage / total deals
+    const firstStageId = stages.length > 0 ? stages[0].id : null;
+    const dealsNotInFirstStage = firstStageId
+      ? deals.filter((d) => d.stageId !== firstStageId).length
+      : 0;
+    const conversionRate =
+      deals.length > 0 ? (dealsNotInFirstStage / deals.length) * 100 : 0;
+
+    // Average deal velocity: avg days from creation to close for won deals
+    const wonDealDays = wonDeals
+      .filter((d) => d.closedAt)
+      .map((d) => {
+        const ms = d.closedAt!.getTime() - d.createdAt.getTime();
+        return ms / (1000 * 60 * 60 * 24);
+      });
+    const avgDealVelocity =
+      wonDealDays.length > 0
+        ? wonDealDays.reduce((a, b) => a + b, 0) / wonDealDays.length
+        : 0;
+
+    return {
+      pipelineId,
+      conversionRate: Math.round(conversionRate * 10) / 10,
+      avgDealVelocity: Math.round(avgDealVelocity * 10) / 10,
+      winRate: Math.round(winRate * 10) / 10,
+      totalValue: Math.round(totalValue * 100) / 100,
+      weightedValue: Math.round(weightedValue * 100) / 100,
+      openDeals: openDeals.length,
+      wonDeals: wonDeals.length,
+      lostDeals: lostDeals.length,
+      stageMetrics,
+    };
+  }
+
   // ---- Helpers ----
 
   private async unsetDefaultPipeline(tenantId: string) {
