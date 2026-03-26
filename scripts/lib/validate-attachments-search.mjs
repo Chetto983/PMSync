@@ -188,10 +188,10 @@ async function validateFolderStats(context, cookieHeader, providerId, results) {
 async function validateSearch(context, cookieHeader, providerId, results) {
   console.log('\n  --- READ-09: Full-text search ---');
 
-  // Get a real email to extract a search term from
+  // Get a few emails to extract a good search term from
   const listRes = await apiGet(
     context,
-    `/api/v1/emails?providerId=${providerId}&limit=1`,
+    `/api/v1/emails?providerId=${providerId}&limit=10`,
     cookieHeader,
   );
   const emails = unwrapEmails(listRes);
@@ -201,17 +201,33 @@ async function validateSearch(context, cookieHeader, providerId, results) {
     return;
   }
 
-  const subject = emails[0].subject || '';
-  const words = subject.split(/\s+/).filter(w => w.length >= 4);
-  const cleanWords = words.map(w => w.replace(/[^a-zA-Z0-9]/g, '')).filter(w => w.length >= 4);
-
-  if (cleanWords.length === 0) {
-    console.log(`  SKIP: No suitable search word found in subject "${subject}"`);
-    return;
+  // Find a clean, simple word (no camelCase/slugs, pure alpha, 4-12 chars)
+  let searchTerm = null;
+  let sourceSubject = '';
+  for (const email of emails) {
+    const subject = email.subject || '';
+    const words = subject.split(/\s+/)
+      .map(w => w.replace(/[^a-zA-Z]/g, ''))
+      .filter(w => w.length >= 4 && w.length <= 12 && /^[a-zA-Z]+$/.test(w) && w === w.toLowerCase());
+    if (words.length > 0) {
+      searchTerm = words[0];
+      sourceSubject = subject;
+      break;
+    }
   }
 
-  const searchTerm = cleanWords[0];
-  console.log(`  Search term: "${searchTerm}" (from subject: "${subject.substring(0, 60)}")`);
+  if (!searchTerm) {
+    // Fallback: any alphanumeric word >= 4 chars from first email
+    const subject = emails[0].subject || '';
+    const fallback = subject.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, '')).filter(w => w.length >= 4);
+    if (fallback.length === 0) {
+      console.log(`  SKIP: No suitable search word found across ${emails.length} emails`);
+      return;
+    }
+    searchTerm = fallback[0];
+    sourceSubject = subject;
+  }
+  console.log(`  Search term: "${searchTerm}" (from subject: "${sourceSubject.substring(0, 60)}")`);
 
   const searchRes = await apiGet(
     context,
