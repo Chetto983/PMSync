@@ -50,6 +50,7 @@ export interface MessageCardData {
   hasAttachments: boolean;
   attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
   avatarUrl?: string;
+  labels?: Array<{ id: string; name: string; color: string }>;
 }
 
 interface MessageCardProps {
@@ -212,6 +213,20 @@ export const MessageCard = memo(function MessageCard({
                 style={{ color: 'var(--mui-palette-text-secondary)', flexShrink: 0 }}
               />
             )}
+            {message.labels?.slice(0, 2).map((label) => (
+              <Chip
+                key={label.id}
+                label={label.name}
+                size="small"
+                sx={{
+                  height: 16,
+                  fontSize: '0.6rem',
+                  bgcolor: label.color,
+                  color: 'white',
+                  '& .MuiChip-label': { px: 0.5 },
+                }}
+              />
+            ))}
           </Box>
 
           {/* Preview text (only when collapsed) */}
