@@ -21,6 +21,8 @@ import {
   UpdateAccountDto,
   ListAccountsQueryDto,
   LinkContactDto,
+  CreateAccountActivityDto,
+  ListAccountActivitiesQueryDto,
 } from '../dto/account.dto';
 
 @ApiTags('CRM - Accounts')
@@ -131,5 +133,30 @@ export class AccountController {
   ) {
     const tenantId = req.user.tenantId;
     return this.accountService.unlinkContact(tenantId, accountId, contactId);
+  }
+
+  // ---- Activities ----
+
+  @Get(':id/activities')
+  @ApiOperation({ summary: 'List activities for an account' })
+  @ApiResponse({ status: 200, description: 'Activities returned' })
+  async listActivities(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query() query: ListAccountActivitiesQueryDto,
+  ) {
+    return this.accountService.listActivities(req.user.tenantId, id, query);
+  }
+
+  @Post(':id/activities')
+  @ApiOperation({ summary: 'Create activity for an account' })
+  @ApiResponse({ status: 201, description: 'Activity created' })
+  @ApiResponse({ status: 404, description: 'Account not found' })
+  async createActivity(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateAccountActivityDto,
+  ) {
+    return this.accountService.createActivity(req.user.tenantId, id, dto);
   }
 }

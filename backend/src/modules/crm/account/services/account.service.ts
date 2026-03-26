@@ -12,6 +12,8 @@ import {
   UpdateAccountDto,
   ListAccountsQueryDto,
   LinkContactDto,
+  CreateAccountActivityDto,
+  ListAccountActivitiesQueryDto,
 } from '../dto/account.dto';
 
 @Injectable()
@@ -250,6 +252,52 @@ export class AccountService {
 
     await this.prisma.accountContact.delete({ where: { id: link.id } });
     return { deleted: true };
+  }
+
+  // ---- Activities ----
+
+  async listActivities(
+    tenantId: string,
+    accountId: string,
+    query: ListAccountActivitiesQueryDto,
+  ) {
+    await this.findById(tenantId, accountId);
+
+    const where = { accountId, tenantId };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.crmActivity.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: query.limit ?? 20,
+        skip: query.offset ?? 0,
+      }),
+      this.prisma.crmActivity.count({ where }),
+    ]);
+
+    return { data, total };
+  }
+
+  async createActivity(
+    tenantId: string,
+    accountId: string,
+    dto: CreateAccountActivityDto,
+  ) {
+    await this.findById(tenantId, accountId);
+
+    return this.prisma.crmActivity.create({
+      data: {
+        tenantId,
+        accountId,
+        type: dto.type,
+        content: dto.description,
+        metadata: {
+          ...(dto.date && { date: dto.date }),
+          ...(dto.durationMinutes !== undefined && {
+            durationMinutes: dto.durationMinutes,
+          }),
+        },
+      },
+    });
   }
 
   /**

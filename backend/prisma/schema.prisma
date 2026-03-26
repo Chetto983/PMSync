@@ -1697,6 +1697,7 @@ model CrmAccount {
   children    CrmAccount[] @relation("AccountHierarchy")
   contacts    AccountContact[]
   deals       CrmDeal[]
+  activities  CrmActivity[]
 
   @@index([tenantId])
   @@index([tenantId, name])
@@ -1782,18 +1783,22 @@ model CrmDeal {
 }
 
 model CrmActivity {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   tenantId  String
-  dealId    String
-  type      String   // STAGE_CHANGE, NOTE, EMAIL, CALL, MEETING, TASK
+  dealId    String?
+  accountId String?
+  type      String      // STAGE_CHANGE, NOTE, EMAIL, CALL, MEETING, TASK
   content   String?
-  metadata  Json?    // { fromStage, toStage } for STAGE_CHANGE, etc.
-  createdAt DateTime @default(now())
+  metadata  Json?       // { fromStage, toStage } for STAGE_CHANGE, etc.
+  createdAt DateTime    @default(now())
 
-  deal      CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal      CrmDeal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  account   CrmAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([dealId])
+  @@index([accountId])
   @@index([tenantId, dealId, createdAt])
+  @@index([tenantId, accountId, createdAt])
   @@map("crm_activities")
 }
 

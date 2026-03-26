@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsIn,
   IsObject,
+  IsDateString,
   Min,
   IsInt,
 } from 'class-validator';
@@ -158,6 +159,45 @@ export class ListAccountsQueryDto {
   @Min(1)
   @Type(() => Number)
   limit?: number = 25;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  offset?: number = 0;
+}
+
+// ---- Account Activities ----
+
+const ACTIVITY_TYPES = ['CALL', 'EMAIL', 'MEETING', 'TASK'] as const;
+
+export class CreateAccountActivityDto {
+  @IsString()
+  @IsIn(ACTIVITY_TYPES)
+  type!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  description?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  durationMinutes?: number;
+}
+
+export class ListAccountActivitiesQueryDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number = 20;
 
   @IsOptional()
   @IsInt()
