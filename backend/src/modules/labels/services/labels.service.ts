@@ -167,7 +167,7 @@ export class LabelsService {
       data.color =
         dto.color === null
           ? Prisma.JsonNull
-          : (dto.color as Prisma.InputJsonValue);
+          : ({ ...dto.color } as Prisma.InputJsonValue);
     }
     if (dto.icon !== undefined) {
       data.icon = dto.icon;
