@@ -31,6 +31,17 @@ export function crmPipelineDetailOptions(id: string) {
   });
 }
 
+export function crmPipelineMetricsOptions(id: string) {
+  return queryOptions({
+    queryKey: crmPipelinesKeys.metrics(id),
+    queryFn: () => crmPipelinesApi.getMetrics(id).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!id,
+  });
+}
+
 // ---- Hooks ----
 
 export function usePipelines() {
@@ -39,6 +50,10 @@ export function usePipelines() {
 
 export function usePipeline(id: string) {
   return useQuery(crmPipelineDetailOptions(id));
+}
+
+export function usePipelineMetrics(id: string) {
+  return useQuery(crmPipelineMetricsOptions(id));
 }
 
 export function useCreatePipeline() {

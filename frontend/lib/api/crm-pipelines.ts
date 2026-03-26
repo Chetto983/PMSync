@@ -77,6 +77,30 @@ export interface UpdateStageDto {
   automations?: StageAutomationRule[];
 }
 
+// ---- Metrics Types ----
+
+export interface StageMetric {
+  stageId: string;
+  stageName: string;
+  stageColor: string | null;
+  dealCount: number;
+  totalValue: number;
+  avgDaysInStage: number;
+}
+
+export interface PipelineMetrics {
+  pipelineId: string;
+  conversionRate: number;
+  avgDealVelocity: number;
+  winRate: number;
+  totalValue: number;
+  weightedValue: number;
+  openDeals: number;
+  wonDeals: number;
+  lostDeals: number;
+  stageMetrics: StageMetric[];
+}
+
 // ---- API ----
 
 export const crmPipelinesApi = {
@@ -118,5 +142,10 @@ export const crmPipelinesApi = {
       `/crm/pipelines/${pipelineId}/stages/reorder`,
       { orderedIds },
     );
+  },
+
+  // Metrics
+  getMetrics(pipelineId: string) {
+    return apiClient.get<PipelineMetrics>(`/crm/pipelines/${pipelineId}/metrics`);
   },
 };

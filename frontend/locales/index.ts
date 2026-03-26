@@ -4295,6 +4295,30 @@ export interface AppTranslations {
     breadcrumb?: {
       pipelines?: string;
       settings?: string;
+      dashboard?: string;
+    };
+    dashboard?: {
+      title?: string;
+      description?: string;
+      conversionRate?: string;
+      conversionRateDescription?: string;
+      avgDealVelocity?: string;
+      avgDealVelocityDescription?: string;
+      winRate?: string;
+      winRateDescription?: string;
+      totalValue?: string;
+      totalValueDescription?: string;
+      openDeals?: string;
+      openDealsDescription?: string;
+      weightedValue?: string;
+      weightedValueDescription?: string;
+      days?: string;
+      noData?: string;
+      noDataDescription?: string;
+      stageConversion?: string;
+      velocityTrend?: string;
+      dealsByStage?: string;
+      loadError?: string;
     };
   };
   crmDeals?: {
