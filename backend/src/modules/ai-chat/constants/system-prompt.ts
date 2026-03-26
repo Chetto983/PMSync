@@ -349,7 +349,7 @@ export function buildExtendedRuntimeContext(
       const isDefault = i === 0 ? ' [default]' : '';
       lines.push(`  - ${acc.email ?? 'unknown'}  (${label})${isDefault}`);
     }
-    lines.push('IMPORTANT: When sending/drafting/forwarding/replying to email with multiple accounts available, ALWAYS ask which account to send from using ask_user — unless the user already specified a "from" address. Never silently default to one account.');
+    lines.push('IMPORTANT: When sending/drafting/forwarding/replying to email with multiple accounts available, ALWAYS ask which account to send from using ask_user — unless the user already specified a "from" address. Never silently default to one account. After the user selects an account, immediately proceed with the original request (call send_email with the specified from address and all the original parameters). Do NOT re-ask for recipient, subject, or body — they were already provided.');
   }
 
   return lines.join('\n');
