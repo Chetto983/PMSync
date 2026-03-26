@@ -26,6 +26,7 @@ import {
 } from '../services/bulk-operations-queue.service';
 import { ProviderSyncBackQueueService } from '../services/provider-sync-back-queue.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
@@ -46,6 +47,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
     private readonly queueService: BulkOperationsQueueService,
     private readonly syncBackQueue: ProviderSyncBackQueueService,
     private readonly redisLock: RedisLockService,
+    private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {
     super(configService);
   }
@@ -215,7 +217,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
       case 'delete':
         // FIX L1: Honor permanent flag for hard vs soft delete
         if (permanent) {
-          // Hard delete - permanently remove from database
+          // Hard delete - permanently remove from database (DB cascade handles embeddings)
           await this.prisma.email.deleteMany({
             where: { id: { in: emailIds }, tenantId },
           });
@@ -225,6 +227,15 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
             where: { id: { in: emailIds }, tenantId },
             data: { isDeleted: true },
           });
+          // E1 FIX: Immediate embedding cleanup (fire-and-forget, non-blocking)
+          // Removes reliance on the 30-min scheduled cleanup job
+          this.knowledgeBaseService
+            .deleteEmbeddingsForEmails(tenantId, emailIds)
+            .catch((err) =>
+              this.logger.warn(
+                `Embedding cleanup failed for bulk soft-delete (${emailIds.length} emails): ${err instanceof Error ? err.message : String(err)}`,
+              ),
+            );
         }
         break;
 
