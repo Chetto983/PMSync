@@ -471,22 +471,26 @@ export function AccountDetail() {
       </Breadcrumbs>
 
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-        <IconButton
-          onClick={() => router.push('/dashboard/crm/accounts')}
-          size="small"
-        >
-          <ArrowLeft size={20} />
-        </IconButton>
-        <Building2 size={28} />
-        <Box sx={{ flex: 1 }}>
-          <InlineEditField
-            value={account.name}
-            fieldKey="name"
-            label={ta?.form?.name ?? 'Account Name'}
-            placeholder="Account name"
-            onSave={(_, val) => handleSave({ name: val })}
-          />
+      <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, flexDirection: { xs: 'column', md: 'row' }, gap: { xs: 1, md: 2 }, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+          <IconButton
+            onClick={() => router.push('/dashboard/crm/accounts')}
+            size="small"
+            aria-label="Back to accounts"
+            sx={{ minWidth: 44, minHeight: 44 }}
+          >
+            <ArrowLeft size={20} />
+          </IconButton>
+          <Building2 size={28} />
+          <Box sx={{ flex: 1 }}>
+            <InlineEditField
+              value={account.name}
+              fieldKey="name"
+              label={ta?.form?.name ?? 'Account Name'}
+              placeholder="Account name"
+              onSave={(_, val) => handleSave({ name: val })}
+            />
+          </Box>
         </Box>
       </Box>
 

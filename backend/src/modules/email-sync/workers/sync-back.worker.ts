@@ -327,8 +327,14 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
     accessToken: string,
     action: SyncBackJobData['action'],
     externalIds: string[],
-    options: { targetFolder?: string; permanent?: boolean },
+    options: { targetFolder?: string; permanent?: boolean; labelId?: string },
   ): Promise<void> {
+    // T-0901: Category operations require GET-then-PATCH (read-modify-write)
+    if (action === 'add-label' || action === 'remove-label') {
+      await this.syncMicrosoftCategories(accessToken, action, externalIds, options.labelId);
+      return;
+    }
+
     // Microsoft Graph $batch endpoint - up to 20 requests per batch
     const MICROSOFT_BATCH_SIZE = 20;
     const batchUrl = 'https://graph.microsoft.com/v1.0/$batch';
@@ -372,10 +378,8 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
             break;
           case 'delete':
             if (options.permanent) {
-              // Permanent delete - bypasses Deleted Items
               method = 'DELETE';
             } else {
-              // Soft delete - move to Deleted Items (recoverable)
               url = `/me/messages/${messageId}/move`;
               method = 'POST';
               body = { destinationId: 'deleteditems' };
@@ -433,7 +437,6 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
       let successCount = 0;
 
       for (const res of batchResponse.responses) {
-        // 200, 201, 204 are success codes
         if (res.status >= 400) {
           const messageId = batchIds[parseInt(res.id, 10) - 1];
           const errorMsg = res.body?.error?.message || `Status ${res.status}`;
@@ -443,18 +446,111 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
         }
       }
 
-      // Log per-item errors but don't fail the entire batch if some succeeded
       if (itemErrors.length > 0) {
         this.logger.warn(
           `Microsoft ${action} partial failures: ${itemErrors.length}/${batchIds.length} failed`,
-          { errors: itemErrors.slice(0, 5) }, // Log first 5 errors
+          { errors: itemErrors.slice(0, 5) },
         );
 
-        // Only throw if ALL items failed - partial success continues
         if (successCount === 0) {
           throw new Error(`Microsoft ${action} completely failed: ${itemErrors.join('; ')}`);
         }
       }
+    }
+  }
+
+  /**
+   * T-0901: Sync UserLabel as Outlook category via GET-then-PATCH.
+   * Microsoft Graph categories are a string[] on each message; there is no
+   * atomic "add one category" API, so we read existing categories first.
+   * Rate-limited to 4 requests/second per the Graph API throttling guidance.
+   */
+  private async syncMicrosoftCategories(
+    accessToken: string,
+    action: 'add-label' | 'remove-label',
+    externalIds: string[],
+    categoryName?: string,
+  ): Promise<void> {
+    if (!categoryName) {
+      this.logger.warn('Microsoft category sync-back called without category name');
+      return;
+    }
+
+    const graphBase = 'https://graph.microsoft.com/v1.0';
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    // Process in small batches with rate limiting (max 4 req/s → ~250ms between calls)
+    const RATE_DELAY_MS = 250;
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const messageId of externalIds) {
+      try {
+        // Step 1: GET current categories
+        const getRes = await fetch(`${graphBase}/me/messages/${messageId}?$select=categories`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!getRes.ok) {
+          const errText = await getRes.text();
+          this.logger.warn(`Microsoft GET categories failed for ${messageId}: ${getRes.status} ${errText}`);
+          failCount++;
+          continue;
+        }
+
+        const msgData = (await getRes.json()) as { categories?: string[] };
+        const existing = msgData.categories || [];
+
+        // Step 2: Compute new categories array
+        let updated: string[];
+        if (action === 'add-label') {
+          if (existing.includes(categoryName)) {
+            successCount++;
+            continue; // Already has this category
+          }
+          updated = [...existing, categoryName];
+        } else {
+          if (!existing.includes(categoryName)) {
+            successCount++;
+            continue; // Doesn't have this category
+          }
+          updated = existing.filter((c) => c !== categoryName);
+        }
+
+        // Step 3: PATCH with updated categories
+        const patchRes = await fetch(`${graphBase}/me/messages/${messageId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ categories: updated }),
+        });
+
+        if (!patchRes.ok) {
+          const errText = await patchRes.text();
+          this.logger.warn(`Microsoft PATCH categories failed for ${messageId}: ${patchRes.status} ${errText}`);
+          failCount++;
+        } else {
+          successCount++;
+        }
+      } catch (err) {
+        this.logger.warn(`Microsoft category sync error for ${messageId}: ${err instanceof Error ? err.message : err}`);
+        failCount++;
+      }
+
+      // Rate limit: ~4 requests/second (2 calls per message → 250ms delay between messages)
+      if (externalIds.indexOf(messageId) < externalIds.length - 1) {
+        await new Promise((r) => setTimeout(r, RATE_DELAY_MS));
+      }
+    }
+
+    this.logger.log(
+      `Microsoft ${action} categories: ${successCount} synced, ${failCount} failed, category="${categoryName}"`,
+    );
+
+    if (failCount > 0 && successCount === 0) {
+      throw new Error(`Microsoft ${action} categories completely failed for all ${externalIds.length} messages`);
     }
   }
 

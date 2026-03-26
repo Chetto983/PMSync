@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -9,6 +10,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { emailLabelsInclude } from '../../../common/utils';
 import { EmailsService } from '../../email/services/emails.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { ProviderSyncBackQueueService } from '../../email-sync/services/provider-sync-back-queue.service';
 import {
   AddEmailsToLabelDto,
   CreateLabelDto,
@@ -18,10 +20,13 @@ import {
 
 @Injectable()
 export class LabelsService {
+  private readonly logger = new Logger(LabelsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailsService: EmailsService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly syncBackQueue: ProviderSyncBackQueueService,
   ) {}
 
   async findAllByTenant(tenantId: string) {
@@ -405,6 +410,15 @@ export class LabelsService {
       timestamp: new Date().toISOString(),
     });
 
+    // T-0901: Queue sync-back for Microsoft providers (UserLabel → Outlook category)
+    const label = await this.prisma.userLabel.findUnique({
+      where: { id: labelId },
+      select: { name: true },
+    });
+    if (label) {
+      await this.queueLabelSyncBack(tenantId, updatedEmails, 'add-label', label.name);
+    }
+
     return { count: validEmails.length, emails: updatedEmails };
   }
 
@@ -459,6 +473,17 @@ export class LabelsService {
       timestamp: new Date().toISOString(),
     });
 
+    // T-0901: Queue sync-back for Microsoft providers (remove Outlook category)
+    if (updatedEmail) {
+      const label = await this.prisma.userLabel.findUnique({
+        where: { id: labelId },
+        select: { name: true },
+      });
+      if (label) {
+        await this.queueLabelSyncBack(tenantId, [updatedEmail], 'remove-label', label.name);
+      }
+    }
+
     return updatedEmail || null;
   }
 
@@ -510,6 +535,47 @@ export class LabelsService {
     }
 
     await this.prisma.$transaction(updates);
+  }
+
+  /**
+   * T-0901: Queue label sync-back for Microsoft provider emails.
+   * Maps UserLabel name → Outlook category. IMAP and Google are no-ops here
+   * (Google uses native Gmail labels via sync-back worker, IMAP has no category concept).
+   */
+  private async queueLabelSyncBack(
+    tenantId: string,
+    emails: Array<{ id: string; providerId: string; provider?: { providerType?: string } | null }>,
+    action: 'add-label' | 'remove-label',
+    labelName: string,
+  ): Promise<void> {
+    // Group emails by provider, filter to Microsoft only
+    const byProvider = new Map<string, string[]>();
+    for (const email of emails) {
+      const providerType = email.provider?.providerType;
+      if (providerType === 'microsoft') {
+        const ids = byProvider.get(email.providerId) || [];
+        ids.push(email.id);
+        byProvider.set(email.providerId, ids);
+      }
+    }
+
+    if (byProvider.size === 0) return;
+
+    const jobs = Array.from(byProvider.entries()).map(([providerId, emailIds]) => ({
+      tenantId,
+      providerId,
+      providerType: 'microsoft' as const,
+      action,
+      emailIds,
+      labelId: labelName, // Outlook category name = UserLabel name
+      requestedAt: new Date().toISOString(),
+      priority: 'high' as const,
+    }));
+
+    await this.syncBackQueue.enqueueBulkSyncBack(jobs);
+    this.logger.debug(
+      `Queued ${action} sync-back for ${jobs.length} Microsoft provider(s), label="${labelName}"`,
+    );
   }
 
   /**

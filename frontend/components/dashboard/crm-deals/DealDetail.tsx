@@ -185,46 +185,51 @@ export function DealDetail() {
       </Breadcrumbs>
 
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-        <IconButton
-          onClick={() => router.push('/dashboard/crm/deals')}
-          size="small"
-          aria-label="Back to deals"
-        >
-          <ArrowLeft size={20} />
-        </IconButton>
-        <Handshake size={28} />
-        <Box sx={{ flex: 1 }}>
-          <InlineEditField
-            value={deal.name}
-            label={td?.form?.name ?? 'Deal Name'}
-            placeholder="Deal name"
-            onSave={(val) => handleSave({ name: val })}
-          />
+      <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, flexDirection: { xs: 'column', md: 'row' }, gap: { xs: 1, md: 2 }, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', md: 'auto' } }}>
+          <IconButton
+            onClick={() => router.push('/dashboard/crm/deals')}
+            size="small"
+            aria-label="Back to deals"
+            sx={{ minWidth: 44, minHeight: 44 }}
+          >
+            <ArrowLeft size={20} />
+          </IconButton>
+          <Handshake size={28} />
+          <Box sx={{ flex: 1 }}>
+            <InlineEditField
+              value={deal.name}
+              label={td?.form?.name ?? 'Deal Name'}
+              placeholder="Deal name"
+              onSave={(val) => handleSave({ name: val })}
+            />
+          </Box>
         </Box>
-        {deal.stage && (
-          <Chip
-            label={deal.stage.name}
-            variant="outlined"
-            sx={{
-              borderColor: deal.stage.color ?? undefined,
-              color: deal.stage.color ?? undefined,
-            }}
-          />
-        )}
-        {deal.amount && (
-          <Typography variant="h6" fontWeight={600}>
-            {new Intl.NumberFormat(undefined, {
-              style: 'currency',
-              currency: deal.currency,
-              minimumFractionDigits: 0,
-            }).format(parseFloat(deal.amount))}
-          </Typography>
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: { xs: 0, md: 'auto' } }}>
+          {deal.stage && (
+            <Chip
+              label={deal.stage.name}
+              variant="outlined"
+              sx={{
+                borderColor: deal.stage.color ?? undefined,
+                color: deal.stage.color ?? undefined,
+              }}
+            />
+          )}
+          {deal.amount && (
+            <Typography variant="h6" fontWeight={600}>
+              {new Intl.NumberFormat(undefined, {
+                style: 'currency',
+                currency: deal.currency,
+                minimumFractionDigits: 0,
+              }).format(parseFloat(deal.amount))}
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       {/* Action Buttons */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, ml: 7 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, ml: { xs: 0, md: 7 } }}>
         <Tooltip title={td?.detail?.actions?.prevStage ?? 'Previous Stage'}>
           <span>
             <IconButton
@@ -232,6 +237,7 @@ export function DealDetail() {
               onClick={() => handleChangeStage('prev')}
               disabled={currentStageIndex <= 0 || changeDealStage.isPending}
               aria-label="Previous stage"
+              sx={{ minWidth: 44, minHeight: 44 }}
             >
               <ChevronLeft size={18} />
             </IconButton>
@@ -244,6 +250,7 @@ export function DealDetail() {
               onClick={() => handleChangeStage('next')}
               disabled={currentStageIndex >= stages.length - 1 || changeDealStage.isPending}
               aria-label="Next stage"
+              sx={{ minWidth: 44, minHeight: 44 }}
             >
               <ChevronRight size={18} />
             </IconButton>

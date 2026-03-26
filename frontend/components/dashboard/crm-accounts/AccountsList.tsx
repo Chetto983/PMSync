@@ -17,6 +17,11 @@ import {
   TableHead,
   TableRow,
   TablePagination,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import { Search, Plus, Trash2, ExternalLink, Download } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -36,6 +41,7 @@ export function AccountsList() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const { data, isLoading, isError, error } = useAccounts({
     search: search || undefined,
@@ -46,10 +52,11 @@ export function AccountsList() {
   const router = useRouter();
   const deleteAccount = useDeleteAccount();
 
-  const handleDelete = (id: string) => {
-    if (window.confirm(ta?.deleteConfirm ?? 'Delete?')) {
-      deleteAccount.mutate(id);
-    }
+  const handleDelete = () => {
+    if (!confirmDeleteId) return;
+    deleteAccount.mutate(confirmDeleteId, {
+      onSettled: () => setConfirmDeleteId(null),
+    });
   };
 
   // Loading state
@@ -215,7 +222,11 @@ export function AccountsList() {
                     <TableCell align="center">{account._count?.deals ?? 0}</TableCell>
                     <TableCell>
                       <Tooltip title={ta?.deleteAccount ?? 'Delete'}>
-                        <IconButton size="small" onClick={() => handleDelete(account.id)}>
+                        <IconButton
+                          size="small"
+                          sx={{ minWidth: 44, minHeight: 44 }}
+                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(account.id); }}
+                        >
                           <Trash2 size={16} />
                         </IconButton>
                       </Tooltip>
@@ -255,6 +266,24 @@ export function AccountsList() {
       )}
 
       <CreateAccountDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{ta?.deleteAccount ?? 'Delete Account'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {ta?.deleteConfirm ?? 'Are you sure? This action cannot be undone.'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteId(null)} disabled={deleteAccount.isPending}>
+            {tc?.cancel ?? 'Cancel'}
+          </Button>
+          <Button onClick={handleDelete} color="error" variant="contained" disabled={deleteAccount.isPending}>
+            {ta?.deleteAccount ?? 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

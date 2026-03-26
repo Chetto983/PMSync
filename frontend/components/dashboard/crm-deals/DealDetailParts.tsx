@@ -86,7 +86,11 @@ export function InlineEditField({
   return (
     <Tooltip title={label}>
       <Box
+        role="button"
+        tabIndex={0}
+        aria-label={`${label}: ${value || placeholder}`}
         onClick={() => { setDraft(value ?? ''); setEditing(true); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDraft(value ?? ''); setEditing(true); } }}
         sx={{
           cursor: 'pointer',
           '&:hover': { bgcolor: 'action.hover' },
@@ -106,7 +110,7 @@ export function InlineEditField({
         >
           {value || placeholder}
         </Typography>
-        <Pencil size={14} style={{ opacity: 0.4 }} />
+        <Pencil size={14} style={{ opacity: 0.5 }} />
       </Box>
     </Tooltip>
   );
