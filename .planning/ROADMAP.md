@@ -278,7 +278,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 112. Full Sync Validation | 2/2 | Complete    | 2026-03-26 |
 | 113. Incremental Sync & Webhooks | 0/2 | Complete    | 2026-03-26 |
-| 114. Sync-back Operations | 2/2 | Complete   | 2026-03-26 |
+| 114. Sync-back Operations | 2/2 | Complete    | 2026-03-26 |
 | 115. Email List & Thread Reading | 0/? | Not started | - |
 | 116. Attachments & Search | 0/? | Not started | - |
 | 117. Email Send & Reply/Forward | 0/? | Not started | - |
