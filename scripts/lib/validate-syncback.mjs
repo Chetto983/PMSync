@@ -455,7 +455,9 @@ async function testLabelAddRemove(context, cookieHeader, csrfToken, provider, re
     return;
   }
 
-  const testLabel = userLabels[0];
+  // Skip system labels (Spam, Trash, etc.) — they trigger side effects on Gmail
+  const systemNames = ['spam', 'trash', 'drafts', 'sent', 'inbox', 'starred', 'important', 'unread'];
+  const testLabel = userLabels.find(l => !systemNames.includes((l.name || '').toLowerCase())) || userLabels[0];
   console.log(`  Using label: "${testLabel.name}" (${testLabel.id})`);
 
   // Find a Gmail email
@@ -470,7 +472,7 @@ async function testLabelAddRemove(context, cookieHeader, csrfToken, provider, re
   // Record original label state
   const beforeEmail = await getEmail(context, cookieHeader, email.id);
   const hadLabel = (beforeEmail.emailLabels || beforeEmail.labels || [])
-    .some(el => (el.labelId || el.id) === testLabel.id);
+    .some(el => (el.label?.id || el.labelId || el.id) === testLabel.id);
 
   // Add label
   await apiPatch(
@@ -483,8 +485,9 @@ async function testLabelAddRemove(context, cookieHeader, csrfToken, provider, re
 
   // Verify label added
   const afterAdd = await getEmail(context, cookieHeader, email.id);
-  const hasLabelAfterAdd = (afterAdd.emailLabels || afterAdd.labels || [])
-    .some(el => (el.labelId || el.id) === testLabel.id);
+  const labelList = afterAdd.emailLabels || afterAdd.labels || [];
+  const hasLabelAfterAdd = labelList
+    .some(el => (el.label?.id || el.labelId || el.id) === testLabel.id);
   assertTrue(
     hasLabelAfterAdd,
     `SYNC-13: ${label} label "${testLabel.name}" added to email`,
@@ -502,7 +505,7 @@ async function testLabelAddRemove(context, cookieHeader, csrfToken, provider, re
   // Verify label removed
   const afterRemove = await getEmail(context, cookieHeader, email.id);
   const hasLabelAfterRemove = (afterRemove.emailLabels || afterRemove.labels || [])
-    .some(el => (el.labelId || el.id) === testLabel.id);
+    .some(el => (el.label?.id || el.labelId || el.id) === testLabel.id);
   assertTrue(
     !hasLabelAfterRemove,
     `SYNC-13: ${label} label "${testLabel.name}" removed from email`,
