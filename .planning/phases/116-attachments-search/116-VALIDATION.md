@@ -2,7 +2,7 @@
 phase: 116
 slug: attachments-search
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-26
 ---
@@ -18,9 +18,10 @@ created: 2026-03-26
 | Property | Value |
 |----------|-------|
 | **Framework** | Node.js validation scripts (.mjs) + Playwright for binary downloads |
-| **Config file** | `backend/tests/validation/116-attachments-search/` |
-| **Quick run command** | `node backend/tests/validation/116-attachments-search/validate-attachments-search.mjs --provider gmail` |
-| **Full suite command** | `node backend/tests/validation/116-attachments-search/validate-attachments-search.mjs` |
+| **Orchestrator** | `scripts/validate-attachments-search.mjs` |
+| **Module** | `scripts/lib/validate-attachments-search.mjs` |
+| **Quick run command** | `node scripts/validate-attachments-search.mjs --provider=gmail --quick` |
+| **Full suite command** | `node scripts/validate-attachments-search.mjs` |
 | **Estimated runtime** | ~30 seconds |
 
 ---
@@ -38,22 +39,21 @@ created: 2026-03-26
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 116-01-01 | 01 | 1 | READ-06 | integration | `node validate-attachments-search.mjs --module attachment-download` | ❌ W0 | ⬜ pending |
-| 116-01-02 | 01 | 1 | READ-07 | integration | `node validate-attachments-search.mjs --module on-demand-fetch` | ❌ W0 | ⬜ pending |
-| 116-01-03 | 01 | 1 | READ-08 | integration | `node validate-attachments-search.mjs --module folder-stats` | ❌ W0 | ⬜ pending |
-| 116-01-04 | 01 | 1 | READ-09 | integration | `node validate-attachments-search.mjs --module search` | ❌ W0 | ⬜ pending |
-| 116-02-01 | 02 | 2 | READ-06..09 | live | `node validate-attachments-search.mjs --live` | ❌ W0 | ⬜ pending |
+| 116-01-01 | 01 | 1 | READ-06..09 | static | `node -e "import('./scripts/lib/validate-attachments-search.mjs').then(m => { if (typeof m.validateAttachmentsSearch !== 'function') process.exit(1); })"` | W0 | pending |
+| 116-01-02 | 01 | 1 | READ-06..09 | static | `node -e "import('./scripts/validate-attachments-search.mjs').catch(e => { if (/9222\|CDP\|ECONNREFUSED/.test(e.message)) process.exit(0); process.exit(1); })"` | W0 | pending |
+| 116-02-01 | 02 | 2 | READ-06..09 | live | `node scripts/validate-attachments-search.mjs --provider=gmail --quick` | W0 | pending |
+| 116-02-02 | 02 | 2 | READ-06..09 | checkpoint | Human verifies full provider suite output | -- | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `backend/tests/validation/116-attachments-search/validate-attachments-search.mjs` — orchestrator script
-- [ ] `backend/tests/validation/116-attachments-search/modules/` — per-requirement validation modules
+- [ ] `scripts/validate-attachments-search.mjs` -- orchestrator script (created by Plan 01 Task 2)
+- [ ] `scripts/lib/validate-attachments-search.mjs` -- validation logic module (created by Plan 01 Task 1)
 
-*Reuses existing validation infra from phases 112-115.*
+*Reuses existing validation infra from phases 112-115 (`scripts/lib/validation-helpers.mjs`).*
 
 ---
 
@@ -68,11 +68,11 @@ created: 2026-03-26
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
