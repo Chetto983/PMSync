@@ -186,7 +186,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. List emails with a folder filter returns only emails belonging to that folder for each provider
   2. Compound filters (isRead + hasAttachments + dateRange) return the correct intersection of matching emails
-  3. Cursor-based pagination returns consistent, non-duplicated results across multiple pages
+  3. Offset-based pagination returns consistent, non-duplicated results across multiple pages
   4. Thread view groups related emails by conversation and lazy-fetches any missing message bodies
   5. Single email GET returns the full HTML body, all headers, and complete metadata
 **Plans**: 2 plans
