@@ -7,6 +7,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
   ScheduledJobsQueueService,
   ScheduledJobType,
@@ -50,6 +51,10 @@ export class TelegramSchedulerService implements OnModuleInit {
   }
 
   private async processSlot(slot: SlotName): Promise<void> {
+    return withoutTenantScopingAsync(() => this._processSlotInner(slot));
+  }
+
+  private async _processSlotInner(slot: SlotName): Promise<void> {
     this.logger.log(`Processing Telegram slot: ${slot}`);
 
     // Find all users with active Telegram settings

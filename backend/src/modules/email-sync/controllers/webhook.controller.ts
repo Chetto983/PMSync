@@ -23,6 +23,7 @@ import { SyncAuthService } from '../services/sync-auth.service';
 import { Public } from '../../../common/auth/public.decorator';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { SkipThrottle } from '@nestjs/throttler';
+import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator';
 
 @ApiTags('Webhooks - Email Sync')
 @Public()
@@ -127,6 +128,7 @@ export class WebhookController {
    */
   @Post('microsoft/notifications')
   @HttpCode(HttpStatus.OK)
+  @SkipEnvelope()
   @ApiOperation({ summary: 'Microsoft Graph webhook', description: 'Receives notifications from Microsoft Graph API' })
   @ApiQuery({ name: 'validationToken', description: 'Microsoft subscription validation token', required: false })
   @ApiResponse({ status: 200, description: 'Notification processed or validation token returned' })

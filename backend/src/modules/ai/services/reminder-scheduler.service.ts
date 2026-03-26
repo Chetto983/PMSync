@@ -17,6 +17,7 @@ import { Job, Queue, Worker } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { FollowUpStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
@@ -118,6 +119,10 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processReminderCheck(_job: Job<ReminderJobData>): Promise<ReminderJobResult> {
+    return withoutTenantScopingAsync(() => this._processReminderCheckInner());
+  }
+
+  private async _processReminderCheckInner(): Promise<ReminderJobResult> {
     const now = Date.now();
     const result: ReminderJobResult = { upcoming: 0, imminent: 0, overdue: 0, expired: 0 };
 
