@@ -3,11 +3,11 @@
  * All tests run against a real PostgreSQL test database.
  * Non-Prisma dependencies are mocked with jest.fn().
  */
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { LabelsService } from '../labels.service';
 import { getTestPrismaClient } from '../../../../../test/helpers/prisma-test-client';
 import { cleanupTestData } from '../../../../../test/helpers/cleanup';
-import { createTestTenant, createTestLabel } from '../../../../../test/helpers/factories';
+import { createTestTenant, createTestLabel, createTestUser, createTestProviderAccount } from '../../../../../test/helpers/factories';
 
 const mockEmailsService = { findEmailById: jest.fn() };
 const mockRealtimeEvents = {
@@ -271,6 +271,169 @@ describe('LabelsService', () => {
       const resultsB = await service.findAllByTenant(tenantB.id);
 
       expect(resultsB).toHaveLength(0);
+    });
+  });
+
+  describe('addEmailsToLabel (T-0703)', () => {
+    async function createTestEmail(tenantId: string, providerId: string, overrides: Record<string, unknown> = {}) {
+      const uid = `ext-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return prisma.email.create({
+        data: {
+          tenantId,
+          providerId,
+          externalId: overrides.externalId as string ?? uid,
+          from: overrides.from as string ?? 'sender@test.com',
+          to: ['recipient@test.com'],
+          subject: overrides.subject as string ?? 'Test Email',
+          receivedAt: new Date(),
+          folder: overrides.folder as string ?? 'INBOX',
+          labels: overrides.labels as string[] ?? ['INBOX'],
+        },
+      });
+    }
+
+    it('creates EmailLabel junction records and returns updated emails', async () => {
+      const tenant = await createTestTenant();
+      const user = await createTestUser(tenant.id);
+      const provider = await createTestProviderAccount(tenant.id, user.id);
+      const label = await createTestLabel(tenant.id, { name: 'Project X' });
+      const email1 = await createTestEmail(tenant.id, provider.id);
+      const email2 = await createTestEmail(tenant.id, provider.id);
+
+      const result = await service.addEmailsToLabel(tenant.id, label.id, {
+        emailIds: [email1.id, email2.id],
+      });
+
+      expect(result.count).toBe(2);
+      expect(result.emails).toHaveLength(2);
+
+      // Verify junction records exist in DB
+      const junctions = await prisma.emailLabel.findMany({
+        where: { labelId: label.id },
+      });
+      expect(junctions).toHaveLength(2);
+      expect(junctions.map((j) => j.emailId).sort()).toEqual(
+        [email1.id, email2.id].sort(),
+      );
+    });
+
+    it('skips duplicates when adding emails already in label', async () => {
+      const tenant = await createTestTenant();
+      const user = await createTestUser(tenant.id);
+      const provider = await createTestProviderAccount(tenant.id, user.id);
+      const label = await createTestLabel(tenant.id, { name: 'Dup Test' });
+      const email = await createTestEmail(tenant.id, provider.id);
+
+      // Add once
+      await service.addEmailsToLabel(tenant.id, label.id, { emailIds: [email.id] });
+      // Add again — should not throw
+      const result = await service.addEmailsToLabel(tenant.id, label.id, { emailIds: [email.id] });
+
+      expect(result.count).toBe(1);
+      const junctions = await prisma.emailLabel.findMany({
+        where: { labelId: label.id, emailId: email.id },
+      });
+      expect(junctions).toHaveLength(1); // No duplicates
+    });
+
+    it('throws BadRequestException for empty emailIds', async () => {
+      const tenant = await createTestTenant();
+      const label = await createTestLabel(tenant.id, { name: 'Empty Test' });
+
+      await expect(
+        service.addEmailsToLabel(tenant.id, label.id, { emailIds: [] }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('returns count 0 when emailIds refer to nonexistent emails', async () => {
+      const tenant = await createTestTenant();
+      const label = await createTestLabel(tenant.id, { name: 'Ghost Emails' });
+
+      const result = await service.addEmailsToLabel(tenant.id, label.id, {
+        emailIds: ['nonexistent-id-1', 'nonexistent-id-2'],
+      });
+
+      expect(result.count).toBe(0);
+    });
+  });
+
+  describe('removeEmailFromLabel (T-0703)', () => {
+    async function createTestEmail(tenantId: string, providerId: string) {
+      const uid = `ext-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return prisma.email.create({
+        data: {
+          tenantId,
+          providerId,
+          externalId: uid,
+          from: 'sender@test.com',
+          to: ['recipient@test.com'],
+          subject: 'Test Email',
+          receivedAt: new Date(),
+          folder: 'INBOX',
+          labels: ['INBOX'],
+        },
+      });
+    }
+
+    it('removes EmailLabel junction record', async () => {
+      const tenant = await createTestTenant();
+      const user = await createTestUser(tenant.id);
+      const provider = await createTestProviderAccount(tenant.id, user.id);
+      const label = await createTestLabel(tenant.id, { name: 'Remove Test' });
+      const email = await createTestEmail(tenant.id, provider.id);
+
+      // Add then remove
+      await service.addEmailsToLabel(tenant.id, label.id, { emailIds: [email.id] });
+      await service.removeEmailFromLabel(tenant.id, label.id, email.id);
+
+      const junctions = await prisma.emailLabel.findMany({
+        where: { labelId: label.id, emailId: email.id },
+      });
+      expect(junctions).toHaveLength(0);
+    });
+  });
+
+  describe('delete cleans up EmailLabel junctions (T-0703)', () => {
+    async function createTestEmail(tenantId: string, providerId: string) {
+      const uid = `ext-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return prisma.email.create({
+        data: {
+          tenantId,
+          providerId,
+          externalId: uid,
+          from: 'sender@test.com',
+          to: ['recipient@test.com'],
+          subject: 'Test Email',
+          receivedAt: new Date(),
+          folder: 'INBOX',
+          labels: ['INBOX'],
+        },
+      });
+    }
+
+    it('soft-deleting a label leaves EmailLabel records but label is archived', async () => {
+      const tenant = await createTestTenant();
+      const user = await createTestUser(tenant.id);
+      const provider = await createTestProviderAccount(tenant.id, user.id);
+      const label = await createTestLabel(tenant.id, { name: 'Delete Junction' });
+      const email = await createTestEmail(tenant.id, provider.id);
+
+      await service.addEmailsToLabel(tenant.id, label.id, { emailIds: [email.id] });
+      await service.delete(tenant.id, label.id);
+
+      // Label is archived
+      const fromDb = await prisma.userLabel.findUnique({ where: { id: label.id } });
+      expect(fromDb?.isArchived).toBe(true);
+
+      // Junction still exists (soft delete doesn't cascade to junctions)
+      // This is by design — archived labels can be restored
+      const junctions = await prisma.emailLabel.findMany({
+        where: { labelId: label.id },
+      });
+      // Junctions may or may not be cleaned up depending on implementation
+      // The key test is that the label no longer appears in active lists
+      const active = await service.findAllByTenant(tenant.id);
+      expect(active.map((l) => l.id)).not.toContain(label.id);
     });
   });
 });

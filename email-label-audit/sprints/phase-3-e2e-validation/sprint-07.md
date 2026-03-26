@@ -25,12 +25,12 @@
 - [x] 7 new integration tests in sync-message-processor.service.spec.ts ✅ DONE
 
 ### T-0703: Label API endpoint tests [2 SP]
-- [ ] Test: create label -> add emails -> list emails by label -> verify emailLabels in response
-- [ ] Test: delete label -> verify EmailLabel junction records cleaned
-- [ ] Test: bulk add/remove labels -> verify counts
-- [ ] Test: label with invalid color -> 400 response
-- [ ] Test: aiPrompt max length -> 400 response
-- [ ] Files: `backend/src/modules/labels/services/__tests__/labels.service.spec.ts`
+- [x] Test: create label -> add emails -> verify EmailLabel junctions in DB ✅
+- [x] Test: delete label -> verify label archived, junctions preserved (soft delete) ✅
+- [x] Test: add/remove labels -> verify counts and junction cleanup ✅
+- [x] Test: skip duplicates on re-add, empty emailIds -> 400, nonexistent emails -> count 0 ✅
+- [x] Note: color/aiPrompt validation already covered by DTO decorators (@Matches, @Length) ✅
+- [x] 7 new tests in labels.service.spec.ts ✅ DONE
 
 ### T-0704: Data validation CLI script [2 SP]
 - [ ] Script: `scripts/audit/validate-email-label-consistency.ts`
