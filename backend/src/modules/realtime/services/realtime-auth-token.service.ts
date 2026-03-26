@@ -1,9 +1,11 @@
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { resolveSessionTenantContext } from '../../../common/auth/session-tenant-resolver';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
@@ -50,6 +52,8 @@ function decodeBase64Url(value: string): string {
 
 @Injectable()
 export class RealtimeAuthTokenService {
+  private readonly logger = new Logger(RealtimeAuthTokenService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   private getSigningSecret(): string {
@@ -174,8 +178,26 @@ export class RealtimeAuthTokenService {
       throw new UnauthorizedException('Realtime auth token expired');
     }
 
-    const currentTenantId =
-      persistedSession.activeOrganizationId || persistedSession.user.tenantId;
+    const tenantContext = await resolveSessionTenantContext(this.prisma, {
+      userId: persistedSession.userId,
+      userTenantId: persistedSession.user.tenantId,
+      activeOrganizationId: persistedSession.activeOrganizationId,
+    });
+    const currentTenantId = tenantContext.tenantId;
+
+    if (tenantContext.rejectedActiveOrganizationId) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_token_invalid_active_org_fallback',
+          userId: persistedSession.userId,
+          sessionId: persistedSession.id,
+          rejectedActiveOrganizationId: tenantContext.rejectedActiveOrganizationId,
+          fallbackTenantId: currentTenantId,
+          reason: tenantContext.fallbackReason,
+        }),
+      );
+    }
+
     if (!currentTenantId || currentTenantId !== payload.tid) {
       throw new UnauthorizedException('Realtime auth token no longer matches session context');
     }
@@ -183,7 +205,7 @@ export class RealtimeAuthTokenService {
     return {
       session: {
         id: persistedSession.id,
-        activeOrganizationId: persistedSession.activeOrganizationId,
+        activeOrganizationId: tenantContext.activeOrganizationId,
       },
       user: {
         id: persistedSession.user.id,

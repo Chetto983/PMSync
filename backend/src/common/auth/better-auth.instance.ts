@@ -498,6 +498,22 @@ export function createBetterAuthInstance(
                 },
               };
             }
+
+            const persistedUser = await withoutTenantScopingAsync(() =>
+              prisma.user.findUnique({
+                where: { id: session.userId },
+                select: { tenantId: true },
+              }),
+            );
+            if (persistedUser?.tenantId) {
+              return {
+                data: {
+                  ...session,
+                  activeOrganizationId: persistedUser.tenantId,
+                },
+              };
+            }
+
             return { data: session };
           },
         },

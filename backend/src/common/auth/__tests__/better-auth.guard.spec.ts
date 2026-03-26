@@ -13,6 +13,7 @@ describe('BetterAuthGuard', () => {
   let guard: BetterAuthGuard;
   let reflector: Reflector;
   let mockAuth: { api: { getSession: jest.Mock } };
+  let mockPrisma: { member: { findFirst: jest.Mock } };
 
   const createMockContext = (headers: Record<string, string> = {}): ExecutionContext => {
     const request = {
@@ -35,9 +36,14 @@ describe('BetterAuthGuard', () => {
         getSession: jest.fn(),
       },
     };
+    mockPrisma = {
+      member: {
+        findFirst: jest.fn(),
+      },
+    };
 
     reflector = new Reflector();
-    guard = new BetterAuthGuard(mockAuth, reflector);
+    guard = new BetterAuthGuard(mockAuth, reflector, mockPrisma as any);
   });
 
   it('should return true and set request.user for a valid session', async () => {

@@ -11,6 +11,7 @@ describe('BetterAuthGuard - activeOrganizationId', () => {
   let guard: BetterAuthGuard;
   let reflector: Reflector;
   let mockAuth: { api: { getSession: jest.Mock } };
+  let mockPrisma: { member: { findFirst: jest.Mock } };
 
   const createMockContext = (headers: Record<string, string> = {}) => {
     const request = { headers, user: undefined as any };
@@ -23,8 +24,13 @@ describe('BetterAuthGuard - activeOrganizationId', () => {
 
   beforeEach(() => {
     mockAuth = { api: { getSession: jest.fn() } };
+    mockPrisma = {
+      member: {
+        findFirst: jest.fn(),
+      },
+    };
     reflector = new Reflector();
-    guard = new BetterAuthGuard(mockAuth, reflector);
+    guard = new BetterAuthGuard(mockAuth, reflector, mockPrisma as any);
   });
 
   it('should use activeOrganizationId as tenantId when set on session', async () => {
@@ -42,6 +48,10 @@ describe('BetterAuthGuard - activeOrganizationId', () => {
       },
     });
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    mockPrisma.member.findFirst.mockResolvedValue({
+      organizationId: 'org-123',
+      organization: { isActive: true },
+    });
 
     await guard.canActivate(ctx);
     const request = ctx.switchToHttp().getRequest();
@@ -88,5 +98,52 @@ describe('BetterAuthGuard - activeOrganizationId', () => {
     await guard.canActivate(ctx);
     const request = ctx.switchToHttp().getRequest();
     expect(request.user.tenantId).toBe('tenant-789');
+  });
+
+  it('should fall back to user.tenantId when activeOrganizationId has no matching membership', async () => {
+    const ctx = createMockContext({
+      cookie: 'better-auth.session_token=abc',
+    });
+    mockAuth.api.getSession.mockResolvedValue({
+      session: { id: 'sess-1', activeOrganizationId: 'ghost-org' },
+      user: {
+        id: 'user-1',
+        email: 'test@x.com',
+        tenantId: 'tenant-456',
+        role: 'admin',
+        isActive: true,
+      },
+    });
+    mockPrisma.member.findFirst.mockResolvedValue(null);
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+
+    await guard.canActivate(ctx);
+    const request = ctx.switchToHttp().getRequest();
+    expect(request.user.tenantId).toBe('tenant-456');
+  });
+
+  it('should fall back to user.tenantId when activeOrganizationId points to an inactive org', async () => {
+    const ctx = createMockContext({
+      cookie: 'better-auth.session_token=abc',
+    });
+    mockAuth.api.getSession.mockResolvedValue({
+      session: { id: 'sess-1', activeOrganizationId: 'inactive-org' },
+      user: {
+        id: 'user-1',
+        email: 'test@x.com',
+        tenantId: 'tenant-456',
+        role: 'admin',
+        isActive: true,
+      },
+    });
+    mockPrisma.member.findFirst.mockResolvedValue({
+      organizationId: 'inactive-org',
+      organization: { isActive: false },
+    });
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+
+    await guard.canActivate(ctx);
+    const request = ctx.switchToHttp().getRequest();
+    expect(request.user.tenantId).toBe('tenant-456');
   });
 });

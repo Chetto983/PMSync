@@ -3,13 +3,16 @@ import {
   ExecutionContext,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { fromNodeHeaders } from 'better-auth/node';
+import { PrismaService } from '../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
 import { BETTER_AUTH } from './better-auth.module';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { resolveSessionTenantContext } from './session-tenant-resolver';
 
 interface BetterAuthSession {
   id: string;
@@ -42,9 +45,12 @@ interface BetterAuthSessionResult {
  */
 @Injectable()
 export class BetterAuthGuard implements CanActivate {
+  private readonly logger = new Logger(BetterAuthGuard.name);
+
   constructor(
     @Inject(BETTER_AUTH) private readonly auth: any,
     private readonly reflector: Reflector,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -81,12 +87,31 @@ export class BetterAuthGuard implements CanActivate {
       throw new UnauthorizedException('Account is deactivated');
     }
 
+    const tenantContext = await resolveSessionTenantContext(this.prisma, {
+      userId: user.id,
+      userTenantId: user.tenantId,
+      activeOrganizationId: session.activeOrganizationId,
+    });
+
+    if (tenantContext.rejectedActiveOrganizationId) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'auth_invalid_active_org_fallback',
+          userId: user.id,
+          sessionId: session.id,
+          rejectedActiveOrganizationId: tenantContext.rejectedActiveOrganizationId,
+          fallbackTenantId: tenantContext.tenantId,
+          reason: tenantContext.fallbackReason,
+        }),
+      );
+    }
+
     // Map to backward-compatible request.user shape
-    // Use activeOrganizationId from session when set (org switching), fall back to user.tenantId
+    // Use a validated activeOrganizationId when present, otherwise fall back to the user's tenant.
     request.user = {
       id: user.id,
       userId: user.id, // backward compat: many services use userId
-      tenantId: session.activeOrganizationId || user.tenantId,
+      tenantId: tenantContext.tenantId,
       email: user.email,
       firstName: user.firstName ?? null,
       lastName: user.lastName ?? null,

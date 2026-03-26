@@ -61,11 +61,17 @@ describe('BetterAuthGuard - auth flow integration', () => {
   let guard: BetterAuthGuard;
   let reflector: Reflector;
   let mockAuth: { api: { getSession: jest.Mock } };
+  let mockPrisma: { member: { findFirst: jest.Mock } };
 
   beforeEach(() => {
     mockAuth = { api: { getSession: jest.fn() } };
+    mockPrisma = {
+      member: {
+        findFirst: jest.fn(),
+      },
+    };
     reflector = new Reflector();
-    guard = new BetterAuthGuard(mockAuth, reflector);
+    guard = new BetterAuthGuard(mockAuth, reflector, mockPrisma as any);
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
   });
 

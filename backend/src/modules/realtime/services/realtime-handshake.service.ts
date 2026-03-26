@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { fromNodeHeaders } from 'better-auth/node';
 import { BETTER_AUTH } from '../../../common/auth/better-auth.module';
+import { resolveSessionTenantContext } from '../../../common/auth/session-tenant-resolver';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { AuthenticatedSocket, buildTenantRoom } from '../types/realtime.types';
@@ -143,17 +144,6 @@ export class RealtimeHandshakeService {
     }
 
     const { session, user } = result;
-    const activeTenantId = session.activeOrganizationId || user.tenantId;
-
-    if (!activeTenantId) {
-      this.logger.warn(
-        JSON.stringify({
-          event: 'ws_auth_missing_tenant',
-          userId: user.id,
-        }),
-      );
-      throw new ForbiddenException('User is not assigned to an organization');
-    }
 
     if (user.isActive === false) {
       this.logger.warn(
@@ -190,46 +180,38 @@ export class RealtimeHandshakeService {
       throw new UnauthorizedException('User not found');
     }
 
-    if (activeTenantId === persistedUser.tenantId) {
-      if (!persistedUser.tenant?.isActive) {
-        this.logger.warn(
-          JSON.stringify({
-            event: 'ws_auth_tenant_inactive',
-            userId: user.id,
-            tenantId: activeTenantId,
-          }),
-        );
-        throw new ForbiddenException('Organization is disabled');
-      }
-    } else {
-      const membership = await withoutTenantScopingAsync(() =>
-        this.prisma.member.findFirst({
-          where: {
-            userId: user.id,
-            organizationId: activeTenantId,
-          },
-          select: {
-            organizationId: true,
-            organization: {
-              select: { isActive: true },
-            },
-          },
+    const tenantContext = await resolveSessionTenantContext(this.prisma, {
+      userId: user.id,
+      userTenantId: persistedUser.tenantId,
+      activeOrganizationId: session.activeOrganizationId,
+    });
+    const activeTenantId = tenantContext.tenantId;
+
+    if (tenantContext.rejectedActiveOrganizationId) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_auth_invalid_active_org_fallback',
+          userId: user.id,
+          sessionId: session.id,
+          rejectedActiveOrganizationId: tenantContext.rejectedActiveOrganizationId,
+          fallbackTenantId: activeTenantId,
+          reason: tenantContext.fallbackReason,
         }),
       );
+    }
 
-      if (!membership) {
-        this.logger.warn(
-          JSON.stringify({
-            event: 'ws_auth_membership_missing',
-            userId: user.id,
-            sessionTenantId: activeTenantId,
-            userTenantId: persistedUser.tenantId,
-          }),
-        );
-        throw new UnauthorizedException('Tenant mismatch');
-      }
+    if (!activeTenantId) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_auth_missing_tenant',
+          userId: user.id,
+        }),
+      );
+      throw new ForbiddenException('User is not assigned to an organization');
+    }
 
-      if (!membership.organization.isActive) {
+    if (activeTenantId === persistedUser.tenantId) {
+      if (!persistedUser.tenant?.isActive) {
         this.logger.warn(
           JSON.stringify({
             event: 'ws_auth_tenant_inactive',

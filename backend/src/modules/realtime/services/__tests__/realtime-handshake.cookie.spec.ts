@@ -204,6 +204,11 @@ describe('RealtimeHandshakeService', () => {
           isActive: true,
         },
       },
+      persistedUser: {
+        id: 'user-1',
+        tenantId: null,
+        tenant: null,
+      },
     });
 
     await expect(service.authenticate(createClient())).rejects.toThrow(
@@ -278,7 +283,7 @@ describe('RealtimeHandshakeService', () => {
     expect(result.tenantRoom).toBe('tenant:tenant-2');
   });
 
-  it('rejects active organizations when the user is not a member', async () => {
+  it('falls back to the persisted tenant when activeOrganizationId has no matching membership', async () => {
     const { service } = createService({
       sessionResult: {
         session: { id: 'sess-1', activeOrganizationId: 'tenant-2' },
@@ -292,8 +297,36 @@ describe('RealtimeHandshakeService', () => {
       membership: null,
     });
 
-    await expect(service.authenticate(createClient())).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(service.authenticate(createClient())).resolves.toEqual({
+      userId: 'user-1',
+      tenantId: 'tenant-1',
+      email: 'user@example.com',
+      tenantRoom: 'tenant:tenant-1',
+    });
+  });
+
+  it('falls back to the persisted tenant when activeOrganizationId points to an inactive org', async () => {
+    const { service } = createService({
+      sessionResult: {
+        session: { id: 'sess-1', activeOrganizationId: 'tenant-2' },
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          isActive: true,
+        },
+      },
+      membership: {
+        organizationId: 'tenant-2',
+        organization: { isActive: false },
+      },
+    });
+
+    await expect(service.authenticate(createClient())).resolves.toEqual({
+      userId: 'user-1',
+      tenantId: 'tenant-1',
+      email: 'user@example.com',
+      tenantRoom: 'tenant:tenant-1',
+    });
   });
 });

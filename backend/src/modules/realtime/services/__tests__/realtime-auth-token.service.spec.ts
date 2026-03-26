@@ -14,7 +14,8 @@ describe('RealtimeAuthTokenService', () => {
     process.env.BETTER_AUTH_SECRET = originalSecret;
   });
 
-  function createService(sessionOverride?: any) {
+  function createService(sessionOverride?: any, membershipOverride?: any) {
+    const hasMembershipOverride = arguments.length > 1;
     const mockPrisma = {
       session: {
         findUnique: jest.fn().mockResolvedValue(
@@ -30,6 +31,20 @@ describe('RealtimeAuthTokenService', () => {
               isActive: true,
             },
           },
+        ),
+      },
+      member: {
+        findFirst: jest.fn().mockImplementation(({ where }: any) =>
+          Promise.resolve(
+            hasMembershipOverride
+              ? membershipOverride
+              : where?.organizationId === 'tenant-2'
+                ? {
+                    organizationId: 'tenant-2',
+                    organization: { isActive: true },
+                  }
+                : null,
+          ),
         ),
       },
     } as any;
@@ -85,18 +100,24 @@ describe('RealtimeAuthTokenService', () => {
   });
 
   it('rejects tokens when the session context has changed since issuance', async () => {
-    const { service } = createService({
-      id: 'sess-1',
-      userId: 'user-1',
-      expiresAt: new Date(Date.now() + 60_000),
-      activeOrganizationId: 'tenant-9',
-      user: {
-        id: 'user-1',
-        email: 'user@example.com',
-        tenantId: 'tenant-1',
-        isActive: true,
+    const { service } = createService(
+      {
+        id: 'sess-1',
+        userId: 'user-1',
+        expiresAt: new Date(Date.now() + 60_000),
+        activeOrganizationId: 'tenant-9',
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          isActive: true,
+        },
       },
-    });
+      {
+        organizationId: 'tenant-9',
+        organization: { isActive: true },
+      },
+    );
 
     const issued = service.issueToken({
       userId: 'user-1',
@@ -107,5 +128,42 @@ describe('RealtimeAuthTokenService', () => {
     await expect(service.verifyToken(issued.token)).rejects.toThrow(
       UnauthorizedException,
     );
+  });
+
+  it('falls back to the user tenant when the session active organization is dangling', async () => {
+    const { service } = createService(
+      {
+        id: 'sess-1',
+        userId: 'user-1',
+        expiresAt: new Date(Date.now() + 60_000),
+        activeOrganizationId: 'ghost-org',
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          isActive: true,
+        },
+      },
+      null,
+    );
+
+    const issued = service.issueToken({
+      userId: 'user-1',
+      sessionId: 'sess-1',
+      tenantId: 'tenant-1',
+    });
+
+    await expect(service.verifyToken(issued.token)).resolves.toEqual({
+      session: {
+        id: 'sess-1',
+        activeOrganizationId: null,
+      },
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        tenantId: 'tenant-1',
+        isActive: true,
+      },
+    });
   });
 });
