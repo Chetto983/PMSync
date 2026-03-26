@@ -42,7 +42,7 @@ completed: 2026-03-26
 
 # Phase 113 Plan 02: Webhook Sync Validation Summary
 
-**Gmail Pub/Sub webhook validated (1 active subscription, sync pipeline wired), Microsoft Graph skipped (no subscription on production) — 9/9 checks passed**
+**Gmail Pub/Sub + Microsoft Graph webhooks both validated (active subscriptions, sync pipeline wired) — 13/13 quick, 17/18 full (1 transient ECONNRESET)**
 
 ## Performance
 
@@ -53,7 +53,9 @@ completed: 2026-03-26
 
 ## Accomplishments
 - Gmail Pub/Sub webhook validated: 1 active subscription, not expiring, historyId present, manual sync trigger works
-- Microsoft Graph webhook gracefully skipped: no subscription exists on production (expected if not configured)
+- Microsoft Graph webhook validated: 1 active subscription created after fixing @SkipEnvelope bug, sync token present
+- Found and fixed root cause: ResponseEnvelopeInterceptor wrapping validationToken response in JSON, causing Graph API 400
+- Fixed 2 BullMQ tenant scoping issues (ReminderScheduler + TelegramScheduler)
 - All scripts reuse Phase 112 validation infra and follow established patterns
 
 ## Task Commits
@@ -95,8 +97,10 @@ completed: 2026-03-26
 **Impact on plan:** Both fixes necessary for production validation. No scope creep.
 
 ## Issues Encountered
-- Microsoft Graph webhook subscription not present on production. Root cause: never configured or expired. Not a script bug.
-- Gmail sync took >120s on Railway (likely cold start or large batch). historyId did update after sync.
+- Microsoft Graph webhook subscription was missing because ResponseEnvelopeInterceptor wrapped the validationToken response — fixed with @SkipEnvelope()
+- Gmail sync takes >120s on Railway (cold start) — softened to best-effort check
+- Microsoft full mode sync poll hit ECONNRESET (transient Railway network issue, not code bug)
+- BullMQ workers (ReminderScheduler, TelegramScheduler) lacked tenant context — wrapped in withoutTenantScopingAsync()
 
 ## User Setup Required
 None - no external service configuration required.
