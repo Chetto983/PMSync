@@ -3,11 +3,11 @@
  *
  * Line 1: Sender + tiny indicators (flag, attachment, count) + Date
  * Line 2: Subject — snippet (merged, single truncated line)
- * Line 3: Priority / sentiment / user-labels (only when present — rare)
+ * Line 3: Priority / sentiment / user-labels / AI-label (only when present — rare)
  *
  * Design decisions:
  * - Unread: 3px left accent border (not background tint)
- * - AI-suggested labels hidden in list (noise) — visible in detail view
+ * - AI-suggested labels: max 1 outlined chip with sparkle icon (subtle secondary style)
  * - Action bar: hover on desktop, selected-row on touch so bulk flows stay reachable
  * - Checkbox: always reachable on touch, hover/selection on desktop
  * - ~52px row height for high information density
@@ -35,7 +35,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap } from 'lucide-react';
+import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap, Sparkles } from 'lucide-react';
 import { emailThreadOptions } from '@/hooks/queries/use-emails';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -148,7 +148,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   const hasP = thread.aiPriority != null && thread.aiPriority <= 2;
   const hasS = thread.aiSentiment === 'urgent' || thread.aiSentiment === 'negative';
   const userLabels = (thread.labels || []).slice(0, 2);
-  const showIndicators = hasP || hasS || userLabels.length > 0;
+  const aiLabels = (thread.aiLabels || []).slice(0, 1); // Max 1 AI label to avoid clutter
+  const showIndicators = hasP || hasS || userLabels.length > 0 || aiLabels.length > 0;
   const showSelectionAffordance = isTouchLayout || isHovered || isSelected;
   const showQuickActions = isHovered || isFocused || (isTouchLayout && isSelected);
 
@@ -375,6 +376,23 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
                 }}
               />
             ))}
+            {aiLabels.map((aiLabel) => (
+              <Chip
+                key={`ai-${aiLabel}`}
+                icon={<Sparkles size={8} />}
+                label={aiLabel}
+                size="small"
+                variant="outlined"
+                sx={{
+                  height: 16,
+                  fontSize: '0.55rem',
+                  borderColor: 'text.disabled',
+                  color: 'text.secondary',
+                  '& .MuiChip-label': { px: 0.4 },
+                  '& .MuiChip-icon': { ml: 0.3, mr: -0.3, color: 'text.disabled' },
+                }}
+              />
+            ))}
           </Box>
         )}
       </Box>
@@ -494,6 +512,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   prev.thread.threadCount === next.thread.threadCount &&
   prev.thread.aiPriority === next.thread.aiPriority &&
   prev.thread.aiSentiment === next.thread.aiSentiment &&
+  prev.thread.aiLabels === next.thread.aiLabels &&
   prev.isSelected === next.isSelected &&
   prev.isHovered === next.isHovered &&
   prev.isFocused === next.isFocused

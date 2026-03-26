@@ -175,8 +175,8 @@ export function crmAccountActivitiesOptions(accountId: string, query?: { limit?:
   });
 }
 
-export function useAccountActivities(accountId: string) {
-  return useQuery(crmAccountActivitiesOptions(accountId));
+export function useAccountActivities(accountId: string, query?: { limit?: number; offset?: number }) {
+  return useQuery(crmAccountActivitiesOptions(accountId, query));
 }
 
 export function useCreateAccountActivity(accountId: string) {

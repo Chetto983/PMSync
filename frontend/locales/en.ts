@@ -1246,6 +1246,12 @@ export const en: AppTranslations = {
       labelRemoved: 'Label removed',
       labelAdded: 'Label added',
       labelRemoveFailed: 'Failed to remove label',
+      // AI-suggested labels
+      aiSuggestedLabel: 'AI',
+      acceptAiLabel: 'Accept AI suggestion',
+      dismissAiLabel: 'Dismiss AI suggestion',
+      aiLabelAccepted: 'AI label accepted',
+      aiLabelDismissed: 'AI label dismissed',
     },
     list: {
       loading: 'Loading emails...',

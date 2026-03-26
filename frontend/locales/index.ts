@@ -1159,6 +1159,11 @@ export interface AppTranslations {
       labelRemoved: string;
       labelAdded: string;
       labelRemoveFailed: string;
+      aiSuggestedLabel: string;
+      acceptAiLabel: string;
+      dismissAiLabel: string;
+      aiLabelAccepted: string;
+      aiLabelDismissed: string;
     };
     list: {
       loading: string;

@@ -3,7 +3,7 @@
  * Reuses same MUI Timeline pattern as DealTimeline.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -16,6 +16,7 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  CircularProgress,
 } from '@mui/material';
 import { Plus } from 'lucide-react';
 import {
@@ -239,11 +240,47 @@ function ActivityItem({
 
 // ---- Main Component ----
 
+const PAGE_SIZE = 10;
+
 export function AccountActivityTab({ accountId }: { accountId: string }) {
   const t = useTranslations();
   const ta = t.crmAccounts?.detail?.activity;
-  const { data, isLoading } = useAccountActivities(accountId);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [accumulated, setAccumulated] = useState<AccountActivity[]>([]);
+
+  const { data, isLoading, isFetching } = useAccountActivities(accountId, {
+    limit: PAGE_SIZE,
+    offset,
+  });
+
+  // Reset pagination when accountId changes
+  useEffect(() => {
+    setOffset(0);
+    setAccumulated([]);
+  }, [accountId]);
+
+  // Append new page data when it arrives
+  useEffect(() => {
+    if (!data) return;
+    if (offset === 0) {
+      setAccumulated(data.data);
+    } else {
+      setAccumulated((prev) => {
+        const existingIds = new Set(prev.map((a) => a.id));
+        const newItems = data.data.filter((a) => !existingIds.has(a.id));
+        return [...prev, ...newItems];
+      });
+    }
+  }, [data, offset]);
+
+  const total = data?.total ?? 0;
+  const hasMore = accumulated.length < total;
+  const loadingMore = isFetching && offset > 0;
+
+  const handleLoadMore = useCallback(() => {
+    setOffset((prev) => prev + PAGE_SIZE);
+  }, []);
 
   if (isLoading) {
     return (
@@ -262,9 +299,7 @@ export function AccountActivityTab({ accountId }: { accountId: string }) {
     );
   }
 
-  const activities = data?.data ?? [];
-
-  if (activities.length === 0) {
+  if (accumulated.length === 0) {
     return (
       <>
         <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
@@ -307,18 +342,24 @@ export function AccountActivityTab({ accountId }: { accountId: string }) {
         </Button>
       </Box>
       <Timeline sx={{ p: 0, m: 0 }}>
-        {activities.map((activity, idx) => (
+        {accumulated.map((activity, idx) => (
           <ActivityItem
             key={activity.id}
             activity={activity}
             typeLabels={ta?.types}
-            isLast={idx === activities.length - 1}
+            isLast={idx === accumulated.length - 1}
           />
         ))}
       </Timeline>
-      {data && data.total > activities.length && (
+      {hasMore && (
         <Box sx={{ textAlign: 'center', mt: 1 }}>
-          <Button size="small" variant="text">
+          <Button
+            size="small"
+            variant="text"
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            startIcon={loadingMore ? <CircularProgress size={16} /> : undefined}
+          >
             {ta?.loadMore ?? 'Load more'}
           </Button>
         </Box>
