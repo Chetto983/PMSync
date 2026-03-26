@@ -1,54 +1,71 @@
-# Sprint 05 — Checkpoint
+# Sprint 06 — Checkpoint
 
 ## Status
 
-- **Sprint:** 05 — Label Display in Detail View
-- **Last Task Completed:** T-0506 — Visual QA
-- **Next Task:** Sprint 06 — AI Labels & i18n
-- **Tasks Done:** 6/6
+- **Sprint:** 06 — AI Labels, Counts, Translations
+- **Last Task Completed:** T-0607 — Audit all remaining translation gaps
+- **Next Task:** Sprint 07 — Integration Tests & Data Scripts (Phase 3)
+- **Tasks Done:** 7/7
 - **SP Completed:** 10/10
-- **Last Updated:** 2026-03-26 14:00
+- **Last Updated:** 2026-03-26 16:30
 
 ## Audit Findings Addressed
 
-- H1: No label display in email detail — ✅ fixed (ExpandedMessage + MessageCard)
-- H2: Label management in detail view — ✅ fixed (add via existing picker, remove via chip X)
-- L5: VoltAgent comment cleanup — ✅ fixed (T-0505)
+- H3: AI labels not displayed — fixed (ThreadListItem + ExpandedMessage with Accept/Dismiss)
+- M4: Label count staleness after bulk ops — fixed (folderKeys + labelKeys.emails invalidation)
+- M5: Hardcoded Italian fallbacks — fixed (ColorPicker, LabelColorPicker)
+- L2: No backend validation for aiPrompt length — verified already present (@Length(0,500))
+- L3: No color format validation — fixed (LabelColorDto with hex regex)
 
 ## Last Modified Files
 
-- frontend/components/email/thread/ExpandedMessage.tsx (labels display + remove)
-- frontend/components/email/thread/MessageCard.tsx (labels in collapsed header)
-- frontend/components/email/thread/ThreadViewOutlook.tsx (labels + onRemoveLabel prop threading)
-- frontend/components/email/hooks/use-email-page-actions.ts (labels mapping + handleRemoveLabel)
-- frontend/pages/dashboard/email.tsx (wire onRemoveLabel)
-- frontend/pages/dashboard/email/thread/[threadId].tsx (labels mapping + handleRemoveLabel)
-- frontend/locales/en.ts, it.ts, index.ts (translation keys)
-- frontend/components/email/utils/email-formatters.ts (VoltAgent comment removed)
+- frontend/components/email/list/ThreadListItem.tsx (AI label outlined chip with Sparkles icon)
+- frontend/components/email/thread/ExpandedMessage.tsx (AI suggestions section with Accept/Dismiss)
+- frontend/components/email/thread/ThreadViewOutlook.tsx (prop threading for AI label callbacks)
+- frontend/components/email/thread/MessageCard.tsx (flag tooltip i18n fix)
+- frontend/components/email/hooks/use-email-page-actions.ts (handleAcceptAiLabel, handleDismissAiLabel)
+- frontend/pages/dashboard/email.tsx (wire AI label callbacks)
+- frontend/pages/dashboard/email/thread/[threadId].tsx (wire AI label callbacks)
+- frontend/hooks/queries/use-emails.ts (bulk label invalidation cascade)
+- frontend/lib/api/emails.ts (UpdateEmailDto aiLabels field)
+- frontend/components/common/ColorPicker.tsx (Italian fallback -> English)
+- frontend/components/email/labels/LabelColorPicker.tsx (Italian fallback -> English)
+- frontend/locales/en.ts, it.ts, index.ts (AI label translation keys)
+- backend/src/modules/labels/dto/labels.dto.ts (LabelColorDto with hex validation)
+- backend/src/modules/labels/services/labels.service.ts (Prisma InputJsonValue spread fix)
+- backend/src/modules/email/controllers/email-actions.controller.ts (aiLabels in PATCH body)
+- backend/src/modules/email/services/email-crud.service.ts (aiLabels in updateEmail signature)
 
 ## Key Decisions Made
 
-- Labels rendered as colored Chips with white text, matching ThreadListItem style
-- Remove label via MUI Chip deleteIcon (X icon from lucide-react)
-- MessageCard shows max 2 labels (same as ThreadListItem)
-- Labels placed below AI Summary Panel, above email body in ExpandedMessage
-- Label click-to-navigate deferred (nice-to-have, not in sprint scope)
-- No schema changes needed — all data already flows via emailLabels relation
+- AI labels in ThreadListItem: max 1, outlined chip with Sparkles icon (subtle secondary style)
+- AI labels in ExpandedMessage: full list with Accept (check icon, promotes to UserLabel) and Dismiss (X icon, removes from aiLabels)
+- Accept flow: find existing label by name OR create new, add email to it, remove from aiLabels
+- Dismiss flow: PATCH /emails/:id with filtered aiLabels array
+- Optimistic sidebar count update skipped — invalidation cascade sufficient and less fragile
+- T-0605 already satisfied by existing @Length(0, 500) decorator
 
 ## Patterns Established
 
-- Label color extraction: `isValidHexColor(el.label?.color?.backgroundColor)` with grey fallback
-- Label data mapping reused from `formatEmailToThread` pattern
-- `useRemoveEmailFromLabel` hook for label removal with toast feedback
+- AI label accept: check queryClient cache for existing labels before creating
+- PATCH /emails/:id now accepts aiLabels[] for AI label management
+- LabelColorDto class with @Matches hex regex for reusable color validation
+- Spread DTO to plain object ({...dto.color}) before Prisma InputJsonValue cast
 
 ## Blockers / Notes
 
-- T-0501 sub-item "clicking label name navigates to label filter" deferred
-- T-0506 screenshot deferred (no browser session for Edge CDP)
-- Concurrent worktree agents caused git commit conflicts — changes landed via merge
+- None
+
+## Phase 2 Go/No-Go Assessment
+
+- [x] All H1-H5 findings addressed (H1/H2 in S05, H3 in S06, H4 in S04, H5 in S02)
+- [x] `npx tsc --noEmit` passes in frontend (only pre-existing CRM errors)
+- [x] Label display works in both list and detail views
+- [x] Translations complete for en.ts and it.ts
+- **Phase 2 COMPLETE — ready for Phase 3 (E2E Validation)**
 
 ## Validation Status
 
-- Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing (only pre-existing CRM `activity` type error)
-- Commits: 73604a81 (T-0504/T-0505), b1d84d6c (T-0503), T-0501/T-0502 in 389e79af (merged)
+- Backend tsc: passing
+- Frontend tsc: passing (only pre-existing CRM errors)
+- Pre-commit hooks: passing on all commits
