@@ -100,26 +100,24 @@ function useThreadRuntime() {
     id,
     transport,
     // Auto-resubmit after user approves/denies a tool requiring action.
-    sendAutomaticallyWhen: (opts) => {
-      const result = lastAssistantMessageIsCompleteWithApprovalResponses(opts);
-      // DEBUG: remove after validation
-      const last = opts.messages[opts.messages.length - 1];
-      const allToolParts = opts.messages.flatMap((m: { parts?: Array<{ type: string; state?: string; approval?: unknown }> }) =>
-        (m.parts || []).filter((p) => p.type?.includes('tool')).map((p) => ({ type: p.type, state: p.state, approval: p.approval }))
-      );
-      console.log('[HITL-debug] sendAutomaticallyWhen', {
-        result, status: chat.status, chatId: id, msgCount: opts.messages.length,
-        lastMsgRole: last?.role, lastMsgId: last?.id,
-        toolPartsTotal: allToolParts.length, toolParts: JSON.stringify(allToolParts),
-      });
-      return result;
-    },
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
-  // Expose addToolApprovalResponse at module scope for HitlApprovalCard.
+  // Only update the module-scoped ref when THIS Chat has an active approval-request.
+  // This prevents thread switching from pointing the ref at a Chat without approvals.
   useEffect(() => {
-    _addToolApprovalResponse = chat.addToolApprovalResponse;
-  }, [chat.addToolApprovalResponse]);
+    const hasApproval = chat.messages.some(
+      (m) =>
+        m.role === 'assistant' &&
+        m.parts?.some(
+          (p: { type?: string; state?: string }) =>
+            p.type?.includes('tool') && p.state === 'approval-requested',
+        ),
+    );
+    if (hasApproval) {
+      _addToolApprovalResponse = chat.addToolApprovalResponse;
+    }
+  }, [chat.messages, chat.addToolApprovalResponse]);
 
   return useAISDKRuntime(chat);
 }
