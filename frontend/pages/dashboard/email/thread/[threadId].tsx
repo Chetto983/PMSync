@@ -15,7 +15,11 @@ import {
   useBulkDeleteEmails,
   useUpdateEmail,
   useRemoveEmailFromLabel,
+  useCreateLabel,
+  useAddEmailsToLabel,
+  labelsListOptions,
 } from '@/hooks/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -90,6 +94,9 @@ export default function ThreadDetailPage() {
   const bulkDelete = useBulkDeleteEmails();
   const updateEmail = useUpdateEmail();
   const removeEmailFromLabel = useRemoveEmailFromLabel();
+  const createLabel = useCreateLabel();
+  const addEmailsToLabel = useAddEmailsToLabel();
+  const queryClient = useQueryClient();
 
   // Map emails to ThreadMessageData format
   const messages = useMemo(() => {
@@ -307,6 +314,41 @@ export default function ThreadDetailPage() {
     }
   }, [removeEmailFromLabel, toast, t, refetch]);
 
+  const handleAcceptAiLabel = useCallback(async (messageId: string, labelName: string) => {
+    try {
+      const existingLabels = queryClient.getQueryData<Array<{ id: string; name: string }>>(labelsListOptions().queryKey);
+      let labelId: string;
+      const existing = existingLabels?.find((l) => l.name.toLowerCase() === labelName.toLowerCase());
+      if (existing) {
+        labelId = existing.id;
+      } else {
+        const created = await createLabel.mutateAsync({ name: labelName });
+        labelId = created.label.id;
+      }
+      await addEmailsToLabel.mutateAsync({ labelId, emailIds: [messageId] });
+      // Find email to get current aiLabels and remove the accepted one
+      const email = emails?.find((e) => e.id === messageId);
+      const updatedAiLabels = (email?.aiLabels || []).filter((l) => l !== labelName);
+      await updateEmail.mutateAsync({ emailId: messageId, dto: { aiLabels: updatedAiLabels } });
+      toast.success(t.email?.labels?.aiLabelAccepted || 'AI label accepted');
+      refetch();
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [queryClient, createLabel, addEmailsToLabel, updateEmail, emails, toast, t, refetch]);
+
+  const handleDismissAiLabel = useCallback(async (messageId: string, labelName: string) => {
+    try {
+      const email = emails?.find((e) => e.id === messageId);
+      const updatedAiLabels = (email?.aiLabels || []).filter((l) => l !== labelName);
+      await updateEmail.mutateAsync({ emailId: messageId, dto: { aiLabels: updatedAiLabels } });
+      toast.success(t.email?.labels?.aiLabelDismissed || 'AI label dismissed');
+      refetch();
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [updateEmail, emails, toast, t, refetch]);
+
   // Loading state
   if (isLoading || !router.isReady) {
     return (
@@ -413,6 +455,8 @@ export default function ThreadDetailPage() {
             onUnflagAllMessages={hasFlaggedMessages ? handleUnflagAllMessages : undefined}
             onAddLabelsToThread={handleAddLabelsToThread}
             onRemoveLabel={handleRemoveLabel}
+            onAcceptAiLabel={handleAcceptAiLabel}
+            onDismissAiLabel={handleDismissAiLabel}
           />
           <FolderPickerDialog
             open={folderPickerOpen}

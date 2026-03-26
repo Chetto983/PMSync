@@ -11,6 +11,9 @@ import {
   useDeleteEmail,
   useUpdatePreferences,
   useRemoveEmailFromLabel,
+  useCreateLabel,
+  useAddEmailsToLabel,
+  labelsListOptions,
 } from '@/hooks/queries';
 import { emailsApi } from '@/lib/api';
 import type { Email, ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
@@ -21,7 +24,7 @@ import { extractEmailAddress } from '@/components/email/utils/email-formatters';
 import { getAvatarUrl } from '@/lib/utils/gravatar';
 import { isValidHexColor } from '@/lib/label-colors';
 import { useGlobalToast } from '@/lib/context/toast-context';
-import type { QueryKey } from '@tanstack/react-query';
+import { useQueryClient as useQC, type QueryKey } from '@tanstack/react-query';
 
 /**
  * Parameters for useEmailPageActions hook.
@@ -92,6 +95,9 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   const deleteEmail = useDeleteEmail();
   const updatePreferences = useUpdatePreferences();
   const removeEmailFromLabel = useRemoveEmailFromLabel();
+  const createLabel = useCreateLabel();
+  const addEmailsToLabel = useAddEmailsToLabel();
+  const qc = useQC();
 
   const shouldRemoveMovedEmailsFromCurrentView = useCallback(
     (targetFolder: string) => {
@@ -180,6 +186,49 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       toast.error(t.email?.labels?.labelRemoveFailed || 'Failed to remove label');
     }
   }, [selectedEmailData, removeEmailFromLabel, toast, t]);
+
+  /**
+   * Accept AI label: find or create a UserLabel, add email to it, remove from aiLabels
+   */
+  const handleAcceptAiLabel = useCallback(async (_messageId: string, labelName: string) => {
+    if (!selectedEmailData) return;
+    try {
+      // Check if label with this name already exists
+      const existingLabels = qc.getQueryData<Array<{ id: string; name: string }>>(labelsListOptions().queryKey);
+      let labelId: string;
+      const existing = existingLabels?.find((l) => l.name.toLowerCase() === labelName.toLowerCase());
+      if (existing) {
+        labelId = existing.id;
+      } else {
+        const created = await createLabel.mutateAsync({ name: labelName });
+        labelId = created.label.id;
+      }
+      // Add email to label
+      await addEmailsToLabel.mutateAsync({ labelId, emailIds: [selectedEmailData.id] });
+      // Remove from aiLabels
+      const currentAiLabels = selectedEmailData.aiLabels || [];
+      const updatedAiLabels = currentAiLabels.filter((l) => l !== labelName);
+      await updateEmail.mutateAsync({ emailId: selectedEmailData.id, dto: { aiLabels: updatedAiLabels } });
+      toast.success(t.email?.labels?.aiLabelAccepted || 'AI label accepted');
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [selectedEmailData, qc, createLabel, addEmailsToLabel, updateEmail, toast, t]);
+
+  /**
+   * Dismiss AI label: remove from aiLabels array
+   */
+  const handleDismissAiLabel = useCallback(async (_messageId: string, labelName: string) => {
+    if (!selectedEmailData) return;
+    try {
+      const currentAiLabels = selectedEmailData.aiLabels || [];
+      const updatedAiLabels = currentAiLabels.filter((l) => l !== labelName);
+      await updateEmail.mutateAsync({ emailId: selectedEmailData.id, dto: { aiLabels: updatedAiLabels } });
+      toast.success(t.email?.labels?.aiLabelDismissed || 'AI label dismissed');
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [selectedEmailData, updateEmail, toast, t]);
 
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     const snapshot = captureEmailsState();
@@ -542,7 +591,8 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
 
   return {
     handleReply, handleReplyAll, handleForward, handleFlagMessage,
-    handleLabelsMessage, handleRemoveLabel, handleDeleteMessage, handleArchiveMessage,
+    handleLabelsMessage, handleRemoveLabel, handleAcceptAiLabel, handleDismissAiLabel,
+    handleDeleteMessage, handleArchiveMessage,
     handleMoveMessage, handleMoveMessageToFolder, handleDownloadAttachment,
     handleBulkMarkAsRead, handleBulkMarkAsUnread, handleBulkArchive,
     handleBulkDelete, handleBulkMove, handleBulkLabel,

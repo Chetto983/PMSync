@@ -36,6 +36,8 @@ import {
   Inbox,
   Paperclip,
   X,
+  Sparkles,
+  Check,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
@@ -84,6 +86,10 @@ interface ExpandedMessageProps {
   onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
   /** Callback when a label is removed from the email */
   onRemoveLabel?: (messageId: string, labelId: string) => void;
+  /** Callback when an AI-suggested label is accepted (promote to user label) */
+  onAcceptAiLabel?: (messageId: string, labelName: string) => void;
+  /** Callback when an AI-suggested label is dismissed */
+  onDismissAiLabel?: (messageId: string, labelName: string) => void;
 }
 
 /**
@@ -185,6 +191,8 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   onMoveToFolder,
   onDownloadAttachment,
   onRemoveLabel,
+  onAcceptAiLabel,
+  onDismissAiLabel,
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
   const t = useTranslations();
@@ -629,6 +637,58 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                   color: 'rgba(255,255,255,0.7)',
                   fontSize: 12,
                   '&:hover': { color: 'white' },
+                },
+              }}
+            />
+          ))}
+        </Box>
+      )}
+
+      {/* AI-suggested Labels */}
+      {message.aiLabels && message.aiLabels.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 0.75,
+            px: { xs: 1.5, sm: 2 },
+            pl: { xs: 1.5, sm: 7.5 },
+            py: 1,
+            alignItems: 'center',
+          }}
+        >
+          <Sparkles size={14} style={{ color: 'var(--mui-palette-text-disabled)' }} />
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+            {t.email?.labels?.aiSuggestedLabel || 'AI'}
+          </Typography>
+          {message.aiLabels.map((aiLabel) => (
+            <Chip
+              key={aiLabel}
+              label={aiLabel}
+              size="small"
+              variant="outlined"
+              deleteIcon={
+                onDismissAiLabel ? (
+                  <Tooltip title={t.email?.labels?.dismissAiLabel || 'Dismiss'}>
+                    <X size={12} />
+                  </Tooltip>
+                ) : undefined
+              }
+              onDelete={onDismissAiLabel ? () => onDismissAiLabel(message.id, aiLabel) : undefined}
+              onClick={onAcceptAiLabel ? () => onAcceptAiLabel(message.id, aiLabel) : undefined}
+              icon={onAcceptAiLabel ? <Check size={12} /> : undefined}
+              sx={{
+                height: 22,
+                fontSize: '0.75rem',
+                borderColor: 'text.disabled',
+                color: 'text.secondary',
+                cursor: onAcceptAiLabel ? 'pointer' : 'default',
+                '& .MuiChip-label': { px: 0.75 },
+                '& .MuiChip-icon': { color: 'success.main', ml: 0.5 },
+                '& .MuiChip-deleteIcon': {
+                  color: 'text.disabled',
+                  fontSize: 12,
+                  '&:hover': { color: 'error.main' },
                 },
               }}
             />

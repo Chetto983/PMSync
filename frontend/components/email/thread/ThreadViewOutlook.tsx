@@ -73,6 +73,10 @@ interface ThreadViewOutlookProps {
   onLabelsMessage?: (messageId: string) => void;
   /** Callback when a label is removed from a message */
   onRemoveLabel?: (messageId: string, labelId: string) => void;
+  /** Callback when an AI-suggested label is accepted */
+  onAcceptAiLabel?: (messageId: string, labelName: string) => void;
+  /** Callback when an AI-suggested label is dismissed */
+  onDismissAiLabel?: (messageId: string, labelName: string) => void;
 }
 
 // Re-export as ThreadView for backward compatibility
@@ -98,6 +102,8 @@ export function ThreadViewOutlook({
   onAddLabelsToThread,
   onLabelsMessage,
   onRemoveLabel,
+  onAcceptAiLabel,
+  onDismissAiLabel,
 }: ThreadViewOutlookProps) {
   const t = useTranslations();
   const theme = useTheme();
@@ -439,6 +445,8 @@ export function ThreadViewOutlook({
                 onFlag={onFlag}
                 onLabels={onLabelsMessage}
                 onRemoveLabel={onRemoveLabel}
+                onAcceptAiLabel={onAcceptAiLabel}
+                onDismissAiLabel={onDismissAiLabel}
                 onDownloadAttachment={onDownloadAttachment}
               />
             ) : (

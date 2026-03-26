@@ -200,7 +200,7 @@ export class EmailCrudService {
   async updateEmail(
     id: string,
     tenantId: string,
-    data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string },
+    data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string; aiLabels?: string[] },
   ) {
     // Use transaction with row-level lock to prevent TOCTOU race condition
     const { updated, originalFolder } = await this.prisma.$transaction(async (tx) => {

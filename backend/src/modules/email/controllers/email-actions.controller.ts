@@ -209,7 +209,7 @@ export class EmailActionsController {
   async updateEmail(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string },
+    @Body() data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string; aiLabels?: string[] },
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.updateEmail(id, tenantId, data);

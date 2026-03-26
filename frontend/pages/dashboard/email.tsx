@@ -344,7 +344,8 @@ export default function EmailPage() {
   // Action handlers (extracted to hook)
   const {
     handleReply, handleReplyAll, handleForward, handleFlagMessage,
-    handleLabelsMessage, handleRemoveLabel, handleDeleteMessage, handleArchiveMessage,
+    handleLabelsMessage, handleRemoveLabel, handleAcceptAiLabel, handleDismissAiLabel,
+    handleDeleteMessage, handleArchiveMessage,
     handleMoveMessage, handleMoveMessageToFolder, handleDownloadAttachment,
     handleBulkMarkAsRead, handleBulkMarkAsUnread, handleBulkArchive,
     handleBulkDelete, handleBulkMove, handleBulkLabel,
@@ -497,13 +498,16 @@ export default function EmailPage() {
           onDelete={handleDeleteMessage} onArchive={handleArchiveMessage}
           onMove={handleMoveMessage} onMoveToFolder={handleMoveMessageToFolder}
           onRemoveLabel={handleRemoveLabel}
+          onAcceptAiLabel={handleAcceptAiLabel}
+          onDismissAiLabel={handleDismissAiLabel}
         />
       </Box>
     );
   }, [
     selectedThreadId, isDesktop, isEmailLoading, selectedEmailData,
     handleCloseReadingPane, handleReply, handleReplyAll, handleForward,
-    handleFlagMessage, handleLabelsMessage, handleRemoveLabel, handleDownloadAttachment,
+    handleFlagMessage, handleLabelsMessage, handleRemoveLabel,
+    handleAcceptAiLabel, handleDismissAiLabel, handleDownloadAttachment,
     handleDeleteMessage, handleArchiveMessage, handleMoveMessage,
     handleMoveMessageToFolder, t.threadView?.loading,
   ]);

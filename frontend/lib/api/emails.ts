@@ -222,6 +222,7 @@ export interface UpdateEmailDto {
   isFlagged?: boolean;
   isArchived?: boolean;
   folder?: string;
+  aiLabels?: string[];
 }
 
 export interface BulkEmailIdsDto {
