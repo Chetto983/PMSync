@@ -327,15 +327,15 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
         </Box>
       ) : (
         <>
-          <TableContainer>
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>{tp?.columns?.name ?? 'Product'}</TableCell>
-                  <TableCell>{tp?.columns?.code ?? 'Code'}</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{tp?.columns?.code ?? 'Code'}</TableCell>
                   <TableCell align="right">{tp?.columns?.quantity ?? 'Qty'}</TableCell>
                   <TableCell align="right">{tp?.columns?.unitPrice ?? 'Unit Price'}</TableCell>
-                  <TableCell align="right">{tp?.columns?.discount ?? 'Discount'}</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{tp?.columns?.discount ?? 'Discount'}</TableCell>
                   <TableCell align="right">{tp?.columns?.subtotal ?? 'Subtotal'}</TableCell>
                   <TableCell width={50} />
                 </TableRow>
@@ -350,7 +350,7 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
                           {link.product.name}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                         <Typography variant="body2" color="text.secondary">
                           {link.product.code || '—'}
                         </Typography>
@@ -359,7 +359,7 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
                       <TableCell align="right">
                         {formatCurrency(parseFloat(link.unitPrice), link.product.currency)}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                         {parseFloat(link.discount) > 0
                           ? `${parseFloat(link.discount)}%`
                           : '—'}
@@ -370,7 +370,11 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" onClick={() => handleUnlink(link.id)}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleUnlink(link.id)}
+                          sx={{ minWidth: 44, minHeight: 44 }}
+                        >
                           <Trash2 size={14} />
                         </IconButton>
                       </TableCell>
