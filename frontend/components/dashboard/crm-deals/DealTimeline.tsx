@@ -105,7 +105,8 @@ function ActivityItem({
 export function DealTimeline({ dealId }: { dealId: string }) {
   const t = useTranslations();
   const tl = t.crmDeals?.detail?.timeline;
-  const { data, isLoading } = useDealActivities(dealId);
+  const [limit, setLimit] = useState(20);
+  const { data, isLoading } = useDealActivities(dealId, { limit });
   const [dialogOpen, setDialogOpen] = useState(false);
 
   if (isLoading) {
@@ -181,7 +182,7 @@ export function DealTimeline({ dealId }: { dealId: string }) {
       </Timeline>
       {data && data.total > activities.length && (
         <Box sx={{ textAlign: 'center', mt: 1 }}>
-          <Button size="small" variant="text">
+          <Button size="small" variant="text" onClick={() => setLimit((prev) => prev + 20)}>
             {tl?.loadMore ?? 'Load more'}
           </Button>
         </Box>

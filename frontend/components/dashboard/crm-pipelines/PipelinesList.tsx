@@ -196,12 +196,12 @@ const PipelineCard = memo(function PipelineCard({ pipeline, tp, onSettings, onDe
             </Box>
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
               <Tooltip title={tp?.settings?.title ?? 'Settings'}>
-                <IconButton size="small" onClick={onSettings} aria-label={tp?.settings?.title ?? 'Settings'}>
+                <IconButton size="small" onClick={onSettings} aria-label={tp?.settings?.title ?? 'Settings'} sx={{ minWidth: 44, minHeight: 44 }}>
                   <Settings size={16} />
                 </IconButton>
               </Tooltip>
               <Tooltip title={tp?.deletePipeline ?? 'Delete'}>
-                <IconButton size="small" onClick={onDelete} aria-label={tp?.deletePipeline ?? 'Delete'}>
+                <IconButton size="small" onClick={onDelete} aria-label={tp?.deletePipeline ?? 'Delete'} sx={{ minWidth: 44, minHeight: 44 }}>
                   <Trash2 size={16} />
                 </IconButton>
               </Tooltip>

@@ -145,7 +145,11 @@ function AddContactDialog({
           {contacts.map((contact: Contact) => (
             <Box
               key={contact.id}
+              role="option"
+              tabIndex={0}
+              aria-selected={selectedId === contact.id}
               onClick={() => setSelectedId(contact.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(contact.id); } }}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -156,7 +160,7 @@ function AddContactDialog({
                 cursor: 'pointer',
                 bgcolor: selectedId === contact.id ? 'primary.main' : 'transparent',
                 color: selectedId === contact.id ? 'primary.contrastText' : 'text.primary',
-                '&:hover': {
+                '&:hover, &:focus-visible': {
                   bgcolor: selectedId === contact.id ? 'primary.dark' : 'action.hover',
                 },
               }}
@@ -225,13 +229,17 @@ export function DealContactsTab({ dealId }: { dealId: string }) {
   const { data: links, isLoading, isError } = useDealContacts(dealId);
   const unlinkContact = useUnlinkDealContact(dealId);
 
-  const handleUnlink = async (contactId: string) => {
-    if (!window.confirm(tc?.removeConfirm ?? 'Remove this contact from the deal?')) return;
+  const [confirmUnlinkId, setConfirmUnlinkId] = useState<string | null>(null);
+
+  const handleUnlink = async () => {
+    if (!confirmUnlinkId) return;
     try {
-      await unlinkContact.mutateAsync(contactId);
+      await unlinkContact.mutateAsync(confirmUnlinkId);
       toast.success(tc?.unlinked ?? 'Contact removed');
     } catch {
       toast.error(t.common.genericError);
+    } finally {
+      setConfirmUnlinkId(null);
     }
   };
 
@@ -321,7 +329,12 @@ export function DealContactsTab({ dealId }: { dealId: string }) {
                     )}
                   </TableCell>
                   <TableCell>
-                    <IconButton size="small" onClick={() => handleUnlink(link.contactId)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => setConfirmUnlinkId(link.contactId)}
+                      sx={{ minWidth: 44, minHeight: 44 }}
+                      aria-label={tc?.removeContact ?? 'Remove contact'}
+                    >
                       <Trash2 size={14} />
                     </IconButton>
                   </TableCell>
@@ -337,6 +350,23 @@ export function DealContactsTab({ dealId }: { dealId: string }) {
         onClose={() => setDialogOpen(false)}
         dealId={dealId}
       />
+
+      <Dialog open={!!confirmUnlinkId} onClose={() => setConfirmUnlinkId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{tc?.removeContact ?? 'Remove Contact'}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {tc?.removeConfirm ?? 'Remove this contact from the deal?'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmUnlinkId(null)} disabled={unlinkContact.isPending}>
+            {t.common?.cancel ?? 'Cancel'}
+          </Button>
+          <Button onClick={handleUnlink} color="error" variant="contained" disabled={unlinkContact.isPending}>
+            {tc?.removeButton ?? 'Remove'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

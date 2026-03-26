@@ -4156,6 +4156,7 @@ export interface AppTranslations {
         addContact?: string;
         removeContact?: string;
         removeConfirm?: string;
+        removeButton?: string;
         noContacts?: string;
         noContactsDescription?: string;
         searchContacts?: string;
@@ -4374,6 +4375,7 @@ export interface AppTranslations {
         addContact?: string;
         removeContact?: string;
         removeConfirm?: string;
+        removeButton?: string;
         noContacts?: string;
         noContactsDescription?: string;
         searchContacts?: string;

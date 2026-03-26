@@ -76,13 +76,17 @@ export function CreateAccountDialog({ open, onClose }: CreateAccountDialogProps)
       dto.address = addr;
     }
 
-    await createAccount.mutateAsync(dto);
-    onClose();
-    setForm({
-      name: '', website: '', industry: '', size: '', phone: '',
-      description: '', revenue: undefined, currency: 'EUR',
-      address: { street: '', city: '', state: '', zip: '', country: '' },
-    });
+    try {
+      await createAccount.mutateAsync(dto);
+      onClose();
+      setForm({
+        name: '', website: '', industry: '', size: '', phone: '',
+        description: '', revenue: undefined, currency: 'EUR',
+        address: { street: '', city: '', state: '', zip: '', country: '' },
+      });
+    } catch {
+      // Error is handled by TanStack Query's onError / global error handler
+    }
   };
 
   return (

@@ -122,6 +122,7 @@ function NoteItem({
             size="small"
             onClick={() => { setDraft(note.content ?? ''); setEditing(true); }}
             aria-label={translations?.edit ?? 'Edit'}
+            sx={{ minWidth: 44, minHeight: 44 }}
           >
             <Pencil size={14} />
           </IconButton>
@@ -129,6 +130,7 @@ function NoteItem({
             size="small"
             onClick={() => setDeleteOpen(true)}
             aria-label={translations?.delete ?? 'Delete'}
+            sx={{ minWidth: 44, minHeight: 44 }}
           >
             <Trash2 size={14} />
           </IconButton>

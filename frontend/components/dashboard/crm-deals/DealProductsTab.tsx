@@ -159,7 +159,11 @@ function AddProductDialog({
               {products.map((product: CrmProduct) => (
                 <Box
                   key={product.id}
+                  role="option"
+                  tabIndex={0}
+                  aria-selected={false}
                   onClick={() => handleSelect(product)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(product); } }}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -168,7 +172,7 @@ function AddProductDialog({
                     px: 1.5,
                     borderRadius: 1,
                     cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.hover' },
+                    '&:hover, &:focus-visible': { bgcolor: 'action.hover' },
                   }}
                 >
                   <Package size={16} />

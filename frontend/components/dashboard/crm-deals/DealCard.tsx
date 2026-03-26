@@ -68,9 +68,10 @@ export function DealCard({ deal, onClick }: DealCardProps) {
         border: 1,
         borderColor: isDragging ? 'primary.main' : 'divider',
         cursor: isDragging ? 'grabbing' : 'grab',
-        '&:hover': {
+        '&:hover, &:focus-visible': {
           borderColor: 'primary.light',
           boxShadow: 1,
+          outline: 'none',
         },
         userSelect: 'none',
         touchAction: 'none',
