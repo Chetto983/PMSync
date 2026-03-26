@@ -4,13 +4,14 @@
  * Uses reusable ConfirmDialog for folder deletion.
  */
 
-import React, { useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useCallback, useState } from 'react';
+import { Box, Typography, Alert } from '@mui/material';
 import { Folder } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useDeleteFolder } from '@/hooks/queries';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { Folder as FolderType } from '@/lib/api/folders';
+import { extractFolderErrorCode } from './folder-error-utils';
 
 interface FolderDeleteDialogProps {
   open: boolean;
@@ -25,19 +26,25 @@ export function FolderDeleteDialog({
 }: FolderDeleteDialogProps) {
   const t = useTranslations();
   const deleteFolder = useDeleteFolder();
+  const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = useCallback(async () => {
     if (!folder) return;
+    setError(null);
     try {
       await deleteFolder.mutateAsync({
         folderId: folder.id,
         providerId: folder.providerId,
       });
       onClose();
-    } catch {
-      // Error handled by mutation
+    } catch (err: unknown) {
+      // T-0905: Parse FolderOperationError from backend response
+      const folderErrorCode = extractFolderErrorCode(err);
+      const folderErrors = t.folders?.errors as Record<string, string> | undefined;
+      const translatedMsg = folderErrorCode && folderErrors?.[folderErrorCode];
+      setError(translatedMsg || t.folders?.genericError || 'Folder operation failed.');
     }
-  }, [folder, deleteFolder, onClose]);
+  }, [folder, deleteFolder, onClose, t]);
 
   if (!folder) return null;
 
@@ -78,6 +85,11 @@ export function FolderDeleteDialog({
         {t.folders?.deleteWarning ||
           'Attenzione: le email in questa cartella potrebbero essere eliminate.'}
       </Typography>
+      {error && (
+        <Alert severity="error" sx={{ mt: 1.5 }}>
+          {error}
+        </Alert>
+      )}
     </ConfirmDialog>
   );
 }

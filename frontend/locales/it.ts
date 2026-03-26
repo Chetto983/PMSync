@@ -3689,6 +3689,16 @@ export const it: AppTranslations = {
       nameTooShort: 'Il nome deve essere almeno 1 carattere',
       providerRequired: 'Seleziona un account',
       saveFailed: 'Errore durante il salvataggio. Riprova.',
+      // T-0905: Errori operazioni cartelle per provider
+      'not-found': 'Cartella non trovata sul server email.',
+      'permission-denied': 'Non hai il permesso di modificare questa cartella.',
+      'server-error': 'Il server email ha restituito un errore. Riprova.',
+      'timeout': 'L\'operazione è scaduta. Riprova.',
+      'has-children': 'Impossibile eliminare una cartella con sottocartelle.',
+      'unsupported': 'Questo provider email non supporta questa operazione. Usa la webmail del provider.',
+      'circuit-breaker': 'Troppi errori \u2014 operazione temporaneamente sospesa. Riprova tra qualche minuto.',
+      'name-invalid': 'Il nome della cartella non è valido.',
+      'already-exists': 'Una cartella con questo nome esiste già.',
     },
   },
   // Email List

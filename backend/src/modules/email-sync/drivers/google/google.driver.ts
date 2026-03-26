@@ -19,6 +19,7 @@ import {
   CanonicalFolderType,
 } from '../interfaces/canonical.types';
 import { withRetry, RetryOptions } from '../../../../common/utils';
+import { classifyFolderError } from '../interfaces/folder-errors';
 import { GmailMessageService } from './services/gmail-message.service';
 import { GmailSendService } from './services/gmail-send.service';
 import { GmailSyncService } from './services/gmail-sync.service';
@@ -167,31 +168,38 @@ export class GoogleDriver extends BaseEmailDriver {
       throw new Error('Folder name cannot contain \\ or / characters');
     }
 
-    const response = await this.executeWithRetry(
-      () => this.gmail!.users.labels.create({
-        userId: 'me',
-        requestBody: {
-          name: trimmedName,
-          labelListVisibility: 'labelShow',
-          messageListVisibility: 'show',
-        },
-      }),
-      'createFolder',
-    );
-
-    return this.labelToCanonicalFolder(response.data);
+    try {
+      const response = await this.executeWithRetry(
+        () => this.gmail!.users.labels.create({
+          userId: 'me',
+          requestBody: {
+            name: trimmedName,
+            labelListVisibility: 'labelShow',
+            messageListVisibility: 'show',
+          },
+        }),
+        'createFolder',
+      );
+      return this.labelToCanonicalFolder(response.data);
+    } catch (error) {
+      throw classifyFolderError(error, 'google', 'create');
+    }
   }
 
   async deleteFolder(folderId: string): Promise<void> {
     this.ensureConnected();
 
-    await this.executeWithRetry(
-      () => this.gmail!.users.labels.delete({
-        userId: 'me',
-        id: folderId,
-      }),
-      'deleteFolder',
-    );
+    try {
+      await this.executeWithRetry(
+        () => this.gmail!.users.labels.delete({
+          userId: 'me',
+          id: folderId,
+        }),
+        'deleteFolder',
+      );
+    } catch (error) {
+      throw classifyFolderError(error, 'google', 'delete');
+    }
   }
 
   async renameFolder(folderId: string, newName: string): Promise<void> {
@@ -212,14 +220,18 @@ export class GoogleDriver extends BaseEmailDriver {
       throw new Error('Folder name cannot contain \\ or / characters');
     }
 
-    await this.executeWithRetry(
-      () => this.gmail!.users.labels.patch({
-        userId: 'me',
-        id: folderId,
-        requestBody: { name: trimmedName },
-      }),
-      'renameFolder',
-    );
+    try {
+      await this.executeWithRetry(
+        () => this.gmail!.users.labels.patch({
+          userId: 'me',
+          id: folderId,
+          requestBody: { name: trimmedName },
+        }),
+        'renameFolder',
+      );
+    } catch (error) {
+      throw classifyFolderError(error, 'google', 'rename');
+    }
   }
 
   // === Message Operations - DELEGATE ===

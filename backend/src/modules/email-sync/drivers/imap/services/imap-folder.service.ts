@@ -19,6 +19,7 @@ import {
   IMAP_SPECIAL_USE_TO_CANONICAL,
   folderNameToCanonical,
 } from '../../interfaces/canonical.types';
+import { classifyFolderError, FolderOperationError } from '../../interfaces/folder-errors';
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class ImapFolderService {
@@ -106,20 +107,24 @@ export class ImapFolderService {
    * Create a new folder
    */
   async createFolder(name: string, parentId?: string): Promise<CanonicalFolder> {
-    return this.connectionPool.withConnection(async (client) => {
-      const path = parentId ? `${parentId}/${name}` : name;
-      await client.mailboxCreate(path);
+    try {
+      return await this.connectionPool.withConnection(async (client) => {
+        const path = parentId ? `${parentId}/${name}` : name;
+        await client.mailboxCreate(path);
 
-      // Refresh folder cache
-      this.clearCache();
+        // Refresh folder cache
+        this.clearCache();
 
-      // Get the created folder
-      const folder = await this.getFolder(path);
-      if (!folder) {
-        throw new Error(`Failed to create folder: ${path}`);
-      }
-      return folder;
-    });
+        // Get the created folder
+        const folder = await this.getFolder(path);
+        if (!folder) {
+          throw new Error(`Failed to create folder: ${path}`);
+        }
+        return folder;
+      });
+    } catch (error) {
+      throw classifyFolderError(error, 'imap', 'create');
+    }
   }
 
   /**
@@ -157,10 +162,13 @@ export class ImapFolderService {
           `[deleteFolder] Circuit breaker OPEN for "${folderId}" — ${cbState.count} consecutive failures. ` +
           `Retry in ${remainingSec}s.`,
         );
-        throw new Error(
-          `deleteFolder circuit breaker open for "${folderId}": ` +
-          `${cbState.count} consecutive failures, cooldown ${remainingSec}s remaining`,
-        );
+        throw new FolderOperationError({
+          code: 'circuit-breaker',
+          driver: 'imap',
+          operation: 'delete',
+          recoverable: true,
+          message: `deleteFolder circuit breaker open for "${folderId}": ${cbState.count} consecutive failures, cooldown ${remainingSec}s remaining`,
+        });
       }
       // Cooldown expired — reset and retry
       this.deleteFailures.delete(folderId);
@@ -174,7 +182,7 @@ export class ImapFolderService {
       // T-0904: Record failure for circuit breaker
       const prev = this.deleteFailures.get(folderId) || { count: 0, lastFailedAt: 0 };
       this.deleteFailures.set(folderId, { count: prev.count + 1, lastFailedAt: Date.now() });
-      throw error;
+      throw classifyFolderError(error, 'imap', 'delete');
     }
   }
 
@@ -323,13 +331,17 @@ export class ImapFolderService {
    * Rename a folder
    */
   async renameFolder(folderId: string, newName: string): Promise<void> {
-    return this.connectionPool.withConnection(async (client) => {
-      const lastSep = folderId.lastIndexOf('/');
-      const newPath = lastSep >= 0 ? `${folderId.substring(0, lastSep)}/${newName}` : newName;
+    try {
+      return await this.connectionPool.withConnection(async (client) => {
+        const lastSep = folderId.lastIndexOf('/');
+        const newPath = lastSep >= 0 ? `${folderId.substring(0, lastSep)}/${newName}` : newName;
 
-      await client.mailboxRename(folderId, newPath);
-      this.clearCache();
-    });
+        await client.mailboxRename(folderId, newPath);
+        this.clearCache();
+      });
+    } catch (error) {
+      throw classifyFolderError(error, 'imap', 'rename');
+    }
   }
 
   /**

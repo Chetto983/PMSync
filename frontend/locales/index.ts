@@ -3538,6 +3538,15 @@ export interface AppTranslations {
       nameTooShort: string;
       providerRequired: string;
       saveFailed: string;
+      'not-found': string;
+      'permission-denied': string;
+      'server-error': string;
+      'timeout': string;
+      'has-children': string;
+      'unsupported': string;
+      'circuit-breaker': string;
+      'name-invalid': string;
+      'already-exists': string;
     };
   };
   // Email List

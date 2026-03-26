@@ -20,6 +20,7 @@ import {
   folderNameToCanonical,
 } from '../interfaces/canonical.types';
 import { withRetry, RetryOptions } from '../../../../common/utils';
+import { classifyFolderError } from '../interfaces/folder-errors';
 import { MicrosoftMessageService } from './services/microsoft-message.service';
 import { MicrosoftSendService } from './services/microsoft-send.service';
 import { MicrosoftSyncService } from './services/microsoft-sync.service';
@@ -234,43 +235,53 @@ export class MicrosoftDriver extends BaseEmailDriver {
       ? `/me/mailFolders/${parentId}/childFolders`
       : '/me/mailFolders';
 
-    const response = await this.executeWithRetry(
-      () => this.client!.post(endpoint, { displayName: name }),
-      'createFolder',
-    );
-    const newFolder = this.graphFolderToCanonical(response.data);
+    try {
+      const response = await this.executeWithRetry(
+        () => this.client!.post(endpoint, { displayName: name }),
+        'createFolder',
+      );
+      const newFolder = this.graphFolderToCanonical(response.data);
 
-    // MED-6 FIX: Update cache
-    if (newFolder.id) {
-      if (newFolder.type) this.folderIdCache.set(newFolder.type.toUpperCase(), newFolder.id);
-      this.folderPathCache.set(newFolder.id, name);
+      // MED-6 FIX: Update cache
+      if (newFolder.id) {
+        if (newFolder.type) this.folderIdCache.set(newFolder.type.toUpperCase(), newFolder.id);
+        this.folderPathCache.set(newFolder.id, name);
+      }
+
+      return newFolder;
+    } catch (error) {
+      throw classifyFolderError(error, 'microsoft', 'create');
     }
-
-    return newFolder;
   }
 
   async deleteFolder(folderId: string): Promise<void> {
     this.ensureConnected();
-    await this.executeWithRetry(
-      () => this.client!.delete(`/me/mailFolders/${folderId}`),
-      'deleteFolder',
-    );
+    try {
+      await this.executeWithRetry(
+        () => this.client!.delete(`/me/mailFolders/${folderId}`),
+        'deleteFolder',
+      );
 
-    // MED-6 FIX: Invalidate cache
-    this.folderPathCache.delete(folderId);
-    // Note: We can't easily remove from folderIdCache without iterating,
-    // but stale IDs will just fail and be re-fetched next time.
+      // MED-6 FIX: Invalidate cache
+      this.folderPathCache.delete(folderId);
+    } catch (error) {
+      throw classifyFolderError(error, 'microsoft', 'delete');
+    }
   }
 
   async renameFolder(folderId: string, newName: string): Promise<void> {
     this.ensureConnected();
-    await this.executeWithRetry(
-      () => this.client!.patch(`/me/mailFolders/${folderId}`, { displayName: newName }),
-      'renameFolder',
-    );
+    try {
+      await this.executeWithRetry(
+        () => this.client!.patch(`/me/mailFolders/${folderId}`, { displayName: newName }),
+        'renameFolder',
+      );
 
-    // MED-6 FIX: Update cache
-    this.folderPathCache.set(folderId, newName);
+      // MED-6 FIX: Update cache
+      this.folderPathCache.set(folderId, newName);
+    } catch (error) {
+      throw classifyFolderError(error, 'microsoft', 'rename');
+    }
   }
 
   // === Message Operations - DELEGATE ===

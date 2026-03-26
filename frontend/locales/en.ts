@@ -3712,6 +3712,16 @@ export const en: AppTranslations = {
       nameTooShort: 'Name must be at least 1 character',
       providerRequired: 'Please select an account',
       saveFailed: 'Failed to save. Please try again.',
+      // T-0905: Driver-specific folder operation errors
+      'not-found': 'Folder not found on the email server.',
+      'permission-denied': 'You don\u2019t have permission to modify this folder.',
+      'server-error': 'The email server returned an error. Please try again.',
+      'timeout': 'The operation timed out. Please try again.',
+      'has-children': 'Cannot delete a folder that contains subfolders.',
+      'unsupported': 'This email provider does not support this folder operation. Use the provider\u2019s webmail instead.',
+      'circuit-breaker': 'Too many failures — this operation is temporarily paused. Try again in a few minutes.',
+      'name-invalid': 'The folder name is invalid.',
+      'already-exists': 'A folder with this name already exists.',
     },
   },
   // Email List

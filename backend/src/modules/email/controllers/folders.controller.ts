@@ -30,6 +30,7 @@ import { FolderOperationsQueueService } from '../../email-sync/services/folder-o
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { isSystemFolder } from '../../email-sync/drivers/interfaces/canonical.types';
+import { FolderOperationError } from '../../email-sync/drivers/interfaces/folder-errors';
 
 // DTOs for folder operations
 export class CreateFolderDto {
@@ -667,6 +668,9 @@ Frontend can use this to avoid duplicating folder type logic.`,
         name: result.folderName || dto.name.trim(),
       };
     } catch (error) {
+      if (error instanceof FolderOperationError) {
+        throw new BadRequestException(error.toJSON());
+      }
       const message = error instanceof Error ? error.message : 'Failed to create folder';
       throw new BadRequestException(message);
     }
@@ -761,6 +765,9 @@ Frontend can use this to avoid duplicating folder type logic.`,
           name: result.folderName || dto.newName.trim(),
         };
       } catch (error) {
+        if (error instanceof FolderOperationError) {
+          throw new BadRequestException(error.toJSON());
+        }
         const message = error instanceof Error ? error.message : 'Failed to rename folder';
         throw new BadRequestException(message);
       }
@@ -843,6 +850,9 @@ Frontend can use this to avoid duplicating folder type logic.`,
         message: `Folder "${folder.name}" deleted successfully`,
       };
     } catch (error) {
+      if (error instanceof FolderOperationError) {
+        throw new BadRequestException(error.toJSON());
+      }
       const message = error instanceof Error ? error.message : 'Failed to delete folder';
       throw new BadRequestException(message);
     }

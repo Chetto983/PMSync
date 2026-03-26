@@ -21,6 +21,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useCreateFolder, useRenameFolder } from '@/hooks/queries';
 import { FormDialog } from '@/components/ui';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
+import { extractFolderErrorCode } from './folder-error-utils';
 
 interface FolderDialogProps {
   open: boolean;
@@ -107,9 +108,14 @@ export function FolderDialog({
         onSuccess?.(response);
       }
       onClose();
-    } catch {
+    } catch (err: unknown) {
+      // T-0905: Parse FolderOperationError from backend response
+      const folderErrorCode = extractFolderErrorCode(err);
+      const folderErrors = t.folders?.errors as Record<string, string> | undefined;
+      const translatedMsg = folderErrorCode && folderErrors?.[folderErrorCode];
       setError(
-        t.folders?.errors?.saveFailed ||
+        translatedMsg ||
+          t.folders?.errors?.saveFailed ||
           'Errore durante il salvataggio. Riprova.'
       );
     }
