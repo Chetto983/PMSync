@@ -104,10 +104,12 @@ export function HitlApprovalWrapper({
     // This triggers sendAutomaticallyWhen and the auto-resubmit to the backend.
     const approvalId = interrupt?.payload?.id;
     const approvalFn = getAddToolApprovalResponse();
+    console.log('[HITL] handleApprove', { approvalId, hasApprovalFn: !!approvalFn, interrupt: JSON.stringify(interrupt), statusType: status.type });
     if (approvalId && approvalFn) {
       approvalFn({ id: approvalId, approved: true });
     } else {
       // Fallback: addResult still updates the UI but won't trigger auto-resubmit
+      console.warn('[HITL] Falling back to addResult — interrupt or approvalFn missing');
       addResult({ approved: true });
     }
   };

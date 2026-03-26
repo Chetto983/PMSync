@@ -244,6 +244,36 @@ export class GmailSyncBackService {
         );
         break;
 
+      case 'addLabel':
+        if (!operation.labelExternalId) {
+          throw new Error(`labelExternalId required for addLabel on email ${operation.emailId}`);
+        }
+        await this.executeWithRetry(
+          () =>
+            gmail.users.messages.modify({
+              userId: 'me',
+              id: operation.externalId,
+              requestBody: { addLabelIds: [operation.labelExternalId!] },
+            }),
+          `gmail addLabel ${operation.externalId}`,
+        );
+        break;
+
+      case 'removeLabel':
+        if (!operation.labelExternalId) {
+          throw new Error(`labelExternalId required for removeLabel on email ${operation.emailId}`);
+        }
+        await this.executeWithRetry(
+          () =>
+            gmail.users.messages.modify({
+              userId: 'me',
+              id: operation.externalId,
+              requestBody: { removeLabelIds: [operation.labelExternalId!] },
+            }),
+          `gmail removeLabel ${operation.externalId}`,
+        );
+        break;
+
       case 'hardDelete':
         await this.executeWithRetry(
           () =>
@@ -279,6 +309,9 @@ export class GmailSyncBackService {
     const flagIds: string[] = [];
     const unflagIds: string[] = [];
     const moveToTrashIds: string[] = [];
+    // Group addLabel/removeLabel by labelExternalId for batch modify
+    const addLabelGroups = new Map<string, string[]>();
+    const removeLabelGroups = new Map<string, string[]>();
 
     for (const op of ops) {
       switch (op.operation) {
@@ -305,6 +338,20 @@ export class GmailSyncBackService {
           break;
         case 'unflag':
           unflagIds.push(op.externalId);
+          break;
+        case 'addLabel':
+          if (op.labelExternalId) {
+            const group = addLabelGroups.get(op.labelExternalId) ?? [];
+            group.push(op.externalId);
+            addLabelGroups.set(op.labelExternalId, group);
+          }
+          break;
+        case 'removeLabel':
+          if (op.labelExternalId) {
+            const group = removeLabelGroups.get(op.labelExternalId) ?? [];
+            group.push(op.externalId);
+            removeLabelGroups.set(op.labelExternalId, group);
+          }
           break;
         case 'moveToFolder':
           if (op.folder?.toUpperCase() === 'TRASH') {
@@ -346,6 +393,16 @@ export class GmailSyncBackService {
     await batchModify(unstarIds, { removeLabelIds: ['STARRED'] }, 'Unstar');
     await batchModify(flagIds, { addLabelIds: ['IMPORTANT'] }, 'Flag');
     await batchModify(unflagIds, { removeLabelIds: ['IMPORTANT'] }, 'Unflag');
+
+    // Process addLabel groups (each group shares the same labelExternalId)
+    for (const [labelId, msgIds] of addLabelGroups) {
+      await batchModify(msgIds, { addLabelIds: [labelId] }, `AddLabel(${labelId})`);
+    }
+
+    // Process removeLabel groups
+    for (const [labelId, msgIds] of removeLabelGroups) {
+      await batchModify(msgIds, { removeLabelIds: [labelId] }, `RemoveLabel(${labelId})`);
+    }
 
     this.logger.log(`[SYNC-BACK] Gmail batch sync completed`);
   }

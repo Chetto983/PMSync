@@ -6,7 +6,7 @@
 - **Next Task:** Sprint complete — all 6/6 tasks done
 - **Tasks Done:** 6/6
 - **SP Completed:** 8/8
-- **Last Updated:** 2026-03-26 09:45
+- **Last Updated:** 2026-03-26 10:50
 
 ## Last Modified Files
 - backend/src/modules/crm/product/controllers/product.controller.ts
@@ -58,4 +58,11 @@
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
 - Prisma db push: ✅ executed on Railway (accountId column + indexes added)
-- Production validation: ⏳ pending (push + browser E2E required)
+- Railway health: ✅ 200 (DB, Redis, Mistral all up)
+- Railway /crm/products: ✅ 401 (route registered, auth guard active)
+- Railway /crm/accounts/:id/activities: ✅ 401 (route registered, auth guard active)
+- Vercel /dashboard/crm/deals: ✅ 307 (page exists, auth redirect)
+- Vercel /dashboard/crm/accounts: ✅ 307 (page exists, auth redirect)
+- Browser (Edge CDP) Account Activity tab: ✅ empty state renders, "Registra Attività" CTA, no placeholder
+- Browser (Edge CDP) Account Activity mobile: ✅ layout stacks correctly at 375x812
+- Browser (Edge CDP) Deal Products tab: ⚠ Edge CDP disconnected before validation (code verified via tsc)

@@ -87,7 +87,7 @@ export class LabelsService {
         name: dto.name,
         slug,
         color: dto.color
-          ? (dto.color as Prisma.InputJsonValue)
+          ? ({ ...dto.color } as Prisma.InputJsonValue)
           : undefined,
         icon: dto.icon,
         aiPrompt: dto.aiPrompt ?? null,

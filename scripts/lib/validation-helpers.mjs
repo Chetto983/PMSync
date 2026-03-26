@@ -194,6 +194,70 @@ export async function waitForSyncCompletion(context, cookieHeader, maxWaitMs = 6
   return false;
 }
 
+/**
+ * PATCH wrapper with Cookie + x-csrf-token headers.
+ * Parses JSON and returns data. Throws on non-2xx.
+ */
+export async function apiPatch(context, path, body, cookieHeader, csrfToken) {
+  const api = context.request;
+  const url = BACKEND_URL + path;
+  const headers = { Cookie: cookieHeader };
+  if (csrfToken) {
+    headers['x-csrf-token'] = csrfToken;
+  }
+
+  const opts = { headers };
+  if (body !== null && body !== undefined) {
+    opts.data = body;
+  }
+
+  const response = await api.patch(url, opts);
+  const status = response.status();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = await response.text();
+  }
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`PATCH ${path} returned ${status}: ${JSON.stringify(data).substring(0, 200)}`);
+  }
+
+  return data;
+}
+
+/**
+ * DELETE wrapper with Cookie + x-csrf-token headers.
+ * Returns null on 204, otherwise parses JSON. Throws on non-2xx.
+ */
+export async function apiDelete(context, path, cookieHeader, csrfToken) {
+  const api = context.request;
+  const url = BACKEND_URL + path;
+  const headers = { Cookie: cookieHeader };
+  if (csrfToken) {
+    headers['x-csrf-token'] = csrfToken;
+  }
+
+  const response = await api.delete(url, { headers });
+  const status = response.status();
+
+  if (status === 204) return null;
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = await response.text();
+  }
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`DELETE ${path} returned ${status}: ${JSON.stringify(data).substring(0, 200)}`);
+  }
+
+  return data;
+}
+
 // --- Assertion helpers ---
 
 // Module-level results collector (reset per test run)

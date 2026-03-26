@@ -88,7 +88,7 @@ export class PushDispatchWorker implements OnModuleInit, OnModuleDestroy {
         badge: '/icons/icon-72x72.png',
         tag: threadId,
         renotify: true,
-        data: { url: `/mail/${emailId}` },
+        data: { url: `/dashboard/email/thread/${threadId}` },
       };
 
       // Clean up Redis key after sending
@@ -108,7 +108,7 @@ export class PushDispatchWorker implements OnModuleInit, OnModuleDestroy {
         badge: '/icons/icon-72x72.png',
         tag: threadId || emailId,
         renotify: true,
-        data: { url: `/mail/${emailId}` },
+        data: { url: threadId ? `/dashboard/email/thread/${threadId}` : `/dashboard/email` },
       };
     }
 

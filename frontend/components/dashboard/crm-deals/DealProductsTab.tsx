@@ -23,6 +23,7 @@ import {
   InputAdornment,
   Skeleton,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import { Plus, Trash2, Search, Package } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -246,6 +247,7 @@ function AddProductDialog({
           variant="contained"
           onClick={handleSubmit}
           disabled={!selectedProduct || linkProduct.isPending}
+          startIcon={linkProduct.isPending ? <CircularProgress size={16} /> : undefined}
         >
           {tp?.addProduct ?? 'Add Product'}
         </Button>

@@ -184,6 +184,7 @@ function CreateAccountActivityDialog({
           onClick={handleSave}
           variant="contained"
           disabled={createActivity.isPending}
+          startIcon={createActivity.isPending ? <CircularProgress size={16} /> : undefined}
         >
           {tf?.save ?? 'Save'}
         </Button>

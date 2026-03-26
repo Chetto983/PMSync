@@ -182,3 +182,4 @@ scripts/*
 !scripts/validate-webhook-sync.mjs
 !scripts/lib/validate-gmail-webhook.mjs
 !scripts/lib/validate-microsoft-webhook.mjs
+artifacts/*

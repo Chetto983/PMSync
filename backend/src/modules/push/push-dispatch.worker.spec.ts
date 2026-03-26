@@ -176,7 +176,29 @@ describe('PushDispatchWorker', () => {
       );
     });
 
-    it('should include /mail/{emailId} URL in payload data (PUSH-06)', async () => {
+    it('should include /dashboard/email/thread/{threadId} URL in payload data (PUSH-06)', async () => {
+      mockPushService.getSubscriptionsForUser.mockResolvedValue([sub1]);
+
+      const job = makeJob('push-email', {
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        emailId: 'email-42',
+        subject: 'Test',
+        from: 'sender@example.com',
+        threadId: 'thread-99',
+        category: 'email',
+      });
+
+      await (worker as any).process(job);
+
+      const payloadStr =
+        mockPushService.sendNotification.mock.calls[0][1] as string;
+      const payload = JSON.parse(payloadStr);
+
+      expect(payload.data.url).toBe('/dashboard/email/thread/thread-99');
+    });
+
+    it('should fallback to /dashboard/email when threadId is null (PUSH-06)', async () => {
       mockPushService.getSubscriptionsForUser.mockResolvedValue([sub1]);
 
       const job = makeJob('push-email', {
@@ -195,7 +217,7 @@ describe('PushDispatchWorker', () => {
         mockPushService.sendNotification.mock.calls[0][1] as string;
       const payload = JSON.parse(payloadStr);
 
-      expect(payload.data.url).toBe('/mail/email-42');
+      expect(payload.data.url).toBe('/dashboard/email');
     });
   });
 });

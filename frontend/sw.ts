@@ -112,7 +112,9 @@ self.addEventListener('sync', (event: Event & { tag?: string; waitUntil?: (p: Pr
 self.addEventListener('push', (evt: Event) => {
   const event = evt as PushEvent;
   if (!event.data) return;
-  const data = event.data.json() as {
+  const raw = event.data.text();
+  console.log('[SW:push] raw payload:', raw);
+  const data = JSON.parse(raw) as {
     title: string;
     body: string;
     icon?: string;
@@ -121,6 +123,8 @@ self.addEventListener('push', (evt: Event) => {
     renotify?: boolean;
     data?: { url: string };
   };
+  const resolvedUrl = data.data?.url || '/';
+  console.log('[SW:push] resolved url:', resolvedUrl);
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
@@ -128,7 +132,7 @@ self.addEventListener('push', (evt: Event) => {
       badge: data.badge || '/icons/icon-192x192.png',
       tag: data.tag,
       renotify: data.renotify ?? false,
-      data: { url: data.data?.url || '/' },
+      data: { url: resolvedUrl },
     } as NotificationOptions)
   );
 });
@@ -137,18 +141,23 @@ self.addEventListener('push', (evt: Event) => {
 self.addEventListener('notificationclick', (evt: Event) => {
   const event = evt as NotificationEvent;
   event.notification.close();
-  const url = (event.notification.data as { url?: string })?.url || '/';
+  const notifData = event.notification.data;
+  console.log('[SW:notificationclick] notification.data:', JSON.stringify(notifData));
+  const url = (notifData as { url?: string })?.url || '/';
+  console.log('[SW:notificationclick] navigating to:', url);
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window' })
       .then((clientList) => {
         for (const client of clientList) {
           if ('focus' in client) {
+            console.log('[SW:notificationclick] focusing existing client, navigate:', url);
             (client as WindowClient).focus();
             (client as WindowClient).navigate(url);
             return;
           }
         }
+        console.log('[SW:notificationclick] no client, openWindow:', url);
         return self.clients.openWindow(url);
       })
   );

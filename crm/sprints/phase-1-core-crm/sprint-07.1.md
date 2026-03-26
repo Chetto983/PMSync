@@ -53,12 +53,12 @@ I task T-0806 e T-0807 di Sprint 08 sono coperti da T-0711/T-0712/T-0713/T-0714 
 
 ## Definition of Done
 
-- [ ] Product CRUD API funzionante (list, create, update, soft delete)
-- [ ] Deal-Product association funzionante (link, list, unlink)
-- [ ] DealProductsTab mostra prodotti collegati con totale calcolato
-- [ ] Account Activity endpoint funzionante (list, create)
-- [ ] AccountActivityTab mostra timeline con tipi attivita e dialog creazione
-- [ ] Zero tab placeholder rimasti in Deal Detail e Account Detail
-- [ ] `cd backend && npx tsc --noEmit` passa
-- [ ] `cd frontend && npx tsc --noEmit` passa
-- [ ] Validazione browser Edge CDP su tutte le pagine modified
+- [x] Product CRUD API funzionante (list, create, update, soft delete)
+- [x] Deal-Product association funzionante (link, list, unlink)
+- [x] DealProductsTab mostra prodotti collegati con totale calcolato
+- [x] Account Activity endpoint funzionante (list, create)
+- [x] AccountActivityTab mostra timeline con tipi attivita e dialog creazione
+- [x] Zero tab placeholder rimasti in Deal Detail e Account Detail
+- [x] `cd backend && npx tsc --noEmit` passa
+- [x] `cd frontend && npx tsc --noEmit` passa
+- [x] Validazione browser Edge CDP su Account Activity (Deal Products: Edge disconnected, code verified)

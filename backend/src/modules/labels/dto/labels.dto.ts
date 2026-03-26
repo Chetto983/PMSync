@@ -1,4 +1,18 @@
-import { IsArray, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length, Matches, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+/** Hex color regex: #RGB, #RRGGBB, or #RRGGBBAA */
+const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
+export class LabelColorDto {
+  @IsString()
+  @Matches(HEX_COLOR_REGEX, { message: 'backgroundColor must be a valid hex color (e.g. #FF0000)' })
+  backgroundColor!: string;
+
+  @IsString()
+  @Matches(HEX_COLOR_REGEX, { message: 'textColor must be a valid hex color (e.g. #FFFFFF)' })
+  textColor!: string;
+}
 
 export class CreateLabelDto {
   @IsString()
@@ -8,10 +22,9 @@ export class CreateLabelDto {
 
   @IsOptional()
   @IsObject()
-  color?: {
-    backgroundColor: string;
-    textColor: string;
-  };
+  @ValidateNested()
+  @Type(() => LabelColorDto)
+  color?: LabelColorDto;
 
   @IsOptional()
   @IsString()
@@ -35,10 +48,9 @@ export class UpdateLabelDto {
 
   @IsOptional()
   @IsObject()
-  color?: {
-    backgroundColor: string;
-    textColor: string;
-  } | null;
+  @ValidateNested()
+  @Type(() => LabelColorDto)
+  color?: LabelColorDto | null;
 
   @IsOptional()
   @IsString()

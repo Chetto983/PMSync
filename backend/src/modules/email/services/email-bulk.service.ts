@@ -13,6 +13,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailSyncBackService } from './email-sync-back.service';
+import type { EmailSyncOperation } from '../types/sync-back.types';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { EmailFolderService } from './email-folder.service';
@@ -493,11 +494,11 @@ export class EmailBulkService {
           id: { in: labelIds },
           tenantId,
         },
-        select: { id: true },
+        select: { id: true, name: true },
       }),
       this.prisma.email.findMany({
         where: { id: { in: emailIds }, tenantId },
-        select: { id: true, providerId: true },
+        select: { id: true, externalId: true, providerId: true, tenantId: true },
       }),
     ]);
 
@@ -510,10 +511,8 @@ export class EmailBulkService {
       throw new NotFoundException('No valid emails found for this tenant');
     }
 
-    await this.emailCrud.ensureProvidersActive(
-      tenantId,
-      Array.from(new Set(emails.map((email) => email.providerId))),
-    );
+    const uniqueProviderIds = Array.from(new Set(emails.map((email) => email.providerId)));
+    await this.emailCrud.ensureProvidersActive(tenantId, uniqueProviderIds);
 
     // Create email-label associations
     const emailLabelPairs = validatedEmailIds.flatMap((emailId) =>
@@ -528,6 +527,9 @@ export class EmailBulkService {
       data: emailLabelPairs,
       skipDuplicates: true,
     });
+
+    // Sync-back: resolve Gmail label IDs via Folder model and call syncOperationsBatch
+    await this.syncLabelOperationsToProviders(emails, labels, uniqueProviderIds, tenantId, 'addLabel');
 
     const updatedEmails = await this.emailCrud.getEmailsByIds(validatedEmailIds, tenantId);
 
@@ -566,7 +568,7 @@ export class EmailBulkService {
 
     const emails = await this.prisma.email.findMany({
       where: { id: { in: emailIds }, tenantId },
-      select: { id: true, providerId: true },
+      select: { id: true, externalId: true, providerId: true, tenantId: true },
     });
 
     const validatedEmailIds = emails.map((e) => e.id);
@@ -574,14 +576,12 @@ export class EmailBulkService {
       return { deleted: 0, emails: [] };
     }
 
-    await this.emailCrud.ensureProvidersActive(
-      tenantId,
-      Array.from(new Set(emails.map((email) => email.providerId))),
-    );
+    const uniqueProviderIds = Array.from(new Set(emails.map((email) => email.providerId)));
+    await this.emailCrud.ensureProvidersActive(tenantId, uniqueProviderIds);
 
     const validatedLabels = await this.prisma.userLabel.findMany({
       where: { id: { in: labelIds }, tenantId },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (validatedLabels.length !== labelIds.length) {
       throw new NotFoundException('One or more labels not found');
@@ -593,6 +593,9 @@ export class EmailBulkService {
         labelId: { in: labelIds },
       },
     });
+
+    // Sync-back: resolve Gmail label IDs via Folder model and call syncOperationsBatch
+    await this.syncLabelOperationsToProviders(emails, validatedLabels, uniqueProviderIds, tenantId, 'removeLabel');
 
     const updatedEmails = await this.emailCrud.getEmailsByIds(validatedEmailIds, tenantId);
 
@@ -616,5 +619,83 @@ export class EmailBulkService {
     }
 
     return { deleted: result.count, emails: updatedEmails };
+  }
+
+  /**
+   * Resolve Gmail label IDs via Folder model and sync label operations to providers.
+   * Only syncs for providers where a matching Folder.externalId is found.
+   * Skips sync-back (with debug log) when no Folder match exists for a UserLabel name.
+   */
+  private async syncLabelOperationsToProviders(
+    emails: { id: string; externalId: string; providerId: string; tenantId: string }[],
+    labels: { id: string; name: string }[],
+    providerIds: string[],
+    tenantId: string,
+    operation: 'addLabel' | 'removeLabel',
+  ): Promise<void> {
+    // Fetch provider types to filter to Gmail only (Gmail folders ARE labels)
+    const providers = await this.prisma.providerConfig.findMany({
+      where: { id: { in: providerIds }, tenantId },
+      select: { id: true, providerType: true },
+    });
+    const gmailProviderIds = providers
+      .filter((p) => p.providerType?.toUpperCase() === 'GOOGLE')
+      .map((p) => p.id);
+
+    if (gmailProviderIds.length === 0) return;
+
+    // Fetch Folder records for these Gmail providers to resolve label names -> externalIds
+    const labelNames = labels.map((l) => l.name);
+    const folders = await this.prisma.folder.findMany({
+      where: {
+        providerId: { in: gmailProviderIds },
+        tenantId,
+        name: { in: labelNames },
+        externalId: { not: null },
+      },
+      select: { providerId: true, name: true, externalId: true },
+    });
+
+    // Build lookup: providerId -> labelName -> externalId
+    const folderLookup = new Map<string, Map<string, string>>();
+    for (const f of folders) {
+      if (!f.externalId) continue;
+      if (!folderLookup.has(f.providerId)) {
+        folderLookup.set(f.providerId, new Map());
+      }
+      folderLookup.get(f.providerId)!.set(f.name, f.externalId);
+    }
+
+    const gmailProviderSet = new Set(gmailProviderIds);
+    const gmailEmails = emails.filter((e) => gmailProviderSet.has(e.providerId));
+    if (gmailEmails.length === 0) return;
+
+    const operations: EmailSyncOperation[] = [];
+    for (const email of gmailEmails) {
+      const providerFolders = folderLookup.get(email.providerId);
+      for (const label of labels) {
+        const labelExternalId = providerFolders?.get(label.name);
+        if (!labelExternalId) {
+          this.logger.debug(
+            `No Gmail label mapping found for UserLabel "${label.name}" on provider ${email.providerId}, skipping sync-back`,
+          );
+          continue;
+        }
+        operations.push({
+          emailId: email.id,
+          externalId: email.externalId,
+          providerId: email.providerId,
+          tenantId: email.tenantId,
+          operation,
+          labelExternalId,
+        });
+      }
+    }
+
+    if (operations.length > 0) {
+      this.emailSyncBack.syncOperationsBatch(operations).catch((error) => {
+        this.logger.error(`Failed to sync label ${operation} to provider: ${error.message}`);
+      });
+    }
   }
 }
