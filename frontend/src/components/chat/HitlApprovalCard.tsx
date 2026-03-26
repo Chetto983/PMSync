@@ -100,11 +100,14 @@ export function HitlApprovalWrapper({
 
   const handleApprove = () => {
     setBusy('approve');
-    const approvalId = interrupt?.payload?.id;
+    const approvalId = (interrupt?.payload as Record<string, unknown>)?.id as string | undefined;
     const approvalFn = getAddToolApprovalResponse();
+    // DEBUG: remove after validation
+    console.log('[HITL-debug] handleApprove', { approvalId, hasFn: !!approvalFn, interrupt: JSON.stringify(interrupt), status: JSON.stringify(status) });
     if (approvalId && approvalFn) {
       approvalFn({ id: approvalId, approved: true });
     } else {
+      console.warn('[HITL-debug] FALLBACK to addResult — approvalId:', approvalId, 'approvalFn:', !!approvalFn);
       addResult({ approved: true });
     }
   };
