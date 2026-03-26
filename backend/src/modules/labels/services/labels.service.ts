@@ -538,9 +538,9 @@ export class LabelsService {
   }
 
   /**
-   * T-0901: Queue label sync-back for Microsoft provider emails.
-   * Maps UserLabel name → Outlook category. IMAP and Google are no-ops here
-   * (Google uses native Gmail labels via sync-back worker, IMAP has no category concept).
+   * T-0901/T-0902: Queue label sync-back for providers that support labels.
+   * Microsoft: UserLabel name → Outlook category. Google: UserLabel name → Gmail label ID.
+   * IMAP: skipped (labels are app-only, no provider-side concept).
    */
   private async queueLabelSyncBack(
     tenantId: string,
@@ -548,33 +548,35 @@ export class LabelsService {
     action: 'add-label' | 'remove-label',
     labelName: string,
   ): Promise<void> {
-    // Group emails by provider, filter to Microsoft only
-    const byProvider = new Map<string, string[]>();
+    // T-0902: Only queue for providers that support labels (Google, Microsoft)
+    const LABEL_CAPABLE_PROVIDERS = new Set(['google', 'microsoft']);
+
+    const byProvider = new Map<string, { emailIds: string[]; providerType: string }>();
     for (const email of emails) {
       const providerType = email.provider?.providerType;
-      if (providerType === 'microsoft') {
-        const ids = byProvider.get(email.providerId) || [];
-        ids.push(email.id);
-        byProvider.set(email.providerId, ids);
-      }
+      if (!providerType || !LABEL_CAPABLE_PROVIDERS.has(providerType)) continue;
+
+      const entry = byProvider.get(email.providerId) || { emailIds: [], providerType };
+      entry.emailIds.push(email.id);
+      byProvider.set(email.providerId, entry);
     }
 
     if (byProvider.size === 0) return;
 
-    const jobs = Array.from(byProvider.entries()).map(([providerId, emailIds]) => ({
+    const jobs = Array.from(byProvider.entries()).map(([providerId, { emailIds, providerType }]) => ({
       tenantId,
       providerId,
-      providerType: 'microsoft' as const,
+      providerType: providerType as 'google' | 'microsoft',
       action,
       emailIds,
-      labelId: labelName, // Outlook category name = UserLabel name
+      labelId: labelName,
       requestedAt: new Date().toISOString(),
       priority: 'high' as const,
     }));
 
     await this.syncBackQueue.enqueueBulkSyncBack(jobs);
     this.logger.debug(
-      `Queued ${action} sync-back for ${jobs.length} Microsoft provider(s), label="${labelName}"`,
+      `Queued ${action} sync-back for ${jobs.length} provider(s), label="${labelName}"`,
     );
   }
 

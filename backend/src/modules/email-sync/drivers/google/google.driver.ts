@@ -48,6 +48,11 @@ export class GoogleDriver extends BaseEmailDriver {
     super();
   }
 
+  /** T-0902: Google supports Gmail labels for sync-back */
+  supportsLabels(): boolean {
+    return true;
+  }
+
   // === Connection Lifecycle ===
   async connect(credentials: DriverCredentials): Promise<void> {
     if (!credentials.accessToken) {

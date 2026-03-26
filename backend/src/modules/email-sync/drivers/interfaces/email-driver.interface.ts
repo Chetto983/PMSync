@@ -268,6 +268,12 @@ export interface IEmailDriver {
   // ============================================
 
   /**
+   * T-0902: Whether the provider supports label/category sync-back.
+   * Google: true (Gmail labels), Microsoft: true (Outlook categories), IMAP: false (local-only).
+   */
+  supportsLabels(): boolean;
+
+  /**
    * Add labels to a message
    * @param messageId Message ID
    * @param labels Labels to add
@@ -414,6 +420,13 @@ export abstract class BaseEmailDriver implements IEmailDriver {
   abstract getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData>;
 
   abstract getUserInfo(): Promise<{ email: string; name: string; photo?: string }>;
+
+  /**
+   * T-0902: Default to false — override in Google/Microsoft drivers.
+   */
+  supportsLabels(): boolean {
+    return false;
+  }
 
   /**
    * Helper to ensure driver is connected before operations

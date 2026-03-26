@@ -1223,6 +1223,8 @@ export const it: AppTranslations = {
       aiPromptLabel: 'Regola di triage AI',
       aiPromptPlaceholder: 'Descrivi quando l\'AI deve applicare questa etichetta, es. "Email che richiedono preventivi o listini prezzi"',
       aiPromptHelperText: 'L\'AI applicherà automaticamente questa etichetta alle email che corrispondono a questa descrizione.',
+      // T-0902: IMAP local-only notice
+      imapLocalOnly: 'Le etichette su questo account sono solo locali e non verranno sincronizzate con il server di posta.',
       errors: {
         nameRequired: 'Il nome è obbligatorio',
         nameTooShort: 'Il nome deve essere almeno 2 caratteri',

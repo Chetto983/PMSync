@@ -41,6 +41,8 @@ interface LabelPickerDialogProps {
   onSuccess?: () => void;
   /** Labels currently on the selected emails (for remove functionality) */
   currentLabelIds?: string[];
+  /** T-0902: Provider type — shows local-only notice for IMAP accounts */
+  providerType?: string;
 }
 
 export function LabelPickerDialog({
@@ -49,6 +51,7 @@ export function LabelPickerDialog({
   emailIds,
   onSuccess,
   currentLabelIds = [],
+  providerType,
 }: LabelPickerDialogProps) {
   const t = useTranslations();
 
@@ -205,6 +208,13 @@ export function LabelPickerDialog({
                 String(emailCount)
               )}
         </Typography>
+
+        {/* T-0902: IMAP local-only notice */}
+        {providerType === 'imap' && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {t.email?.labels?.imapLocalOnly || 'Labels on this account are local only and will not sync to the mail server.'}
+          </Alert>
+        )}
 
         {/* Search */}
         <TextField

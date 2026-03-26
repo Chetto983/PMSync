@@ -1164,6 +1164,7 @@ export interface AppTranslations {
       dismissAiLabel: string;
       aiLabelAccepted: string;
       aiLabelDismissed: string;
+      imapLocalOnly: string;
     };
     list: {
       loading: string;

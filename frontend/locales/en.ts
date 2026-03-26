@@ -1233,6 +1233,8 @@ export const en: AppTranslations = {
       aiPromptLabel: 'AI Triage Rule',
       aiPromptPlaceholder: 'Describe when AI should apply this label, e.g. "Emails requesting quotes or price lists"',
       aiPromptHelperText: 'The AI will automatically apply this label to emails matching this description.',
+      // T-0902: IMAP local-only notice
+      imapLocalOnly: 'Labels on this account are local only and will not sync to the mail server.',
       errors: {
         nameRequired: 'Name is required',
         nameTooShort: 'Name must be at least 2 characters',
