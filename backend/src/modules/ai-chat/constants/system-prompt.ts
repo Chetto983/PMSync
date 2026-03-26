@@ -347,7 +347,7 @@ export function buildExtendedRuntimeContext(
       const isDefault = i === 0 ? ' [default]' : '';
       lines.push(`  - ${acc.email ?? 'unknown'}  (${label})${isDefault}`);
     }
-    lines.push('When sending/drafting/forwarding/replying to email, if the user does not specify which account, use the default. If ambiguous, ask which account to send from using ask_user.');
+    lines.push('IMPORTANT: When sending/drafting/forwarding/replying to email with multiple accounts available, ALWAYS ask which account to send from using ask_user — unless the user already specified a "from" address. Never silently default to one account.');
   }
 
   return lines.join('\n');

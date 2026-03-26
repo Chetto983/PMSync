@@ -248,17 +248,6 @@ export class AiChatService {
           { tools },
         ) as { role: string; content: unknown }[];
 
-        // Debug: log converted model messages structure for HITL diagnosis
-        for (const msg of messages) {
-          const parts = Array.isArray(msg.content) ? msg.content : [];
-          const types = parts.map((p: { type?: string }) => p.type).filter(Boolean);
-          if (types.length > 0) {
-            this.logger.log(`[HITL-debug] role=${msg.role} parts=[${types.join(', ')}]`);
-          } else {
-            const preview = typeof msg.content === 'string' ? msg.content.slice(0, 80) : JSON.stringify(msg.content).slice(0, 80);
-            this.logger.log(`[HITL-debug] role=${msg.role} content=${preview}`);
-          }
-        }
       }
     } else {
       // Normal message flow: load server-side history + PII + save message
@@ -635,25 +624,8 @@ export class AiChatService {
       await this.prepareChatAgent(params);
 
     try {
-      const validatedMessages = this.ensureValidMessages(messages);
-
-      // HITL debug: log message structure for approval resubmits
-      if (clientMessages?.length) {
-        for (const msg of validatedMessages) {
-          const parts = Array.isArray(msg.content) ? msg.content : [];
-          const types = parts.map((p: { type?: string }) => p.type).filter(Boolean);
-          if (types.length > 0) {
-            this.logger.log(`[HITL-validated] role=${msg.role} parts=[${types.join(', ')}]`);
-          } else {
-            this.logger.log(`[HITL-validated] role=${msg.role} content=${typeof msg.content === 'string' ? msg.content.slice(0, 60) : '(other)'}`);
-          }
-        }
-        const lastMsg = validatedMessages[validatedMessages.length - 1];
-        this.logger.log(`[HITL-validated] lastMsg.role=${lastMsg?.role} isToolRole=${lastMsg?.role === 'tool'}`);
-      }
-
       const result = await agent.stream({
-        messages: validatedMessages,
+        messages: this.ensureValidMessages(messages),
         abortSignal: params.abortSignal,
       });
 
