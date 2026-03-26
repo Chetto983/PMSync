@@ -11,58 +11,41 @@
 ## Sprint Backlog
 
 ### T-0401: Audit all email query endpoints for emailLabels include [3 SP]
-- [ ] Map ALL backend endpoints that return Email objects
-- [ ] For each, verify `emailLabels` is included with `label: { id, name, color }` select
-- [ ] Fix any endpoint missing the include
-- [ ] Endpoints to check:
-  - `GET /emails` (list) — email-folder.service.ts (likely builds query here)
-  - `GET /emails/:id` (detail) — email-crud.service.ts ✓
-  - `GET /emails/search` — email-search.service.ts ✓
-  - `POST /emails/:id/fetch-content` — email-fetch.service.ts ✓
-  - Any socket.io events that send email data
-- [ ] Files: all email service files
+- [x] Map ALL backend endpoints that return Email objects ✅ DONE
+- [x] For each, verify `emailLabels` is included with `label: { id, name, color }` select ✅ DONE
+- [x] Fix any endpoint missing the include ✅ DONE (all already included)
+- [x] Endpoints to check:
+  - `GET /emails` (list) — emailListSelect ✅
+  - `GET /emails/:id` (detail) — emailLabelsInclude ✅
+  - `GET /emails/search` — emailSearchSelect ✅
+  - `POST /emails/:id/fetch-content` — emailLabelsInclude ✅
+  - Socket.io: emits via LabelsService use emailLabelsInclude ✅
+- [x] Files: all email service files ✅ DONE
 
 ### T-0402: Standardize emailLabels select shape [2 SP]
-- [ ] Create shared constant: `EMAIL_LABELS_SELECT`
-```typescript
-const EMAIL_LABELS_SELECT = {
-  emailLabels: {
-    select: {
-      id: true,
-      emailId: true,
-      labelId: true,
-      createdAt: true,
-      label: {
-        select: { id: true, name: true, color: true },
-      },
-    },
-  },
-} as const;
-```
-- [ ] Replace all inline emailLabels selects with this constant
-- [ ] Files: new shared constant file, all email services
+- [x] Shared constants already exist in `prisma-select.utils.ts`: `emailLabelsInclude`, `emailLabelsSelect` ✅ DONE
+- [x] All inline emailLabels selects already replaced with shared constants (prior commit 7741b5e4) ✅ DONE
+- [x] Files: `prisma-select.utils.ts`, all email services ✅ DONE
 
 ### T-0403: Add hex color validation in frontend [2 SP]
-- [ ] Create `isValidHexColor(color: string): boolean` utility
-- [ ] Use in `formatEmailToThread()` to validate label colors
-- [ ] Fallback to MUI `grey[500]` for invalid colors
-- [ ] Add to `LabelColorPicker` save validation
-- [ ] Files: `email-formatters.ts`, `label-colors.ts`
+- [x] `isValidHexColor()` already exists in `lib/label-colors.ts` and `components/common/ColorPicker.tsx` ✅ DONE
+- [x] Added validation in `formatEmailToThread()` with `#9E9E9E` fallback ✅ DONE (commit 1b7dbc35)
+- [x] `LabelColorPicker` already validates on save via `ColorPicker.tsx` lines 126/141 ✅ DONE
+- [x] Files: `email-formatters.ts`, `label-colors.ts` ✅ DONE
 
 ### T-0404: Clean up ghost EmailLabel records [2 SP]
-- [ ] Query EmailLabel records where `label.isArchived = true`
-- [ ] Option A: Hard-delete these junction records (soft-deleted label = no association)
-- [ ] Option B: Filter them out in all queries (`where: { label: { isArchived: false } }`)
-- [ ] Implement chosen option
-- [ ] Files: `labels.service.ts`, potentially migration script
+- [x] Option B chosen: filter at query time (preserves data, reversible) ✅ DONE
+- [x] Added `where: { label: { isArchived: false } }` to `emailLabelsInclude` and `emailLabelsSelect` (prior commit 138ed64e) ✅ DONE
+- [x] All email endpoints inherit the filter via shared constants ✅ DONE
+- [x] Files: `prisma-select.utils.ts` ✅ DONE
 
 ### T-0405: Verify frontend Email type matches backend response [1 SP]
-- [ ] Compare `frontend/lib/api/emails.ts:Email` interface with actual backend JSON
-- [ ] Check: `emailLabels` shape matches backend select
-- [ ] Check: `labels: string[]` (Google IDs) is actually returned
-- [ ] Check: `aiLabels: string[]` is actually returned
-- [ ] Fix any mismatches
-- [ ] Files: `frontend/lib/api/emails.ts`
+- [x] Compared `EmailLabel` interface with backend `emailLabelsInclude` select shape ✅ DONE
+- [x] Fixed: junction fields (id, emailId, labelId, createdAt) made optional — backend doesn't select them ✅ DONE
+- [x] Fixed: `label` made required (not optional) — always present via shared constants ✅ DONE
+- [x] `labels: string[]` (Google IDs) confirmed returned via `emailListSelect` ✅ DONE
+- [x] `aiLabels: string[]` confirmed returned via `emailListSelect` ✅ DONE
+- [x] Files: `frontend/lib/api/emails.ts` (commit 38c4412b) ✅ DONE
 
 ## Dependencies
 - S03 complete (backend sync layer must be stable)
@@ -72,12 +55,12 @@ const EMAIL_LABELS_SELECT = {
 - Mitigation: Use minimal select (id, name, color only), benchmark with 1K+ emails
 
 ## Definition of Done
-- [ ] ALL email endpoints return emailLabels with label details
-- [ ] Shared select constant used everywhere
-- [ ] Color validation in frontend formatters
-- [ ] No ghost labels from soft-deleted UserLabels
-- [ ] Frontend Email type matches backend response exactly
-- [ ] `npx tsc --noEmit` passes in both backend and frontend
+- [x] ALL email endpoints return emailLabels with label details
+- [x] Shared select constant used everywhere
+- [x] Color validation in frontend formatters
+- [x] No ghost labels from soft-deleted UserLabels
+- [x] Frontend Email type matches backend response exactly
+- [x] `npx tsc --noEmit` passes in both backend and frontend
 
 ## Deliverables
 - Backend email services (updated with emailLabels include)
