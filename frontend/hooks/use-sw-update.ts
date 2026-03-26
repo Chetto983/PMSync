@@ -23,6 +23,16 @@ export function useSwUpdate(): UseSwUpdateReturn {
 
     let cancelled = false;
 
+    const attachInstallingListener = (installing: ServiceWorker | null) => {
+      if (!installing) return;
+
+      installing.addEventListener('statechange', () => {
+        if (installing.state === 'installed' && navigator.serviceWorker.controller && !cancelled) {
+          setWaitingSw(installing);
+        }
+      });
+    };
+
     async function checkForUpdate() {
       const reg = await navigator.serviceWorker.getRegistration();
       if (!reg || cancelled) return;
@@ -33,19 +43,21 @@ export function useSwUpdate(): UseSwUpdateReturn {
         return;
       }
 
+      attachInstallingListener(reg.installing);
+
       // Listen for new SW installing
       reg.addEventListener('updatefound', () => {
-        const installing = reg.installing;
-        if (!installing) return;
-        installing.addEventListener('statechange', () => {
-          if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-            if (!cancelled) setWaitingSw(installing);
-          }
-        });
+        attachInstallingListener(reg.installing);
       });
+
+      try {
+        await reg.update();
+      } catch {
+        // Ignore update check failures and keep the current worker.
+      }
     }
 
-    checkForUpdate();
+    void checkForUpdate();
 
     return () => { cancelled = true; };
   }, []);

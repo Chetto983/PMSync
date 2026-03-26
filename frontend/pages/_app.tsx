@@ -23,6 +23,7 @@ import { ToastProvider } from '@/lib/context/toast-context';
 import { lightTheme, darkTheme } from '@/theme/appTheme';
 import { minViewportHeightSx } from '@/lib/ui/viewport';
 import { authClient } from '@/lib/auth-client';
+import { UpdateSnackbar } from '@/components/layout/UpdateSnackbar';
 import { useLegalStatus } from '@/hooks/queries/use-data-rights';
 import { useWebSocket } from '@/hooks/use-websocket';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
@@ -210,6 +211,7 @@ export default function App({ Component, pageProps }: AppProps) {
             <PrivateRouteGate isPrivateRoute={isPrivateRoute}>
               <Component {...pageProps} />
             </PrivateRouteGate>
+            <UpdateSnackbar />
           </ToastProvider>
           <SpeedInsights />
         </MaterialThemeWrapper>

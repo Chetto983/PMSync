@@ -5,6 +5,7 @@ let mockRegistration: {
   waiting: ServiceWorker | null;
   installing: ServiceWorker | null;
   addEventListener: jest.Mock;
+  update: jest.Mock;
 } | null = null;
 
 const mockGetRegistration = jest.fn().mockImplementation(() => Promise.resolve(mockRegistration));
@@ -35,6 +36,7 @@ describe('useSwUpdate', () => {
       waiting: null,
       installing: null,
       addEventListener: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     const { result } = renderHook(() => useSwUpdate());
@@ -58,6 +60,7 @@ describe('useSwUpdate', () => {
       waiting: mockWaiting,
       installing: null,
       addEventListener: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     const { result } = renderHook(() => useSwUpdate());
@@ -79,6 +82,7 @@ describe('useSwUpdate', () => {
       waiting: mockWaiting,
       installing: null,
       addEventListener: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     const { result } = renderHook(() => useSwUpdate());
@@ -104,6 +108,7 @@ describe('useSwUpdate', () => {
       waiting: mockWaiting,
       installing: null,
       addEventListener: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     const { result, unmount } = renderHook(() => useSwUpdate());
@@ -122,6 +127,7 @@ describe('useSwUpdate', () => {
       waiting: null,
       installing: null,
       addEventListener: jest.fn(),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     const { result: result2 } = renderHook(() => useSwUpdate());
@@ -131,5 +137,24 @@ describe('useSwUpdate', () => {
     });
 
     expect(result2.current.updateAvailable).toBe(false);
+  });
+
+  it('triggers an explicit registration update check', async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+
+    mockRegistration = {
+      waiting: null,
+      installing: null,
+      addEventListener: jest.fn(),
+      update,
+    };
+
+    renderHook(() => useSwUpdate());
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    expect(update).toHaveBeenCalledTimes(1);
   });
 });
