@@ -32,6 +32,23 @@ function getHeaders(): Record<string, string> {
  */
 let _remoteId: string | undefined;
 
+/**
+ * Module-scoped ref for AI SDK tool approval responses.
+ *
+ * assistant-ui's `addResult` routes through `onAddToolResult` → `addToolOutput`
+ * which sets tool state to 'output-available'. But the AI SDK's
+ * `sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses`
+ * checks for state 'approval-responded'. Only `chat.addToolApprovalResponse`
+ * sets this state correctly. We expose it here for HitlApprovalCard.
+ */
+let _addToolApprovalResponse:
+  | ((opts: { id: string; approved: boolean; reason?: string }) => void)
+  | undefined;
+
+export function getAddToolApprovalResponse() {
+  return _addToolApprovalResponse;
+}
+
 // Singleton transport — reused across thread switches.
 // Stable reference prevents useChat from re-initializing on re-renders.
 const transport = new AssistantChatTransport({
@@ -85,6 +102,11 @@ function useThreadRuntime() {
     // Auto-resubmit after user approves/denies a tool requiring action.
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
+
+  // Expose addToolApprovalResponse at module scope for HitlApprovalCard.
+  useEffect(() => {
+    _addToolApprovalResponse = chat.addToolApprovalResponse;
+  }, [chat.addToolApprovalResponse]);
 
   return useAISDKRuntime(chat);
 }

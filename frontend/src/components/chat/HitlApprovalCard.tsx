@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import { getAddToolApprovalResponse } from './ChatRuntimeProvider';
 
 // ---------------------------------------------------------------------------
 // Tool summary generation for human-readable approval cards
@@ -80,6 +81,8 @@ interface HitlApprovalWrapperProps {
   toolName: string;
   args: Record<string, unknown>;
   result?: unknown;
+  /** Interrupt payload from assistant-ui, contains { type: 'human', payload: { id: approvalId } } */
+  interrupt?: { type: string; payload?: { id?: string } };
 }
 
 export function HitlApprovalWrapper({
@@ -88,6 +91,7 @@ export function HitlApprovalWrapper({
   toolName,
   args,
   result,
+  interrupt,
 }: HitlApprovalWrapperProps) {
   const t = useTranslations();
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
@@ -96,12 +100,27 @@ export function HitlApprovalWrapper({
 
   const handleApprove = () => {
     setBusy('approve');
-    addResult({ approved: true });
+    // Use AI SDK's addToolApprovalResponse which sets state to 'approval-responded'.
+    // This triggers sendAutomaticallyWhen and the auto-resubmit to the backend.
+    const approvalId = interrupt?.payload?.id;
+    const approvalFn = getAddToolApprovalResponse();
+    if (approvalId && approvalFn) {
+      approvalFn({ id: approvalId, approved: true });
+    } else {
+      // Fallback: addResult still updates the UI but won't trigger auto-resubmit
+      addResult({ approved: true });
+    }
   };
 
   const handleReject = () => {
     setBusy('reject');
-    addResult({ approved: false, reason: 'User rejected' });
+    const approvalId = interrupt?.payload?.id;
+    const approvalFn = getAddToolApprovalResponse();
+    if (approvalId && approvalFn) {
+      approvalFn({ id: approvalId, approved: false, reason: 'User rejected' });
+    } else {
+      addResult({ approved: false, reason: 'User rejected' });
+    }
   };
 
   const isBusy = busy !== null;

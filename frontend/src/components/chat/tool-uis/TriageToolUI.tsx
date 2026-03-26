@@ -26,6 +26,7 @@ export function TriageRenderer({
   addResult,
   toolName,
   args,
+  interrupt,
 }: ToolCallMessagePartProps<
   Record<string, unknown>,
   BulkActionResult
@@ -40,6 +41,8 @@ export function TriageRenderer({
         addResult={addResult}
         toolName={toolName}
         args={args}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        interrupt={interrupt as any}
       />
     );
   }

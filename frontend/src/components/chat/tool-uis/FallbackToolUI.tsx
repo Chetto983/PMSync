@@ -21,6 +21,7 @@ export function FallbackToolRenderer({
   args,
   result,
   addResult,
+  interrupt,
 }: ToolCallMessagePartProps<unknown, unknown>) {
   // SDK-native HITL: show approval card when tool requires action
   if (status.type === 'requires-action') {
@@ -31,6 +32,8 @@ export function FallbackToolRenderer({
         toolName={toolName}
         args={(args ?? {}) as Record<string, unknown>}
         result={result}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        interrupt={interrupt as any}
       />
     );
   }
