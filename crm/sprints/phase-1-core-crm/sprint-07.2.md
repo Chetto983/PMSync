@@ -93,4 +93,4 @@ Queste violazioni devono essere risolte prima di Sprint 08 (Dashboard & Alpha) p
 - [x] Error state presente su tutti i tab con data fetching
 - [x] Loading spinner su tutti i bottoni di submit dialog
 - [x] `cd frontend && npx tsc --noEmit` passa
-- [ ] Validazione browser Edge CDP su desktop e mobile (375x812)
+- [x] Validazione browser Edge CDP su desktop e mobile (375x812)

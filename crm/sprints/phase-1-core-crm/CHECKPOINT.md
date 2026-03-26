@@ -6,7 +6,7 @@
 - **Next Task:** Sprint complete — all 7/7 tasks done
 - **Tasks Done:** 7/7
 - **SP Completed:** 7/7
-- **Last Updated:** 2026-03-26 14:30
+- **Last Updated:** 2026-03-26 15:00
 
 ## Last Modified Files
 - frontend/components/dashboard/crm-deals/DealProductsTab.tsx
@@ -39,6 +39,13 @@
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing (pre-existing errors in use-email-page-actions.ts, not CRM)
 - Circular deps: not checked (frontend-only sprint)
-- Railway deploy: ⏳ pending push
-- Vercel deploy: ⏳ pending push
-- Browser (Edge CDP): ⏳ pending production validation
+- Railway health: ✅ 200 (DB, Redis, Mistral all up)
+- Railway /crm/products: ✅ 401 (route registered, auth guard active)
+- Railway /crm/accounts: ✅ 401 (route registered, auth guard active)
+- Railway /crm/deals: ✅ 401 (route registered, auth guard active)
+- Railway /crm/pipelines: ✅ 401 (route registered, auth guard active)
+- Vercel /dashboard/crm/*: ✅ 307 (all 4 pages exist, auth redirect)
+- Browser (Edge CDP) Account Activity tab: ✅ empty state renders, "Registra Attività" CTA, Italian translations
+- Browser (Edge CDP) Account Activity mobile: ✅ layout stacks correctly at 375x812, touch targets OK
+- Browser (Edge CDP) Deal Products tab: ✅ empty state renders, "Aggiungi Prodotto" CTA, no window.confirm
+- Browser (Edge CDP) Deal Products mobile: ✅ full-width stacking, buttons touch-friendly, no overflow
