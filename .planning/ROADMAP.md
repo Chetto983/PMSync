@@ -124,7 +124,7 @@
 - [x] **Phase 113: Incremental Sync & Webhooks** - Verify delta sync and webhook-triggered sync detect changes correctly (completed 2026-03-26)
 - [x] **Phase 114: Sync-back Operations** - Verify local state changes propagate back to all three providers (completed 2026-03-26)
 - [ ] **Phase 115: Email List & Thread Reading** - Verify list filtering, pagination, thread grouping, and single email retrieval
-- [ ] **Phase 116: Attachments & Search** - Verify attachment download (S3 + on-demand), folder stats, and full-text search
+- [x] **Phase 116: Attachments & Search** - Verify attachment download (S3 + on-demand), folder stats, and full-text search (completed 2026-03-26)
 - [ ] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers
 - [ ] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations
 - [ ] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection
@@ -205,8 +205,8 @@ Plans:
   4. Full-text search returns relevant results across all provider accounts
 **Plans**: 2 plans
 Plans:
-- [ ] 116-01-PLAN.md -- Validation scripts for attachment download, on-demand fetch, folder stats, full-text search (READ-06, READ-07, READ-08, READ-09)
-- [ ] 116-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (READ-06, READ-07, READ-08, READ-09)
+- [x] 116-01-PLAN.md -- Validation scripts for attachment download, on-demand fetch, folder stats, full-text search (READ-06, READ-07, READ-08, READ-09)
+- [x] 116-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (READ-06, READ-07, READ-08, READ-09)
 
 ### Phase 117: Email Send & Reply/Forward
 **Goal**: Users can compose and send emails through any provider, with reply/forward preserving conversation context
@@ -286,7 +286,7 @@ Plans:
 | 113. Incremental Sync & Webhooks | 0/2 | Complete    | 2026-03-26 |
 | 114. Sync-back Operations | 2/2 | Complete    | 2026-03-26 |
 | 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
-| 116. Attachments & Search | 0/2 | Not started | - |
+| 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
 | 117. Email Send & Reply/Forward | 0/? | Not started | - |
 | 118. Drafts & Bulk Operations | 0/? | Not started | - |
 | 119. Folder Operations | 0/? | Not started | - |
