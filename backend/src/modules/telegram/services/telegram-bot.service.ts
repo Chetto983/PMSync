@@ -318,22 +318,26 @@ export class TelegramBotService implements OnModuleInit {
     chatId: string,
     messageId: number,
     text: string,
-    parseMode: 'Markdown' | 'HTML' = 'Markdown',
+    parseMode: 'Markdown' | 'HTML' | 'plain' = 'Markdown',
   ): Promise<void> {
     if (!this.botToken) return;
 
     try {
+      const body: Record<string, unknown> = {
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+      };
+      if (parseMode !== 'plain') {
+        body.parse_mode = parseMode;
+      }
+
       const response = await fetch(
         `https://api.telegram.org/bot${this.botToken}/editMessageText`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            message_id: messageId,
-            text,
-            parse_mode: parseMode,
-          }),
+          body: JSON.stringify(body),
         },
       );
 

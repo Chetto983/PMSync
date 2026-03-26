@@ -317,24 +317,30 @@ export class TelegramWebhookService {
     await this.telegramBot.answerCallbackQuery(callbackQueryId, label);
 
     // Edit all approval card messages to show resolution and remove buttons
+    // Use plain text (no parse_mode) to avoid Markdown issues with tool names containing underscores
     const statusIcon = approved ? '\u{2705}' : '\u{274C}';
     const toolNames = state.approvals.map((a) => a.toolName).join(', ');
-    const editText = `${statusIcon} *${label}*: ${toolNames}`;
+    const editText = `${statusIcon} ${label}: ${toolNames}`;
     for (const msgId of state.approvalMessageIds) {
-      await this.telegramBot.editMessageText(chatId, msgId, editText);
+      await this.telegramBot.editMessageText(chatId, msgId, editText, 'plain');
     }
 
-    // Audit logging (fire-and-forget)
-    for (const a of state.approvals) {
-      this.auditService.logHitlDecision({
-        tenantId: state.tenantId,
-        userId: state.userId,
-        toolName: a.toolName,
-        toolCallId: a.toolCallId,
-        decision,
-        conversationId: state.conversationId,
-      });
-    }
+    // Audit logging (fire-and-forget) — must run within tenant context
+    CorrelationContext.run(
+      { tenantId: state.tenantId, userId: state.userId },
+      () => {
+        for (const a of state.approvals) {
+          this.auditService.logHitlDecision({
+            tenantId: state.tenantId,
+            userId: state.userId,
+            toolName: a.toolName,
+            toolCallId: a.toolCallId,
+            decision,
+            conversationId: state.conversationId,
+          });
+        }
+      },
+    );
 
     if (!approved) {
       // Rejected — no AI re-submit needed, just confirm
@@ -388,7 +394,10 @@ export class TelegramWebhookService {
       await this.sendAiResponse(chatId, resolvedText, state.userId);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`HITL resume error for groupId=${groupId}: ${msg}`);
+      const stack = error instanceof Error ? error.stack : '';
+      this.logger.error(
+        `HITL resume error for groupId=${groupId}: ${msg}\n${stack}`,
+      );
       await this.telegramBot.sendMessage(
         chatId,
         'Execution error. Please try again.',
