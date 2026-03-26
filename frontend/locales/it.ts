@@ -4493,8 +4493,15 @@ export const it: AppTranslations = {
       expectedClose: 'Chiusura Prevista',
       priority: 'Priorità',
       source: 'Origine',
+      score: 'Punteggio',
       createdAt: 'Creato',
       updatedAt: 'Aggiornato',
+    },
+    score: {
+      label: 'Punteggio Trattativa',
+      hot: 'Caldo',
+      warm: 'Tiepido',
+      cold: 'Freddo',
     },
     form: {
       name: 'Nome Trattativa',

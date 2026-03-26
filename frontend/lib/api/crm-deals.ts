@@ -58,6 +58,7 @@ export interface CrmDeal {
   priority: string | null;
   source: string | null;
   notes: string | null;
+  score: number;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

@@ -4516,8 +4516,15 @@ export const en: AppTranslations = {
       expectedClose: 'Expected Close',
       priority: 'Priority',
       source: 'Source',
+      score: 'Score',
       createdAt: 'Created',
       updatedAt: 'Updated',
+    },
+    score: {
+      label: 'Deal Score',
+      hot: 'Hot',
+      warm: 'Warm',
+      cold: 'Cold',
     },
     form: {
       name: 'Deal Name',

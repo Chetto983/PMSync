@@ -4341,8 +4341,15 @@ export interface AppTranslations {
       expectedClose?: string;
       priority?: string;
       source?: string;
+      score?: string;
       createdAt?: string;
       updatedAt?: string;
+    };
+    score?: {
+      label?: string;
+      hot?: string;
+      warm?: string;
+      cold?: string;
     };
     form?: {
       name?: string;

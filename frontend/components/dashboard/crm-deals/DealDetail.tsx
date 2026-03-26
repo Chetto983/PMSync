@@ -38,6 +38,7 @@ import { DealTimeline } from './DealTimeline';
 import { DealNotes } from './DealNotes';
 import { DealContactsTab } from './DealContactsTab';
 import { DealProductsTab } from './DealProductsTab';
+import { DealScoreBadge } from './DealScoreBadge';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -216,6 +217,7 @@ export function DealDetail() {
               }}
             />
           )}
+          <DealScoreBadge score={deal.score} size="medium" />
           {deal.amount && (
             <Typography variant="h6" fontWeight={600}>
               {new Intl.NumberFormat(undefined, {

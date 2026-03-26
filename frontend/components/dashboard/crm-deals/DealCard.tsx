@@ -4,6 +4,7 @@ import { Calendar, DollarSign, User } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { CrmDeal } from '@/lib/api/crm-deals';
+import { DealScoreBadge } from './DealScoreBadge';
 
 function formatAmount(amount: string | null, currency: string): string {
   if (!amount) return '';
@@ -92,7 +93,7 @@ export function DealCard({ deal, onClick }: DealCardProps) {
         </Box>
       )}
 
-      {/* Bottom row: contact + close date + priority */}
+      {/* Bottom row: contact + close date + priority + score */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
         {contactName && (
           <Tooltip title={contactName}>
@@ -125,6 +126,11 @@ export function DealCard({ deal, onClick }: DealCardProps) {
             variant="outlined"
             sx={{ height: 18, fontSize: '0.65rem' }}
           />
+        )}
+        {deal.score > 0 && (
+          <Box sx={{ ml: 'auto' }}>
+            <DealScoreBadge score={deal.score} />
+          </Box>
         )}
       </Box>
     </Box>

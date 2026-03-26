@@ -33,6 +33,7 @@ import { useGlobalToast } from '@/lib/context/toast-context';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CreateDealDialog } from './CreateDealDialog';
 import { KanbanBoard } from './KanbanBoard';
+import { DealScoreBadge } from './DealScoreBadge';
 import type { CrmDeal, ListDealsQuery } from '@/lib/api/crm-deals';
 import type { CrmPipeline } from '@/lib/api/crm-pipelines';
 
@@ -255,6 +256,7 @@ export function DealsList() {
                   <TableCell>{td?.columns?.account ?? 'Account'}</TableCell>
                   <TableCell>{td?.columns?.expectedClose ?? 'Expected Close'}</TableCell>
                   <TableCell>{td?.columns?.priority ?? 'Priority'}</TableCell>
+                  <TableCell align="center">{td?.columns?.score ?? 'Score'}</TableCell>
                   <TableCell width={50} />
                 </TableRow>
               </TableHead>
@@ -316,6 +318,9 @@ export function DealsList() {
                       ) : (
                         <Typography variant="body2" color="text.disabled">—</Typography>
                       )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <DealScoreBadge score={deal.score} />
                     </TableCell>
                     <TableCell>
                       <Tooltip title={td?.deleteDeal ?? 'Delete'}>
