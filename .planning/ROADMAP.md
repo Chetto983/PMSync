@@ -146,8 +146,8 @@
   5. Automated validation script confirms email count and folder count match provider state
 **Plans**: 2 plans
 Plans:
-- [x] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [x] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+- [x] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)
+- [x] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
 
 ### Phase 113: Incremental Sync & Webhooks
 **Goal**: Changes made on the provider side (new emails, modifications, deletions) are detected and applied locally
@@ -161,8 +161,8 @@ Plans:
   5. Microsoft Graph webhook triggers an automatic sync when a new email arrives on the provider
 **Plans**: 2 plans
 Plans:
-- [x] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+- [ ] 113-01-PLAN.md -- Incremental sync validation for Gmail, Outlook, IMAP (SYNC-04, SYNC-05, SYNC-06)
+- [ ] 113-02-PLAN.md -- Webhook sync validation for Gmail Pub/Sub and Microsoft Graph (SYNC-07, SYNC-08)
 
 ### Phase 114: Sync-back Operations
 **Goal**: State changes made locally in PMSync propagate correctly to the remote provider
@@ -174,10 +174,7 @@ Plans:
   3. Move-to-folder on a local email moves the message on Gmail, Outlook, and IMAP
   4. Soft delete and permanent delete on a local email performs the correct delete on Gmail, Outlook, and IMAP
   5. Label add and remove on a local Gmail email updates the label membership on Gmail
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 115: Email List & Thread Reading
 **Goal**: Users can browse, filter, paginate, and read emails accurately across all providers
@@ -189,10 +186,7 @@ Plans:
   3. Cursor-based pagination returns consistent, non-duplicated results across multiple pages
   4. Thread view groups related emails by conversation and lazy-fetches any missing message bodies
   5. Single email GET returns the full HTML body, all headers, and complete metadata
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 116: Attachments & Search
 **Goal**: Users can download attachments and search emails reliably regardless of storage location
@@ -203,10 +197,7 @@ Plans:
   2. On-demand attachment fetch retrieves the file directly from the provider when it is not cached in S3
   3. Unread counts and folder stats accurately reflect the current email state per folder
   4. Full-text search returns relevant results across all provider accounts
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 117: Email Send & Reply/Forward
 **Goal**: Users can compose and send emails through any provider, with reply/forward preserving conversation context
@@ -218,10 +209,7 @@ Plans:
   3. A new email sent via IMAP/SMTP is delivered to the recipient and appears in the SMTP Sent folder
   4. Reply adds correct In-Reply-To and References headers and the thread is preserved on the provider
   5. Forward includes the original message body and all original attachments
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 118: Drafts & Bulk Operations
 **Goal**: Users can manage drafts and perform bulk operations that sync back to providers
@@ -233,10 +221,7 @@ Plans:
   3. Bulk move-to-folder updates the local DB and triggers sync-back that reflects on the provider
   4. Bulk delete (soft) updates the local DB and triggers sync-back that reflects on the provider
   5. Bulk label add/remove on Gmail updates local state and triggers sync-back that reflects on Gmail
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 119: Folder Operations
 **Goal**: Users can create, rename, and delete folders with changes reflected on the provider and vice versa
@@ -248,10 +233,7 @@ Plans:
   3. Delete folder removes the folder from the provider and cleans up the local DB record and email associations
   4. Folder sync from provider detects folders created, renamed, or deleted externally and updates local state
   5. System folders (Inbox, Sent, Trash, Drafts) cannot be deleted or renamed — API returns appropriate error
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 120: Queue & Webhook Infrastructure
 **Goal**: BullMQ queues and provider webhooks are healthy, resilient, and accurately monitored
@@ -263,10 +245,7 @@ Plans:
   3. Gmail Pub/Sub subscription can be created and renewed before expiry without dropping notifications
   4. Microsoft Graph subscription can be created and renewed before expiry without dropping notifications
   5. Webhook health endpoint accurately reports subscription status for both Gmail and Outlook
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 121: Scheduling, Signatures & Templates
 **Goal**: Scheduled emails send at the right time, and signature/template management works end-to-end
@@ -278,10 +257,7 @@ Plans:
   3. Signature CRUD works and the default signature selection persists across sessions
   4. Template CRUD works, including duplicate, and the default template selection persists
   5. Sent emails include the user's selected default signature in the message body
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ### Phase 122: Cross-cutting Validation
 **Goal**: Security, observability, and API contract guarantees hold across all email operations
@@ -291,17 +267,14 @@ Plans:
   1. No email endpoint returns data belonging to a different tenant — verified via cross-tenant request script
   2. Rate limiting enforces the correct tier (read/safe-write/destructive-write/send) on every email endpoint
   3. All error responses follow the standard envelope format with a correlation ID present in every response
-**Plans**: 2 plans
-Plans:
-- [ ] 112-01-PLAN.md -- Validation infrastructure + Gmail full sync validation (SYNC-01)� Validation infrastructure + Gmail full sync validation (SYNC-01)
-- [ ] 112-02-PLAN.md -- Outlook + IMAP full sync validation (SYNC-02, SYNC-03)� Outlook + IMAP full sync validation (SYNC-02, SYNC-03)
+**Plans**: [to be planned]
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 112. Full Sync Validation | 2/2 | Complete    | 2026-03-26 |
-| 113. Incremental Sync & Webhooks | 0/? | Not started | - |
+| 113. Incremental Sync & Webhooks | 0/2 | Planned | - |
 | 114. Sync-back Operations | 0/? | Not started | - |
 | 115. Email List & Thread Reading | 0/? | Not started | - |
 | 116. Attachments & Search | 0/? | Not started | - |
