@@ -1,48 +1,61 @@
-# Sprint 07 — Checkpoint
+# Sprint 07.1 — Checkpoint
 
 ## Stato
-- **Sprint:** 07 — Contact Enhancements & Custom Fields
-- **Last Task Completed:** T-0708 — Admin UI for custom fields configuration
-- **Next Task:** Sprint complete — all 9/9 tasks done
-- **Tasks Done:** 9/9
-- **SP Completed:** 18/18
-- **Last Updated:** 2026-03-25 23:45
+- **Sprint:** 07.1 — Placeholder Cleanup (Sub-Sprint)
+- **Last Task Completed:** T-0716 — AccountActivityTab component
+- **Next Task:** Sprint complete — all 6/6 tasks done
+- **Tasks Done:** 6/6
+- **SP Completed:** 8/8
+- **Last Updated:** 2026-03-26 09:45
 
 ## Last Modified Files
-- frontend/lib/api/crm-custom-fields.ts
-- frontend/hooks/queries/crm-custom-fields-keys.ts
-- frontend/hooks/queries/use-crm-custom-fields.ts
+- backend/src/modules/crm/product/controllers/product.controller.ts
+- backend/src/modules/crm/product/services/product.service.ts
+- backend/src/modules/crm/product/dto/product.dto.ts
+- backend/src/modules/crm/product/product.module.ts
+- backend/src/modules/crm/crm.module.ts
+- backend/src/modules/crm/deal/controllers/deal.controller.ts
+- backend/src/modules/crm/deal/services/deal.service.ts
+- backend/src/modules/crm/deal/dto/deal.dto.ts
+- backend/src/modules/crm/account/controllers/account.controller.ts
+- backend/src/modules/crm/account/services/account.service.ts
+- backend/src/modules/crm/account/dto/account.dto.ts
+- backend/prisma/schema.prisma
+- frontend/lib/api/crm-products.ts
+- frontend/lib/api/crm-accounts.ts
+- frontend/hooks/queries/crm-products-keys.ts
+- frontend/hooks/queries/use-crm-products.ts
+- frontend/hooks/queries/crm-accounts-keys.ts
+- frontend/hooks/queries/use-crm-accounts.ts
 - frontend/hooks/queries/index.ts
-- frontend/components/dashboard/crm-custom-fields/CustomFieldRenderer.tsx
-- frontend/components/dashboard/crm-custom-fields/CustomFieldsSection.tsx
-- frontend/components/dashboard/crm-custom-fields/CustomFieldsAdmin.tsx
-- frontend/components/dashboard/crm-custom-fields/index.ts
-- frontend/components/dashboard/crm-import/ImportContactsDialog.tsx
-- frontend/components/dashboard/Contacts.tsx
-- frontend/pages/dashboard/crm/settings/custom-fields.tsx
-- crm/sprints/phase-1-core-crm/sprint-07.md
+- frontend/components/dashboard/crm-deals/DealProductsTab.tsx
+- frontend/components/dashboard/crm-deals/DealDetail.tsx
+- frontend/components/dashboard/crm-accounts/AccountActivityTab.tsx
+- frontend/components/dashboard/crm-accounts/AccountDetail.tsx
+- frontend/locales/en.ts
+- frontend/locales/it.ts
+- frontend/locales/index.ts
+- crm/sprints/phase-1-core-crm/sprint-07.1.md
 
 ## Key Decisions Made
-- No @mui/x-date-pickers dependency — using native TextField type="date" for date custom fields
-- CustomFieldRenderer is a standalone component; CustomFieldsSection is the drop-in section for entity detail pages
-- Admin page at /dashboard/crm/settings/custom-fields with entity tabs (Contact, Account, Deal)
-- Import dialog was already built but never rendered in Contacts.tsx — fixed the missing render
+- Product module already had scaffolded files from a prior "clean fix" commit; registered ProductModule in CrmModule
+- CrmActivity.dealId made optional to support both deal and account activities
+- Account activities use same MUI Timeline pattern as DealTimeline
+- CreateAccountActivityDialog is account-specific (not shared with deal) to avoid coupling
+- DealProductsTab calculates subtotals per line (qty * unitPrice * (1 - discount/100)) and total
 
 ## Patterns Established
-- Custom fields API module: frontend/lib/api/crm-custom-fields.ts
-- Custom fields query hooks: frontend/hooks/queries/use-crm-custom-fields.ts
-- Custom fields components: frontend/components/dashboard/crm-custom-fields/
-- Admin settings pages: frontend/pages/dashboard/crm/settings/
-- Backend custom fields: backend/src/modules/crm/custom-fields/ (controller, service, DTO, module)
+- Product CRUD API: backend/src/modules/crm/product/ (controller, service, DTO, module)
+- Product frontend API: frontend/lib/api/crm-products.ts (includes deal-product link/unlink)
+- Product query hooks: frontend/hooks/queries/use-crm-products.ts
+- Account activity API: GET/POST /crm/accounts/:id/activities
+- Account activity hooks: useAccountActivities, useCreateAccountActivity
 
 ## Blockers / Notes
-- None currently
+- Deal service is at 566 lines (slightly over 500), but deal-product methods are tightly coupled with deal lifecycle
 
 ## Validation Status
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Railway deploy: ✅ /health 200, /api/v1/crm/custom-fields 401 (auth guard active)
-- Vercel deploy: ✅ /dashboard/crm/settings/custom-fields page serving
-- Browser (Edge CDP): ✅ Page renders, 3 entity tabs, empty state, dialog works
-- Mobile (375px): ✅ Content stacks, no overflow, touch targets adequate
-- Screenshots reviewed: 2026-03-25
+- Prisma db push: ✅ executed on Railway (accountId column + indexes added)
+- Production validation: ⏳ pending (push + browser E2E required)

@@ -23,15 +23,15 @@ Questi placeholder danneggiano la UX e la credibilita dell'applicazione. Si anti
 
 ### Deal Products (da T-0806 / T-0807 di Sprint 08)
 
-- [ ] T-0711 — Product CRUD API: `ProductController` + `ProductService` sotto `backend/src/modules/crm/product/` — `GET /crm/products` (list, filtro tenantId + search + isActive), `POST /crm/products`, `PATCH /crm/products/:id`, `DELETE /crm/products/:id` (soft delete). Campi: name, code, description, price (Decimal), currency, isActive. Schema Prisma `CrmProduct` gia presente. — [2 SP] — TODO
-- [ ] T-0712 — Deal-Product association API: `POST /crm/deals/:id/products` (body: productId, quantity, unitPrice, discount), `GET /crm/deals/:id/products`, `DELETE /crm/deals/:id/products/:linkId`. Schema Prisma `DealProduct` gia presente. Aggiungere endpoint nel `DealController`. — [1 SP] — TODO
-- [ ] T-0713 — Frontend API module + query hooks per Products: `frontend/lib/api/crm-products.ts`, `frontend/hooks/queries/use-crm-products.ts`. Hook per CRUD prodotti e per deal-product link (useDealProducts, useLinkDealProduct, useUnlinkDealProduct). — [1 SP] — TODO
-- [ ] T-0714 — DealProductsTab component: sostituisce il placeholder in Deal Detail. Tabella prodotti collegati (name, code, qty, unitPrice, discount, subtotal), bottone "Add Product" con dialog di selezione. Calcolo totale deal da somma subtotals. Pattern identico a DealContactsTab. — [2 SP] — TODO
+- [x] T-0711 — Product CRUD API — [2 SP] — ✅ DONE
+- [x] T-0712 — Deal-Product association API — [1 SP] — ✅ DONE
+- [x] T-0713 — Frontend API module + query hooks for Products — [1 SP] — ✅ DONE
+- [x] T-0714 — DealProductsTab component — [2 SP] — ✅ DONE
 
 ### Account Activity
 
-- [ ] T-0715 — Extend CrmActivity per supportare accountId opzionale: aggiungere `accountId String?` + relazione + indice in schema Prisma. Aggiungere endpoint `GET /crm/accounts/:id/activities` + `POST /crm/accounts/:id/activities` nel `AccountController`. Riutilizzare stessa logica di `DealService.listActivities/createActivity`. — [1 SP] — TODO
-- [ ] T-0716 — AccountActivityTab component: sostituisce il placeholder in Account Detail. Riutilizza MUI Timeline (`@mui/lab`), stessi icon/color map di DealTimeline. Hook `useAccountActivities` + `useCreateAccountActivity`. Dialog "Log Activity" riutilizza pattern CreateActivityDialog. — [1 SP] — TODO
+- [x] T-0715 — Extend CrmActivity for accountId — [1 SP] — ✅ DONE
+- [x] T-0716 — AccountActivityTab component — [1 SP] — ✅ DONE
 
 ---
 
