@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Email & Sync Production Validation
-status: Executing Phase 114
-last_updated: "2026-03-26T09:40:59.352Z"
+status: Ready to execute
+last_updated: "2026-03-26T10:04:21.878Z"
 progress:
   total_phases: 11
   completed_phases: 2
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -23,7 +23,7 @@ See: `.planning/PROJECT.md` (updated 2026-03-25)
 ## Current Position
 
 Phase: 114 (sync-back-operations) — EXECUTING
-Plan: 1 of 2
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -50,6 +50,8 @@ Plan: 1 of 2
 - Sync split into 3 phases (full, incremental+webhooks, sync-back) to keep scope manageable
 - Cross-cutting validation (Phase 122) runs last as a sweep across all endpoints
 - Bugs found during validation get fixed in-place within the same phase
+- [Phase 114]: Use Folder.externalId as canonical Gmail label ID resolver for label sync-back
+- [Phase 114]: Filter label sync-back to GOOGLE providers only; skip with debug log when no Folder match
 
 ### Research Flags
 
@@ -62,7 +64,7 @@ Plan: 1 of 2
 
 ## Session Continuity
 
-Last session: 2026-03-26
+Last session: 2026-03-26T10:04:21.872Z
 Completed: Phase 112 planned (research, 2 plans, checker passed)
 Next action: `/gsd:execute-phase 112` to execute Full Sync Validation
 Resume file: None

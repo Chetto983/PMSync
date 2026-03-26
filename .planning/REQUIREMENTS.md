@@ -17,11 +17,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 - [ ] **SYNC-06**: Incremental sync via IMAP detects new/changed emails
 - [ ] **SYNC-07**: Gmail Pub/Sub webhook triggers sync on new email arrival
 - [ ] **SYNC-08**: Microsoft Graph webhook triggers sync on new email arrival
-- [ ] **SYNC-09**: Sync-back reflects mark-read/unread on all three providers
-- [ ] **SYNC-10**: Sync-back reflects star/unstar on all three providers
-- [ ] **SYNC-11**: Sync-back reflects move-to-folder on all three providers
+- [x] **SYNC-09**: Sync-back reflects mark-read/unread on all three providers
+- [x] **SYNC-10**: Sync-back reflects star/unstar on all three providers
+- [x] **SYNC-11**: Sync-back reflects move-to-folder on all three providers
 - [ ] **SYNC-12**: Sync-back reflects delete (soft + permanent) on all three providers
-- [ ] **SYNC-13**: Sync-back reflects label add/remove on Gmail
+- [x] **SYNC-13**: Sync-back reflects label add/remove on Gmail
 
 ### Email Read
 
@@ -101,11 +101,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 | SYNC-06 | Phase 113 | Pending |
 | SYNC-07 | Phase 113 | Pending |
 | SYNC-08 | Phase 113 | Pending |
-| SYNC-09 | Phase 114 | Pending |
-| SYNC-10 | Phase 114 | Pending |
-| SYNC-11 | Phase 114 | Pending |
+| SYNC-09 | Phase 114 | Complete |
+| SYNC-10 | Phase 114 | Complete |
+| SYNC-11 | Phase 114 | Complete |
 | SYNC-12 | Phase 114 | Pending |
-| SYNC-13 | Phase 114 | Pending |
+| SYNC-13 | Phase 114 | Complete |
 | READ-01 | Phase 115 | Pending |
 | READ-02 | Phase 115 | Pending |
 | READ-03 | Phase 115 | Pending |
