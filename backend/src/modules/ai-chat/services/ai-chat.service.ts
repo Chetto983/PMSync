@@ -971,7 +971,8 @@ export class AiChatService {
 
   /**
    * Wrap a UI message stream to resolve PII placeholders before reaching the client.
-   * Replaces EMAIL_REDACTED:xxx / PHONE_REDACTED:xxx tokens in text chunks.
+   * The stream contains typed UIMessageChunk objects (not raw text). PII tokens
+   * appear in tool-input-available.input, text-delta.delta, and reasoning-delta.delta.
    */
   private piiResolveStream(
     stream: ReadableStream,
@@ -979,25 +980,39 @@ export class AiChatService {
     conversationId: string,
   ): ReadableStream {
     const piiService = this.piiResolutionService;
-    const PII_PATTERN = /(?:EMAIL_REDACTED|PHONE_REDACTED|NAME_REDACTED|SSN_REDACTED|CREDIT_CARD_REDACTED|IP_REDACTED|DATE_REDACTED|ADDRESS_REDACTED|PASSPORT_REDACTED|LICENSE_REDACTED|BANK_REDACTED|MEDICAL_REDACTED):[a-f0-9]+/g;
+    const PII_TOKEN = /_REDACTED:[a-f0-9]+/;
+
+    const resolveStr = (s: string) =>
+      piiService.resolveText(tenantId, conversationId, s);
+
+    const resolveObj = (obj: Record<string, unknown>) =>
+      piiService.resolvePayload(tenantId, conversationId, obj);
 
     const transform = new TransformStream({
-      async transform(chunk, controller) {
-        // Chunks are Uint8Array or string — UIMessageStream sends strings
-        const text = typeof chunk === 'string'
-          ? chunk
-          : new TextDecoder().decode(chunk);
-
-        if (!PII_PATTERN.test(text)) {
+      async transform(chunk: Record<string, unknown>, controller) {
+        if (!chunk || typeof chunk !== 'object') {
           controller.enqueue(chunk);
           return;
         }
 
-        // Resolve PII tokens in the chunk
-        const resolved = await piiService.resolveText(tenantId, conversationId, text);
-        controller.enqueue(
-          typeof chunk === 'string' ? resolved : new TextEncoder().encode(resolved),
-        );
+        const type = chunk.type as string;
+
+        // Resolve PII in tool-call input (tool-input-available)
+        if (type === 'tool-input-available' && chunk.input) {
+          const inputStr = JSON.stringify(chunk.input);
+          if (PII_TOKEN.test(inputStr)) {
+            chunk = { ...chunk, input: await resolveObj(chunk.input as Record<string, unknown>) };
+          }
+        }
+
+        // Resolve PII in text deltas
+        if ((type === 'text-delta' || type === 'reasoning-delta') && typeof chunk.delta === 'string') {
+          if (PII_TOKEN.test(chunk.delta)) {
+            chunk = { ...chunk, delta: await resolveStr(chunk.delta) };
+          }
+        }
+
+        controller.enqueue(chunk);
       },
     });
 

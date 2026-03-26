@@ -20,9 +20,11 @@ export const attachmentListSelect = {
 
 /* ──────────────────── Email ──────────────────── */
 
-/** Reusable emailLabels include fragment for all email queries. */
+/** Reusable emailLabels include fragment for all email queries.
+ *  Filters out archived (soft-deleted) labels to prevent ghost label chips. */
 export const emailLabelsInclude = {
   emailLabels: {
+    where: { label: { isArchived: false } },
     select: {
       label: {
         select: { id: true, name: true, color: true },
@@ -31,9 +33,11 @@ export const emailLabelsInclude = {
   },
 } as const satisfies Pick<Prisma.EmailInclude, 'emailLabels'>;
 
-/** emailLabels as a select fragment (for use inside `select:` blocks). */
+/** emailLabels as a select fragment (for use inside `select:` blocks).
+ *  Filters out archived (soft-deleted) labels to prevent ghost label chips. */
 export const emailLabelsSelect = {
   emailLabels: {
+    where: { label: { isArchived: false } },
     select: {
       label: {
         select: { id: true, name: true, color: true },
