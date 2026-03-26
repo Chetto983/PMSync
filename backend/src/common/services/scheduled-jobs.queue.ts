@@ -59,6 +59,9 @@ export enum ScheduledJobType {
   TELEGRAM_SLOT_POMERIGGIO = 'telegram-slot-pomeriggio',
   TELEGRAM_SLOT_SERA = 'telegram-slot-sera',
   REMINDER_EMAIL_MONITOR = 'reminder-email-monitor',
+
+  // Label consistency monitoring (Sprint 08 — T-0804)
+  LABEL_CONSISTENCY_CHECK = 'label-consistency-check',
 }
 
 /**
@@ -83,6 +86,7 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.TELEGRAM_SLOT_POMERIGGIO]: '0 14 * * *', // 14:00 daily
   [ScheduledJobType.TELEGRAM_SLOT_SERA]: '0 18 * * *', // 18:00 daily
   [ScheduledJobType.REMINDER_EMAIL_MONITOR]: '*/5 * * * *', // Every 5 minutes
+  [ScheduledJobType.LABEL_CONSISTENCY_CHECK]: '30 2 * * *', // Daily at 2:30 AM
 };
 
 export interface ScheduledJobData {

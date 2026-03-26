@@ -2,6 +2,7 @@ import { Controller, Get, Header, Inject, Param, Query, Optional } from '@nestjs
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { Public } from '../../../common/auth/public.decorator';
 import { HealthService } from '../services/health.service';
+import { LabelConsistencyService } from '../services/label-consistency.service';
 import { QueueHealthService } from '../../../common/services/queue-health.service';
 
 @ApiTags('Health')
@@ -10,6 +11,7 @@ import { QueueHealthService } from '../../../common/services/queue-health.servic
 export class HealthController {
   constructor(
     private readonly healthService: HealthService,
+    private readonly labelConsistencyService: LabelConsistencyService,
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(QueueHealthService) private readonly queueHealthService?: QueueHealthService,
   ) {}
@@ -102,6 +104,28 @@ export class HealthController {
   @ApiResponse({ status: 200, description: 'Consistency report returned' })
   async getLabelConsistency(@Query('tenantId') tenantId?: string) {
     return this.healthService.checkLabelConsistency(tenantId);
+  }
+
+  /**
+   * Comprehensive email-label health check (folder drift + ghost records + stale IDs).
+   * Runs daily via BullMQ cron; this endpoint returns the cached or fresh report.
+   */
+  @Get('email-labels')
+  @ApiOperation({
+    summary: 'Email-label health',
+    description: 'Comprehensive label consistency: folder drift, ghost EmailLabels, stale Gmail IDs',
+  })
+  @ApiQuery({ name: 'tenantId', required: false, description: 'Scope to a specific tenant' })
+  @ApiQuery({ name: 'fresh', required: false, description: 'Force a fresh check instead of cached' })
+  @ApiResponse({ status: 200, description: 'Label consistency report returned' })
+  async getEmailLabelHealth(
+    @Query('tenantId') tenantId?: string,
+    @Query('fresh') fresh?: string,
+  ) {
+    if (fresh === 'true' || tenantId) {
+      return this.labelConsistencyService.runFullCheck(tenantId);
+    }
+    return this.labelConsistencyService.getReport();
   }
 
   /**

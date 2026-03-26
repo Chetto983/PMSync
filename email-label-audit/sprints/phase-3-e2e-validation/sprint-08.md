@@ -11,23 +11,23 @@
 ## Sprint Backlog
 
 ### T-0801: Playwright E2E - Label CRUD workflow [3 SP]
-- [ ] Test: Create label (with color, name, parent)
-- [ ] Test: Label appears in sidebar tree
-- [ ] Test: Add label to email from list view
-- [ ] Test: Label chip visible on email in list
-- [ ] Test: Open email detail -> labels visible
-- [ ] Test: Remove label from detail view
-- [ ] Test: Delete label -> confirmation dialog -> label removed from sidebar
-- [ ] Test: Label filter in sidebar shows correct emails
-- [ ] Connect via Edge CDP (port 9222) per established pattern
-- [ ] Files: new e2e test file
+- [x] Test: Create label (with color, name, parent) ✅ DONE
+- [x] Test: Label appears in sidebar tree ✅ DONE
+- [x] Test: Add label to email from list view ✅ DONE
+- [x] Test: Label chip visible on email in list ✅ DONE
+- [x] Test: Open email detail -> labels visible ✅ DONE
+- [x] Test: Remove label from detail view ✅ DONE
+- [x] Test: Delete label -> confirmation dialog -> label removed from sidebar ✅ DONE
+- [x] Test: Label filter in sidebar shows correct emails ✅ DONE
+- [x] Connect via Edge CDP (port 9222) per established pattern ✅ DONE
+- [x] Files: scripts/validate-email-labels-e2e.mjs ✅ DONE
 
 ### T-0802: Playwright E2E - Folder/label count accuracy [2 SP]
-- [ ] Test: Sidebar INBOX count matches actual emails in INBOX view
-- [ ] Test: Label count in sidebar matches emails shown when filtering by label
-- [ ] Test: After starring/archiving email, counts update correctly
-- [ ] Test: After adding label to emails, label count increments
-- [ ] Files: new e2e test file
+- [x] Test: Sidebar INBOX count matches actual emails in INBOX view ✅ DONE
+- [x] Test: Label count in sidebar matches emails shown when filtering by label ✅ DONE
+- [x] Test: After starring/archiving email, counts update correctly ✅ DONE
+- [x] Test: After adding label to emails, label count increments ✅ DONE (covered by T-0801 flow)
+- [x] Files: combined into scripts/validate-email-labels-e2e.mjs ✅ DONE
 
 ### T-0803: Production data validation on Railway [1 SP]
 - [ ] Run `validate-email-label-consistency.ts` against Railway production DB
@@ -36,14 +36,14 @@
 - [ ] Files: CHECKPOINT.md
 
 ### T-0804: Add monitoring/alerting for label consistency [2 SP]
-- [ ] Add health check endpoint: `GET /api/health/email-labels`
-- [ ] Checks run on schedule (BullMQ cron job, daily):
+- [x] Add health check endpoint: `GET /health/email-labels` ✅ DONE
+- [x] Checks run on schedule (BullMQ cron job, daily at 2:30 AM): ✅ DONE
   - Folder/labels drift count
   - Ghost EmailLabel count
   - Stale Gmail label ID count
-- [ ] Log warnings when thresholds exceeded
-- [ ] Emit metric events for dashboard
-- [ ] Files: new health check service
+- [x] Log warnings when thresholds exceeded ✅ DONE
+- [x] Emit metric events for dashboard (via health endpoint, Prometheus scrapes) ✅ DONE
+- [x] Files: label-consistency.service.ts ✅ DONE
 
 ## Dependencies
 - S07 complete (validation scripts must exist)
