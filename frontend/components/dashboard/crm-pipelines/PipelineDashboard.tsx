@@ -23,6 +23,7 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { usePipeline, usePipelineMetrics } from '@/hooks/queries/use-crm-pipelines';
+import { ConversionFunnelChart, DealsByStageChart, WinRateGauge } from './PipelineDashboardCharts';
 
 interface PipelineDashboardProps {
   pipelineId: string;
@@ -165,7 +166,7 @@ export function PipelineDashboard({ pipelineId }: PipelineDashboardProps) {
         </Grid>
       </Grid>
 
-      {/* Chart Placeholders — will be populated in T-0803 */}
+      {/* Charts */}
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 8 }}>
           <Paper variant="outlined" sx={{ p: 2, minHeight: 300 }}>
@@ -175,7 +176,7 @@ export function PipelineDashboard({ pipelineId }: PipelineDashboardProps) {
             {!metrics || metrics.stageMetrics.length === 0 ? (
               <EmptyChartState message={td?.noData ?? 'No data available'} />
             ) : (
-              <StageMetricsTable stageMetrics={metrics.stageMetrics} />
+              <ConversionFunnelChart stageMetrics={metrics.stageMetrics} />
             )}
           </Paper>
         </Grid>
@@ -187,7 +188,35 @@ export function PipelineDashboard({ pipelineId }: PipelineDashboardProps) {
             {!metrics || metrics.stageMetrics.length === 0 ? (
               <EmptyChartState message={td?.noData ?? 'No data available'} />
             ) : (
-              <StageBreakdownList stageMetrics={metrics.stageMetrics} />
+              <DealsByStageChart stageMetrics={metrics.stageMetrics} />
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Win Rate Gauge + Stage Breakdown Table */}
+      <Grid container spacing={2} sx={{ mt: 0 }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Paper variant="outlined" sx={{ p: 2, minHeight: 240 }}>
+            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+              {td?.winRate ?? 'Win Rate'}
+            </Typography>
+            {metrics ? (
+              <WinRateGauge winRate={metrics.winRate} wonDeals={metrics.wonDeals} lostDeals={metrics.lostDeals} />
+            ) : (
+              <EmptyChartState message={td?.noData ?? 'No data available'} />
+            )}
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 8 }}>
+          <Paper variant="outlined" sx={{ p: 2, minHeight: 240 }}>
+            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+              {td?.stageConversion ?? 'Stage Breakdown'}
+            </Typography>
+            {!metrics || metrics.stageMetrics.length === 0 ? (
+              <EmptyChartState message={td?.noData ?? 'No data available'} />
+            ) : (
+              <StageMetricsTable stageMetrics={metrics.stageMetrics} />
             )}
           </Paper>
         </Grid>
@@ -278,43 +307,6 @@ function StageMetricsTable({ stageMetrics }: StageMetricsTableProps) {
           <Typography variant="body2" color="text.secondary" sx={{ minWidth: 80, textAlign: 'right' }}>
             {formatCurrency(stage.totalValue)}
           </Typography>
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-function StageBreakdownList({ stageMetrics }: StageMetricsTableProps) {
-  const maxDeals = Math.max(...stageMetrics.map((s) => s.dealCount), 1);
-
-  return (
-    <Box>
-      {stageMetrics.map((stage) => (
-        <Box key={stage.stageId} sx={{ mb: 1.5 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="caption">{stage.stageName}</Typography>
-            <Typography variant="caption" fontWeight={600}>
-              {stage.dealCount}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              height: 8,
-              borderRadius: 1,
-              bgcolor: 'action.hover',
-              overflow: 'hidden',
-            }}
-          >
-            <Box
-              sx={{
-                height: '100%',
-                width: `${(stage.dealCount / maxDeals) * 100}%`,
-                bgcolor: stage.stageColor ?? 'primary.main',
-                borderRadius: 1,
-                transition: 'width 0.3s ease',
-              }}
-            />
-          </Box>
         </Box>
       ))}
     </Box>
