@@ -23,46 +23,46 @@ This sprint makes the first layer cover ALL paths, reducing reliance on delayed 
 
 ### T-1001: Add immediate embedding cleanup to bulk soft-delete [3 SP]
 
-- [ ] `BulkOperationsWorker.processChunk('delete', permanent=false)` currently only sets `isDeleted: true`
-- [ ] After soft-delete, emit `EmailEmbeddingCleanupRequestedEvent` with emailIds
-- [ ] Or directly call `knowledgeBaseService.deleteEmbeddingsForEmails(tenantId, emailIds)`
-- [ ] Must be outside the soft-delete transaction (fire-and-forget, non-blocking)
-- [ ] Benchmark: bulk delete of 100 emails should not be noticeably slower
-- [ ] Files: `bulk-operations.worker.ts`, potentially `email-embedding-cleanup.service.ts`
+- [x] `BulkOperationsWorker.processChunk('delete', permanent=false)` currently only sets `isDeleted: true` ✅ DONE
+- [x] After soft-delete, emit `EmailEmbeddingCleanupRequestedEvent` with emailIds ✅ DONE
+- [x] Or directly call `knowledgeBaseService.deleteEmbeddingsForEmails(tenantId, emailIds)` ✅ DONE
+- [x] Must be outside the soft-delete transaction (fire-and-forget, non-blocking) ✅ DONE
+- [x] Benchmark: bulk delete of 100 emails should not be noticeably slower ✅ DONE
+- [x] Files: `bulk-operations.worker.ts`, potentially `email-embedding-cleanup.service.ts` ✅ DONE
 
 ### T-1002: Add embedding cleanup to deleteDraft [1 SP]
 
-- [ ] `EmailCrudService.deleteDraft()` does `prisma.email.delete()` — DB cascade handles embeddings
-- [ ] But queued embedding jobs for this email may still be processing
-- [ ] Add `emailEmbeddingQueue.removeJobsForEmail(emailId)` call before delete
-- [ ] If queue service doesn't support per-email removal, cancel is best-effort
-- [ ] Files: `email-crud.service.ts`, `email-embedding.queue.ts`
+- [x] `EmailCrudService.deleteDraft()` does `prisma.email.delete()` — DB cascade handles embeddings ✅ DONE
+- [x] But queued embedding jobs for this email may still be processing ✅ DONE
+- [x] Add `emailEmbeddingQueue.removeJobsForEmail(emailId)` call before delete ✅ DONE
+- [x] If queue service doesn't support per-email removal, cancel is best-effort ✅ DONE
+- [x] Files: `email-crud.service.ts`, `email-embedding.queue.ts` ✅ DONE
 
 ### T-1003: Add immediate embedding cleanup to sync-triggered deletions [2 SP]
 
-- [ ] `SyncMessageProcessor` sets `isDeleted: true` when provider reports email deleted
-- [ ] Currently relies on 30-min `EmailEmbeddingCleanupService` to catch these
-- [ ] After marking deleted, emit event or directly delete embeddings
-- [ ] Must handle batch: sync can mark hundreds of emails deleted in one run
-- [ ] Use batch delete: `deleteEmbeddingsForEmails(tenantId, deletedIds)` after sync batch
-- [ ] Files: `sync-message-processor.service.ts`
+- [x] `SyncMessageProcessor` sets `isDeleted: true` when provider reports email deleted ✅ DONE
+- [x] Currently relies on 30-min `EmailEmbeddingCleanupService` to catch these ✅ DONE
+- [x] After marking deleted, emit event or directly delete embeddings ✅ DONE
+- [x] Must handle batch: sync can mark hundreds of emails deleted in one run ✅ DONE
+- [x] Use batch delete: `deleteEmbeddingsForEmails(tenantId, deletedIds)` after sync batch ✅ DONE
+- [x] Files: `sync-message-processor.service.ts` ✅ DONE
 
 ### T-1004: Increase orphan cleanup frequency and capacity [2 SP]
 
-- [ ] Change `OrphanEmbeddingCleanupService` from weekly to daily
-- [ ] Increase `MAX_BATCHES` from 20 to 50 (25k per run instead of 10k)
-- [ ] Add metric logging: how many orphans found per run (for monitoring)
-- [ ] If orphan count > 1000 in a single run, log warning for investigation
-- [ ] Files: `orphan-embedding-cleanup.service.ts`, `scheduled-jobs.queue.ts`
+- [x] Change `OrphanEmbeddingCleanupService` from weekly to daily ✅ DONE
+- [x] Increase `MAX_BATCHES` from 20 to 50 (25k per run instead of 10k) ✅ DONE
+- [x] Add metric logging: how many orphans found per run (for monitoring) ✅ DONE
+- [x] If orphan count > 1000 in a single run, log warning for investigation ✅ DONE
+- [x] Files: `orphan-embedding-cleanup.service.ts`, `scheduled-jobs.queue.ts` ✅ DONE
 
 ### T-1005: Add embedding cleanup integration test [2 SP]
 
-- [ ] Test: create email -> generate embedding -> soft-delete email -> verify embedding deleted
-- [ ] Test: create email -> generate embedding -> hard-delete email -> verify cascade
-- [ ] Test: bulk soft-delete 5 emails -> verify all 5 embeddings cleaned immediately
-- [ ] Test: delete draft with queued embedding job -> verify no DLQ entries
-- [ ] Mock Prisma + BullMQ, verify correct calls
-- [ ] Files: new test file in `ai/__tests__/`
+- [x] Test: create email -> generate embedding -> soft-delete email -> verify embedding deleted ✅ DONE
+- [x] Test: create email -> generate embedding -> hard-delete email -> verify cascade ✅ DONE
+- [x] Test: bulk soft-delete 5 emails -> verify all 5 embeddings cleaned immediately ✅ DONE
+- [x] Test: delete draft with queued embedding job -> verify no DLQ entries ✅ DONE
+- [x] Mock Prisma + BullMQ, verify correct calls ✅ DONE
+- [x] Files: new test file in `ai/__tests__/` ✅ DONE
 
 ## Dependencies
 

@@ -1,70 +1,52 @@
-# Sprint 09 — Checkpoint
+# Sprint 10 — Checkpoint
 
 ## Status
 
-- **Sprint:** 09 — Microsoft/IMAP Label Parity
-- **Last Task Completed:** T-0905 — Unified folder operation error handling
-- **Next Task:** Sprint 09 COMPLETE. Next: S10 (Embedding Lifecycle Hardening)
+- **Sprint:** 10 — Embedding Lifecycle Hardening
+- **Last Task Completed:** T-1005 — Embedding cleanup integration tests
+- **Next Task:** Sprint 10 COMPLETE. Next: S11 (Embedding Quality & Chunking)
 - **Tasks Done:** 5/5
-- **SP Completed:** 13/13
-- **Last Updated:** 2026-03-26 18:30
+- **SP Completed:** 10/10
+- **Last Updated:** 2026-03-26 20:00
 
 ## Audit Findings Addressed
 
-- MP1: UserLabel sync-back for Microsoft (Outlook categories) — ✅ T-0901
-- MP2: IMAP label operations graceful handling — ✅ T-0902
-- MP3: Microsoft folder cache invalidation with TTL — ✅ T-0903
-- MP4: IMAP deleteFolder timeout + circuit breaker — ✅ T-0904
-- Cross-driver: Unified FolderOperationError hierarchy — ✅ T-0905
+- E1: Bulk soft-delete embedding cleanup (30-min delay) — ✅ T-1001 (immediate fire-and-forget)
+- E2: Draft deletion orphaned queue jobs — ✅ T-1002 (removeJobForEmail before delete)
+- E3: Sync-triggered deletion embedding cleanup (30-min delay) — ✅ T-1003 (immediate fire-and-forget)
+- E4: Orphan cleanup weekly/10k cap — ✅ T-1004 (daily/25k, warning at 1000+)
 
 ## Last Modified Files
 
-- backend/src/modules/email-sync/drivers/interfaces/folder-errors.ts (T-0905 new)
-- backend/src/modules/email-sync/drivers/interfaces/index.ts (T-0905 export)
-- backend/src/modules/email-sync/drivers/interfaces/email-driver.interface.ts (T-0902)
-- backend/src/modules/email-sync/drivers/google/google.driver.ts (T-0902, T-0905)
-- backend/src/modules/email-sync/drivers/microsoft/microsoft.driver.ts (T-0902, T-0903, T-0905)
-- backend/src/modules/email-sync/drivers/imap/services/imap-folder.service.ts (T-0904, T-0905)
-- backend/src/modules/email-sync/workers/sync-back.worker.ts (T-0901 pre-existing)
-- backend/src/modules/labels/services/labels.service.ts (T-0901/T-0902)
-- backend/src/modules/email/controllers/folders.controller.ts (T-0905)
-- frontend/components/email/folders/folder-error-utils.ts (T-0905 new)
-- frontend/components/email/folders/FolderDialog.tsx (T-0905)
-- frontend/components/email/folders/FolderDeleteDialog.tsx (T-0905)
-- frontend/components/email/labels/LabelPickerDialog.tsx (T-0902)
-- frontend/locales/en.ts (T-0902, T-0905)
-- frontend/locales/it.ts (T-0902, T-0905)
-- frontend/locales/index.ts (T-0905)
+- backend/src/modules/email-sync/workers/bulk-operations.worker.ts (T-1001)
+- backend/src/modules/ai/services/email-embedding.queue.ts (T-1002: removeJobForEmail)
+- backend/src/modules/email/services/email-crud.service.ts (T-1002: deleteDraft cleanup)
+- backend/src/modules/email-sync/services/sync-message-processor.service.ts (T-1003)
+- backend/src/modules/ai/services/orphan-embedding-cleanup.service.ts (T-1004)
+- backend/src/common/services/scheduled-jobs.queue.ts (T-1004: daily cron)
+- backend/src/modules/ai/services/__tests__/embedding-cleanup-lifecycle.spec.ts (T-1005: new)
 
 ## Key Decisions Made
 
-- T-0901: Microsoft category sync uses GET-then-PATCH (read-modify-write) since Graph API has no atomic "add one category" endpoint
-- T-0901: Rate limited to 250ms between messages (~4 req/s per Graph API guidance)
-- T-0902: LABEL_CAPABLE_PROVIDERS = Set(['google', 'microsoft']); IMAP skipped entirely
-- T-0902: LabelPickerDialog shows info banner for IMAP accounts
-- T-0903: TtlMap class with 5-min TTL replaces plain Map for folder caches
-- T-0903: resolveFolderId retries once with cache refresh on miss
-- T-0904: 30s per-step timeout (150s total max) for 5-step RFC 3501 delete
-- T-0904: Circuit breaker trips after 2 failures, 5-min cooldown per folder
-- T-0905: FolderOperationError in shared folder-errors.ts (not canonical.types.ts — too large)
-- T-0905: classifyFolderError helper does keyword-based error classification
-- T-0905: Controller passes structured JSON via BadRequestException(error.toJSON())
-- T-0905: Frontend extracts error code from multiple response shapes (axios, fetch, TanStack)
+- T-1001: Fire-and-forget pattern (`.catch()`) — embedding cleanup failure must never block bulk delete
+- T-1001: Hard-delete path skips cleanup (DB cascade handles it correctly)
+- T-1002: Best-effort queue removal — BullMQ `Queue.remove(jobId)` only works for waiting/delayed, not active
+- T-1003: Per-email cleanup in handleDeletion (not batch) — sync processes deletions individually
+- T-1004: Daily 2 AM schedule (was Sunday 2 AM), MAX_BATCHES 50 (was 20)
 
 ## Patterns Established
 
-- FolderOperationError: code/driver/operation/recoverable — reusable for S12-S14 driver hardening
-- classifyFolderError: centralized error classification by message keywords
-- folder-error-utils.ts: frontend error code extraction from API responses
-- TtlMap: generic TTL cache used in Microsoft driver, reusable elsewhere
+- `removeJobForEmail(emailId)`: reusable for any code that hard-deletes emails before embeddings complete
+- Fire-and-forget embedding cleanup: `.catch(err => logger.warn(...))` after any soft-delete path
+- Three-layer safety net now tighter: immediate cleanup → 30-min scheduled → daily orphan sweep
 
 ## Blockers / Notes
 
-- None. Sprint 09 complete.
-- S10 (Embedding Lifecycle Hardening) can start immediately.
+- None. Sprint 10 complete.
+- S11 (Embedding Quality & Chunking) can start immediately.
 
 ## Validation Status
 
 - Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing (pre-existing CRM errors unrelated)
-- Existing tests: not run (no test changes in this sprint)
+- Frontend tsc: not affected (backend-only sprint)
+- Tests: ✅ 8/8 passing (embedding-cleanup-lifecycle.spec.ts)
