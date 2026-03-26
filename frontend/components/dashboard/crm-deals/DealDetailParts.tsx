@@ -129,7 +129,7 @@ export function PipelineProgressBar({
   return (
     <Box sx={{ mb: 2 }}>
       <Stepper
-        activeStep={currentIndex}
+        activeStep={currentIndex + 1}
         alternativeLabel
         sx={{
           '& .MuiStepConnector-line': { borderTopWidth: 3 },
