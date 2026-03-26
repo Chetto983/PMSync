@@ -14,7 +14,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma, ProviderConfig } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { validatePagination, buildPaginationMeta, emailListSelect } from '../../../common/utils';
+import { validatePagination, buildPaginationMeta, emailListSelect, emailLabelsInclude } from '../../../common/utils';
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -148,17 +148,7 @@ export class EmailCrudService {
           },
         },
         attachments: true,
-        emailLabels: {
-          select: {
-            label: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-              },
-            },
-          },
-        },
+        ...emailLabelsInclude,
       },
     });
 
@@ -196,17 +186,7 @@ export class EmailCrudService {
             contentId: true,
           },
         },
-        emailLabels: {
-          select: {
-            label: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-              },
-            },
-          },
-        },
+        ...emailLabelsInclude,
       },
     });
 
@@ -265,17 +245,7 @@ export class EmailCrudService {
             },
           },
           attachments: true,
-          emailLabels: {
-            select: {
-              label: {
-                select: {
-                  id: true,
-                  name: true,
-                  color: true,
-                },
-              },
-            },
-          },
+          ...emailLabelsInclude,
         },
       });
 
@@ -552,10 +522,13 @@ export class EmailCrudService {
       if (result.count === 0) {
         throw new NotFoundException('Draft not found');
       }
-      return this.prisma.email.findFirst({ where: { id: dto.id, tenantId } });
+      return this.prisma.email.findFirst({
+        where: { id: dto.id, tenantId },
+        include: emailLabelsInclude,
+      });
     }
 
-    return this.prisma.email.create({ data: createData });
+    return this.prisma.email.create({ data: createData, include: emailLabelsInclude });
   }
 
   /**
@@ -564,6 +537,7 @@ export class EmailCrudService {
   async getDraft(id: string, tenantId: string) {
     const draft = await this.prisma.email.findFirst({
       where: { id, tenantId, isDraft: true },
+      include: emailLabelsInclude,
     });
     if (!draft) {
       throw new NotFoundException('Draft not found');

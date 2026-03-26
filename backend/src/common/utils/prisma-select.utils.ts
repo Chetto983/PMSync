@@ -20,6 +20,28 @@ export const attachmentListSelect = {
 
 /* ──────────────────── Email ──────────────────── */
 
+/** Reusable emailLabels include fragment for all email queries. */
+export const emailLabelsInclude = {
+  emailLabels: {
+    select: {
+      label: {
+        select: { id: true, name: true, color: true },
+      },
+    },
+  },
+} as const satisfies Pick<Prisma.EmailInclude, 'emailLabels'>;
+
+/** emailLabels as a select fragment (for use inside `select:` blocks). */
+export const emailLabelsSelect = {
+  emailLabels: {
+    select: {
+      label: {
+        select: { id: true, name: true, color: true },
+      },
+    },
+  },
+} as const satisfies Pick<Prisma.EmailSelect, 'emailLabels'>;
+
 /** Minimal provider info included in email lists. */
 export const emailProviderSelect = {
   id: true,
@@ -55,13 +77,7 @@ export const emailListSelect = {
   isAutoTriaged: true,
   autoTriagedAt: true,
   attachments: { select: attachmentListSelect },
-  emailLabels: {
-    select: {
-      label: {
-        select: { id: true, name: true, color: true },
-      },
-    },
-  },
+  ...emailLabelsSelect,
   provider: { select: emailProviderSelect },
 } as const satisfies Prisma.EmailSelect;
 
@@ -77,6 +93,7 @@ export const emailSearchSelect = {
   aiPriority: true,
   aiSentiment: true,
   aiLabels: true,
+  ...emailLabelsSelect,
 } as const satisfies Prisma.EmailSelect;
 
 /** Select for AI tool email reading (body + analysis). */

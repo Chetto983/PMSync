@@ -4,6 +4,7 @@ import { google, gmail_v1 } from 'googleapis';
 import { Client as GraphClient } from '@microsoft/microsoft-graph-client';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { parseImapExternalId } from '../../../common/utils/imap-utils';
+import { emailLabelsInclude } from '../../../common/utils';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { ImapFlow } from 'imapflow';
@@ -91,17 +92,7 @@ export class EmailFetchService {
               providerType: true,
             },
           },
-          emailLabels: {
-            select: {
-              label: {
-                select: {
-                  id: true,
-                  name: true,
-                  color: true,
-                },
-              },
-            },
-          },
+          ...emailLabelsInclude,
         },
       });
 
