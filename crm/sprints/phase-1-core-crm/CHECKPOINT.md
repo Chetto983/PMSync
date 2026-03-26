@@ -1,51 +1,62 @@
-# Sprint 07.2 — Checkpoint
+# Sprint 08 — Checkpoint
 
 ## Stato
-- **Sprint:** 07.2 — UX/Mobile Audit Fixes (Sub-Sprint)
-- **Last Task Completed:** T-0727 — Fix timeline date clipping on narrow viewports
-- **Next Task:** Sprint complete — all 7/7 tasks done
-- **Tasks Done:** 7/7
-- **SP Completed:** 7/7
-- **Last Updated:** 2026-03-26 15:00
+- **Sprint:** 08 — Pipeline Dashboard & Alpha
+- **Last Task Completed:** T-0811 — Alpha smoke testing
+- **Next Task:** Sprint complete — all tasks done
+- **Tasks Done:** 9/9 (T-0806/T-0807 moved to S07.1)
+- **SP Completed:** 18/18
+- **Last Updated:** 2026-03-26 18:10
 
 ## Last Modified Files
-- frontend/components/dashboard/crm-deals/DealProductsTab.tsx
-- frontend/components/dashboard/crm-accounts/AccountActivityTab.tsx
-- frontend/hooks/queries/use-crm-accounts.ts
-- frontend/locales/en.ts
-- frontend/locales/it.ts
-- frontend/locales/index.ts
-- crm/sprints/phase-1-core-crm/sprint-07.2.md
+- backend/src/modules/crm/pipeline/services/pipeline.service.ts (metrics + saved views)
+- backend/src/modules/crm/pipeline/controllers/pipeline.controller.ts (metrics + saved views endpoints)
+- backend/src/modules/crm/pipeline/dto/saved-view.dto.ts (new)
+- backend/src/modules/crm/scoring/deal-scoring.service.ts (scoring engine)
+- backend/src/modules/crm/scoring/scoring.module.ts (new)
+- backend/src/modules/crm/deal/services/deal.service.ts (score integration)
+- backend/src/modules/crm/custom-fields/custom-fields.module.ts (PrismaModule fix)
+- backend/prisma/schema.prisma (CrmSavedView model, deal score field)
+- frontend/lib/api/crm-pipelines.ts (metrics + saved view types/API)
+- frontend/hooks/queries/use-crm-pipelines.ts (metrics + saved view hooks)
+- frontend/hooks/queries/crm-pipelines-keys.ts (metrics + views keys)
+- frontend/components/dashboard/crm-pipelines/PipelineDashboard.tsx (new)
+- frontend/components/dashboard/crm-pipelines/PipelineDashboardCharts.tsx (new)
+- frontend/components/dashboard/crm-deals/DealScoreBadge.tsx (new)
+- frontend/components/dashboard/crm-deals/SavedViewsPanel.tsx (new)
+- frontend/components/dashboard/crm-deals/DealsList.tsx (score column + saved views)
+- frontend/components/dashboard/crm-deals/DealCard.tsx (score badge)
+- frontend/components/dashboard/crm-deals/DealDetail.tsx (score badge)
+- frontend/pages/dashboard/crm/pipelines/[id]/dashboard.tsx (new)
+- frontend/locales/en.ts (dashboard, score, saved views translations)
+- frontend/locales/it.ts (dashboard, score, saved views translations)
+- frontend/locales/index.ts (type definitions)
 
 ## Key Decisions Made
-- T-0721: Load More uses accumulated state + offset pagination (not useInfiniteQuery)
-- T-0722: Code and Discount columns hidden on xs (subtotal already includes discount)
-- T-0723: Confirm dialog uses `confirmUnlinkId` state pattern with color="error" remove button
-- T-0727: Used flex 0.35 on xs (not 0.3) to give slightly more room for date text
+- T-0801: Dashboard page uses dynamic import with ErrorBoundary wrapper
+- T-0802: Metrics calculated from deal data in PipelineService (no caching yet)
+- T-0803: Recharts v3.7 — ConversionFunnelChart (bar), DealsByStageChart (donut), WinRateGauge (half-donut)
+- T-0804: 10 scoring rules, 0-100 scale, fire-and-forget recalculation pattern
+- T-0808: SavedViews stored as JSON filters per pipeline, UI as Chip row in DealsList
+- T-0809: Already implemented in S05 (Kanban/List toggle in DealsList)
+- T-0810: Found and fixed missing tenantId on deleteStage deal count check
+- T-0811: Found and fixed missing PrismaModule import in CustomFieldsModule
 
 ## Patterns Established
-- Confirm dialog pattern: `confirmUnlinkId` state + Dialog with error-colored action button
-- Loading spinner pattern: `startIcon={isPending ? <CircularProgress size={16} /> : undefined}`
-- Responsive table pattern: `display: { xs: 'none', sm: 'table-cell' }` for non-essential columns
-- Touch target pattern: `sx={{ minWidth: 44, minHeight: 44 }}` on IconButton
+- Fire-and-forget scoring: `this.rescoreDeal(id)` calls scoreDeal().catch() — non-blocking
+- Dashboard charts: Recharts components in separate file from metrics cards
+- DealScoreBadge: Shared component with getScoreColor (>=70 success, >=40 warning, default)
+- SavedViewsPanel: Chip-based view selector with save/delete dialogs
 
 ## Blockers / Notes
-- Backend node_modules needed reinstall mid-session (tsc couldn't find @nestjs/common)
-- Frontend node_modules also needed reinstall (@serwist/next/typings pre-existing issue)
-- Pre-existing tsc errors in use-email-page-actions.ts (email label sprint, not CRM)
-- T-0721 changes were already committed in a prior session (bundled into commit 35a4a1db)
+- Pipeline service is 525 lines (slightly over 500 limit) — consider extracting saved views to own service
+- Railway deployment of saved views endpoints (T-0808) may need verification after next deploy cycle
+- Swagger is disabled in production — cannot verify routes via docs endpoint
 
 ## Validation Status
 - Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing (pre-existing errors in use-email-page-actions.ts, not CRM)
-- Circular deps: not checked (frontend-only sprint)
-- Railway health: ✅ 200 (DB, Redis, Mistral all up)
-- Railway /crm/products: ✅ 401 (route registered, auth guard active)
-- Railway /crm/accounts: ✅ 401 (route registered, auth guard active)
-- Railway /crm/deals: ✅ 401 (route registered, auth guard active)
-- Railway /crm/pipelines: ✅ 401 (route registered, auth guard active)
-- Vercel /dashboard/crm/*: ✅ 307 (all 4 pages exist, auth redirect)
-- Browser (Edge CDP) Account Activity tab: ✅ empty state renders, "Registra Attività" CTA, Italian translations
-- Browser (Edge CDP) Account Activity mobile: ✅ layout stacks correctly at 375x812, touch targets OK
-- Browser (Edge CDP) Deal Products tab: ✅ empty state renders, "Aggiungi Prodotto" CTA, no window.confirm
-- Browser (Edge CDP) Deal Products mobile: ✅ full-width stacking, buttons touch-friendly, no overflow
+- Frontend tsc: ✅ passing
+- Circular deps: ✅ zero
+- CRM module wiring: ✅ all 8 submodules correctly wired
+- Railway health: ✅ 200 (DB, Redis, Mistral up)
+- Railway CRM endpoints: ✅ pipelines/deals/accounts/products/custom-fields all 401
