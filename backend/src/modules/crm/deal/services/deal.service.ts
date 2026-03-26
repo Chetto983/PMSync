@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { StageAutomationService } from '../../automation/stage-automation.service';
+import { DealScoringService } from '../../scoring/deal-scoring.service';
 import { Prisma } from '@prisma/client';
 import {
   CreateDealDto,
@@ -30,6 +31,7 @@ export class DealService {
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly stageAutomation: StageAutomationService,
+    private readonly dealScoring: DealScoringService,
   ) {}
 
   // ---- Deal CRUD ----
@@ -130,7 +132,7 @@ export class DealService {
       await this.validateAccount(tenantId, dto.accountId);
     }
 
-    return this.prisma.crmDeal.create({
+    const deal = await this.prisma.crmDeal.create({
       data: {
         tenantId,
         name: dto.name,
@@ -151,6 +153,9 @@ export class DealService {
         _count: { select: { dealContacts: true, dealProducts: true } },
       },
     });
+
+    this.rescoreDeal(deal.id);
+    return deal;
   }
 
   async update(tenantId: string, id: string, dto: UpdateDealDto) {
@@ -179,7 +184,7 @@ export class DealService {
       await this.validateAccount(tenantId, dto.accountId);
     }
 
-    return this.prisma.crmDeal.update({
+    const updated = await this.prisma.crmDeal.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
@@ -205,6 +210,9 @@ export class DealService {
         _count: { select: { dealContacts: true, dealProducts: true } },
       },
     });
+
+    this.rescoreDeal(id);
+    return updated;
   }
 
   async delete(tenantId: string, id: string) {
@@ -250,8 +258,9 @@ export class DealService {
       throw new NotFoundException(`Contact ${dto.contactId} not found`);
     }
 
+    let result;
     try {
-      return await this.prisma.dealContact.create({
+      result = await this.prisma.dealContact.create({
         data: {
           dealId,
           contactId: dto.contactId,
@@ -275,6 +284,9 @@ export class DealService {
       }
       throw error;
     }
+
+    this.rescoreDeal(dealId);
+    return result;
   }
 
   async unlinkContact(tenantId: string, dealId: string, contactId: string) {
@@ -286,6 +298,7 @@ export class DealService {
     }
 
     await this.prisma.dealContact.delete({ where: { id: link.id } });
+    this.rescoreDeal(dealId);
     return { deleted: true };
   }
 
@@ -327,8 +340,9 @@ export class DealService {
       throw new NotFoundException(`Product ${dto.productId} not found`);
     }
 
+    let result;
     try {
-      return await this.prisma.dealProduct.create({
+      result = await this.prisma.dealProduct.create({
         data: {
           dealId,
           productId: dto.productId,
@@ -355,6 +369,9 @@ export class DealService {
       }
       throw error;
     }
+
+    this.rescoreDeal(dealId);
+    return result;
   }
 
   async unlinkProduct(tenantId: string, dealId: string, linkId: string) {
@@ -368,6 +385,7 @@ export class DealService {
     }
 
     await this.prisma.dealProduct.delete({ where: { id: linkId } });
+    this.rescoreDeal(dealId);
     return { deleted: true };
   }
 
@@ -432,6 +450,7 @@ export class DealService {
       triggeredByAutomation: false,
     });
 
+    this.rescoreDeal(id);
     return { deal: updated, oldStageId };
   }
 
@@ -532,6 +551,13 @@ export class DealService {
   }
 
   // ---- Helpers ----
+
+  /** Fire-and-forget scoring recalculation */
+  private rescoreDeal(dealId: string) {
+    this.dealScoring.scoreDeal(dealId).catch((e) => {
+      this.logger.warn(`Failed to score deal ${dealId}: ${e.message}`);
+    });
+  }
 
   private async validateStageInPipeline(
     tenantId: string,

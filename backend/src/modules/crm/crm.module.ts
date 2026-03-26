@@ -6,13 +6,14 @@ import { AutomationModule } from './automation/automation.module';
 import { ImportExportModule } from './import-export/import-export.module';
 import { CustomFieldsModule } from './custom-fields/custom-fields.module';
 import { ProductModule } from './product/product.module';
+import { ScoringModule } from './scoring/scoring.module';
 
 /**
  * CrmModule - Umbrella module for all CRM sub-modules.
- * Phase 1: Account, Pipeline, Deal, Import/Export, Custom Fields, Product.
+ * Phase 1: Account, Pipeline, Deal, Import/Export, Custom Fields, Product, Scoring.
  */
 @Module({
-  imports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule],
-  exports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule],
+  imports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule],
+  exports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule],
 })
 export class CrmModule {}

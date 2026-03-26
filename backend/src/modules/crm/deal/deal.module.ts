@@ -4,9 +4,10 @@ import { DealService } from './services/deal.service';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
 import { AutomationModule } from '../automation/automation.module';
+import { ScoringModule } from '../scoring/scoring.module';
 
 @Module({
-  imports: [PrismaModule, RealtimeModule, AutomationModule],
+  imports: [PrismaModule, RealtimeModule, AutomationModule, ScoringModule],
   controllers: [DealController],
   providers: [DealService],
   exports: [DealService],

@@ -1762,6 +1762,7 @@ model CrmDeal {
   priority          String?       @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
   source            String?       // WEBSITE, REFERRAL, COLD_CALL, etc.
   notes             String?
+  score             Int           @default(0) // 0-100 rule-based deal score
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   deletedAt         DateTime?
@@ -1779,6 +1780,7 @@ model CrmDeal {
   @@index([tenantId, stageId])
   @@index([tenantId, accountId])
   @@index([tenantId, expectedCloseDate])
+  @@index([tenantId, score])
   @@map("crm_deals")
 }
 
