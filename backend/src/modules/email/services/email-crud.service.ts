@@ -17,6 +17,7 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { validatePagination, buildPaginationMeta, emailListSelect, emailLabelsInclude } from '../../../common/utils';
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
+import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { StorageService } from './storage.service';
 import { EmailFolderService, EmailListFilters } from './email-folder.service';
@@ -42,6 +43,7 @@ export class EmailCrudService {
     private prisma: PrismaService,
     private emailSyncBack: EmailSyncBackService,
     private knowledgeBaseService: KnowledgeBaseService,
+    private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private realtimeEvents: RealtimeEventsService,
     private storageService: StorageService,
     private folderService: EmailFolderService,
@@ -566,6 +568,10 @@ export class EmailCrudService {
     const s3Keys = draft.attachments
       .filter((a) => a.storagePath)
       .map((a) => a.storagePath!);
+
+    // E2 FIX: Cancel any queued embedding job before hard-deleting the draft
+    // DB cascade handles existing embeddings, but in-flight queue jobs could fail
+    await this.emailEmbeddingQueue.removeJobForEmail(id);
 
     await this.prisma.email.delete({
       where: { id_tenantId: { id, tenantId } },

@@ -256,6 +256,26 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
     }, this.FLUSH_MS);
   }
 
+  /**
+   * Best-effort removal of a queued embedding job for a specific email.
+   * Uses emailId as jobId (set during enqueue). Does nothing if job is already processing.
+   */
+  async removeJobForEmail(emailId: string): Promise<boolean> {
+    if (!this.queue || !emailId) return false;
+    try {
+      // BullMQ Queue.remove works for waiting/delayed jobs (not active)
+      const removed = await this.queue.remove(emailId);
+      if (removed) {
+        this.seenIds.delete(emailId);
+        this.logger.debug(`Removed queued embedding job for email ${emailId}`);
+      }
+      return !!removed;
+    } catch {
+      // Job may already be active or completed — not an error
+      return false;
+    }
+  }
+
   async removeJobsForTenant(tenantId: string): Promise<number> {
     if (!this.queue) {
       return 0;
