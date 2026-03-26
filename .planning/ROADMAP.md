@@ -203,7 +203,10 @@ Plans:
   2. On-demand attachment fetch retrieves the file directly from the provider when it is not cached in S3
   3. Unread counts and folder stats accurately reflect the current email state per folder
   4. Full-text search returns relevant results across all provider accounts
-**Plans**: [to be planned]
+**Plans**: 2 plans
+Plans:
+- [ ] 116-01-PLAN.md -- Validation scripts for attachment download, on-demand fetch, folder stats, full-text search (READ-06, READ-07, READ-08, READ-09)
+- [ ] 116-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (READ-06, READ-07, READ-08, READ-09)
 
 ### Phase 117: Email Send & Reply/Forward
 **Goal**: Users can compose and send emails through any provider, with reply/forward preserving conversation context
@@ -282,8 +285,8 @@ Plans:
 | 112. Full Sync Validation | 2/2 | Complete    | 2026-03-26 |
 | 113. Incremental Sync & Webhooks | 0/2 | Complete    | 2026-03-26 |
 | 114. Sync-back Operations | 2/2 | Complete    | 2026-03-26 |
-| 115. Email List & Thread Reading | 0/2 | Not started | - |
-| 116. Attachments & Search | 0/? | Not started | - |
+| 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
+| 116. Attachments & Search | 0/2 | Not started | - |
 | 117. Email Send & Reply/Forward | 0/? | Not started | - |
 | 118. Drafts & Bulk Operations | 0/? | Not started | - |
 | 119. Folder Operations | 0/? | Not started | - |
