@@ -58,11 +58,11 @@
 - Mitigation: Use captured real responses as fixtures
 
 ## Definition of Done
-- [ ] All unit tests pass
-- [ ] Integration tests cover the critical sync flow
-- [ ] Validation script runs and reports 0 inconsistencies on test data
-- [ ] Component tests verify label rendering
-- [ ] `npx tsc --noEmit` passes everywhere
+- [x] All unit tests pass ✅ T-0701 (13 tests), T-0703 (7 tests)
+- [x] Integration tests cover the critical sync flow ✅ T-0702 (7 tests)
+- [x] Validation script runs and reports 0 inconsistencies on test data ✅ T-0704
+- [x] Component tests verify label rendering ✅ T-0705 (7 tests)
+- [x] `npx tsc --noEmit` passes everywhere ✅ backend + frontend
 
 ## Deliverables
 - Unit test files (updated and new)
