@@ -4356,6 +4356,32 @@ export interface AppTranslations {
         endUser?: string;
         other?: string;
       };
+      dealProducts?: {
+        title?: string;
+        addProduct?: string;
+        removeProduct?: string;
+        removeConfirm?: string;
+        noProducts?: string;
+        noProductsDescription?: string;
+        searchProducts?: string;
+        linked?: string;
+        unlinked?: string;
+        alreadyLinked?: string;
+        columns?: {
+          name?: string;
+          code?: string;
+          quantity?: string;
+          unitPrice?: string;
+          discount?: string;
+          subtotal?: string;
+        };
+        form?: {
+          quantity?: string;
+          unitPrice?: string;
+          discount?: string;
+        };
+        total?: string;
+      };
       info?: {
         editField?: string;
         noNotes?: string;
@@ -4364,7 +4390,6 @@ export interface AppTranslations {
       };
       placeholder?: {
         contacts?: string;
-        products?: string;
         activity?: string;
       };
       actions?: {
