@@ -134,6 +134,9 @@ export function PipelineProgressBar({
         sx={{
           '& .MuiStepConnector-line': { borderTopWidth: 3 },
           '& .MuiStepLabel-label': { fontSize: '0.75rem' },
+          '& .Mui-completed .MuiStepConnector-line': { borderColor: 'primary.main' },
+          '& .MuiStepIcon-root.Mui-completed': { color: 'primary.main' },
+          '& .MuiStepIcon-root.Mui-active': { color: 'primary.main' },
         }}
       >
         {stages.map((stage) => (
