@@ -4321,8 +4321,30 @@ export const it: AppTranslations = {
         noDeals: 'Nessuna trattativa per questo account',
         goToDeals: 'Vai alle Trattative',
       },
-      placeholder: {
-        activity: 'In arrivo nello Sprint 07',
+      activity: {
+        title: 'Cronologia Attività',
+        empty: 'Nessuna attività',
+        emptyDescription: 'Le attività per questo account appariranno qui.',
+        addActivity: 'Registra Attività',
+        loadMore: 'Carica altro',
+        types: {
+          CALL: 'Chiamata',
+          EMAIL: 'Email',
+          MEETING: 'Riunione',
+          TASK: 'Attività',
+        },
+        form: {
+          title: 'Registra Attività',
+          type: 'Tipo Attività',
+          description: 'Descrizione',
+          descriptionPlaceholder: 'Cosa è successo?',
+          date: 'Data e Ora',
+          duration: 'Durata (minuti)',
+          save: 'Salva',
+          cancel: 'Annulla',
+          created: 'Attività registrata',
+          createError: 'Errore nella registrazione attività',
+        },
       },
     },
     breadcrumb: {

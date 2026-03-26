@@ -105,6 +105,31 @@ export interface LinkContactDto {
   role?: string;
 }
 
+// ---- Activity Types ----
+
+export interface AccountActivity {
+  id: string;
+  tenantId: string;
+  accountId: string | null;
+  dealId: string | null;
+  type: string;
+  content: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AccountActivityListResponse {
+  data: AccountActivity[];
+  total: number;
+}
+
+export interface CreateAccountActivityDto {
+  type: 'CALL' | 'EMAIL' | 'MEETING' | 'TASK';
+  description?: string;
+  date?: string;
+  durationMinutes?: number;
+}
+
 // ---- API ----
 
 export const crmAccountsApi = {
@@ -148,6 +173,18 @@ export const crmAccountsApi = {
     return apiClient.delete<{ deleted: boolean }>(
       `/crm/accounts/${accountId}/contacts/${contactId}`,
     );
+  },
+
+  // ---- Activities ----
+
+  listActivities(accountId: string, query?: { limit?: number; offset?: number }) {
+    return apiClient.get<AccountActivityListResponse>(`/crm/accounts/${accountId}/activities`, {
+      params: query,
+    });
+  },
+
+  createActivity(accountId: string, dto: CreateAccountActivityDto) {
+    return apiClient.post<AccountActivity>(`/crm/accounts/${accountId}/activities`, dto);
   },
 
   async exportXlsx(params?: { search?: string; industry?: string }) {

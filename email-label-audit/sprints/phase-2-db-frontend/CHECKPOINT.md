@@ -1,52 +1,54 @@
-# Sprint 04 — Checkpoint
+# Sprint 05 — Checkpoint
 
 ## Status
 
-- **Sprint:** 04 — EmailLabel Includes & Type Safety
-- **Last Task Completed:** T-0405 — Verify frontend Email type matches backend response
-- **Next Task:** Sprint 05 — Label Display in Detail View
-- **Tasks Done:** 5/5
+- **Sprint:** 05 — Label Display in Detail View
+- **Last Task Completed:** T-0506 — Visual QA
+- **Next Task:** Sprint 06 — AI Labels & i18n
+- **Tasks Done:** 6/6
 - **SP Completed:** 10/10
-- **Last Updated:** 2026-03-26 11:30
+- **Last Updated:** 2026-03-26 14:00
 
 ## Audit Findings Addressed
 
-- C4: Missing emailLabels in email list query — ✅ verified all endpoints include emailLabels (was already fixed in prior commits)
-- H4: Ghost labels from archived UserLabels — ✅ filtered via `where: { label: { isArchived: false } }` in shared constants
-- M3: Frontend Email type mismatch — ✅ fixed junction fields optional, label required
+- H1: No label display in email detail — ✅ fixed (ExpandedMessage + MessageCard)
+- H2: Label management in detail view — ✅ fixed (add via existing picker, remove via chip X)
+- L5: VoltAgent comment cleanup — ✅ fixed (T-0505)
 
 ## Last Modified Files
 
-- frontend/components/email/utils/email-formatters.ts (hex color validation)
-- frontend/lib/api/emails.ts (EmailLabel type alignment)
-- email-label-audit/sprints/phase-2-db-frontend/sprint-04.md
+- frontend/components/email/thread/ExpandedMessage.tsx (labels display + remove)
+- frontend/components/email/thread/MessageCard.tsx (labels in collapsed header)
+- frontend/components/email/thread/ThreadViewOutlook.tsx (labels + onRemoveLabel prop threading)
+- frontend/components/email/hooks/use-email-page-actions.ts (labels mapping + handleRemoveLabel)
+- frontend/pages/dashboard/email.tsx (wire onRemoveLabel)
+- frontend/pages/dashboard/email/thread/[threadId].tsx (labels mapping + handleRemoveLabel)
+- frontend/locales/en.ts, it.ts, index.ts (translation keys)
+- frontend/components/email/utils/email-formatters.ts (VoltAgent comment removed)
 
 ## Key Decisions Made
 
-- **Option B for ghost labels**: Filter at query time (`isArchived: false`) rather than hard-deleting junction records — preserves data, reversible
-- **Junction fields optional**: Backend `emailLabelsInclude/Select` only selects nested `label` object, not junction record fields (id, emailId, labelId, createdAt)
-- **label made required**: Backend always returns `label` when emailLabels are included via shared constants — safer typing
-- **No icon in shared constants**: LabelsService previously included `icon` in emailLabels select but frontend never consumed it — standardized to match shared constant (id, name, color only)
-
-## Prior Work Discovery
-
-- T-0401/T-0402: All inline emailLabels includes already replaced with shared constants in commits `c94cb528` and `7741b5e4`
-- T-0404: Ghost label filter already added in commit `138ed64e`
-- Only T-0403 (hex color validation) and T-0405 (type alignment) required new code
+- Labels rendered as colored Chips with white text, matching ThreadListItem style
+- Remove label via MUI Chip deleteIcon (X icon from lucide-react)
+- MessageCard shows max 2 labels (same as ThreadListItem)
+- Labels placed below AI Summary Panel, above email body in ExpandedMessage
+- Label click-to-navigate deferred (nice-to-have, not in sprint scope)
+- No schema changes needed — all data already flows via emailLabels relation
 
 ## Patterns Established
 
-- Shared Prisma select constants in `backend/src/common/utils/prisma-select.utils.ts` are the single source of truth for email query shapes
-- `isValidHexColor()` exists in both `lib/label-colors.ts` and `components/common/ColorPicker.tsx`
-- `formatEmailToThread()` now validates colors with grey fallback
+- Label color extraction: `isValidHexColor(el.label?.color?.backgroundColor)` with grey fallback
+- Label data mapping reused from `formatEmailToThread` pattern
+- `useRemoveEmailFromLabel` hook for label removal with toast feedback
 
 ## Blockers / Notes
 
-- None currently
-- Sprint 05 (Label Display in Detail View) is next — addresses H1, H2, L5
+- T-0501 sub-item "clicking label name navigates to label filter" deferred
+- T-0506 screenshot deferred (no browser session for Edge CDP)
+- Concurrent worktree agents caused git commit conflicts — changes landed via merge
 
 ## Validation Status
 
 - Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing
-- Commits: 1b7dbc35 (T-0403), 38c4412b (T-0405)
+- Frontend tsc: ✅ passing (only pre-existing CRM `activity` type error)
+- Commits: 73604a81 (T-0504/T-0505), b1d84d6c (T-0503), T-0501/T-0502 in 389e79af (merged)

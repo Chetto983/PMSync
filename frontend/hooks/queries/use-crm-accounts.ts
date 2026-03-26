@@ -5,6 +5,7 @@ import {
   type CreateAccountDto,
   type UpdateAccountDto,
   type LinkContactDto,
+  type CreateAccountActivityDto,
 } from '@/lib/api/crm-accounts';
 import { crmAccountsKeys } from './crm-accounts-keys';
 
@@ -156,6 +157,36 @@ export function useUnlinkContact() {
       });
       queryClient.invalidateQueries({
         queryKey: crmAccountsKeys.detail(variables.accountId),
+      });
+    },
+  });
+}
+
+// ---- Activities ----
+
+export function crmAccountActivitiesOptions(accountId: string, query?: { limit?: number; offset?: number }) {
+  return queryOptions({
+    queryKey: [...crmAccountsKeys.activities(accountId), query ?? {}],
+    queryFn: () => crmAccountsApi.listActivities(accountId, query).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!accountId,
+  });
+}
+
+export function useAccountActivities(accountId: string) {
+  return useQuery(crmAccountActivitiesOptions(accountId));
+}
+
+export function useCreateAccountActivity(accountId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateAccountActivityDto) =>
+      crmAccountsApi.createActivity(accountId, dto).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: crmAccountsKeys.activities(accountId),
       });
     },
   });

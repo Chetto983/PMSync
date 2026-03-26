@@ -4172,8 +4172,30 @@ export interface AppTranslations {
         noDeals?: string;
         goToDeals?: string;
       };
-      placeholder?: {
-        activity?: string;
+      activity?: {
+        title?: string;
+        empty?: string;
+        emptyDescription?: string;
+        addActivity?: string;
+        loadMore?: string;
+        types?: {
+          CALL?: string;
+          EMAIL?: string;
+          MEETING?: string;
+          TASK?: string;
+        };
+        form?: {
+          title?: string;
+          type?: string;
+          description?: string;
+          descriptionPlaceholder?: string;
+          date?: string;
+          duration?: string;
+          save?: string;
+          cancel?: string;
+          created?: string;
+          createError?: string;
+        };
       };
     };
     breadcrumb?: {

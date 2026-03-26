@@ -44,6 +44,7 @@ import { useGlobalToast } from '@/lib/context/toast-context';
 import { AccountHierarchyTree } from './AccountHierarchyTree';
 import { AccountContactsTab } from './AccountContactsTab';
 import { AddressEditSection } from './AddressEditSection';
+import { AccountActivityTab } from './AccountActivityTab';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -382,19 +383,6 @@ function AccountDealsTab({ accountId }: { accountId: string }) {
   );
 }
 
-// ---- Activity Placeholder ----
-
-function ActivityTab() {
-  const t = useTranslations();
-  return (
-    <Box sx={{ py: 4, textAlign: 'center' }}>
-      <Typography color="text.secondary">
-        {t.crmAccounts?.detail?.placeholder?.activity ?? 'Coming in Sprint 08'}
-      </Typography>
-    </Box>
-  );
-}
-
 // ---- Main Component ----
 
 export function AccountDetail() {
@@ -529,7 +517,7 @@ export function AccountDetail() {
       </TabPanel>
 
       <TabPanel value={tab} index={3}>
-        <ActivityTab />
+        <AccountActivityTab accountId={id} />
       </TabPanel>
     </Box>
   );
