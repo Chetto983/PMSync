@@ -175,3 +175,7 @@ scripts/*
 !scripts/lib/validate-gmail.mjs
 !scripts/lib/validate-outlook.mjs
 !scripts/lib/validate-imap.mjs
+!scripts/validate-incremental-sync.mjs
+!scripts/lib/validate-gmail-incremental.mjs
+!scripts/lib/validate-outlook-incremental.mjs
+!scripts/lib/validate-imap-incremental.mjs
