@@ -32,20 +32,26 @@ async function main() {
   const cookieHeader = await getAuthCookies(context);
   const { csrfToken, cookieHeader: finalCookies } = await getCsrfToken(context, cookieHeader);
 
-  // Discover providers from GET /api/v1/email-sync/status
-  const status = await apiGet(context, '/api/v1/email-sync/status', finalCookies);
-  console.log('\nSync status:', JSON.stringify(status, null, 2));
+  // Discover providers from GET /api/v1/providers (individual provider records)
+  const providersRes = await apiGet(context, '/api/v1/providers', finalCookies);
+  const providers = Array.isArray(providersRes) ? providersRes
+    : Array.isArray(providersRes?.data) ? providersRes.data
+    : [];
+  console.log(`\nDiscovered ${providers.length} providers:`);
+  for (const p of providers) {
+    console.log(`  - ${p.providerType}: ${p.email || 'unknown'} (${p.id})`);
+  }
 
   const results = [];
 
   if (providerFlag === 'all' || providerFlag === 'gmail') {
-    results.push(await validateGmail(context, finalCookies, csrfToken, status, quickMode));
+    results.push(await validateGmail(context, finalCookies, csrfToken, providers, quickMode));
   }
   if (providerFlag === 'all' || providerFlag === 'outlook' || providerFlag === 'microsoft') {
-    results.push(await validateOutlook(context, finalCookies, csrfToken, status, quickMode));
+    results.push(await validateOutlook(context, finalCookies, csrfToken, providers, quickMode));
   }
   if (providerFlag === 'all' || providerFlag === 'imap') {
-    results.push(await validateImap(context, finalCookies, csrfToken, status, quickMode));
+    results.push(await validateImap(context, finalCookies, csrfToken, providers, quickMode));
   }
 
   const exitCode = report('Full Sync Validation', results);

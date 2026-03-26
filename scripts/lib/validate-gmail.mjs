@@ -24,11 +24,11 @@ const FULL_SYNC_BUDGET = 2500;
  * @param {object} context - Playwright browser context
  * @param {string} cookieHeader - Cookie header string
  * @param {string} csrfToken - CSRF token for POST requests
- * @param {object} syncStatus - Response from GET /api/v1/email-sync/status
+ * @param {Array} providers - Array of provider records from GET /api/v1/providers
  * @param {boolean} quick - If true, skip triggering a new sync
  * @returns {object} { name, checks, passed, failed, failures, skipped? }
  */
-export async function validateGmail(context, cookieHeader, csrfToken, syncStatus, quick) {
+export async function validateGmail(context, cookieHeader, csrfToken, providers, quick) {
   console.log('\n' + '='.repeat(50));
   console.log('  Gmail Full Sync Validation (SYNC-01)');
   console.log('='.repeat(50));
@@ -39,8 +39,8 @@ export async function validateGmail(context, cookieHeader, csrfToken, syncStatus
   // --- Step 1: Find Gmail provider ---
   console.log('\n--- Step 1: Find Gmail provider ---');
 
-  const providers = extractProviders(syncStatus);
-  const gmailProvider = providers.find(
+  const providerList = Array.isArray(providers) ? providers : [];
+  const gmailProvider = providerList.find(
     p => p.providerType === 'google' || p.providerType === 'gmail'
   );
 
@@ -94,8 +94,8 @@ export async function validateGmail(context, cookieHeader, csrfToken, syncStatus
       `/api/v1/folders/provider/${providerId}`,
       cookieHeader
     );
-    // Handle envelope: { data: [...] } or raw array
-    folders = foldersRes?.data || foldersRes || [];
+    // Response shape: { data: { provider, folders: [...] } }
+    folders = foldersRes?.data?.folders || foldersRes?.data || foldersRes || [];
     if (!Array.isArray(folders)) folders = [];
   } catch (err) {
     console.log(`  Failed to fetch folders: ${err.message}`);
@@ -166,7 +166,7 @@ export async function validateGmail(context, cookieHeader, csrfToken, syncStatus
   try {
     const inboxRes = await apiGet(
       context,
-      `/api/v1/emails?folder=INBOX&limit=1`,
+      `/api/v1/emails?providerId=${providerId}&folder=INBOX&limit=1`,
       cookieHeader
     );
     // Extract total from response -- look in various places
@@ -190,7 +190,7 @@ export async function validateGmail(context, cookieHeader, csrfToken, syncStatus
   try {
     const emailsRes = await apiGet(
       context,
-      `/api/v1/emails?folder=INBOX&limit=5`,
+      `/api/v1/emails?providerId=${providerId}&folder=INBOX&limit=5`,
       cookieHeader
     );
     // Extract email list from various envelope shapes
@@ -271,7 +271,7 @@ export async function validateGmail(context, cookieHeader, csrfToken, syncStatus
   try {
     const dedupRes = await apiGet(
       context,
-      `/api/v1/emails?limit=100`,
+      `/api/v1/emails?providerId=${providerId}&limit=100`,
       cookieHeader
     );
     dedupEmails = dedupRes?.data?.emails
@@ -303,51 +303,3 @@ export async function validateGmail(context, cookieHeader, csrfToken, syncStatus
   return results;
 }
 
-/**
- * Extract providers array from sync status response.
- * Handles both envelope and raw response shapes.
- */
-function extractProviders(syncStatus) {
-  // The status response may have various shapes
-  if (!syncStatus) return [];
-
-  // Try { data: { providers: [...] } }
-  if (syncStatus?.data?.providers && Array.isArray(syncStatus.data.providers)) {
-    return syncStatus.data.providers;
-  }
-
-  // Try { providers: [...] }
-  if (syncStatus?.providers && Array.isArray(syncStatus.providers)) {
-    return syncStatus.providers;
-  }
-
-  // Try { data: [...] } (raw provider list)
-  if (Array.isArray(syncStatus?.data)) {
-    return syncStatus.data;
-  }
-
-  // Try raw array
-  if (Array.isArray(syncStatus)) {
-    return syncStatus;
-  }
-
-  // Try { data: { smartSync: { providers: [...] } } } (from getSyncStats)
-  if (syncStatus?.data?.smartSync?.providers) {
-    return syncStatus.data.smartSync.providers;
-  }
-  if (syncStatus?.smartSync?.providers) {
-    return syncStatus.smartSync.providers;
-  }
-
-  // Fallback: look for any array in top-level or data keys
-  const dataObj = syncStatus?.data || syncStatus;
-  if (dataObj && typeof dataObj === 'object') {
-    for (const [, val] of Object.entries(dataObj)) {
-      if (Array.isArray(val) && val.length > 0 && val[0]?.providerType) {
-        return val;
-      }
-    }
-  }
-
-  return [];
-}
