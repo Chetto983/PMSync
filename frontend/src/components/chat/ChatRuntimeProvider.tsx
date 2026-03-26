@@ -100,7 +100,19 @@ function useThreadRuntime() {
     id,
     transport,
     // Auto-resubmit after user approves/denies a tool requiring action.
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    sendAutomaticallyWhen: (opts) => {
+      const result = lastAssistantMessageIsCompleteWithApprovalResponses(opts);
+      // DEBUG: remove after validation
+      console.log('[HITL-debug] sendAutomaticallyWhen called', { result, status: chat.status, msgCount: opts.messages.length });
+      if (opts.messages.length > 0) {
+        const last = opts.messages[opts.messages.length - 1];
+        if (last?.role === 'assistant') {
+          const toolParts = last.parts?.filter((p: { type: string }) => p.type?.includes('tool'));
+          console.log('[HITL-debug] tool parts in last msg:', JSON.stringify(toolParts?.map((p: { type: string; state?: string; approval?: unknown }) => ({ type: p.type, state: p.state, approval: p.approval }))));
+        }
+      }
+      return result;
+    },
   });
 
   // Expose addToolApprovalResponse at module scope for HitlApprovalCard.
