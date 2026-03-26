@@ -186,4 +186,6 @@ scripts/*
 !scripts/lib/validate-microsoft-webhook.mjs
 !scripts/validate-email-read.mjs
 !scripts/lib/validate-email-read.mjs
+!scripts/validate-attachments-search.mjs
+!scripts/lib/validate-attachments-search.mjs
 artifacts/*
