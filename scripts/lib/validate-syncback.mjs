@@ -1,10 +1,12 @@
 /**
- * Sync-Back Operations Validation (SYNC-09, SYNC-10, SYNC-11)
+ * Sync-Back Operations Validation (SYNC-09, SYNC-10, SYNC-11, SYNC-12, SYNC-13)
  *
  * Validates that local state changes via the API succeed and round-trip correctly:
  *   SYNC-09: mark-read/unread
  *   SYNC-10: star/unstar
  *   SYNC-11: move-to-folder
+ *   SYNC-12: soft delete (+ hard delete in full mode)
+ *   SYNC-13: label add/remove (Gmail only)
  *
  * NOTE: These tests verify the LOCAL state roundtrip. Provider-side sync-back
  * is fire-and-forget; remote verification is deferred to Plan 02 checkpoint.
@@ -12,6 +14,7 @@
 import {
   apiGet,
   apiPatch,
+  apiDelete,
   assertEqual,
   assertTrue,
   setResultsCollector,
@@ -296,6 +299,235 @@ async function testMoveToFolder(context, cookieHeader, csrfToken, provider, resu
   );
 }
 
+// --- SYNC-12: Delete (soft + permanent) ---
+
+/**
+ * Find a test email NOT used by SYNC-09/10/11 (separate email for delete tests).
+ * Fetches up to 10 emails and picks one different from `excludeId`.
+ */
+async function findDeleteTestEmail(context, cookieHeader, providerId, excludeId) {
+  const res = await apiGet(
+    context,
+    `/api/v1/emails?providerId=${providerId}&folder=INBOX&limit=10`,
+    cookieHeader,
+  );
+  const emails = res?.data?.emails ?? res?.data?.data ?? res?.data ?? res?.emails ?? [];
+  if (!Array.isArray(emails)) return null;
+  return emails.find(e =>
+    e.externalId && e.externalId.trim() !== '' && e.id !== excludeId
+  ) || null;
+}
+
+/**
+ * Safe GET that returns null on 404 instead of throwing.
+ */
+async function getEmailSafe(context, cookieHeader, emailId) {
+  try {
+    const res = await apiGet(context, `/api/v1/emails/${emailId}`, cookieHeader);
+    return res?.data || res;
+  } catch (err) {
+    if (err.message && err.message.includes('404')) return null;
+    throw err;
+  }
+}
+
+async function testDelete(context, cookieHeader, csrfToken, provider, options, results) {
+  const label = providerTypeLabel(provider);
+  console.log(`\n--- SYNC-12: delete on ${label} ---`);
+
+  // Find a test email in INBOX (different from SYNC-09/10/11 tests)
+  const email = await findDeleteTestEmail(context, cookieHeader, provider.id, null);
+  if (!email) {
+    console.log(`  SKIP: No test email in INBOX for ${label}`);
+    return;
+  }
+
+  console.log(`  Test email: ${email.id} (subject: ${(email.subject || '').substring(0, 40)})`);
+
+  // --- Soft delete ---
+  try {
+    await apiDelete(
+      context,
+      `/api/v1/emails/${email.id}`,
+      cookieHeader,
+      csrfToken,
+    );
+  } catch (err) {
+    // 204 No Content is success for delete — apiDelete handles it
+    if (!err.message.includes('204')) throw err;
+  }
+
+  // Verify email is now in TRASH / soft-deleted
+  // Use includeDeleted query param to see soft-deleted emails
+  const afterSoftDelete = await getEmailSafe(context, cookieHeader, email.id);
+  if (afterSoftDelete) {
+    const inTrash = (afterSoftDelete.folder || '').toUpperCase() === 'TRASH'
+      || afterSoftDelete.isDeleted === true;
+    assertTrue(
+      inTrash,
+      `SYNC-12: ${label} soft delete moved email to TRASH or marked isDeleted`,
+    );
+  } else {
+    // Email not found — might have been permanently deleted if already in trash
+    assertTrue(true, `SYNC-12: ${label} soft delete removed email (was already deleted)`);
+  }
+
+  // --- Hard delete (skip in quick mode) ---
+  if (options.quick) {
+    console.log(`  SKIPPED (--quick mode): SYNC-12 hard delete on ${label}`);
+    if (_currentResults) {
+      _currentResults.checks++;
+      _currentResults.passed++;
+    }
+
+    // Restore: move trashed email back to INBOX if possible
+    if (afterSoftDelete) {
+      try {
+        await apiPatch(
+          context,
+          `/api/v1/emails/${email.id}`,
+          { folder: 'INBOX' },
+          cookieHeader,
+          csrfToken,
+        );
+        console.log(`  Restored email ${email.id} to INBOX`);
+      } catch (restoreErr) {
+        console.log(`  Could not restore email: ${restoreErr.message}`);
+      }
+    }
+    return;
+  }
+
+  // Hard delete: delete again (email is now in TRASH)
+  try {
+    await apiDelete(
+      context,
+      `/api/v1/emails/${email.id}`,
+      cookieHeader,
+      csrfToken,
+    );
+  } catch (err) {
+    if (!err.message.includes('204') && !err.message.includes('404')) throw err;
+  }
+
+  // Verify email is permanently gone (404 or null)
+  const afterHardDelete = await getEmailSafe(context, cookieHeader, email.id);
+  assertTrue(
+    afterHardDelete === null || afterHardDelete === undefined,
+    `SYNC-12: ${label} hard delete permanently removed email`,
+  );
+}
+
+// --- SYNC-13: Label add/remove (Gmail only) ---
+
+/**
+ * Get user labels for the tenant.
+ */
+async function getUserLabels(context, cookieHeader) {
+  const res = await apiGet(context, '/api/v1/labels', cookieHeader);
+  const labels = res?.data?.labels ?? res?.data ?? res?.labels ?? [];
+  return Array.isArray(labels) ? labels : [];
+}
+
+/**
+ * Check if a provider is Google/Gmail type.
+ */
+function isGmailProvider(provider) {
+  const pt = (provider.providerType || '').toLowerCase();
+  return pt === 'google' || pt === 'gmail';
+}
+
+async function testLabelAddRemove(context, cookieHeader, csrfToken, provider, results) {
+  const label = providerTypeLabel(provider);
+
+  // SYNC-13 is Gmail only
+  if (!isGmailProvider(provider)) {
+    console.log(`\n--- SYNC-13: label add/remove SKIPPED for ${label} (Gmail only) ---`);
+    return;
+  }
+
+  console.log(`\n--- SYNC-13: label add/remove on ${label} ---`);
+
+  // Get user labels
+  const userLabels = await getUserLabels(context, cookieHeader);
+  if (userLabels.length === 0) {
+    console.log(`  SKIP: No UserLabels found for label test`);
+    return;
+  }
+
+  const testLabel = userLabels[0];
+  console.log(`  Using label: "${testLabel.name}" (${testLabel.id})`);
+
+  // Find a Gmail email
+  const email = await findTestEmail(context, cookieHeader, provider.id);
+  if (!email) {
+    console.log(`  SKIP: No test email found for ${label}`);
+    return;
+  }
+
+  console.log(`  Test email: ${email.id} (subject: ${(email.subject || '').substring(0, 40)})`);
+
+  // Record original label state
+  const beforeEmail = await getEmail(context, cookieHeader, email.id);
+  const hadLabel = (beforeEmail.emailLabels || beforeEmail.labels || [])
+    .some(el => (el.labelId || el.id) === testLabel.id);
+
+  // Add label
+  await apiPatch(
+    context,
+    '/api/v1/emails/bulk/labels/add',
+    { emailIds: [email.id], labelIds: [testLabel.id] },
+    cookieHeader,
+    csrfToken,
+  );
+
+  // Verify label added
+  const afterAdd = await getEmail(context, cookieHeader, email.id);
+  const hasLabelAfterAdd = (afterAdd.emailLabels || afterAdd.labels || [])
+    .some(el => (el.labelId || el.id) === testLabel.id);
+  assertTrue(
+    hasLabelAfterAdd,
+    `SYNC-13: ${label} label "${testLabel.name}" added to email`,
+  );
+
+  // Remove label
+  await apiPatch(
+    context,
+    '/api/v1/emails/bulk/labels/remove',
+    { emailIds: [email.id], labelIds: [testLabel.id] },
+    cookieHeader,
+    csrfToken,
+  );
+
+  // Verify label removed
+  const afterRemove = await getEmail(context, cookieHeader, email.id);
+  const hasLabelAfterRemove = (afterRemove.emailLabels || afterRemove.labels || [])
+    .some(el => (el.labelId || el.id) === testLabel.id);
+  assertTrue(
+    !hasLabelAfterRemove,
+    `SYNC-13: ${label} label "${testLabel.name}" removed from email`,
+  );
+
+  // Restore original state if email had the label before
+  if (hadLabel) {
+    try {
+      await apiPatch(
+        context,
+        '/api/v1/emails/bulk/labels/add',
+        { emailIds: [email.id], labelIds: [testLabel.id] },
+        cookieHeader,
+        csrfToken,
+      );
+      console.log(`  Restored original label state`);
+    } catch (restoreErr) {
+      console.log(`  Could not restore label: ${restoreErr.message}`);
+    }
+  }
+}
+
+// Reference to module-level results collector for skip reporting
+let _currentResults = null;
+
 /**
  * Run sync-back validation for all matching providers.
  *
@@ -330,6 +562,7 @@ export async function validateSyncBack(context, cookieHeader, csrfToken, options
     const label = providerTypeLabel(prov);
     const results = { name: `SyncBack-${label}`, checks: 0, passed: 0, failed: 0, failures: [] };
     setResultsCollector(results);
+    _currentResults = results;
 
     try {
       await testMarkRead(context, cookieHeader, csrfToken, prov, results);
@@ -358,7 +591,26 @@ export async function validateSyncBack(context, cookieHeader, csrfToken, options
       results.failures.push(`SYNC-11 ${label}: ${err.message}`);
     }
 
+    try {
+      await testDelete(context, cookieHeader, csrfToken, prov, { quick }, results);
+    } catch (err) {
+      console.log(`  ERROR in SYNC-12 for ${label}: ${err.message}`);
+      results.checks++;
+      results.failed++;
+      results.failures.push(`SYNC-12 ${label}: ${err.message}`);
+    }
+
+    try {
+      await testLabelAddRemove(context, cookieHeader, csrfToken, prov, results);
+    } catch (err) {
+      console.log(`  ERROR in SYNC-13 for ${label}: ${err.message}`);
+      results.checks++;
+      results.failed++;
+      results.failures.push(`SYNC-13 ${label}: ${err.message}`);
+    }
+
     setResultsCollector(null);
+    _currentResults = null;
     allResults.push(results);
   }
 

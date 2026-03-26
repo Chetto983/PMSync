@@ -9,9 +9,10 @@
  *
  * Flags:
  *   --provider=gmail|outlook|microsoft|imap|all  (default: all)
- *   --quick    Lighter validation (reserved for future use)
+ *   --quick    Skip hard delete (SYNC-12 permanent delete is destructive)
  *
- * Tests: SYNC-09 (mark-read/unread), SYNC-10 (star/unstar), SYNC-11 (move-to-folder)
+ * Tests: SYNC-09 (mark-read/unread), SYNC-10 (star/unstar), SYNC-11 (move-to-folder),
+ *        SYNC-12 (soft+hard delete), SYNC-13 (label add/remove, Gmail only)
  *
  * Requires Edge running with --remote-debugging-port=9222 and logged into PMSync.
  */
