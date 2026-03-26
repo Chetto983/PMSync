@@ -177,6 +177,111 @@ export class HealthService {
   }
 
   /**
+   * Check label-folder consistency for Google provider emails.
+   * Re-derives folder from Email.labels[] and compares against Email.folder.
+   * Optionally scoped to a single tenant.
+   */
+  async checkLabelConsistency(tenantId?: string) {
+    return withoutTenantScopingAsync(async () => {
+      const where: Prisma.EmailWhereInput = {
+        provider: { providerType: 'google' },
+        isDeleted: false,
+        ...(tenantId ? { tenantId } : {}),
+      };
+
+      const totalEmails = await this.prisma.email.count({ where });
+
+      // Batch-check in chunks to avoid memory pressure
+      const batchSize = 1000;
+      let offset = 0;
+      let consistent = 0;
+      let inconsistent = 0;
+      const samples: Array<{
+        emailId: string;
+        subject: string;
+        currentFolder: string;
+        derivedFolder: string;
+        labels: string[];
+      }> = [];
+
+      while (offset < totalEmails) {
+        const emails = await this.prisma.email.findMany({
+          where,
+          select: {
+            id: true,
+            subject: true,
+            folder: true,
+            labels: true,
+          },
+          skip: offset,
+          take: batchSize,
+          orderBy: { receivedAt: 'desc' },
+        });
+
+        for (const email of emails) {
+          const labels = (email.labels as string[]) || [];
+          const derived = this.deriveFolderFromLabels(labels);
+          if (email.folder === derived) {
+            consistent++;
+          } else {
+            inconsistent++;
+            if (samples.length < 20) {
+              samples.push({
+                emailId: email.id,
+                subject: (email.subject || '').slice(0, 80),
+                currentFolder: email.folder,
+                derivedFolder: derived,
+                labels,
+              });
+            }
+          }
+        }
+
+        offset += batchSize;
+      }
+
+      return {
+        totalEmails,
+        consistent,
+        inconsistent,
+        consistencyRate: totalEmails > 0
+          ? `${((consistent / totalEmails) * 100).toFixed(2)}%`
+          : 'N/A',
+        samples,
+        checkedAt: new Date().toISOString(),
+      };
+    });
+  }
+
+  /**
+   * Mirror of gmail-message.service.ts::determineFolderFromLabels()
+   * Must be kept in sync with that method.
+   */
+  private deriveFolderFromLabels(labelIds: string[]): string {
+    if (labelIds.includes('TRASH')) return 'TRASH';
+    if (labelIds.includes('SPAM')) return 'SPAM';
+    if (labelIds.includes('SENT')) return 'SENT';
+    if (labelIds.includes('DRAFT')) return 'DRAFTS';
+
+    const categoryLabel = labelIds.find((l) => l.startsWith('CATEGORY_'));
+    if (categoryLabel) {
+      const categoryMap: Record<string, string> = {
+        CATEGORY_PERSONAL: 'INBOX',
+        CATEGORY_SOCIAL: 'SOCIAL',
+        CATEGORY_PROMOTIONS: 'PROMOTIONS',
+        CATEGORY_UPDATES: 'UPDATES',
+        CATEGORY_FORUMS: 'FORUMS',
+      };
+      if (categoryMap[categoryLabel]) return categoryMap[categoryLabel];
+    }
+
+    if (labelIds.includes('INBOX')) return 'INBOX';
+
+    // C2 fix: absence of INBOX = archived
+    return 'ARCHIVE';
+  }
+
+  /**
    * @deprecated Use /metrics endpoint (prom-client) instead. Phase 46.
    * This hand-rolled Prometheus text generation will be removed in Phase 47 cleanup.
    */

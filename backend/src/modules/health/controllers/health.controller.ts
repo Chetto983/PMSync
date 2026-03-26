@@ -1,5 +1,5 @@
-import { Controller, Get, Header, Inject, Param, Optional } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Header, Inject, Param, Query, Optional } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { Public } from '../../../common/auth/public.decorator';
 import { HealthService } from '../services/health.service';
 import { QueueHealthService } from '../../../common/services/queue-health.service';
@@ -87,6 +87,21 @@ export class HealthController {
       return { status: 'not_found', message: `Queue '${name}' not found` };
     }
     return status;
+  }
+
+  /**
+   * Label-folder consistency check for Google emails.
+   * Verifies Email.folder matches folder derived from Email.labels[].
+   */
+  @Get('label-consistency')
+  @ApiOperation({
+    summary: 'Label consistency check',
+    description: 'Checks that Email.folder matches the folder derived from Email.labels[] for Google-provider emails',
+  })
+  @ApiQuery({ name: 'tenantId', required: false, description: 'Scope to a specific tenant' })
+  @ApiResponse({ status: 200, description: 'Consistency report returned' })
+  async getLabelConsistency(@Query('tenantId') tenantId?: string) {
+    return this.healthService.checkLabelConsistency(tenantId);
   }
 
   /**
