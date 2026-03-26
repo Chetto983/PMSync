@@ -59,8 +59,8 @@ export function LabelColorPicker({
       columns={6}
       showCustom={showCustom}
       swatchSize={32}
-      presetLabel={t.email?.labels?.presetColors || 'Colori predefiniti'}
-      customLabel={t.email?.labels?.customColor || 'Colore personalizzato'}
+      presetLabel={t.email?.labels?.presetColors || 'Preset colors'}
+      customLabel={t.email?.labels?.customColor || 'Custom color'}
     />
   );
 }

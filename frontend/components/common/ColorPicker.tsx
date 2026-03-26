@@ -163,7 +163,7 @@ export function ColorPicker({
         color="text.secondary"
         sx={{ display: 'block', mb: 1 }}
       >
-        {presetLabel || t.calendar?.colorPicker?.presetColors || 'Colori predefiniti'}
+        {presetLabel || t.calendar?.colorPicker?.presetColors || 'Preset colors'}
       </Typography>
       <Box
         sx={{
@@ -219,7 +219,7 @@ export function ColorPicker({
             color="text.secondary"
             sx={{ display: 'block', mb: 1 }}
           >
-            {customLabel || t.calendar?.colorPicker?.customColor || 'Colore personalizzato'}
+            {customLabel || t.calendar?.colorPicker?.customColor || 'Custom color'}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {/* Native Color Picker */}
