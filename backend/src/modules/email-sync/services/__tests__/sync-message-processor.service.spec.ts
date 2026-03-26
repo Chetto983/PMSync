@@ -718,6 +718,134 @@ describe('SyncMessageProcessorService', () => {
     });
   });
 
+  describe('mergeLabels (T-0701)', () => {
+    // Access private method via type cast — standard NestJS test pattern
+    const callMerge = (svc: SyncMessageProcessorService, existing: string[], gmail: string[]) =>
+      (svc as any).mergeLabels(existing, gmail);
+
+    it('should return gmail labels when no existing labels', () => {
+      const result = callMerge(service, [], ['INBOX', 'UNREAD']);
+      expect(result).toEqual(['INBOX', 'UNREAD']);
+    });
+
+    it('should return gmail labels when existing matches', () => {
+      const result = callMerge(service, ['INBOX', 'UNREAD'], ['INBOX', 'UNREAD']);
+      expect(result).toEqual(['INBOX', 'UNREAD']);
+    });
+
+    it('should replace system labels with gmail source of truth', () => {
+      // Email was in INBOX, now moved to TRASH by Gmail
+      const result = callMerge(service, ['INBOX', 'UNREAD'], ['TRASH']);
+      // INBOX and UNREAD are system labels — dropped because Gmail says they're gone
+      expect(result).toEqual(['TRASH']);
+    });
+
+    it('should preserve custom labels not in Gmail', () => {
+      // User added Label_abc locally, not yet synced to Gmail
+      const result = callMerge(
+        service,
+        ['INBOX', 'Label_abc', 'STARRED'],
+        ['INBOX'],
+      );
+      // STARRED is system → dropped (Gmail removed it)
+      // Label_abc is custom → preserved
+      expect(result).toEqual(expect.arrayContaining(['INBOX', 'Label_abc']));
+      expect(result).not.toContain('STARRED');
+      expect(result).toHaveLength(2);
+    });
+
+    it('should preserve multiple custom labels', () => {
+      const result = callMerge(
+        service,
+        ['INBOX', 'Label_abc', 'Label_def', 'STARRED'],
+        ['INBOX', 'UNREAD'],
+      );
+      expect(result).toEqual(expect.arrayContaining(['INBOX', 'UNREAD', 'Label_abc', 'Label_def']));
+      expect(result).not.toContain('STARRED');
+      expect(result).toHaveLength(4);
+    });
+
+    it('should handle custom labels with lowercase prefix', () => {
+      const result = callMerge(
+        service,
+        ['label_xyz'],
+        ['INBOX'],
+      );
+      // label_xyz is custom (lowercase prefix) — preserved
+      expect(result).toEqual(expect.arrayContaining(['INBOX', 'label_xyz']));
+    });
+
+    it('should drop CATEGORY_ labels as system labels', () => {
+      // Category was removed by Gmail
+      const result = callMerge(
+        service,
+        ['INBOX', 'CATEGORY_SOCIAL'],
+        ['INBOX'],
+      );
+      expect(result).toEqual(['INBOX']);
+      expect(result).not.toContain('CATEGORY_SOCIAL');
+    });
+
+    it('should handle empty gmail labels (archived email)', () => {
+      const result = callMerge(
+        service,
+        ['INBOX', 'UNREAD', 'Label_abc'],
+        [],
+      );
+      // System labels dropped, custom preserved
+      expect(result).toEqual(['Label_abc']);
+    });
+
+    it('should handle both arrays empty', () => {
+      const result = callMerge(service, [], []);
+      expect(result).toEqual([]);
+    });
+
+    it('should not duplicate labels present in both', () => {
+      const result = callMerge(
+        service,
+        ['INBOX', 'Label_abc'],
+        ['INBOX', 'Label_abc', 'UNREAD'],
+      );
+      expect(result).toEqual(expect.arrayContaining(['INBOX', 'Label_abc', 'UNREAD']));
+      expect(result).toHaveLength(3);
+    });
+
+    it('should treat all SYSTEM_LABELS as provider source of truth', () => {
+      const systemLabels = ['INBOX', 'SENT', 'TRASH', 'SPAM', 'DRAFT', 'STARRED', 'IMPORTANT', 'UNREAD', 'CHAT'];
+      for (const sysLabel of systemLabels) {
+        const result = callMerge(service, [sysLabel], []);
+        expect(result).not.toContain(sysLabel);
+      }
+    });
+
+    it('should treat CATEGORY_ prefixed labels as system labels', () => {
+      const categories = ['CATEGORY_PERSONAL', 'CATEGORY_SOCIAL', 'CATEGORY_PROMOTIONS', 'CATEGORY_UPDATES', 'CATEGORY_FORUMS'];
+      for (const cat of categories) {
+        const result = callMerge(service, [cat], []);
+        expect(result).not.toContain(cat);
+      }
+    });
+
+    it('should handle real-world mixed scenario', () => {
+      // Existing: user has inbox email with custom labels and starred
+      const existing = ['INBOX', 'UNREAD', 'STARRED', 'CATEGORY_PERSONAL', 'Label_work', 'Label_urgent'];
+      // Gmail sync: email read, unstarred, moved from personal to promotions
+      const gmail = ['INBOX', 'CATEGORY_PROMOTIONS', 'Label_work'];
+
+      const result = callMerge(service, existing, gmail);
+
+      // Gmail says: INBOX, CATEGORY_PROMOTIONS, Label_work
+      // Dropped: UNREAD (system, gmail removed), STARRED (system, gmail removed), CATEGORY_PERSONAL (system, gmail removed)
+      // Preserved: Label_urgent (custom, not in gmail)
+      expect(result).toEqual(expect.arrayContaining(['INBOX', 'CATEGORY_PROMOTIONS', 'Label_work', 'Label_urgent']));
+      expect(result).not.toContain('UNREAD');
+      expect(result).not.toContain('STARRED');
+      expect(result).not.toContain('CATEGORY_PERSONAL');
+      expect(result).toHaveLength(4);
+    });
+  });
+
   describe('setRedisLockService', () => {
     it('should allow setting RedisLockService', () => {
       const newMock = { withLock: jest.fn() };

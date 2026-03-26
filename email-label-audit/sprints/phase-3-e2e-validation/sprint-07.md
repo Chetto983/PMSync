@@ -11,11 +11,10 @@
 ## Sprint Backlog
 
 ### T-0701: Label mapping unit tests [2 SP]
-- [ ] Test `determineFolderFromLabels()` with all label combinations:
-  - System labels only, custom labels only, mixed, empty, multiple categories
-- [ ] Test `labelIdToFolderPath()` with all label types
-- [ ] Test label merge logic from S02 (union/diff scenarios)
-- [ ] Files: `backend/src/modules/email-sync/drivers/google/services/__tests__/gmail-message.service.spec.ts`
+- [x] Test `determineFolderFromLabels()` with all label combinations: ✅ Already covered in gmail-folder.service.spec.ts (20 tests)
+- [x] Test `labelIdToFolderPath()` with all label types: ✅ Already covered via getFolderPathForLabel tests (16 tests)
+- [x] Test label merge logic from S02 (union/diff scenarios): ✅ 13 new tests in sync-message-processor.service.spec.ts
+- [x] Files: `backend/src/modules/email-sync/services/__tests__/sync-message-processor.service.spec.ts` ✅ DONE
 
 ### T-0702: Sync processor integration tests [3 SP]
 - [ ] Test upsert with various label combinations
