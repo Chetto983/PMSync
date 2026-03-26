@@ -52,6 +52,7 @@ export class ChatEnrichmentService {
     communicationStyle?: string;
     responseLength?: string;
     proactivityLevel?: string;
+    emailAccounts?: Array<{ email?: string; displayName?: string; providerType: string }>;
   }> {
     if (!this.prisma) {
       return {
@@ -72,14 +73,14 @@ export class ChatEnrichmentService {
           proactivityLevel: true,
         },
       }),
-      this.prisma.providerConfig.findFirst({
+      this.prisma.providerConfig.findMany({
         where: {
           tenantId,
           isActive: true,
           supportsEmail: true,
         },
         orderBy: { createdAt: 'asc' },
-        select: { providerType: true },
+        select: { providerType: true, email: true, displayName: true },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -107,15 +108,23 @@ export class ChatEnrichmentService {
       user?.name?.trim() ||
       undefined;
 
+    // Build email accounts list for multi-provider awareness
+    const emailAccounts = (provider ?? []).map((p) => ({
+      email: p.email ?? undefined,
+      displayName: p.displayName ?? undefined,
+      providerType: p.providerType,
+    }));
+
     return {
       timezone: preferences?.timezone ?? undefined,
-      providerType: provider?.providerType ?? undefined,
+      providerType: (provider ?? [])[0]?.providerType ?? undefined,
       locale: requestedLocale ?? preferences?.language ?? undefined,
       displayName,
       jobTitle: preferences?.jobTitle ?? undefined,
       communicationStyle: preferences?.communicationStyle ?? undefined,
       responseLength: preferences?.responseLength ?? undefined,
       proactivityLevel: preferences?.proactivityLevel ?? undefined,
+      emailAccounts: emailAccounts.length > 0 ? emailAccounts : undefined,
     };
   }
 
