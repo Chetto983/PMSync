@@ -47,7 +47,7 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
       };
     }).filter((l) => l.id),
     isDraft: email.isDraft,
-    // AI Auto-Triage fields (VoltAgent analysis results)
+    // AI Auto-Triage fields
     aiPriority: email.aiPriority,
     aiSentiment: email.aiSentiment,
     aiLabels: email.aiLabels,

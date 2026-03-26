@@ -1241,6 +1241,11 @@ export const en: AppTranslations = {
         selectLabel: 'Select at least one label',
         addFailed: 'Failed to add labels. Please try again.',
       },
+      // Detail view label management
+      removeFromEmail: 'Remove label from email',
+      labelRemoved: 'Label removed',
+      labelAdded: 'Label added',
+      labelRemoveFailed: 'Failed to remove label',
     },
     list: {
       loading: 'Loading emails...',
@@ -4516,6 +4521,32 @@ export const en: AppTranslations = {
         endUser: 'End User',
         other: 'Other',
       },
+      dealProducts: {
+        title: 'Linked Products',
+        addProduct: 'Add Product',
+        removeProduct: 'Remove Product',
+        removeConfirm: 'Remove this product from the deal?',
+        noProducts: 'No products linked',
+        noProductsDescription: 'Link products to calculate the deal value.',
+        searchProducts: 'Search products...',
+        linked: 'Product linked successfully',
+        unlinked: 'Product removed from deal',
+        alreadyLinked: 'Product is already linked to this deal',
+        columns: {
+          name: 'Product',
+          code: 'Code',
+          quantity: 'Qty',
+          unitPrice: 'Unit Price',
+          discount: 'Discount',
+          subtotal: 'Subtotal',
+        },
+        form: {
+          quantity: 'Quantity',
+          unitPrice: 'Unit Price',
+          discount: 'Discount %',
+        },
+        total: 'Total',
+      },
       info: {
         editField: 'Click to edit',
         noNotes: 'No notes',
@@ -4524,7 +4555,6 @@ export const en: AppTranslations = {
       },
       placeholder: {
         contacts: 'Coming in Sprint 05',
-        products: 'Coming in Sprint 06',
         activity: 'Coming in Sprint 07',
       },
       actions: {

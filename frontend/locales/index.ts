@@ -1155,6 +1155,10 @@ export interface AppTranslations {
         selectLabel: string;
         addFailed: string;
       };
+      removeFromEmail: string;
+      labelRemoved: string;
+      labelAdded: string;
+      labelRemoveFailed: string;
     };
     list: {
       loading: string;

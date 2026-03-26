@@ -1231,6 +1231,11 @@ export const it: AppTranslations = {
         selectLabel: 'Seleziona almeno un\'etichetta',
         addFailed: 'Aggiunta etichette fallita. Riprova.',
       },
+      // Detail view label management
+      removeFromEmail: 'Rimuovi etichetta dall\'email',
+      labelRemoved: 'Etichetta rimossa',
+      labelAdded: 'Etichetta aggiunta',
+      labelRemoveFailed: 'Rimozione etichetta fallita',
     },
     list: {
       loading: 'Caricamento email...',
@@ -4500,6 +4505,32 @@ export const it: AppTranslations = {
         endUser: 'Utente Finale',
         other: 'Altro',
       },
+      dealProducts: {
+        title: 'Prodotti Collegati',
+        addProduct: 'Aggiungi Prodotto',
+        removeProduct: 'Rimuovi Prodotto',
+        removeConfirm: 'Rimuovere questo prodotto dalla trattativa?',
+        noProducts: 'Nessun prodotto collegato',
+        noProductsDescription: 'Collega prodotti per calcolare il valore della trattativa.',
+        searchProducts: 'Cerca prodotti...',
+        linked: 'Prodotto collegato con successo',
+        unlinked: 'Prodotto rimosso dalla trattativa',
+        alreadyLinked: 'Prodotto già collegato a questa trattativa',
+        columns: {
+          name: 'Prodotto',
+          code: 'Codice',
+          quantity: 'Qtà',
+          unitPrice: 'Prezzo Unitario',
+          discount: 'Sconto',
+          subtotal: 'Subtotale',
+        },
+        form: {
+          quantity: 'Quantità',
+          unitPrice: 'Prezzo Unitario',
+          discount: 'Sconto %',
+        },
+        total: 'Totale',
+      },
       info: {
         editField: 'Clicca per modificare',
         noNotes: 'Nessuna nota',
@@ -4508,7 +4539,6 @@ export const it: AppTranslations = {
       },
       placeholder: {
         contacts: 'In arrivo nello Sprint 05',
-        products: 'In arrivo nello Sprint 06',
         activity: 'In arrivo nello Sprint 07',
       },
       actions: {
