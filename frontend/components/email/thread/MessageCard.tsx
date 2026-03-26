@@ -271,7 +271,7 @@ export const MessageCard = memo(function MessageCard({
                 <Reply size={16} />
               </IconButton>
             </Tooltip>
-            <Tooltip title={message.isFlagged ? 'Remove flag' : 'Flag'}>
+            <Tooltip title={message.isFlagged ? (t.emailList?.unflagged || 'Not flagged') : (t.emailList?.flagged || 'Flagged')}>
               <IconButton
                 size="small"
                 onClick={() => onFlag(message.id)}
