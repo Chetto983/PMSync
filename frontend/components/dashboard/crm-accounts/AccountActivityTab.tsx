@@ -17,6 +17,7 @@ import {
   TextField,
   MenuItem,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import { Plus } from 'lucide-react';
 import {
@@ -249,7 +250,7 @@ export function AccountActivityTab({ accountId }: { accountId: string }) {
   const [offset, setOffset] = useState(0);
   const [accumulated, setAccumulated] = useState<AccountActivity[]>([]);
 
-  const { data, isLoading, isFetching } = useAccountActivities(accountId, {
+  const { data, isLoading, isFetching, isError } = useAccountActivities(accountId, {
     limit: PAGE_SIZE,
     offset,
   });
@@ -297,6 +298,10 @@ export function AccountActivityTab({ accountId }: { accountId: string }) {
         ))}
       </Paper>
     );
+  }
+
+  if (isError) {
+    return <Alert severity="error">{t.common.genericError}</Alert>;
   }
 
   if (accumulated.length === 0) {

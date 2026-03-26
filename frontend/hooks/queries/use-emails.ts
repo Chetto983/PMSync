@@ -624,10 +624,15 @@ export function useBulkAddLabels() {
     mutationFn: async ({ emailIds, labelIds }: { emailIds: string[]; labelIds: string[] }) => {
       return await emailsApi.bulkAddLabels(emailIds, labelIds);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
       queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      // Invalidate individual label email lists
+      variables.labelIds.forEach((id) => {
+        queryClient.invalidateQueries({ queryKey: labelKeys.emails(id) });
+      });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.addLabelsFailed);
@@ -645,10 +650,14 @@ export function useBulkRemoveLabels() {
     mutationFn: async ({ emailIds, labelIds }: { emailIds: string[]; labelIds: string[] }) => {
       return await emailsApi.bulkRemoveLabels(emailIds, labelIds);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
       queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      variables.labelIds.forEach((id) => {
+        queryClient.invalidateQueries({ queryKey: labelKeys.emails(id) });
+      });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.removeLabelsFailed);
