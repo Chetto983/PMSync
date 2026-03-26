@@ -196,7 +196,7 @@ export class PipelineService {
 
     // Check for active deals
     const dealCount = await this.prisma.crmDeal.count({
-      where: { stageId, deletedAt: null },
+      where: { tenantId, stageId, deletedAt: null },
     });
 
     if (dealCount > 0) {

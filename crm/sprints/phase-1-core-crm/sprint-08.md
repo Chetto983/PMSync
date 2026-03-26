@@ -21,7 +21,7 @@
 - [x] T-0807 — ~~Deal-Product association UI~~ — MOVED to Sprint 07.1 (T-0713/T-0714) — [0 SP]
 - [x] T-0808 — Viste salvate pipeline: serializzazione filtri (stage[], dateRange, amountRange, assignee) come `SavedView` — `GET /crm/pipelines/:id/views`, `POST`, `DELETE` — [2 SP] — ✅ DONE
 - [x] T-0809 — Toggle vista pipeline: switch Kanban / List nella pagina pipeline (riutilizza Kanban di S05 e DataGrid di S04) — [1 SP] — ✅ DONE (already implemented in S05)
-- [ ] T-0810 — Bug fix da sprint S01-S07: riservare capacity per fix accumulati durante gli sprint precedenti — [1 SP] — 📋 TODO
+- [x] T-0810 — Bug fix da sprint S01-S07: riservare capacity per fix accumulati durante gli sprint precedenti — [1 SP] — ✅ DONE
 - [ ] T-0811 — Alpha smoke testing: test manuale end-to-end di tutti i flussi CRM principali (create account → create deal → move through pipeline → won), type-check finale — [1 SP] — 📋 TODO
 
 ---
