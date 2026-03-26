@@ -166,6 +166,11 @@ function NavButton({ icon, label, active, onClick }: NavButtonProps) {
         '&:active': {
           backgroundColor: alpha(theme.palette.primary.main, 0.12),
         },
+        '&:focus-visible': {
+          outline: '2px solid',
+          outlineColor: theme.palette.primary.main,
+          outlineOffset: -2,
+        },
       }}
     >
       {icon}

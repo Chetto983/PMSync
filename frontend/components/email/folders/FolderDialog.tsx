@@ -204,6 +204,7 @@ export function FolderDialog({
       <TextField
         autoFocus
         fullWidth
+        required
         label={t.folders?.nameLabel || 'Nome cartella'}
         placeholder={t.folders?.namePlaceholder || 'es. Progetti, Clienti...'}
         value={name}

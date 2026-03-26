@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmailHtmlContent } from './EmailHtmlContent';
 import { AttachmentCard } from './AttachmentCard';
 import { AiInsightsPanel } from './AiInsightsPanel';
@@ -197,6 +198,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   void onFlag; // Reserved for future use
   const t = useTranslations();
   const [showAllRecipients, setShowAllRecipients] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Move menu state
   const [moveMenuAnchor, setMoveMenuAnchor] = useState<HTMLElement | null>(null);
@@ -436,21 +438,21 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             }}
           >
             {/* Reply/Forward actions — always visible (hover-only is a UX anti-pattern) */}
-            <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', gap: { xs: 0.75, sm: 0.25 }, flexShrink: 0 }}>
               <Tooltip title={t.threadMessage?.reply || 'Reply'}>
-                <IconButton size="small" aria-label="reply" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
+                <IconButton size="small" aria-label="reply" onClick={() => onReply(message.id)} sx={{ p: { xs: 1, sm: 0.5 } }}>
                   <Reply size={16} />
                 </IconButton>
               </Tooltip>
               {onReplyAll && (
                 <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
-                  <IconButton size="small" aria-label="reply-all" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
+                  <IconButton size="small" aria-label="reply-all" onClick={() => onReplyAll(message.id)} sx={{ p: { xs: 1, sm: 0.5 } }}>
                     <ReplyAll size={16} />
                   </IconButton>
                 </Tooltip>
               )}
               <Tooltip title={t.threadMessage?.forward || 'Forward'}>
-                <IconButton size="small" aria-label="forward" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
+                <IconButton size="small" aria-label="forward" onClick={() => onForward(message.id)} sx={{ p: { xs: 1, sm: 0.5 } }}>
                   <Forward size={16} />
                 </IconButton>
               </Tooltip>
@@ -568,12 +570,12 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           </Tooltip>
         )}
 
-        {/* Delete Icon Button */}
+        {/* Delete Icon Button — guarded by confirmation dialog */}
         {onDelete && (
           <Tooltip title={t.threadActions?.deleteThread || 'Delete'}>
             <IconButton
               size="small"
-              onClick={() => onDelete(message.id)}
+              onClick={() => setDeleteDialogOpen(true)}
               sx={{ color: 'error.main' }}
             >
               <Trash2 size={18} />
@@ -622,20 +624,20 @@ export const ExpandedMessage = memo(function ExpandedMessage({
               deleteIcon={
                 onRemoveLabel ? (
                   <Tooltip title={t.email?.labels?.removeFromEmail || 'Remove label from email'}>
-                    <X size={12} />
+                    <X size={14} />
                   </Tooltip>
                 ) : undefined
               }
               onDelete={onRemoveLabel ? () => onRemoveLabel(message.id, label.id) : undefined}
               sx={{
-                height: 22,
+                height: { xs: 28, sm: 22 },
                 fontSize: '0.75rem',
                 bgcolor: label.color,
                 color: 'white',
                 '& .MuiChip-label': { px: 0.75 },
                 '& .MuiChip-deleteIcon': {
                   color: 'rgba(255,255,255,0.7)',
-                  fontSize: 12,
+                  fontSize: { xs: 16, sm: 12 },
                   '&:hover': { color: 'white' },
                 },
               }}
@@ -733,6 +735,20 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             ))}
           </Box>
         </Box>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {onDelete && (
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={() => { setDeleteDialogOpen(false); onDelete(message.id); }}
+          variant="danger"
+          title={t.threadActions?.deleteThread || 'Delete'}
+          message={t.emailList?.deleteSingleConfirm || 'Are you sure you want to delete this email?'}
+          confirmText={t.common?.delete || 'Delete'}
+          cancelText={t.common?.cancel || 'Cancel'}
+        />
       )}
     </Box>
   );

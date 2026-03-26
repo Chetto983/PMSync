@@ -325,8 +325,8 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                       onClick={() => handleLabelClick(label.id)}
                       sx={{
                         borderRadius: 2,
-                        minHeight: 40,
-                        py: 0.25,
+                        minHeight: 44,
+                        py: 0.5,
                         '&.Mui-selected': {
                           backgroundColor: alpha(theme.palette.primary.main, 0.08),
                         },
@@ -362,9 +362,9 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                       <IconButton
                         size="small"
                         onClick={(e) => handleLabelMenu(e, label)}
-                        sx={{ p: 0.5 }}
+                        sx={{ p: 1 }}
                       >
-                        <MoreHorizontal size={14} />
+                        <MoreHorizontal size={16} />
                       </IconButton>
                     </ListItemButton>
                   );
@@ -456,8 +456,8 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                             }
                             sx={{
                               borderRadius: 2,
-                              minHeight: 40,
-                              py: 0.25,
+                              minHeight: 44,
+                              py: 0.5,
                               '&.Mui-selected': {
                                 backgroundColor: alpha(theme.palette.primary.main, 0.08),
                               },
@@ -496,9 +496,9 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                               <IconButton
                                 size="small"
                                 onClick={(e) => handleFolderMenu(e, folder)}
-                                sx={{ p: 0.5 }}
+                                sx={{ p: 1 }}
                               >
-                                <MoreHorizontal size={14} />
+                                <MoreHorizontal size={16} />
                               </IconButton>
                             )}
                           </ListItemButton>
