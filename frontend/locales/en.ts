@@ -4561,6 +4561,7 @@ export const en: AppTranslations = {
         addProduct: 'Add Product',
         removeProduct: 'Remove Product',
         removeConfirm: 'Remove this product from the deal?',
+        removeButton: 'Remove',
         noProducts: 'No products linked',
         noProductsDescription: 'Link products to calculate the deal value.',
         searchProducts: 'Search products...',

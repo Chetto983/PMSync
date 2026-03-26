@@ -174,7 +174,10 @@ Plans:
   3. Move-to-folder on a local email moves the message on Gmail, Outlook, and IMAP
   4. Soft delete and permanent delete on a local email performs the correct delete on Gmail, Outlook, and IMAP
   5. Label add and remove on a local Gmail email updates the label membership on Gmail
-**Plans**: [to be planned]
+**Plans**: 2 plans
+Plans:
+- [ ] 114-01-PLAN.md -- SYNC-13 bug fix + validation infrastructure + read/star/move validation (SYNC-09, SYNC-10, SYNC-11, SYNC-13)
+- [ ] 114-02-PLAN.md -- Delete + label validation + live provider checkpoint (SYNC-12, SYNC-13)
 
 ### Phase 115: Email List & Thread Reading
 **Goal**: Users can browse, filter, paginate, and read emails accurately across all providers
@@ -275,7 +278,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 112. Full Sync Validation | 2/2 | Complete    | 2026-03-26 |
 | 113. Incremental Sync & Webhooks | 0/2 | Complete    | 2026-03-26 |
-| 114. Sync-back Operations | 0/? | Not started | - |
+| 114. Sync-back Operations | 0/2 | Planning    | - |
 | 115. Email List & Thread Reading | 0/? | Not started | - |
 | 116. Attachments & Search | 0/? | Not started | - |
 | 117. Email Send & Reply/Forward | 0/? | Not started | - |

@@ -262,16 +262,19 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
   const toast = useGlobalToast();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmUnlinkId, setConfirmUnlinkId] = useState<string | null>(null);
   const { data: links, isLoading, isError } = useDealProducts(dealId);
   const unlinkProduct = useUnlinkDealProduct();
 
-  const handleUnlink = async (linkId: string) => {
-    if (!window.confirm(tp?.removeConfirm ?? 'Remove this product from the deal?')) return;
+  const handleUnlink = async () => {
+    if (!confirmUnlinkId) return;
     try {
-      await unlinkProduct.mutateAsync({ dealId, linkId });
+      await unlinkProduct.mutateAsync({ dealId, linkId: confirmUnlinkId });
       toast.success(tp?.unlinked ?? 'Product removed');
     } catch {
       toast.error(t.common.genericError);
+    } finally {
+      setConfirmUnlinkId(null);
     }
   };
 
@@ -372,7 +375,7 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
                       <TableCell>
                         <IconButton
                           size="small"
-                          onClick={() => handleUnlink(link.id)}
+                          onClick={() => setConfirmUnlinkId(link.id)}
                           sx={{ minWidth: 44, minHeight: 44 }}
                         >
                           <Trash2 size={14} />
@@ -398,6 +401,36 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
         onClose={() => setDialogOpen(false)}
         dealId={dealId}
       />
+
+      <Dialog
+        open={!!confirmUnlinkId}
+        onClose={() => setConfirmUnlinkId(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{tp?.removeProduct ?? 'Remove Product'}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {tp?.removeConfirm ?? 'Remove this product from the deal?'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setConfirmUnlinkId(null)}
+            disabled={unlinkProduct.isPending}
+          >
+            {t.common?.cancel ?? 'Cancel'}
+          </Button>
+          <Button
+            onClick={handleUnlink}
+            variant="contained"
+            color="error"
+            disabled={unlinkProduct.isPending}
+          >
+            {tp?.removeButton ?? 'Remove'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

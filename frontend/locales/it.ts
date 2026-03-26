@@ -4538,6 +4538,7 @@ export const it: AppTranslations = {
         addProduct: 'Aggiungi Prodotto',
         removeProduct: 'Rimuovi Prodotto',
         removeConfirm: 'Rimuovere questo prodotto dalla trattativa?',
+        removeButton: 'Rimuovi',
         noProducts: 'Nessun prodotto collegato',
         noProductsDescription: 'Collega prodotti per calcolare il valore della trattativa.',
         searchProducts: 'Cerca prodotti...',

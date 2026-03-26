@@ -4388,6 +4388,7 @@ export interface AppTranslations {
         addProduct?: string;
         removeProduct?: string;
         removeConfirm?: string;
+        removeButton?: string;
         noProducts?: string;
         noProductsDescription?: string;
         searchProducts?: string;
