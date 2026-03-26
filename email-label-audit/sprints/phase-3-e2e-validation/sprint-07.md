@@ -33,15 +33,15 @@
 - [x] 7 new tests in labels.service.spec.ts ✅ DONE
 
 ### T-0704: Data validation CLI script [2 SP]
-- [ ] Script: `scripts/audit/validate-email-label-consistency.ts`
-- [ ] Checks:
-  - Email.folder matches derivation from Email.labels[]
-  - No stale Gmail label IDs (cross-ref with Folder.externalId)
-  - No ghost EmailLabel records (soft-deleted UserLabels)
-  - Email count per label matches _count.emailLabels
-  - All UserLabel colors are valid JSON with hex colors
-- [ ] Output: JSON report with totals, inconsistencies, and suggested fixes
-- [ ] Can be run: `npx ts-node scripts/audit/validate-email-label-consistency.ts`
+- [x] Script: `scripts/audit/validate-email-label-consistency.ts` ✅
+- [x] Checks:
+  - Email.folder matches derivation from Email.labels[] ✅
+  - No stale Gmail label IDs (cross-ref with Folder.externalId) ✅
+  - No ghost EmailLabel records (soft-deleted UserLabels) ✅
+  - Email count per label matches _count.emailLabels ✅
+  - All UserLabel colors are valid JSON with hex colors ✅
+- [x] Output: JSON report to stderr, human-readable to stdout, exit code 0/1 ✅
+- [x] Run: `cd backend && npx ts-node -r dotenv/config ../scripts/audit/validate-email-label-consistency.ts` ✅ DONE
 
 ### T-0705: Frontend component test for label display [1 SP]
 - [ ] Test ThreadListItem renders max 2 labels correctly
