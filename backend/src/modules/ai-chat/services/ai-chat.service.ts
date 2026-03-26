@@ -247,6 +247,18 @@ export class AiChatService {
           params.clientMessages as unknown as UIMessage[],
           { tools },
         ) as { role: string; content: unknown }[];
+
+        // Debug: log converted model messages structure for HITL diagnosis
+        for (const msg of messages) {
+          const parts = Array.isArray(msg.content) ? msg.content : [];
+          const types = parts.map((p: { type?: string }) => p.type).filter(Boolean);
+          if (types.length > 0) {
+            this.logger.log(`[HITL-debug] role=${msg.role} parts=[${types.join(', ')}]`);
+          } else {
+            const preview = typeof msg.content === 'string' ? msg.content.slice(0, 80) : JSON.stringify(msg.content).slice(0, 80);
+            this.logger.log(`[HITL-debug] role=${msg.role} content=${preview}`);
+          }
+        }
       }
     } else {
       // Normal message flow: load server-side history + PII + save message
@@ -611,7 +623,7 @@ export class AiChatService {
       },
     });
 
-    return { agent, messages, circuitBreaker, conversation };
+    return { agent, messages, circuitBreaker, conversation, clientMessages: params.clientMessages };
   }
 
   /**
@@ -619,7 +631,7 @@ export class AiChatService {
    * Returns a UI message stream consumed by AI SDK useChat().
    */
   async streamChat(params: StreamChatParams): Promise<ReadableStream> {
-    const { agent, messages, circuitBreaker, conversation } =
+    const { agent, messages, circuitBreaker, conversation, clientMessages } =
       await this.prepareChatAgent(params);
 
     try {
@@ -630,6 +642,9 @@ export class AiChatService {
 
       const uiStream = result.toUIMessageStream({
         sendReasoning: true,
+        // Pass original UIMessages so the SDK can match tool results back to
+        // tool invocations during HITL approval resubmits (vercel/ai#10196).
+        originalMessages: clientMessages as UIMessage[] | undefined,
         onError: (error) => {
           if (
             error instanceof Error &&
