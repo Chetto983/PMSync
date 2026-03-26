@@ -4,9 +4,9 @@
  * Cleans up embeddings with null emailId AND null contactId.
  * These are orphans from deleted content that were not properly cleaned up.
  *
- * Schedule: Weekly on Sunday at 2 AM (via BullMQ repeatable job)
+ * Schedule: Daily at 2 AM (via BullMQ repeatable job) — E4 FIX: was weekly
  * Batch size: 500 embeddings per batch
- * Safety limit: 20 batches per run (10k embeddings max)
+ * Safety limit: 50 batches per run (25k embeddings max) — E4 FIX: was 20/10k
  *
  * @see PERF-03 in v2.0 roadmap
  */
@@ -24,7 +24,7 @@ import {
 export class OrphanEmbeddingCleanupService implements OnModuleInit {
   private readonly logger = new Logger(OrphanEmbeddingCleanupService.name);
   private readonly BATCH_SIZE = 500;
-  private readonly MAX_BATCHES = 20; // Safety limit: 10k embeddings per run
+  private readonly MAX_BATCHES = 50; // E4 FIX: 25k per run (was 20/10k)
   private readonly jobsEnabled: boolean;
 
   constructor(
@@ -108,6 +108,12 @@ export class OrphanEmbeddingCleanupService implements OnModuleInit {
         );
         break;
       }
+    }
+
+    if (totalDeleted > 1000) {
+      this.logger.warn(
+        `High orphan count: ${totalDeleted} orphan embeddings found in a single run. Investigate source of orphans.`,
+      );
     }
 
     this.logger.log(

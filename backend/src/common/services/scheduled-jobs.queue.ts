@@ -78,7 +78,7 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.EMAIL_CLEANUP_ORPHANS]: '30 3 * * *', // 3:30 AM
   [ScheduledJobType.EMAIL_RETENTION]: '0 2 * * *', // Daily at 2 AM
   [ScheduledJobType.EMAIL_EMBEDDING_CLEANUP]: '*/30 * * * *', // Every 30 minutes
-  [ScheduledJobType.ORPHAN_EMBEDDING_CLEANUP]: '0 2 * * 0', // Weekly on Sunday at 2 AM
+  [ScheduledJobType.ORPHAN_EMBEDDING_CLEANUP]: '0 2 * * *', // E4 FIX: Daily at 2 AM (was weekly)
   [ScheduledJobType.MEMORY_CLEANUP]: '0 1 * * *', // Daily at 1 AM - cleanup expired memories
   [ScheduledJobType.LOG_ROTATION]: '0 0 * * *', // Daily at midnight
   // Telegram reminder system

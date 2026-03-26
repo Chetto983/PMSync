@@ -276,6 +276,73 @@ const fwdResult = await apiPost(context, cookies, csrf, `/api/v1/emails/${emailI
 // Then: verify forwarded email includes original attachments
 ```
 
+## Validation Architecture
+
+### Test Framework
+| Property | Value |
+|----------|-------|
+| Framework | Playwright CDP + custom assertion helpers (validation-helpers.mjs) |
+| Config file | `scripts/lib/validation-helpers.mjs` (shared infrastructure) |
+| Quick run command | `node scripts/validate-email-send.mjs --provider=gmail` |
+| Full suite command | `node scripts/validate-email-send.mjs` (all providers) |
+
+### Test Strategy
+
+This phase uses **live provider integration tests** via Playwright CDP, not unit tests. The validation scripts send real emails through real provider APIs and verify delivery. This is consistent with the Phase 112-116 pattern.
+
+**Test categories:**
+
+1. **Send validation (WRITE-01/02/03):** For each provider (Gmail, Outlook, IMAP), send a new email via `POST /api/v1/emails/send`. Assert HTTP 200/201 with `success: true` and a non-empty `messageId`. Verify the sent email appears in the local DB in the Sent folder. Self-send recommended to confirm delivery without external side effects.
+
+2. **Reply threading validation (WRITE-04):** For each provider, reply to an existing email via `POST /api/v1/emails/:id/reply`. Assert HTTP success. Then fetch the newly created reply email from the DB and verify: `inReplyTo` matches the original `messageId`, `references` contains the original `messageId`, and `threadId` matches the original (for Gmail). For manual verification: check Gmail/Outlook web UI to confirm the reply appears in the same thread.
+
+3. **Forward with attachments validation (WRITE-05):** Pick an email with attachments. Forward it via `POST /api/v1/emails/:id/forward`. Assert HTTP success. Then verify the forwarded email body contains the original body content (forwarded header block). Verify that the forwarded email's attachments include the original email's attachments (check count and filenames). This test will initially FAIL due to the confirmed attachment bug -- fix first, then re-validate.
+
+### Phase Requirements to Test Map
+
+| Req ID | Behavior | Test Type | Automated Command | File Exists? |
+|--------|----------|-----------|-------------------|-------------|
+| WRITE-01 | Send new email via Gmail delivers to recipient | integration (live provider) | `node scripts/validate-email-send.mjs --provider=gmail` | No -- Wave 0 |
+| WRITE-02 | Send new email via Outlook delivers to recipient | integration (live provider) | `node scripts/validate-email-send.mjs --provider=outlook` | No -- Wave 0 |
+| WRITE-03 | Send new email via IMAP/SMTP delivers to recipient | integration (live provider) | `node scripts/validate-email-send.mjs --provider=imap` | No -- Wave 0 |
+| WRITE-04 | Reply preserves thread with correct headers | integration (live provider) | `node scripts/validate-email-send.mjs --provider=gmail` (reply sub-test) | No -- Wave 0 |
+| WRITE-05 | Forward includes original body and attachments | integration (live provider) | `node scripts/validate-email-send.mjs --provider=gmail` (forward sub-test) | No -- Wave 0 |
+
+### Verification Steps Per Requirement
+
+**WRITE-01/02/03 (send):**
+1. `apiPost` to `/api/v1/emails/send` with provider-specific `providerId`
+2. Assert `response.success === true` and `response.messageId` is non-empty string
+3. `apiGet` emails list filtered by Sent folder -- verify the new email appears with correct subject
+4. (Optional manual) Open provider web UI, check Sent folder for the email
+
+**WRITE-04 (reply threading):**
+1. Find an existing email with a `messageId` and `threadId` in the DB
+2. `apiPost` to `/api/v1/emails/:id/reply` with body text
+3. Assert `response.success === true`
+4. `apiGet` the replied email from DB -- verify `inReplyTo` and `references` headers
+5. For Gmail: verify `threadId` matches original
+6. (Optional manual) Check provider web UI -- reply should appear in the same conversation thread
+
+**WRITE-05 (forward with attachments):**
+1. Find an existing email that has 1+ attachments in the DB
+2. After bug fix: `apiPost` to `/api/v1/emails/:id/forward` with `to` recipients
+3. Assert `response.success === true`
+4. Fetch the forwarded email from DB -- verify body contains forwarded header block
+5. Verify forwarded email has attachment records matching original email's attachment count and filenames
+
+### Sampling Rate
+- **Per task commit:** `node scripts/validate-email-send.mjs --provider=gmail` (quick single-provider check)
+- **Per wave merge:** `node scripts/validate-email-send.mjs` (all providers)
+- **Phase gate:** All providers green, all 5 WRITE requirements passing before `/gsd:verify-work`
+
+### Wave 0 Gaps
+- [ ] `scripts/validate-email-send.mjs` -- orchestrator script (WRITE-01 through WRITE-05)
+- [ ] `scripts/lib/validate-email-send.mjs` -- per-provider validation logic module
+- [ ] Bug fix: `backend/src/modules/email/services/email-send.service.ts` `forwardEmail()` -- include original attachments (prerequisite for WRITE-05 to pass)
+
+*(Validation-helpers.mjs shared infrastructure already exists and covers CDP, auth, CSRF, assertions, and reporting.)*
+
 ## State of the Art
 
 | Old Approach | Current Approach | When Changed | Impact |
@@ -306,7 +373,7 @@ const fwdResult = await apiPost(context, cookies, csrf, `/api/v1/emails/${emailI
 ### Primary (HIGH confidence)
 - **Codebase inspection** -- Read all relevant source files: email-send.service.ts, email-actions.controller.ts, gmail-send.service.ts, microsoft-send.service.ts, imap-send.service.ts, send-email.dto.ts, canonical.types.ts, mime-builder.util.ts, email-driver.interface.ts
 - **Prior phase research** -- Phase 114 and 116 RESEARCH.md patterns for validation approach
-- **Validation scripts** -- scripts/validate-syncback.mjs, scripts/lib/validation-helpers.mjs for established patterns
+- **Validation scripts** -- scripts/validate-syncback.mjs, scripts/validate-attachments-search.mjs, scripts/lib/validation-helpers.mjs for established patterns
 
 ### Secondary (MEDIUM confidence)
 - Gmail API `users.messages.send` -- Training data, verified by existing googleapis usage in codebase
@@ -319,6 +386,7 @@ const fwdResult = await apiPost(context, cookies, csrf, `/api/v1/emails/${emailI
 - Standard stack: HIGH -- No new dependencies, all existing infrastructure
 - Architecture: HIGH -- Complete codebase inspection of all send/reply/forward paths
 - Pitfalls: HIGH -- Forward-attachment bug confirmed by code inspection; other pitfalls from existing bug fixes in code comments (BUG-3, BUG-002, BUG-005)
+- Validation architecture: HIGH -- Follows established Phase 112-116 pattern with Playwright CDP + validation-helpers.mjs
 
 **Research date:** 2026-03-26
 **Valid until:** 2026-04-26 (stable -- validation of existing code)
