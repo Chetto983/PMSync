@@ -28,6 +28,7 @@ import {
 } from '../interfaces/sync-context.interface';
 import { isJunkFolder } from '../../email/email.helpers';
 import { EmailIndexedEvent } from '../../../common/events/email.events';
+import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 
 @Injectable()
 export class SyncMessageProcessorService {
@@ -37,6 +38,7 @@ export class SyncMessageProcessorService {
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {}
 
   // RedisLockService injected separately (matching base class pattern)
@@ -158,6 +160,15 @@ export class SyncMessageProcessorService {
         folder: 'TRASH',
       },
     });
+
+    // E3 FIX: Immediate embedding cleanup on sync-triggered deletion (fire-and-forget)
+    this.knowledgeBaseService
+      .deleteEmbeddingsForEmail(tenantId, existing.id)
+      .catch((err) =>
+        this.logger.warn(
+          `Embedding cleanup failed for sync-deleted email ${existing.id}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
 
     // Emit realtime event
     this.realtimeEvents.emitEmailDelete(tenantId, {
