@@ -26,11 +26,13 @@ export interface EmailAttachment {
 }
 
 export interface EmailLabel {
-  id: string;
-  emailId: string;
-  labelId: string;
-  createdAt: string;
-  label?: {
+  /** Junction record fields — only present when backend selects them (e.g. full detail endpoint). */
+  id?: string;
+  emailId?: string;
+  labelId?: string;
+  createdAt?: string;
+  /** Always present when emailLabels are included via shared select constants. */
+  label: {
     id: string;
     name: string;
     color?: { backgroundColor: string; textColor: string } | null;
