@@ -619,7 +619,7 @@ export class AiChatService {
    * Returns a UI message stream consumed by AI SDK useChat().
    */
   async streamChat(params: StreamChatParams): Promise<ReadableStream> {
-    const { agent, messages, circuitBreaker } =
+    const { agent, messages, circuitBreaker, conversation } =
       await this.prepareChatAgent(params);
 
     try {
@@ -628,7 +628,7 @@ export class AiChatService {
         abortSignal: params.abortSignal,
       });
 
-      return result.toUIMessageStream({
+      const uiStream = result.toUIMessageStream({
         sendReasoning: true,
         onError: (error) => {
           if (
@@ -643,6 +643,14 @@ export class AiChatService {
           return error instanceof Error ? error.message : String(error);
         },
       });
+
+      // Pipe through PII resolution transform so the frontend never sees
+      // EMAIL_REDACTED / PHONE_REDACTED tokens in tool-call args or text.
+      return this.piiResolveStream(
+        uiStream,
+        params.tenantId,
+        conversation.id,
+      );
     } catch (error) {
       // Recovery: if history causes schema validation failure, retry with only
       // user messages (drops corrupted tool/assistant parts from old format).
@@ -655,7 +663,11 @@ export class AiChatService {
           messages: cleanMessages,
           abortSignal: params.abortSignal,
         });
-        return result.toUIMessageStream({ sendReasoning: true });
+        return this.piiResolveStream(
+          result.toUIMessageStream({ sendReasoning: true }),
+          params.tenantId,
+          conversation.id,
+        );
       }
 
       if (
@@ -955,6 +967,41 @@ export class AiChatService {
     );
     // Keep at most the last 3 user messages for context
     return userMessages.slice(-3) as ModelMessage[];
+  }
+
+  /**
+   * Wrap a UI message stream to resolve PII placeholders before reaching the client.
+   * Replaces EMAIL_REDACTED:xxx / PHONE_REDACTED:xxx tokens in text chunks.
+   */
+  private piiResolveStream(
+    stream: ReadableStream,
+    tenantId: string,
+    conversationId: string,
+  ): ReadableStream {
+    const piiService = this.piiResolutionService;
+    const PII_PATTERN = /(?:EMAIL_REDACTED|PHONE_REDACTED|NAME_REDACTED|SSN_REDACTED|CREDIT_CARD_REDACTED|IP_REDACTED|DATE_REDACTED|ADDRESS_REDACTED|PASSPORT_REDACTED|LICENSE_REDACTED|BANK_REDACTED|MEDICAL_REDACTED):[a-f0-9]+/g;
+
+    const transform = new TransformStream({
+      async transform(chunk, controller) {
+        // Chunks are Uint8Array or string — UIMessageStream sends strings
+        const text = typeof chunk === 'string'
+          ? chunk
+          : new TextDecoder().decode(chunk);
+
+        if (!PII_PATTERN.test(text)) {
+          controller.enqueue(chunk);
+          return;
+        }
+
+        // Resolve PII tokens in the chunk
+        const resolved = await piiService.resolveText(tenantId, conversationId, text);
+        controller.enqueue(
+          typeof chunk === 'string' ? resolved : new TextEncoder().encode(resolved),
+        );
+      },
+    });
+
+    return stream.pipeThrough(transform);
   }
 
   /** Create tool set with PII resolution via closure. */

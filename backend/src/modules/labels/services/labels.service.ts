@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { emailLabelsInclude } from '../../../common/utils';
 import { EmailsService } from '../../email/services/emails.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import {
@@ -384,18 +385,7 @@ export class LabelsService {
             providerType: true,
           },
         },
-        emailLabels: {
-          include: {
-            label: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-                icon: true,
-              },
-            },
-          },
-        },
+        ...emailLabelsInclude,
       },
     });
 
@@ -448,18 +438,7 @@ export class LabelsService {
             providerType: true,
           },
         },
-        emailLabels: {
-          include: {
-            label: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-                icon: true,
-              },
-            },
-          },
-        },
+        ...emailLabelsInclude,
       },
     });
 

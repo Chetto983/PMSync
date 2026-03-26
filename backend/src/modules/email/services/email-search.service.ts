@@ -13,7 +13,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { emailSearchSelect } from '../../../common/utils';
+import { emailSearchSelect, emailLabelsInclude, emailLabelsSelect } from '../../../common/utils';
 import { StorageService } from './storage.service';
 import { EmailFolderService } from './email-folder.service';
 
@@ -241,17 +241,7 @@ export class EmailSearchService {
         isFlagged: true,
         receivedAt: true,
         sentAt: true,
-        emailLabels: {
-          select: {
-            label: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-              },
-            },
-          },
-        },
+        ...emailLabelsSelect,
       },
     });
 
@@ -313,17 +303,7 @@ export class EmailSearchService {
       orderBy: { receivedAt: 'asc' },
       include: {
         attachments: true,
-        emailLabels: {
-          select: {
-            label: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-              },
-            },
-          },
-        },
+        ...emailLabelsInclude,
       },
     });
 
