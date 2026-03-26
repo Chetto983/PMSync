@@ -291,7 +291,9 @@ export function createBetterAuthInstance(
       google: {
         clientId: process.env.GMAIL_CLIENT_ID!,
         clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-        disableImplicitSignUp: false,
+        // Login must never bootstrap a brand-new tenant implicitly.
+        // Explicit social sign-up still works from /auth/register via requestSignUp=true.
+        disableImplicitSignUp: true,
         accessType: 'offline',
         prompt: 'select_account consent',
         scope: [
@@ -308,7 +310,8 @@ export function createBetterAuthInstance(
         clientId: process.env.MICROSOFT_CLIENT_ID!,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
         tenantId: 'common',
-        disableImplicitSignUp: false,
+        // Keep Microsoft behavior aligned with Google: no implicit tenant creation on login.
+        disableImplicitSignUp: true,
         // Microsoft Entra accepts a single prompt value here.
         prompt: 'select_account',
         scope: [
