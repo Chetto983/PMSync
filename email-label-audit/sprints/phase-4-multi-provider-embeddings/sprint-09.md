@@ -19,47 +19,47 @@ Phase 1-3 focused on Google-only label sync. This sprint extends coverage to Mic
 
 ### T-0901: Implement UserLabel sync-back for Microsoft (categories) [3 SP]
 
-- [ ] When `labels.service.addEmailsToLabel()` is called for a Microsoft provider email, queue category sync-back
-- [ ] Map UserLabel name -> Outlook category via `messages.modify()` with `addLabels()`
-- [ ] When removing label, call `removeLabels()` to remove category
-- [ ] Use existing `microsoft-sync-back.service.ts` pattern for queueing
-- [ ] Rate limiting: max 4 requests/second per user (Graph API throttling)
-- [ ] Files: `microsoft-sync-back.service.ts`, `labels.service.ts`
+- [x] When `labels.service.addEmailsToLabel()` is called for a Microsoft provider email, queue category sync-back ✅ DONE
+- [x] Map UserLabel name -> Outlook category via `messages.modify()` with `addLabels()` ✅ DONE
+- [x] When removing label, call `removeLabels()` to remove category ✅ DONE
+- [x] Use existing `microsoft-sync-back.service.ts` pattern for queueing ✅ DONE
+- [x] Rate limiting: max 4 requests/second per user (Graph API throttling) ✅ DONE
+- [x] Files: `microsoft-sync-back.service.ts`, `labels.service.ts` ✅ DONE
 
 ### T-0902: Handle IMAP label operations gracefully [2 SP]
 
-- [ ] `addLabels`/`removeLabels` are optional on IEmailDriver — IMAP doesn't implement them
-- [ ] When user adds a UserLabel to an IMAP email, skip sync-back (labels are app-only)
-- [ ] Add `supportsLabels(): boolean` method to IEmailDriver interface (Google/MS: true, IMAP: false)
-- [ ] Labels service checks `supportsLabels()` before queueing sync-back
-- [ ] Frontend shows info tooltip for IMAP accounts: "Labels are local-only for this account"
-- [ ] Files: `email-driver.interface.ts`, `labels.service.ts`, translations
+- [x] `addLabels`/`removeLabels` are optional on IEmailDriver — IMAP doesn't implement them ✅ DONE
+- [x] When user adds a UserLabel to an IMAP email, skip sync-back (labels are app-only) ✅ DONE
+- [x] Add `supportsLabels(): boolean` method to IEmailDriver interface (Google/MS: true, IMAP: false) ✅ DONE
+- [x] Labels service checks `supportsLabels()` before queueing sync-back ✅ DONE
+- [x] Frontend shows info tooltip for IMAP accounts: "Labels are local-only for this account" ✅ DONE
+- [x] Files: `email-driver.interface.ts`, `labels.service.ts`, translations ✅ DONE
 
 ### T-0903: Fix Microsoft folder cache invalidation [3 SP]
 
-- [ ] `folderIdCache` and `folderPathCache` on MicrosoftDriver are never invalidated on external changes
-- [ ] Add cache invalidation on folder sync: `syncFolders()` clears both caches after refresh
-- [ ] Add TTL (5 min, matching IMAP pattern) as safety net for between-sync changes
-- [ ] Handle edge case: folder renamed externally -> cache has old path -> move operation fails
-- [ ] Add retry with cache clear on folder-not-found errors
-- [ ] Files: `microsoft.driver.ts`, `microsoft-folder.service.ts`
+- [x] `folderIdCache` and `folderPathCache` on MicrosoftDriver are never invalidated on external changes ✅ DONE
+- [x] Add cache invalidation on folder sync: `syncFolders()` clears both caches after refresh ✅ DONE
+- [x] Add TTL (5 min, matching IMAP pattern) as safety net for between-sync changes ✅ DONE
+- [x] Handle edge case: folder renamed externally -> cache has old path -> move operation fails ✅ DONE
+- [x] Add retry with cache clear on folder-not-found errors ✅ DONE
+- [x] Files: `microsoft.driver.ts`, `microsoft-folder.service.ts` ✅ DONE
 
 ### T-0904: Add timeout and circuit breaker to IMAP deleteFolder [3 SP]
 
-- [ ] Current 5-step RFC 3501 process has 3 retries but no timeout — can hang indefinitely
-- [ ] Add 30-second timeout per step (150s total max)
-- [ ] Add circuit breaker: after 2 consecutive failures, skip folder delete for 5 minutes
-- [ ] Log structured errors with step number for debugging
-- [ ] Handle IMAP servers that don't support `DELETE` (some shared hosting)
-- [ ] Files: `imap-folder.service.ts`
+- [x] Current 5-step RFC 3501 process has 3 retries but no timeout — can hang indefinitely ✅ DONE
+- [x] Add 30-second timeout per step (150s total max) ✅ DONE
+- [x] Add circuit breaker: after 2 consecutive failures, skip folder delete for 5 minutes ✅ DONE
+- [x] Log structured errors with step number for debugging ✅ DONE
+- [x] Handle IMAP servers that don't support `DELETE` (some shared hosting) ✅ DONE
+- [x] Files: `imap-folder.service.ts` ✅ DONE
 
 ### T-0905: Unify folder operation error handling across drivers [2 SP]
 
-- [ ] Create shared `FolderOperationError` with `code`, `driver`, `operation`, `recoverable` fields
-- [ ] All 3 drivers throw consistent error types for: not-found, permission-denied, server-error, timeout
-- [ ] Frontend `useFolderManagement` shows driver-specific error messages
-- [ ] Add translations for folder error messages (en.ts, it.ts)
-- [ ] Files: `canonical.types.ts` (error types), all 3 drivers, `useFolderManagement.ts`
+- [x] Create shared `FolderOperationError` with `code`, `driver`, `operation`, `recoverable` fields ✅ DONE
+- [x] All 3 drivers throw consistent error types for: not-found, permission-denied, server-error, timeout ✅ DONE
+- [x] Frontend `useFolderManagement` shows driver-specific error messages ✅ DONE (in FolderDialog + FolderDeleteDialog)
+- [x] Add translations for folder error messages (en.ts, it.ts) ✅ DONE
+- [x] Files: `folder-errors.ts` (error types), all 3 drivers, `FolderDialog.tsx`, `FolderDeleteDialog.tsx` ✅ DONE
 
 ## Dependencies
 
@@ -74,10 +74,10 @@ Phase 1-3 focused on Google-only label sync. This sprint extends coverage to Mic
 
 ## Definition of Done
 
-- [ ] UserLabel sync-back works for Microsoft accounts (categories)
-- [ ] IMAP accounts handle labels gracefully (no silent failures)
-- [ ] Microsoft folder cache invalidated properly
-- [ ] IMAP deleteFolder has timeout protection
-- [ ] All folder errors are typed and translatable
-- [ ] `npx tsc --noEmit` passes in backend and frontend
+- [x] UserLabel sync-back works for Microsoft accounts (categories) ✅
+- [x] IMAP accounts handle labels gracefully (no silent failures) ✅
+- [x] Microsoft folder cache invalidated properly ✅
+- [x] IMAP deleteFolder has timeout protection ✅
+- [x] All folder errors are typed and translatable ✅
+- [x] `npx tsc --noEmit` passes in backend and frontend ✅
 - [ ] Existing driver tests pass
