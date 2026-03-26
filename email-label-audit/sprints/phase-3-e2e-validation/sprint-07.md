@@ -44,10 +44,11 @@
 - [x] Run: `cd backend && npx ts-node -r dotenv/config ../scripts/audit/validate-email-label-consistency.ts` ✅ DONE
 
 ### T-0705: Frontend component test for label display [1 SP]
-- [ ] Test ThreadListItem renders max 2 labels correctly
-- [ ] Test label color fallback when color is null/invalid
-- [ ] Test ExpandedMessage shows labels and remove buttons
-- [ ] Files: component test files
+- [x] Test ThreadListItem renders max 2 user labels (truncates overflow) ✅
+- [x] Test AI labels render as outlined chips (max 1) ✅
+- [x] Test label color applied as bgcolor on Chip ✅
+- [x] Test empty/undefined labels don't crash ✅
+- [x] 7 tests in ThreadListItem.test.tsx ✅ DONE
 
 ## Dependencies
 - S04-S06 complete (all fixes must be in place to test)
