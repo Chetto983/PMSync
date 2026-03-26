@@ -15,9 +15,8 @@
  */
 import { connectCDP, getAuthCookies, getCsrfToken, apiGet, report } from './lib/validation-helpers.mjs';
 import { validateGmail } from './lib/validate-gmail.mjs';
-// Plan 02 will add these imports:
-// import { validateOutlook } from './lib/validate-outlook.mjs';
-// import { validateImap } from './lib/validate-imap.mjs';
+import { validateOutlook } from './lib/validate-outlook.mjs';
+import { validateImap } from './lib/validate-imap.mjs';
 
 const args = process.argv.slice(2);
 const providerFlag = args.find(a => a.startsWith('--provider='))?.split('=')[1]
@@ -57,17 +56,6 @@ async function main() {
   const exitCode = report('Full Sync Validation', results);
   await browser.close();
   process.exit(exitCode);
-}
-
-// Stub functions for providers not yet implemented (Plan 02 replaces with imports)
-async function validateOutlook(context, cookieHeader, csrfToken, syncStatus, quick) {
-  console.log('\n[Outlook] Not yet implemented -- skipping');
-  return { name: 'Outlook', checks: 0, passed: 0, failed: 0, failures: [], skipped: 'Not yet implemented' };
-}
-
-async function validateImap(context, cookieHeader, csrfToken, syncStatus, quick) {
-  console.log('\n[IMAP] Not yet implemented -- skipping');
-  return { name: 'IMAP', checks: 0, passed: 0, failed: 0, failures: [], skipped: 'Not yet implemented' };
 }
 
 main().catch(err => { console.error('Fatal error:', err.message); process.exit(1); });
