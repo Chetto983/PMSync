@@ -122,7 +122,7 @@
 
 - [x] **Phase 112: Full Sync Validation** - Verify full sync downloads all emails/folders correctly across Gmail, Outlook, IMAP (completed 2026-03-26)
 - [x] **Phase 113: Incremental Sync & Webhooks** - Verify delta sync and webhook-triggered sync detect changes correctly (completed 2026-03-26)
-- [ ] **Phase 114: Sync-back Operations** - Verify local state changes propagate back to all three providers
+- [x] **Phase 114: Sync-back Operations** - Verify local state changes propagate back to all three providers (completed 2026-03-26)
 - [ ] **Phase 115: Email List & Thread Reading** - Verify list filtering, pagination, thread grouping, and single email retrieval
 - [ ] **Phase 116: Attachments & Search** - Verify attachment download (S3 + on-demand), folder stats, and full-text search
 - [ ] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers
@@ -177,7 +177,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 114-01-PLAN.md -- SYNC-13 bug fix + validation infrastructure + read/star/move validation (SYNC-09, SYNC-10, SYNC-11, SYNC-13)
-- [ ] 114-02-PLAN.md -- Delete + label validation + live provider checkpoint (SYNC-12, SYNC-13)
+- [x] 114-02-PLAN.md -- Delete + label validation + live provider checkpoint (SYNC-12, SYNC-13)
 
 ### Phase 115: Email List & Thread Reading
 **Goal**: Users can browse, filter, paginate, and read emails accurately across all providers
@@ -278,7 +278,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 112. Full Sync Validation | 2/2 | Complete    | 2026-03-26 |
 | 113. Incremental Sync & Webhooks | 0/2 | Complete    | 2026-03-26 |
-| 114. Sync-back Operations | 1/2 | In Progress|  |
+| 114. Sync-back Operations | 2/2 | Complete   | 2026-03-26 |
 | 115. Email List & Thread Reading | 0/? | Not started | - |
 | 116. Attachments & Search | 0/? | Not started | - |
 | 117. Email Send & Reply/Forward | 0/? | Not started | - |

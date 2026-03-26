@@ -20,7 +20,7 @@ Comprehensive audit of all email and email-sync operations against live provider
 - [x] **SYNC-09**: Sync-back reflects mark-read/unread on all three providers
 - [x] **SYNC-10**: Sync-back reflects star/unstar on all three providers
 - [x] **SYNC-11**: Sync-back reflects move-to-folder on all three providers
-- [ ] **SYNC-12**: Sync-back reflects delete (soft + permanent) on all three providers
+- [x] **SYNC-12**: Sync-back reflects delete (soft + permanent) on all three providers
 - [x] **SYNC-13**: Sync-back reflects label add/remove on Gmail
 
 ### Email Read
@@ -104,7 +104,7 @@ Comprehensive audit of all email and email-sync operations against live provider
 | SYNC-09 | Phase 114 | Complete |
 | SYNC-10 | Phase 114 | Complete |
 | SYNC-11 | Phase 114 | Complete |
-| SYNC-12 | Phase 114 | Pending |
+| SYNC-12 | Phase 114 | Complete |
 | SYNC-13 | Phase 114 | Complete |
 | READ-01 | Phase 115 | Pending |
 | READ-02 | Phase 115 | Pending |
