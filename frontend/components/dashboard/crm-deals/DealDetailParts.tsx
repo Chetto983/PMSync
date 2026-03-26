@@ -134,9 +134,10 @@ export function PipelineProgressBar({
         sx={{
           '& .MuiStepConnector-line': { borderTopWidth: 3 },
           '& .MuiStepLabel-label': { fontSize: '0.75rem' },
-          '& .Mui-completed .MuiStepConnector-line': { borderColor: 'primary.main' },
-          '& .MuiStepIcon-root.Mui-completed': { color: 'primary.main' },
-          '& .MuiStepIcon-root.Mui-active': { color: 'primary.main' },
+          '& .MuiStepConnector-root.Mui-completed .MuiStepConnector-line': { borderColor: 'primary.main' },
+          '& .MuiStepConnector-root.Mui-active .MuiStepConnector-line': { borderColor: 'primary.main' },
+          '& .MuiStepIcon-root.Mui-completed': { color: (t) => `${t.palette.primary.main} !important` },
+          '& .MuiStepIcon-root.Mui-active': { color: (t) => `${t.palette.primary.main} !important` },
         }}
       >
         {stages.map((stage) => (
