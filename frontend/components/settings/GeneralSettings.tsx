@@ -17,7 +17,16 @@ import {
 import { Moon, Sun, Monitor } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import type { ThemeMode } from '@/hooks/use-theme-persistence';
-import { useTimezoneSelect, allTimezones } from 'react-timezone-select';
+import { useTimezoneSelect } from 'react-timezone-select';
+
+// Build a complete IANA timezone map so every timezone (e.g. Europe/Rome)
+// appears individually instead of being grouped by offset
+const fullTimezones: Record<string, string> = {};
+for (const tz of Intl.supportedValuesOf('timeZone')) {
+  // Use the city part of the IANA name as the label (e.g. "Europe/Rome" -> "Rome")
+  const city = tz.split('/').pop()?.replace(/_/g, ' ') ?? tz;
+  fullTimezones[tz] = city;
+}
 
 export interface GeneralSettingsProps {
   theme: ThemeMode;
@@ -73,7 +82,7 @@ export function GeneralSettings({
   // Get all timezones with proper formatting
   const { options, parseTimezone } = useTimezoneSelect({
     labelStyle: 'original',
-    timezones: allTimezones,
+    timezones: fullTimezones,
   });
 
   // Find the current timezone option using parseTimezone for fuzzy matching
