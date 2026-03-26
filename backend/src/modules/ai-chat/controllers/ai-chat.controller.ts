@@ -121,10 +121,6 @@ export class AiChatController {
     const message = extractUserMessageFromDto(dto);
     const resolvedConversationId = resolveConversationIdFromDto(dto);
 
-    this.logger.warn(
-      `[DIAG-CTRL] dto.id=${dto.id ?? 'undefined'} dto.conversationId=${dto.conversationId ?? 'undefined'} → resolved=${resolvedConversationId ?? 'undefined'} msg="${(message || '').slice(0, 60)}"`,
-    );
-
     if (!message && !isApproval) {
       res.status(400).json({ error: { message: 'No user message found in request' } });
       return;

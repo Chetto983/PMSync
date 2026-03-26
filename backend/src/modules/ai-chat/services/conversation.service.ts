@@ -81,9 +81,13 @@ export class ConversationService {
     if (conversationId) {
       const existing = await this.getConversation(conversationId, tenantId, userId);
       if (!existing) {
-        throw new NotFoundException(
-          `Conversation ${conversationId} not found`,
+        // Conversation was deleted or expired — create a new one instead of
+        // throwing 404. This handles the race condition where the frontend
+        // sends a message right after deleting the active thread.
+        this.logger.warn(
+          `Conversation ${conversationId} not found, creating new one`,
         );
+        return this.createConversation(tenantId, userId);
       }
       return existing;
     }
