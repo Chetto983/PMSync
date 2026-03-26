@@ -34,6 +34,43 @@ import { MicrosoftSyncService } from './services/microsoft-sync.service';
  *
  * Follows IMAP driver pattern exactly.
  */
+/** T-0903: TTL-aware Map — entries expire after a configurable duration */
+class TtlMap<K, V> extends Map<K, V> {
+  private expiry = new Map<K, number>();
+  constructor(private readonly ttlMs: number) {
+    super();
+  }
+
+  override get(key: K): V | undefined {
+    const exp = this.expiry.get(key);
+    if (exp !== undefined && Date.now() > exp) {
+      super.delete(key);
+      this.expiry.delete(key);
+      return undefined;
+    }
+    return super.get(key);
+  }
+
+  override set(key: K, value: V): this {
+    this.expiry.set(key, Date.now() + this.ttlMs);
+    return super.set(key, value);
+  }
+
+  override has(key: K): boolean {
+    return this.get(key) !== undefined;
+  }
+
+  override delete(key: K): boolean {
+    this.expiry.delete(key);
+    return super.delete(key);
+  }
+
+  override clear(): void {
+    this.expiry.clear();
+    super.clear();
+  }
+}
+
 @Injectable({ scope: Scope.TRANSIENT })
 export class MicrosoftDriver extends BaseEmailDriver {
   readonly providerType: ProviderType = 'microsoft';
@@ -41,8 +78,9 @@ export class MicrosoftDriver extends BaseEmailDriver {
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
   private client: AxiosInstance | null = null;
   private userEmail: string | null = null;
-  private folderIdCache: Map<string, string> = new Map(); // canonical -> folderId
-  private folderPathCache: Map<string, string> = new Map(); // folderId -> displayName (path)
+  // T-0903: 5-min TTL on folder caches — matches IMAP pattern
+  private folderIdCache = new TtlMap<string, string>(5 * 60 * 1000); // canonical -> folderId
+  private folderPathCache = new TtlMap<string, string>(5 * 60 * 1000); // folderId -> displayName
 
   constructor(
     private readonly messageService: MicrosoftMessageService,
@@ -132,6 +170,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async listFolders(): Promise<CanonicalFolder[]> {
     this.ensureConnected();
 
+    // T-0903: Clear caches on folder re-sync so externally renamed/deleted folders are picked up
+    this.folderIdCache.clear();
+    this.folderPathCache.clear();
+
     // Fetch top-level folders (handle pagination)
     const topLevelFolders = await this.fetchAllPages('/me/mailFolders', { $top: 100 });
     const allFolders: CanonicalFolder[] = [];
@@ -146,6 +188,12 @@ export class MicrosoftDriver extends BaseEmailDriver {
         const children = await this.listChildFolders(folder.id, folder.displayName);
         allFolders.push(...children);
       }
+    }
+
+    // T-0903: Re-populate caches from fresh folder list
+    for (const folder of allFolders) {
+      if (folder.type) this.folderIdCache.set(folder.type.toUpperCase(), folder.id);
+      if (folder.id && folder.path) this.folderPathCache.set(folder.id, folder.path);
     }
 
     return allFolders;
@@ -504,7 +552,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     return folder.id;
   }
 
-  private async resolveFolderId(folderOrCanonical: string): Promise<string> {
+  private async resolveFolderId(folderOrCanonical: string, retried = false): Promise<string> {
     // Check cache first
     const cached = this.folderIdCache.get(folderOrCanonical.toUpperCase());
     if (cached) return cached;
@@ -532,6 +580,14 @@ export class MicrosoftDriver extends BaseEmailDriver {
       }
     } catch (error: any) {
       this.logger.warn(`resolveFolderId: displayName lookup failed for ${folderOrCanonical}: ${error.message}`);
+    }
+
+    // T-0903: If folder not found and we haven't retried, clear cache and re-populate
+    // This handles externally renamed/deleted folders whose stale IDs are in cache
+    if (!retried) {
+      this.logger.debug(`resolveFolderId: cache miss for "${folderOrCanonical}", refreshing folder list`);
+      await this.cacheFolderIds();
+      return this.resolveFolderId(folderOrCanonical, true);
     }
 
     // Assume it's already a folder ID
