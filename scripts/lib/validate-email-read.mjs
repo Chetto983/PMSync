@@ -39,6 +39,10 @@ async function getProviderFolders(context, cookieHeader, providerId) {
     `/api/v1/folders?providerId=${providerId}`,
     cookieHeader,
   );
+  // API returns { data: { foldersByProvider: { [providerId]: [...] } } }
+  const byProvider = res?.data?.foldersByProvider?.[providerId];
+  if (Array.isArray(byProvider)) return byProvider;
+  // Fallback envelopes
   const folders = res?.data?.folders ?? res?.data ?? res?.folders ?? [];
   return Array.isArray(folders) ? folders : [];
 }
