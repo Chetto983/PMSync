@@ -8,6 +8,7 @@ import { ChatComposer } from './ChatComposer';
 import { ChatSuggestions } from './ChatSuggestions';
 import { AssistantMessage } from './AssistantMessage';
 import { UserMessage } from './UserMessage';
+import { UserEditComposer } from './UserEditComposer';
 
 /**
  * Main chat thread: scrollable message area + sticky composer footer.
@@ -24,7 +25,7 @@ export function ChatThread() {
           </ThreadPrimitive.Empty>
           <div className="chat-thread-messages">
             <ThreadPrimitive.Messages
-              components={{ UserMessage, AssistantMessage }}
+              components={{ UserMessage, AssistantMessage, UserEditComposer }}
             />
           </div>
         </div>

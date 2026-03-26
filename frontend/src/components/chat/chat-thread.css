@@ -349,6 +349,28 @@
   box-shadow: 0 2px 8px hsl(var(--primary) / 0.22);
 }
 
+.chat-user-edit-form {
+  width: min(100%, 680px);
+  max-width: 74%;
+}
+
+.chat-user-edit-input {
+  min-height: 88px;
+}
+
+.chat-user-edit-actions {
+  padding-top: 0;
+}
+
+.chat-user-edit-btn-cancel {
+  color: hsl(var(--muted-foreground));
+}
+
+.chat-user-edit-btn-cancel:hover {
+  background: var(--chat-muted-bg);
+  color: hsl(var(--foreground));
+}
+
 /* Action bar + branch picker */
 .chat-message-actions {
   margin-top: 6px;
@@ -367,6 +389,10 @@
 @media (max-width: 767px) {
   .chat-message-actions {
     opacity: 1;
+  }
+
+  .chat-user-edit-form {
+    max-width: 86%;
   }
 }
 
