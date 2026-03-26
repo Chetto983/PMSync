@@ -24,11 +24,16 @@ import {
 export class ImapFolderService {
   private readonly logger = new Logger(ImapFolderService.name);
   private readonly FOLDER_CACHE_TTL = 300000; // 5 minutes
+  private readonly STEP_TIMEOUT_MS = 30000; // T-0904: 30s per step
+  private readonly CIRCUIT_BREAKER_COOLDOWN_MS = 300000; // T-0904: 5 min cooldown
 
   private folderCache?: {
     folders: CanonicalFolder[];
     cachedAt: number;
   };
+
+  /** T-0904: Circuit breaker state for deleteFolder per folder path */
+  private deleteFailures = new Map<string, { count: number; lastFailedAt: number }>();
 
   constructor(private readonly connectionPool: ImapConnectionPoolService) {}
 
@@ -118,57 +123,142 @@ export class ImapFolderService {
   }
 
   /**
+   * T-0904: Run a promise with a timeout.
+   * @throws Error if the operation exceeds timeoutMs
+   */
+  private async withStepTimeout<T>(promise: Promise<T>, step: number, stepName: string, folderId: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`[deleteFolder] Step ${step} (${stepName}) timed out after ${this.STEP_TIMEOUT_MS}ms for folder "${folderId}"`)),
+          this.STEP_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+  }
+
+  /**
    * Delete a folder
-   * Follows RFC 3501 requirements for IMAP folder deletion
+   * Follows RFC 3501 requirements for IMAP folder deletion.
+   *
+   * T-0904: Each step has a 30s timeout (150s total max).
+   * Circuit breaker: after 2 consecutive failures on the same folder,
+   * skip delete for 5 minutes to avoid hammering the server.
    */
   async deleteFolder(folderId: string): Promise<void> {
+    // T-0904: Circuit breaker check
+    const cbState = this.deleteFailures.get(folderId);
+    if (cbState && cbState.count >= 2) {
+      const elapsed = Date.now() - cbState.lastFailedAt;
+      if (elapsed < this.CIRCUIT_BREAKER_COOLDOWN_MS) {
+        const remainingSec = Math.ceil((this.CIRCUIT_BREAKER_COOLDOWN_MS - elapsed) / 1000);
+        this.logger.warn(
+          `[deleteFolder] Circuit breaker OPEN for "${folderId}" — ${cbState.count} consecutive failures. ` +
+          `Retry in ${remainingSec}s.`,
+        );
+        throw new Error(
+          `deleteFolder circuit breaker open for "${folderId}": ` +
+          `${cbState.count} consecutive failures, cooldown ${remainingSec}s remaining`,
+        );
+      }
+      // Cooldown expired — reset and retry
+      this.deleteFailures.delete(folderId);
+    }
+
+    try {
+      await this.executeDeleteFolder(folderId);
+      // Success — reset circuit breaker
+      this.deleteFailures.delete(folderId);
+    } catch (error) {
+      // T-0904: Record failure for circuit breaker
+      const prev = this.deleteFailures.get(folderId) || { count: 0, lastFailedAt: 0 };
+      this.deleteFailures.set(folderId, { count: prev.count + 1, lastFailedAt: Date.now() });
+      throw error;
+    }
+  }
+
+  /**
+   * T-0904: Inner delete logic with per-step timeouts and structured logging.
+   */
+  private async executeDeleteFolder(folderId: string): Promise<void> {
     return this.connectionPool.withConnection(async (client) => {
-      // Step 1: Close any open mailbox by selecting INBOX
+      // Step 1: Close any open mailbox via NOOP (30s timeout)
       try {
-        await client.noop();
+        await this.withStepTimeout(client.noop(), 1, 'NOOP', folderId);
       } catch (err: unknown) {
-        this.logger.debug(`[deleteFolder] NOOP failed for ${folderId}: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger.debug({
+          msg: '[deleteFolder] Step 1 (NOOP) failed',
+          folder: folderId,
+          step: 1,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
-      // Step 2: Unsubscribe from folder (required by some servers)
+      // Step 2: Unsubscribe from folder (30s timeout)
       try {
-        await client.mailboxUnsubscribe(folderId);
+        await this.withStepTimeout(client.mailboxUnsubscribe(folderId), 2, 'UNSUBSCRIBE', folderId);
       } catch (err: unknown) {
-        this.logger.debug(`[deleteFolder] Unsubscribe failed for ${folderId}: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger.debug({
+          msg: '[deleteFolder] Step 2 (UNSUBSCRIBE) failed',
+          folder: folderId,
+          step: 2,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
-      // Step 3: Empty the folder first (some servers require empty folder)
+      // Step 3: Empty the folder first — some servers require it (30s timeout)
       try {
-        const lock = await client.getMailboxLock(folderId);
-        try {
-          const uids = await client.search({}, { uid: true });
-          if (uids && uids.length > 0) {
-            await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
-            await client.messageDelete(uids, { uid: true });
-          }
-        } finally {
-          lock.release();
-        }
+        await this.withStepTimeout(
+          (async () => {
+            const lock = await client.getMailboxLock(folderId);
+            try {
+              const uids = await client.search({}, { uid: true });
+              if (uids && uids.length > 0) {
+                await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
+                await client.messageDelete(uids, { uid: true });
+              }
+            } finally {
+              lock.release();
+            }
+          })(),
+          3, 'EMPTY_FOLDER', folderId,
+        );
       } catch (err: unknown) {
-        this.logger.debug(`[deleteFolder] Empty folder failed for ${folderId}: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger.debug({
+          msg: '[deleteFolder] Step 3 (EMPTY_FOLDER) failed',
+          folder: folderId,
+          step: 3,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
-      // Step 4: Deselect the folder by selecting INBOX
+      // Step 4: Deselect folder by selecting INBOX (30s timeout)
       try {
-        const inboxLock = await client.getMailboxLock('INBOX');
-        inboxLock.release();
+        await this.withStepTimeout(
+          (async () => {
+            const inboxLock = await client.getMailboxLock('INBOX');
+            inboxLock.release();
+          })(),
+          4, 'DESELECT', folderId,
+        );
       } catch (err: unknown) {
-        this.logger.debug(`[deleteFolder] Deselect via INBOX failed: ${err instanceof Error ? err.message : String(err)}`);
+        this.logger.debug({
+          msg: '[deleteFolder] Step 4 (DESELECT) failed',
+          folder: folderId,
+          step: 4,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       // Small delay for server to process the deselection
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Step 5: Delete the folder with retries
+      // Step 5: Delete the folder with retries (30s timeout per attempt)
       let lastError: Error | null = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          await client.mailboxDelete(folderId);
+          await this.withStepTimeout(client.mailboxDelete(folderId), 5, 'DELETE', folderId);
           this.clearCache();
           return;
         } catch (error: any) {
@@ -176,7 +266,13 @@ export class ImapFolderService {
           const errorMsg = error.message || '';
 
           if (errorMsg.includes('in use') || errorMsg.includes('selected')) {
-            this.logger.warn(`Folder still in use, attempting CLOSE: ${errorMsg}`);
+            this.logger.warn({
+              msg: '[deleteFolder] Step 5 (DELETE) folder still in use',
+              folder: folderId,
+              step: 5,
+              attempt: attempt + 1,
+              error: errorMsg,
+            });
             try {
               await client.noop();
               await new Promise((resolve) => setTimeout(resolve, 500));
@@ -189,7 +285,22 @@ export class ImapFolderService {
             throw new Error(`Cannot delete folder with subfolders: ${folderId}`);
           }
 
-          this.logger.warn(`Folder delete attempt ${attempt + 1} failed: ${errorMsg}`);
+          // T-0904: Handle servers that don't support DELETE
+          if (errorMsg.includes('not supported') || errorMsg.includes('not permitted') || errorMsg.includes('not allowed')) {
+            throw new Error(
+              `Server does not support folder deletion via IMAP: ${folderId}. ` +
+              `This is a known limitation of some email providers. ` +
+              `Use webmail interface to delete folders.`,
+            );
+          }
+
+          this.logger.warn({
+            msg: `[deleteFolder] Step 5 (DELETE) attempt ${attempt + 1} failed`,
+            folder: folderId,
+            step: 5,
+            attempt: attempt + 1,
+            error: errorMsg,
+          });
           await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
         }
       }
@@ -200,7 +311,7 @@ export class ImapFolderService {
           throw new Error(
             `Server does not support folder deletion via IMAP: ${folderId}. ` +
             `This is a known limitation of some email providers. ` +
-            `Use webmail interface to delete folders.`
+            `Use webmail interface to delete folders.`,
           );
         }
         throw new Error(`Failed to delete folder ${folderId} after 3 attempts: ${lastError.message}`);
