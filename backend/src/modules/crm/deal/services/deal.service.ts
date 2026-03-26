@@ -14,6 +14,7 @@ import {
   UpdateDealDto,
   ListDealsQueryDto,
   LinkDealContactDto,
+  LinkDealProductDto,
   ChangeStageDto,
   CreateActivityDto,
   ListActivitiesQueryDto,
@@ -285,6 +286,88 @@ export class DealService {
     }
 
     await this.prisma.dealContact.delete({ where: { id: link.id } });
+    return { deleted: true };
+  }
+
+  // ---- Deal-Product associations ----
+
+  async getProducts(tenantId: string, dealId: string) {
+    await this.findById(tenantId, dealId);
+
+    return this.prisma.dealProduct.findMany({
+      where: { dealId },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            price: true,
+            currency: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async linkProduct(
+    tenantId: string,
+    dealId: string,
+    dto: LinkDealProductDto,
+  ) {
+    await this.findById(tenantId, dealId);
+
+    // Verify product exists in same tenant
+    const product = await this.prisma.crmProduct.findFirst({
+      where: { id: dto.productId, tenantId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException(`Product ${dto.productId} not found`);
+    }
+
+    try {
+      return await this.prisma.dealProduct.create({
+        data: {
+          dealId,
+          productId: dto.productId,
+          quantity: dto.quantity ?? 1,
+          unitPrice: dto.unitPrice,
+          discount: dto.discount ?? 0,
+        },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              price: true,
+              currency: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException('Product is already linked to this deal');
+      }
+      throw error;
+    }
+  }
+
+  async unlinkProduct(tenantId: string, dealId: string, linkId: string) {
+    await this.findById(tenantId, dealId);
+
+    const link = await this.prisma.dealProduct.findFirst({
+      where: { id: linkId, dealId },
+    });
+    if (!link) {
+      throw new NotFoundException('Deal-Product link not found');
+    }
+
+    await this.prisma.dealProduct.delete({ where: { id: linkId } });
     return { deleted: true };
   }
 

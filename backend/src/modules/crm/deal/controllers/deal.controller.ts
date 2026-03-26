@@ -21,6 +21,7 @@ import {
   UpdateDealDto,
   ListDealsQueryDto,
   LinkDealContactDto,
+  LinkDealProductDto,
   ChangeStageDto,
   CreateActivityDto,
   ListActivitiesQueryDto,
@@ -165,6 +166,40 @@ export class DealController {
     @Param('noteId') noteId: string,
   ) {
     return this.dealService.deleteNote(req.user.tenantId, noteId);
+  }
+
+  // ---- Deal-Product associations ----
+
+  @Get(':id/products')
+  @ApiOperation({ summary: 'List products linked to deal' })
+  @ApiResponse({ status: 200, description: 'Linked products returned' })
+  async getProducts(@Req() req: any, @Param('id') id: string) {
+    return this.dealService.getProducts(req.user.tenantId, id);
+  }
+
+  @Post(':id/products')
+  @ApiOperation({ summary: 'Link product to deal' })
+  @ApiResponse({ status: 201, description: 'Product linked' })
+  @ApiResponse({ status: 409, description: 'Product already linked' })
+  async linkProduct(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: LinkDealProductDto,
+  ) {
+    return this.dealService.linkProduct(req.user.tenantId, id, dto);
+  }
+
+  @Delete(':id/products/:linkId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Unlink product from deal' })
+  @ApiResponse({ status: 200, description: 'Product unlinked' })
+  @ApiResponse({ status: 404, description: 'Link not found' })
+  async unlinkProduct(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Param('linkId') linkId: string,
+  ) {
+    return this.dealService.unlinkProduct(req.user.tenantId, id, linkId);
   }
 
   // ---- Deal-Contact associations ----

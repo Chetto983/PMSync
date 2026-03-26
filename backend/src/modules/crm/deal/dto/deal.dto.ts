@@ -194,6 +194,30 @@ export class LinkDealContactDto {
   role?: string;
 }
 
+// ---- Deal-Product Link ----
+
+export class LinkDealProductDto {
+  @IsString()
+  productId!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  quantity?: number = 1;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Type(() => Number)
+  unitPrice!: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Type(() => Number)
+  discount?: number = 0;
+}
+
 // ---- Activities ----
 
 const ACTIVITY_TYPES = ['CALL', 'EMAIL', 'MEETING', 'TASK'] as const;
