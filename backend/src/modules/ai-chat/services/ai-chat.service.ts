@@ -196,10 +196,19 @@ export class AiChatService {
     );
 
     // Phase 108: Load HITL sensitivity preference for dynamic needsApproval
-    const userPrefs = await this.prisma.userPreferences.findUnique({
-      where: { userId },
-      select: { hitlSensitivity: true },
-    });
+    let userPrefs: { hitlSensitivity: string | null } | null = null;
+    try {
+      userPrefs = await this.prisma?.userPreferences.findUnique?.({
+        where: { userId },
+        select: { hitlSensitivity: true },
+      }) ?? null;
+    } catch (error) {
+      this.logger.warn(
+        `[HITL] failed to load sensitivity for userId=${userId}, defaulting to HIGH_ONLY: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
     const sensitivity = userPrefs?.hitlSensitivity ?? 'HIGH_ONLY';
     this.logger.log(`[HITL] sensitivity=${sensitivity} (raw=${userPrefs?.hitlSensitivity ?? 'null'}) userId=${userId}`);
 

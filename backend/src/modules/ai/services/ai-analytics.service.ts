@@ -6,6 +6,7 @@
  * over the existing AiRunLedger data.
  */
 import { Injectable, Logger } from '@nestjs/common';
+import { AiRunStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -46,6 +47,16 @@ export interface AnalyticsResponse {
   modelBreakdown: ModelBreakdownEntry[];
   runTypeBreakdown: RunTypeBreakdownEntry[];
   burnRate: BurnRate;
+}
+
+interface QualityScorableRun {
+  id: string;
+  status: AiRunStatus;
+  runType: string;
+  latencyMs: number;
+  toolCallCount: number;
+  totalTokens: number;
+  hitlRequired: boolean;
 }
 
 // ── Service ─────────────────────────────────────────────────────────
@@ -209,53 +220,84 @@ export class AiAnalyticsService {
 
   /**
    * Score recent un-scored AI runs retroactively.
-   * SUCCESS runs get 1.0 (schema validated), FAILED get 0.0.
-   * Chat runs are skipped (no objective quality signal).
+   * Non-chat SUCCESS runs get 1.0 (schema validated).
+   * FAILED/TIMEOUT runs get 0.0.
+   * SUCCESS chat runs get a heuristic score inferred from runtime signals.
+   *
+   * The chat score is an inference from telemetry, not a user-verified ground truth.
    */
   async scoreRecentRuns(
     tenantId: string,
     limit = 100,
   ): Promise<{ scored: number }> {
-    // Score SUCCESS runs (excluding chat — no objective signal)
-    const successResult = await this.prisma.$executeRaw`
-      UPDATE ai_run_ledger
-      SET "qualityScore" = 1.0,
-          "qualityMethod" = 'schema-completeness'
-      WHERE "tenantId" = ${tenantId}
-        AND "qualityScore" IS NULL
-        AND status = 'SUCCESS'
-        AND "runType" != 'chat'
-        AND id IN (
-          SELECT id FROM ai_run_ledger
-          WHERE "tenantId" = ${tenantId}
-            AND "qualityScore" IS NULL
-            AND status = 'SUCCESS'
-            AND "runType" != 'chat'
-          ORDER BY "createdAt" DESC
-          LIMIT ${limit}
-        )
-    `;
+    const runs = await this.prisma.aiRunLedger.findMany({
+      where: {
+        tenantId,
+        qualityScore: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        status: true,
+        runType: true,
+        latencyMs: true,
+        toolCallCount: true,
+        totalTokens: true,
+        hitlRequired: true,
+      },
+    });
 
-    // Score FAILED runs
-    const failedResult = await this.prisma.$executeRaw`
-      UPDATE ai_run_ledger
-      SET "qualityScore" = 0.0,
-          "qualityMethod" = 'schema-completeness'
-      WHERE "tenantId" = ${tenantId}
-        AND "qualityScore" IS NULL
-        AND status = 'FAILED'
-        AND id IN (
-          SELECT id FROM ai_run_ledger
-          WHERE "tenantId" = ${tenantId}
-            AND "qualityScore" IS NULL
-            AND status = 'FAILED'
-          ORDER BY "createdAt" DESC
-          LIMIT ${limit}
-        )
-    `;
+    for (const run of runs) {
+      const { score, method } = this.scoreRunQuality(run);
+      await this.prisma.aiRunLedger.update({
+        where: { id: run.id },
+        data: {
+          qualityScore: score,
+          qualityMethod: method,
+        },
+      });
+    }
 
-    const scored = successResult + failedResult;
+    const scored = runs.length;
     this.logger.log(`[tenant:${tenantId}] Scored ${scored} AI runs`);
     return { scored };
+  }
+
+  private scoreRunQuality(
+    run: QualityScorableRun,
+  ): { score: number; method: string } {
+    if (run.status !== AiRunStatus.SUCCESS) {
+      return {
+        score: 0,
+        method: 'runtime-outcome-v1',
+      };
+    }
+
+    if (run.runType !== 'chat') {
+      return {
+        score: 1,
+        method: 'schema-completeness',
+      };
+    }
+
+    return {
+      score: this.computeChatQualityScore(run),
+      method: 'runtime-heuristic-v1',
+    };
+  }
+
+  private computeChatQualityScore(run: QualityScorableRun): number {
+    let score = 0.4;
+
+    if (run.toolCallCount > 0) score += 0.25;
+    if (run.hitlRequired) score += 0.1;
+    if (run.totalTokens > 0) score += 0.1;
+
+    if (run.latencyMs <= 4_000) score += 0.2;
+    else if (run.latencyMs <= 8_000) score += 0.1;
+    else if (run.latencyMs <= 15_000) score += 0.05;
+
+    return Number(Math.min(1, Math.max(0, score)).toFixed(2));
   }
 }

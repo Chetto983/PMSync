@@ -5,6 +5,7 @@ import { FirmographicFeatureService } from './firmographic-feature.service';
 import { BehavioralFeatureService } from './behavioral-feature.service';
 import { FeatureStoreService } from './feature-store.service';
 import { LeadFeatureJobService } from './lead-feature-job.service';
+import { LeadScoringService } from './lead-scoring.service';
 
 @Module({
   imports: [PrismaModule],
@@ -14,7 +15,8 @@ import { LeadFeatureJobService } from './lead-feature-job.service';
     BehavioralFeatureService,
     FeatureStoreService,
     LeadFeatureJobService,
+    LeadScoringService,
   ],
-  exports: [FeatureStoreService],
+  exports: [FeatureStoreService, LeadScoringService],
 })
 export class LeadScoringModule {}

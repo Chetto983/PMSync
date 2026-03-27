@@ -5,12 +5,14 @@ import {
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
 import { FeatureStoreService } from './feature-store.service';
+import { LeadScoringService } from './lead-scoring.service';
 
 const BATCH_SIZE = 100;
 
 /**
  * BullMQ scheduled job: iterates all active contacts per tenant,
- * computes features, and persists to the feature store.
+ * computes features, persists to the feature store, then scores
+ * all contacts via LLM.
  * Runs nightly at 3 AM via ScheduledJobsQueueService.
  */
 @Injectable()
@@ -21,6 +23,7 @@ export class LeadFeatureJobService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly scheduledJobs: ScheduledJobsQueueService,
     private readonly featureStore: FeatureStoreService,
+    private readonly leadScoring: LeadScoringService,
   ) {}
 
   onModuleInit() {
@@ -37,21 +40,26 @@ export class LeadFeatureJobService implements OnModuleInit {
     });
 
     let totalProcessed = 0;
+    let totalScored = 0;
 
     for (const tenant of tenants) {
-      const processed = await this.processTenan(tenant.id);
+      const processed = await this.processTenant(tenant.id);
       totalProcessed += processed;
+
+      // Score contacts after features are computed
+      const scored = await this.leadScoring.scoreAllContacts(tenant.id);
+      totalScored += scored;
     }
 
     // Cleanup expired feature records
     const cleaned = await this.featureStore.cleanupExpired();
 
     this.logger.log(
-      `Lead feature compute complete: ${totalProcessed} contacts processed across ${tenants.length} tenants, ${cleaned} expired records cleaned`,
+      `Lead pipeline complete: ${totalProcessed} features computed, ${totalScored} contacts scored, ${cleaned} expired records cleaned`,
     );
   }
 
-  private async processTenan(tenantId: string): Promise<number> {
+  private async processTenant(tenantId: string): Promise<number> {
     let processed = 0;
     let cursor: string | undefined;
 

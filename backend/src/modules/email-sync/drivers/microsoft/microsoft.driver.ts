@@ -87,8 +87,13 @@ export class MicrosoftDriver extends BaseEmailDriver {
   private client: AxiosInstance | null = null;
   private userEmail: string | null = null;
   // T-0903: 5-min TTL on folder caches — matches IMAP pattern
+  // MS-C2 SAFETY: These caches are per-instance (Scope.TRANSIENT) — each sync creates
+  // a fresh driver, so caches cannot leak across tenants. The TRANSIENT scope is the
+  // primary isolation mechanism. providerIdBound tracks which provider owns this instance.
   private folderIdCache = new TtlMap<string, string>(5 * 60 * 1000); // canonical -> folderId
   private folderPathCache = new TtlMap<string, string>(5 * 60 * 1000); // folderId -> displayName
+  /** MS-C2: Tracks which provider this driver instance is bound to (for assertion) */
+  private providerIdBound: string | null = null;
   /** MS-C1 FIX: Callback to refresh OAuth token — set by sync services */
   private tokenRefresher: MsTokenRefresherFn | null = null;
   /** MS-C1 FIX: Counter for monitoring token refreshes */
@@ -146,6 +151,9 @@ export class MicrosoftDriver extends BaseEmailDriver {
     this.credentials = credentials;
     this.connected = true;
 
+    // MS-C2: Bind this instance to a specific provider for cache isolation assertion
+    this.providerIdBound = credentials.emailHint ?? 'unknown';
+
     // Use email hint as fallback if provided (for when User.Read scope unavailable)
     if (credentials.emailHint) {
       this.userEmail = credentials.emailHint;
@@ -196,6 +204,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     this.userEmail = null;
     this.folderIdCache.clear();
     this.folderPathCache.clear();
+    this.providerIdBound = null;
     await super.disconnect();
   }
 

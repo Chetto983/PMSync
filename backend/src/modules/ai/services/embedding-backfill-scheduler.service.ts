@@ -39,6 +39,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
   private readonly ENABLED: boolean;
   private readonly INTERVAL_MS: number;
   private readonly BACKFILL_DAYS: number; // Option C: Limit history
+  private readonly REINDEX_BATCH: number; // Max old-format embeddings to purge per run
 
   constructor(
     private readonly prisma: PrismaService,
@@ -58,6 +59,10 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     );
     this.BACKFILL_DAYS = parseInt(
       this.configService.get<string>('EMBEDDING_BACKFILL_DAYS', '30'), // Default 30 days
+      10,
+    );
+    this.REINDEX_BATCH = parseInt(
+      this.configService.get<string>('EMBEDDING_REINDEX_BATCH', '100'),
       10,
     );
   }
@@ -158,6 +163,9 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
   private async processBackfillJob(job: Job<BackfillJobData>): Promise<BackfillResult> {
     const batchSize = job.data.batchSize ?? this.BATCH_SIZE;
 
+    // Phase S11: Purge old-format embeddings so they become orphans for re-embedding
+    await this.purgeStaleEmbeddings();
+
     // Find orphan emails (emails without embeddings)
     const orphanEmails = await this.findOrphanEmails(batchSize);
 
@@ -194,6 +202,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
           bodyText: email.bodyText || '',
           bodyHtml: email.bodyHtml || '',
           from: email.from || '',
+          to: email.to || [],
           receivedAt: email.receivedAt || new Date(),
         });
 
@@ -258,6 +267,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       bodyText: string | null;
       bodyHtml: string | null;
       from: string | null;
+      to: string[] | null;
       receivedAt: Date | null;
     }>
   > {
@@ -288,6 +298,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
           e."bodyText",
           e."bodyHtml",
           e."from",
+          e."to",
           e."receivedAt"
         FROM "emails" e
         LEFT JOIN "embeddings" emb
@@ -348,6 +359,37 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     );
 
     return Number(result?.[0]?.count ?? BigInt(0));
+  }
+
+  /**
+   * Purge old-format embeddings (missing enriched metadata) so the regular
+   * backfill re-embeds them with From/To/Date headers and chunk overlap.
+   * Detects old format by checking metadata->'to' IS NULL.
+   * Rate-limited to REINDEX_BATCH per run (default 100).
+   */
+  private async purgeStaleEmbeddings(): Promise<void> {
+    try {
+      const result = await this.prisma.$executeRaw(
+        Prisma.sql`
+          DELETE FROM "embeddings"
+          WHERE "id" IN (
+            SELECT "id" FROM "embeddings"
+            WHERE "emailId" IS NOT NULL
+              AND ("metadata"->'to' IS NULL)
+            LIMIT ${this.REINDEX_BATCH}
+          )
+        `,
+      );
+
+      if (result > 0) {
+        this.logger.log(
+          `Purged ${result} old-format embeddings for re-indexing with enriched metadata`,
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to purge stale embeddings: ${message}`);
+    }
   }
 
   private sleep(ms: number): Promise<void> {

@@ -12,12 +12,12 @@
 
 ## Sprint Backlog
 
-- [ ] T-0901 — Modello Prisma `LeadScore` con relazioni a Contact, computed features JSON, score numerico 0-100, timestamps — [2 SP] — 📋 TODO
-- [ ] T-0902 — Feature extraction service: engagement features (email opens, replies, tempo medio risposta, meeting frequency) — [2 SP] — 📋 TODO
-- [ ] T-0903 — Feature extraction service: firmographic features (company size da Account, industry, revenue range, geo) — [2 SP] — 📋 TODO
-- [ ] T-0904 — Feature extraction service: behavioral features (deal stage progression velocity, page visits, form submissions, last contact recency) — [2 SP] — 📋 TODO
-- [ ] T-0905 — Feature store table PostgreSQL (`lead_feature_store`) con indici su `contactId` + `computedAt`, retention policy 90 giorni — [1 SP] — 📋 TODO
-- [ ] T-0906 — BullMQ job `lead-feature-compute` per batch notturno: iterazione su tutti i contatti attivi del tenant, calcolo e persistenza features — [2 SP] — 📋 TODO
+- [x] T-0901 — Modello Prisma `LeadScore` con relazioni a Contact, computed features JSON, score numerico 0-100, timestamps — [2 SP] — ✅ DONE
+- [x] T-0902 — Feature extraction service: engagement features (email opens, replies, tempo medio risposta, meeting frequency) — [2 SP] — ✅ DONE
+- [x] T-0903 — Feature extraction service: firmographic features (company size da Account, industry, revenue range, geo) — [2 SP] — ✅ DONE
+- [x] T-0904 — Feature extraction service: behavioral features (deal stage progression velocity, page visits, form submissions, last contact recency) — [2 SP] — ✅ DONE
+- [x] T-0905 — Feature store table PostgreSQL (`lead_feature_store`) con indici su `contactId` + `computedAt`, retention policy 90 giorni — [1 SP] — ✅ DONE
+- [x] T-0906 — BullMQ job `lead-feature-compute` per batch notturno: iterazione su tutti i contatti attivi del tenant, calcolo e persistenza features — [2 SP] — ✅ DONE
 - [ ] T-0907 — Setup ml.js gradient boosting: configurazione iperparametri, normalizzazione features, split train/test 80/20 — [2 SP] — 📋 TODO
 - [ ] T-0908 — Training pipeline completa: data extraction dal feature store → feature matrix → train modello → salvataggio pesi su disco/DB — [2 SP] — 📋 TODO
 - [ ] T-0909 — Metriche di valutazione modello: precision, recall, F1, AUC-ROC. Log risultati su tabella `ModelEvaluation` — [1 SP] — 📋 TODO

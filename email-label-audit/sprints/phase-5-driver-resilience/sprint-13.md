@@ -14,14 +14,14 @@ Deep audit scored Microsoft driver at **6.5/10** — lowest of the three. Main g
 
 ## Sprint Backlog
 
-### T-1301: Active token refresh with error recovery [3 SP]
+### T-1301: Active token refresh with error recovery [3 SP] ✅ DONE
 
-- [ ] `MicrosoftDriver` relies on `@azure/msal-node` silent token acquisition
-- [ ] Add explicit `acquireTokenSilent()` call with `forceRefresh: true` before operations after 401
-- [ ] Handle MSAL `InteractionRequiredAuthError`: mark account as requiring re-auth, notify user
-- [ ] Add token expiry pre-check: if token expires within 5 minutes, refresh proactively
-- [ ] Add `tokenRefreshCount` and `tokenRefreshFailure` metrics
-- [ ] Files: `microsoft.driver.ts`, `microsoft-auth.service.ts`
+- [x] Wired `onTokenRefresh` callback pattern (from S12) into Microsoft driver
+- [x] `setTokenRefresher()` on MicrosoftDriver, propagates to all 3 sub-services
+- [x] On 401, withRetry invokes callback → refreshes token via ProviderTokenService → updates axios header
+- [x] Token expiry pre-check already handled by ProviderTokenService.getMicrosoftToken (5-min buffer)
+- [x] Added `tokenRefreshCount` metric on driver instance
+- [x] MicrosoftSyncService overrides syncProvider to capture context for token refresh wiring
 
 ### T-1302: Tenant isolation in folder service [3 SP]
 

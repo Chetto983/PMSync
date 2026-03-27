@@ -36,6 +36,11 @@ import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 describe('AiChatService ledger wiring', () => {
   let mockLedger: { recordRun: ReturnType<typeof vi.fn> };
   let aiChatService: AiChatService;
+  let mockPrisma: {
+    userPreferences: {
+      findUnique: ReturnType<typeof vi.fn>;
+    };
+  };
   let mockConversationService: {
     getOrCreateConversation: ReturnType<typeof vi.fn>;
     saveUserMessage: ReturnType<typeof vi.fn>;
@@ -52,6 +57,11 @@ describe('AiChatService ledger wiring', () => {
     capturedOnFinish = null;
     capturedOnStepFinish = null;
     mockLedger = { recordRun: vi.fn().mockResolvedValue(undefined) };
+    mockPrisma = {
+      userPreferences: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
 
     // Build AiChatService with minimal mocks
     const mockMistralProvider = { getChatModel: vi.fn(() => 'mock-model'), getChatModelName: vi.fn(() => 'mistral-small-latest') };
@@ -67,7 +77,10 @@ describe('AiChatService ledger wiring', () => {
       updateConversationSummary: vi.fn().mockResolvedValue(undefined),
     };
     const mockPiiDetection = { detect: vi.fn(() => ({ hasPii: false, redactedText: 'test' })) };
-    const mockPiiResolution = {};
+    const mockPiiResolution = {
+      resolveText: vi.fn().mockImplementation(async (_tenantId: string, _conversationId: string, text: string) => text),
+      resolvePayload: vi.fn().mockImplementation(async (_tenantId: string, _conversationId: string, payload: Record<string, unknown>) => payload),
+    };
     const mockAudit = { logAudit: vi.fn().mockResolvedValue(undefined), logToolExecution: vi.fn().mockResolvedValue(undefined) };
     const mockRateLimiter = { checkRateLimit: vi.fn().mockResolvedValue({ allowed: true }) };
     const mockEmailTools = { getTools: vi.fn(() => ({})) };
@@ -90,7 +103,7 @@ describe('AiChatService ledger wiring', () => {
     const mockUsageTracking = { trackUsage: vi.fn().mockResolvedValue(undefined) };
 
     aiChatService = new AiChatService(
-      null as any, // PrismaService (Phase 108)
+      mockPrisma as any,
       mockMistralProvider as any,
       mockConversationService as any,
       mockPiiDetection as any,
@@ -125,6 +138,7 @@ describe('AiChatService ledger wiring', () => {
     (mockConversationService.saveAssistantMessage as any).mockResolvedValue(undefined);
     (mockConversationService.saveToolMessagesBatch as any).mockResolvedValue(undefined);
     (mockConversationService.getMessageCount as any).mockResolvedValue(5);
+    (mockPrisma.userPreferences.findUnique as any).mockResolvedValue(null);
     (mockPiiDetection.detect as any).mockReturnValue({ hasPii: false, redactedText: 'test' });
     (mockRateLimiter.checkRateLimit as any).mockResolvedValue({ allowed: true });
     (mockAudit.logAudit as any).mockResolvedValue(undefined);
