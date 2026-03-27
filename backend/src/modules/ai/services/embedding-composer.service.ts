@@ -96,6 +96,13 @@ export class EmbeddingComposerService {
    */
   private readonly maxCharsPerChunk: number;
 
+  /**
+   * Overlap percentage between consecutive chunks (0-50).
+   * Configurable via AI_EMBEDDING_CHUNK_OVERLAP env var (default: 20).
+   * Higher overlap preserves more context at chunk boundaries.
+   */
+  private readonly overlapPercent: number;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -103,6 +110,8 @@ export class EmbeddingComposerService {
     private readonly piiDetectionService?: PiiDetectionService,
   ) {
     this.maxCharsPerChunk = this.configService.get<number>('AI_EMBEDDING_CHUNK_SIZE', 6000);
+    const rawOverlap = this.configService.get<number>('AI_EMBEDDING_CHUNK_OVERLAP', 20);
+    this.overlapPercent = Math.max(0, Math.min(50, rawOverlap));
   }
 
   // ============================================================================
@@ -336,8 +345,11 @@ export class EmbeddingComposerService {
   // ============================================================================
 
   /**
-   * Chunk content for embedding at sentence boundaries.
-   * Uses configurable max chars with 50% overlap at sentence boundaries.
+   * Chunk content for embedding at sentence boundaries with configurable overlap.
+   *
+   * Overlap ensures context is not lost at chunk boundaries. After slicing a chunk
+   * at `end`, the next chunk starts at `end - overlapChars`, snapped back to the
+   * nearest newline so overlap begins at a sentence boundary.
    *
    * @param content - Content to chunk
    * @returns Array of chunks with index
@@ -349,6 +361,7 @@ export class EmbeddingComposerService {
       return [{ content, index: 0 }];
     }
 
+    const overlapChars = Math.floor(maxChars * (this.overlapPercent / 100));
     const chunks: ChunkResult[] = [];
     let start = 0;
     let index = 0;
@@ -359,7 +372,6 @@ export class EmbeddingComposerService {
       // Try to break at sentence boundary (newline) if not at end
       if (end < content.length) {
         const lastBreak = content.lastIndexOf('\n', end);
-        // Only use sentence break if it's in the latter half (0.5 overlap)
         if (lastBreak > start + maxChars * 0.5) {
           end = lastBreak;
         }
@@ -371,7 +383,21 @@ export class EmbeddingComposerService {
         index += 1;
       }
 
-      start = end;
+      // Advance with overlap: next chunk starts overlapChars before end
+      if (end >= content.length) break;
+
+      let nextStart = end - overlapChars;
+      if (nextStart <= start) {
+        // Overlap too large relative to chunk — just advance without overlap
+        nextStart = end;
+      } else if (overlapChars > 0) {
+        // Snap overlap start back to nearest newline (sentence boundary)
+        const prevNewline = content.lastIndexOf('\n', nextStart);
+        if (prevNewline > start) {
+          nextStart = prevNewline + 1;
+        }
+      }
+      start = nextStart;
     }
 
     return chunks;
