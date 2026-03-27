@@ -6,9 +6,11 @@ import { BehavioralFeatureService } from './behavioral-feature.service';
 import { FeatureStoreService } from './feature-store.service';
 import { LeadFeatureJobService } from './lead-feature-job.service';
 import { LeadScoringService } from './lead-scoring.service';
+import { LeadScoreController } from './controllers/lead-score.controller';
 
 @Module({
   imports: [PrismaModule],
+  controllers: [LeadScoreController],
   providers: [
     EngagementFeatureService,
     FirmographicFeatureService,
