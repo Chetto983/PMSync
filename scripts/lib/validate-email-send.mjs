@@ -128,21 +128,51 @@ async function validateSend(context, cookieHeader, csrfToken, provider) {
 // WRITE-04: Reply preserves threading
 // ---------------------------------------------------------------------------
 
-async function validateReply(context, cookieHeader, csrfToken, provider) {
+async function validateReply(context, cookieHeader, csrfToken, provider, sendResult) {
   const label = providerTypeLabel(provider);
   console.log(`\n  --- WRITE-04: Reply preserves thread (${label}) ---`);
 
-  // Find an existing email with messageId and externalId to reply to
-  const emailsRes = await apiGet(
-    context,
-    `/api/v1/emails?providerId=${provider.id}&limit=20`,
-    cookieHeader,
-  );
-  const emails = unwrapEmails(emailsRes);
-  const replyTarget = emails.find(e => e.messageId && e.externalId);
+  // Use the email we just sent (has known messageId) or find one via detail endpoint
+  let replyTarget = null;
+  if (sendResult?.sentEmail?.id) {
+    // Fetch full detail (list select doesn't include messageId)
+    try {
+      const detail = await apiGet(
+        context,
+        `/api/v1/emails/${sendResult.sentEmail.id}`,
+        cookieHeader,
+      );
+      replyTarget = detail?.data ?? detail;
+    } catch {
+      console.log(`  WARN: Could not fetch detail for sent email ${sendResult.sentEmail.id}`);
+    }
+  }
 
-  if (!replyTarget) {
-    console.log(`  SKIP: No suitable email found for reply test (${label})`);
+  // Fallback: pick any email with externalId and get its detail
+  if (!replyTarget?.messageId) {
+    const emailsRes = await apiGet(
+      context,
+      `/api/v1/emails?providerId=${provider.id}&limit=20`,
+      cookieHeader,
+    );
+    const emails = unwrapEmails(emailsRes);
+    const candidate = emails.find(e => e.externalId);
+    if (candidate) {
+      try {
+        const detail = await apiGet(
+          context,
+          `/api/v1/emails/${candidate.id}`,
+          cookieHeader,
+        );
+        replyTarget = detail?.data ?? detail;
+      } catch {
+        console.log(`  WARN: Could not fetch email detail for ${candidate.id}`);
+      }
+    }
+  }
+
+  if (!replyTarget?.messageId) {
+    console.log(`  SKIP: No suitable email with messageId found for reply test (${label})`);
     return;
   }
 
@@ -299,8 +329,9 @@ export async function validateEmailSend(context, cookieHeader, csrfToken, opts =
     console.log(`\n=== Provider: ${label} (${provider.email}) ===`);
 
     // WRITE-01/02/03: Send
+    let sendResult = null;
     try {
-      await validateSend(context, cookieHeader, csrfToken, provider);
+      sendResult = await validateSend(context, cookieHeader, csrfToken, provider);
     } catch (err) {
       console.log(`  ERROR: Send failed for ${label}: ${err.message}`);
       results.checks++;
@@ -310,7 +341,7 @@ export async function validateEmailSend(context, cookieHeader, csrfToken, opts =
 
     // WRITE-04: Reply
     try {
-      await validateReply(context, cookieHeader, csrfToken, provider);
+      await validateReply(context, cookieHeader, csrfToken, provider, sendResult);
     } catch (err) {
       console.log(`  ERROR: Reply failed for ${label}: ${err.message}`);
       results.checks++;
