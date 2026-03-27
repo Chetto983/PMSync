@@ -471,33 +471,21 @@ export class GmailMessageService {
   /**
    * Get attachment content by ID
    *
-   * MEMORY AUDIT FIX (2025-01-05):
-   * - Added MAX_ATTACHMENT_SIZE limit (50MB) to prevent OOM
-   * - Added size validation before processing
+   * G-H1 FIX: Validates attachment size BEFORE downloading content.
+   * Step 1: Fetch message metadata (lightweight) to get attachment size
+   * Step 2: Reject if too large (25MB Gmail limit or 5MB inline limit)
+   * Step 3: Only then download actual attachment data
    */
   async getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
     this.ensureInitialized();
     this.validateMessageId(messageId);
 
-    // MEMORY FIX: Add size limit constant
-    const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
+    const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024; // 25MB (Gmail limit)
+    const MAX_INLINE_SIZE = parseInt(
+      process.env.GMAIL_MAX_INLINE_SIZE_MB || '5', 10,
+    ) * 1024 * 1024;
 
-    const response = await this.executeWithRetry(
-      () => this.gmail!.users.messages.attachments.get({
-        userId: 'me',
-        messageId,
-        id: attachmentId,
-      }),
-      'getAttachment',
-    );
-
-    // MEMORY FIX: Check attachment size before processing
-    const attachmentSize = response.data.size || 0;
-    if (attachmentSize > MAX_ATTACHMENT_SIZE) {
-      throw new Error(`Attachment exceeds maximum size limit (${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB)`);
-    }
-
-    // Get message to find attachment metadata
+    // G-H1 FIX: Fetch message metadata FIRST to check size before download
     const message = await this.executeWithRetry(
       () => this.gmail!.users.messages.get({
         userId: 'me',
@@ -509,15 +497,65 @@ export class GmailMessageService {
 
     const attachmentMeta = this.findAttachmentMeta(message.data, attachmentId);
 
+    // G-H1 FIX: Check size from metadata before downloading content
+    // Gmail message parts include body.size for each attachment part
+    const metadataSize = this.getAttachmentSizeFromMessage(message.data, attachmentId);
+    if (metadataSize > MAX_ATTACHMENT_SIZE) {
+      throw new Error(
+        `Attachment ${attachmentId} exceeds ${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB limit ` +
+        `(${Math.round(metadataSize / 1024 / 1024)}MB) — download skipped`,
+      );
+    }
+
+    // G-H1 FIX: Early exit for oversized inline images
+    if (attachmentMeta?.isInline && metadataSize > MAX_INLINE_SIZE) {
+      throw new Error(
+        `Inline image ${attachmentId} exceeds ${MAX_INLINE_SIZE / 1024 / 1024}MB limit — download skipped`,
+      );
+    }
+
+    // Size validated — now download actual content
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.messages.attachments.get({
+        userId: 'me',
+        messageId,
+        id: attachmentId,
+      }),
+      'getAttachment',
+    );
+
     return {
       id: attachmentId,
       filename: attachmentMeta?.filename || 'attachment',
       mimeType: attachmentMeta?.mimeType || 'application/octet-stream',
-      size: attachmentSize,
+      size: response.data.size || metadataSize,
       isInline: attachmentMeta?.isInline || false,
       contentId: attachmentMeta?.contentId,
       content: response.data.data ? this.normalizeBase64Url(response.data.data) : '',
     };
+  }
+
+  /**
+   * G-H1 FIX: Extract attachment size from message metadata without downloading.
+   * Walks the MIME part tree to find the part with matching attachmentId.
+   */
+  private getAttachmentSizeFromMessage(
+    message: gmail_v1.Schema$Message,
+    attachmentId: string,
+  ): number {
+    const findSize = (part: gmail_v1.Schema$MessagePart): number => {
+      if (part.body?.attachmentId === attachmentId) {
+        return part.body.size || 0;
+      }
+      if (part.parts) {
+        for (const p of part.parts) {
+          const size = findSize(p);
+          if (size > 0) return size;
+        }
+      }
+      return 0;
+    };
+    return message.payload ? findSize(message.payload) : 0;
   }
 
   // ============================================

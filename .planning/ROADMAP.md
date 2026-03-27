@@ -125,7 +125,7 @@
 - [x] **Phase 114: Sync-back Operations** - Verify local state changes propagate back to all three providers (completed 2026-03-26)
 - [ ] **Phase 115: Email List & Thread Reading** - Verify list filtering, pagination, thread grouping, and single email retrieval
 - [x] **Phase 116: Attachments & Search** - Verify attachment download (S3 + on-demand), folder stats, and full-text search (completed 2026-03-26)
-- [ ] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers
+- [ ] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers (gap closure in progress)
 - [ ] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations
 - [ ] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection
 - [ ] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle
@@ -218,10 +218,11 @@ Plans:
   3. A new email sent via IMAP/SMTP is delivered to the recipient and appears in the SMTP Sent folder
   4. Reply adds correct In-Reply-To and References headers and the thread is preserved on the provider
   5. Forward includes the original message body and all original attachments
-**Plans**: 2 plans
+**Plans**: 3 plans
 Plans:
 - [x] 117-01-PLAN.md -- Fix forward-attachments bug + validation scripts (WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05)
-- [ ] 117-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05)
+- [x] 117-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05)
+- [ ] 117-03-PLAN.md -- Gap closure: fix Outlook reply messageId bug + document IMAP infrastructure blocker (WRITE-03, WRITE-04)
 
 ### Phase 118: Drafts & Bulk Operations
 **Goal**: Users can manage drafts and perform bulk operations that sync back to providers
@@ -290,7 +291,7 @@ Plans:
 | 114. Sync-back Operations | 2/2 | Complete    | 2026-03-26 |
 | 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
-| 117. Email Send & Reply/Forward | 1/2 | In Progress|  |
+| 117. Email Send & Reply/Forward | 2/3 | Gap closure   | - |
 | 118. Drafts & Bulk Operations | 0/? | Not started | - |
 | 119. Folder Operations | 0/? | Not started | - |
 | 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
