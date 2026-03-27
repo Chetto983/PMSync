@@ -20,7 +20,7 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
-import { Plus, Settings, Trash2, GitBranch } from 'lucide-react';
+import { Plus, Settings, Trash2, GitBranch, BarChart3 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
@@ -64,6 +64,11 @@ export function PipelinesList() {
   const handleOpenSettings = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     router.push(`/dashboard/crm/pipelines/${id}/settings`);
+  }, [router]);
+
+  const handleOpenDashboard = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    router.push(`/dashboard/crm/pipelines/${id}/dashboard`);
   }, [router]);
 
   // Loading state
@@ -139,6 +144,7 @@ export function PipelinesList() {
               <PipelineCard
                 pipeline={pipeline}
                 tp={tp}
+                onDashboard={(e) => handleOpenDashboard(e, pipeline.id)}
                 onSettings={(e) => handleOpenSettings(e, pipeline.id)}
                 onDelete={(e) => handleDeleteClick(e, pipeline.id)}
               />
@@ -176,11 +182,12 @@ export function PipelinesList() {
 interface PipelineCardProps {
   pipeline: CrmPipeline;
   tp: ReturnType<typeof useTranslations>['crmPipelines'];
+  onDashboard: (e: React.MouseEvent) => void;
   onSettings: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
 }
 
-const PipelineCard = memo(function PipelineCard({ pipeline, tp, onSettings, onDelete }: PipelineCardProps) {
+const PipelineCard = memo(function PipelineCard({ pipeline, tp, onDashboard, onSettings, onDelete }: PipelineCardProps) {
   const router = useRouter();
 
   return (
@@ -195,6 +202,11 @@ const PipelineCard = memo(function PipelineCard({ pipeline, tp, onSettings, onDe
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+              <Tooltip title={tp?.breadcrumb?.dashboard ?? 'Dashboard'}>
+                <IconButton size="small" onClick={onDashboard} aria-label={tp?.breadcrumb?.dashboard ?? 'Dashboard'} sx={{ minWidth: 44, minHeight: 44 }}>
+                  <BarChart3 size={16} />
+                </IconButton>
+              </Tooltip>
               <Tooltip title={tp?.settings?.title ?? 'Settings'}>
                 <IconButton size="small" onClick={onSettings} aria-label={tp?.settings?.title ?? 'Settings'} sx={{ minWidth: 44, minHeight: 44 }}>
                   <Settings size={16} />
