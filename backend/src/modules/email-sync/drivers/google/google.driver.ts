@@ -34,12 +34,25 @@ import { GmailSyncService } from './services/gmail-sync.service';
  *
  * Follows IMAP driver pattern exactly.
  */
+/**
+ * Token refresher callback type.
+ * Returns a fresh access token. The caller (sync service) provides this
+ * using ProviderTokenService which handles distributed locking internally.
+ */
+export type TokenRefresherFn = () => Promise<string>;
+
 @Injectable({ scope: Scope.TRANSIENT })
 export class GoogleDriver extends BaseEmailDriver {
   readonly providerType: ProviderType = 'google';
   private readonly logger = new Logger(GoogleDriver.name);
   private gmail: gmail_v1.Gmail | null = null;
   private userEmail: string | null = null;
+  /** G-C1 FIX: Store oauth2Client for credential updates on token refresh */
+  private oauth2Client: InstanceType<typeof google.auth.OAuth2> | null = null;
+  /** G-C1 FIX: Callback to refresh OAuth token — set by sync services */
+  private tokenRefresher: TokenRefresherFn | null = null;
+  /** G-C1 FIX: Counter for monitoring token refreshes */
+  private tokenRefreshCount = 0;
 
   constructor(
     private readonly messageService: GmailMessageService,
@@ -54,6 +67,22 @@ export class GoogleDriver extends BaseEmailDriver {
     return true;
   }
 
+  /**
+   * G-C1 FIX: Set token refresher callback for mid-operation 401 recovery.
+   * The callback should return a fresh access token. Called by sync services
+   * after driver creation, using ProviderTokenService internally.
+   * Propagates to all sub-services so their executeWithRetry also handles 401.
+   */
+  setTokenRefresher(refresher: TokenRefresherFn): void {
+    this.tokenRefresher = refresher;
+    this.propagateTokenRefreshCallback();
+  }
+
+  /** G-C1 FIX: Get the number of token refreshes performed by this driver instance */
+  getTokenRefreshCount(): number {
+    return this.tokenRefreshCount;
+  }
+
   // === Connection Lifecycle ===
   async connect(credentials: DriverCredentials): Promise<void> {
     if (!credentials.accessToken) {
@@ -66,6 +95,7 @@ export class GoogleDriver extends BaseEmailDriver {
       refresh_token: credentials.refreshToken,
     });
 
+    this.oauth2Client = oauth2Client;
     this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     this.credentials = credentials;
     this.connected = true;
@@ -74,6 +104,11 @@ export class GoogleDriver extends BaseEmailDriver {
     this.messageService.initialize(this.gmail);
     this.sendService.initialize(this.gmail);
     this.syncService.initialize(this.gmail);
+
+    // G-C1 FIX: Propagate token refresh callback if already set before connect
+    if (this.tokenRefresher) {
+      this.propagateTokenRefreshCallback();
+    }
 
     // Get user email for later use
     // FIX Phase 1.3: Throw on auth errors (401/403) instead of silently continuing
@@ -98,6 +133,7 @@ export class GoogleDriver extends BaseEmailDriver {
     this.sendService.clear();
     this.syncService.clear();
     this.gmail = null;
+    this.oauth2Client = null;
     this.userEmail = null;
     await super.disconnect();
   }
@@ -364,6 +400,31 @@ export class GoogleDriver extends BaseEmailDriver {
     }
   }
 
+  /**
+   * G-C1 FIX: Build and propagate the token refresh callback to sub-services.
+   * The callback refreshes the access token AND updates oauth2Client credentials,
+   * so all sub-services (which share the same gmail/oauth2Client instance) benefit.
+   */
+  private propagateTokenRefreshCallback(): void {
+    if (!this.tokenRefresher) return;
+
+    const refreshCallback = async (): Promise<void> => {
+      const newToken = await this.tokenRefresher!();
+      this.oauth2Client?.setCredentials({
+        access_token: newToken,
+        refresh_token: this.credentials?.refreshToken,
+      });
+      this.tokenRefreshCount++;
+      this.logger.log(
+        `G-C1: Token refreshed mid-operation (total: ${this.tokenRefreshCount})`,
+      );
+    };
+
+    this.messageService.setTokenRefreshCallback(refreshCallback);
+    this.sendService.setTokenRefreshCallback(refreshCallback);
+    this.syncService.setTokenRefreshCallback(refreshCallback);
+  }
+
   // === Private helpers for folder operations ===
   private executeWithRetry<T>(
     operation: () => Promise<T>,
@@ -376,8 +437,25 @@ export class GoogleDriver extends BaseEmailDriver {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.tokenRefreshCallback,
       ...options,
     });
+  }
+
+  /** G-C1 FIX: Lazy-built token refresh callback for this driver's own executeWithRetry */
+  private get tokenRefreshCallback(): (() => Promise<void>) | undefined {
+    if (!this.tokenRefresher) return undefined;
+    return async () => {
+      const newToken = await this.tokenRefresher!();
+      this.oauth2Client?.setCredentials({
+        access_token: newToken,
+        refresh_token: this.credentials?.refreshToken,
+      });
+      this.tokenRefreshCount++;
+      this.logger.log(
+        `G-C1: Token refreshed mid-operation (total: ${this.tokenRefreshCount})`,
+      );
+    };
   }
 
   private labelToCanonicalFolder(label: gmail_v1.Schema$Label): CanonicalFolder {

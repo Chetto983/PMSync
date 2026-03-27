@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ProviderTokenService } from '../provider-token.service';
 import { BaseEmailSyncService } from '../base-email-sync.service';
+import { SyncJobData } from '../../interfaces/sync-job.interface';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { GoogleDriver } from '../../drivers/google/google.driver';
 import { AttachmentMeta } from '../../drivers/interfaces/canonical.types';
@@ -59,12 +60,32 @@ export class GoogleSyncService extends BaseEmailSyncService {
     this.setEventEmitter(eventEmitter);
   }
 
+  // G-C1 FIX: Track current sync context for token refresh wiring
+  private currentSyncProviderId: string | undefined;
+  private currentSyncTenantId: string | undefined;
+
   onModuleInit() {
     super.onModuleInit(); // Load base configuration
 
     // Gmail-specific configuration overrides
     this.batchSize = this.config.get<number>('GMAIL_BATCH_GET_SIZE', 100);
     this.fullSyncMaxMessages = this.config.get<number>('GMAIL_FULL_MAX_MESSAGES', 2500);
+  }
+
+  /**
+   * G-C1 FIX: Override syncProvider to capture providerId/tenantId for token refresh wiring.
+   * These are stored as instance state so createDriver (called multiple times during sync,
+   * including mid-sync CRIT-3 driver swaps) can wire the refresher.
+   */
+  async syncProvider(jobData: SyncJobData) {
+    this.currentSyncProviderId = jobData.providerId;
+    this.currentSyncTenantId = jobData.tenantId;
+    try {
+      return await super.syncProvider(jobData);
+    } finally {
+      this.currentSyncProviderId = undefined;
+      this.currentSyncTenantId = undefined;
+    }
   }
 
   // ============================================
@@ -97,9 +118,26 @@ export class GoogleSyncService extends BaseEmailSyncService {
 
   /**
    * Create and connect Google driver
+   * G-C1 FIX: Sets token refresher for mid-operation 401 recovery.
+   * The refresher uses ProviderTokenService (distributed-locked) to get a fresh token.
    */
   protected async createDriver(driverType: string, credentials: any): Promise<IEmailDriver> {
-    return this.driverFactory.createConnectedDriver(driverType as any, credentials);
+    const driver = await this.driverFactory.createConnectedDriver(driverType as any, credentials);
+
+    // G-C1 FIX: Wire token refresher so driver can recover from 401 mid-operation
+    if (driver instanceof GoogleDriver && this.currentSyncProviderId) {
+      const providerId = this.currentSyncProviderId;
+      const tenantId = this.currentSyncTenantId;
+      driver.setTokenRefresher(async () => {
+        const { accessToken } = await this.providerTokenService.getProviderWithToken(
+          providerId,
+          tenantId,
+        );
+        return accessToken;
+      });
+    }
+
+    return driver;
   }
 
   /**

@@ -20,6 +20,8 @@ import { withRetry, RetryOptions } from '../../../../../common/utils';
 export class GmailSyncService {
   private readonly logger = new Logger(GmailSyncService.name);
   private gmail: gmail_v1.Gmail | null = null;
+  /** G-C1 FIX: Token refresh callback — propagated from GoogleDriver */
+  private onTokenRefresh?: () => Promise<void>;
 
   /**
    * Initialize the sync service with Gmail API client
@@ -28,11 +30,17 @@ export class GmailSyncService {
     this.gmail = gmail;
   }
 
+  /** G-C1 FIX: Set token refresh callback for mid-operation 401 recovery */
+  setTokenRefreshCallback(callback: () => Promise<void>): void {
+    this.onTokenRefresh = callback;
+  }
+
   /**
    * Clear the Gmail API client (on disconnect)
    */
   clear(): void {
     this.gmail = null;
+    this.onTokenRefresh = undefined;
   }
 
   /**
@@ -291,6 +299,7 @@ export class GmailSyncService {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.onTokenRefresh,
       ...options,
     });
   }

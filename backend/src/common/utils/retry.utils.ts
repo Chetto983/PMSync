@@ -40,9 +40,16 @@ export interface RetryOptions {
   provider?: 'google' | 'microsoft' | 'imap' | 'mistral';
   /** Use circuit breaker (default: true) */
   useCircuitBreaker?: boolean;
+  /**
+   * G-C1 FIX: Callback invoked on 401 auth errors before retry.
+   * When set, 401 errors become retryable (once) — the callback should
+   * refresh the OAuth token so the retried operation uses fresh credentials.
+   * Called at most once per withRetry invocation to prevent refresh loops.
+   */
+  onTokenRefresh?: () => Promise<void>;
 }
 
-const DEFAULT_OPTIONS: Required<Omit<RetryOptions, 'logger' | 'operationName' | 'provider'>> = {
+const DEFAULT_OPTIONS: Required<Omit<RetryOptions, 'logger' | 'operationName' | 'provider' | 'onTokenRefresh'>> = {
   maxRetries: 3,
   initialDelayMs: 1000,
   maxDelayMs: 30000,
@@ -88,6 +95,9 @@ export async function withRetry<T>(
   }
 
   let lastError: unknown;
+  // G-C1 FIX: Track whether we've already attempted a token refresh
+  // to prevent infinite refresh loops (at most one refresh per withRetry call)
+  let tokenRefreshAttempted = false;
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
     try {
@@ -99,9 +109,38 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error;
 
+      const httpStatus = getHttpStatus(error);
+
       // Mark 401 errors for token refresh
-      if (getHttpStatus(error) === 401) {
+      if (httpStatus === 401) {
         (error as any).requiresTokenRefresh = true;
+      }
+
+      // G-C1 FIX: On 401, invoke onTokenRefresh callback and allow retry
+      // This handles token expiry mid-operation — the callback refreshes
+      // the OAuth credentials so the next attempt uses a valid token.
+      if (
+        httpStatus === 401 &&
+        opts.onTokenRefresh &&
+        !tokenRefreshAttempted &&
+        attempt < opts.maxRetries
+      ) {
+        tokenRefreshAttempted = true;
+        try {
+          logger.warn(
+            `${opName}: 401 auth error — refreshing token before retry (attempt ${attempt + 1}/${opts.maxRetries + 1})`,
+          );
+          await opts.onTokenRefresh();
+          // Short delay before retry to allow token propagation
+          await sleep(500);
+          continue; // Skip delay calculation, retry immediately
+        } catch (refreshError) {
+          logger.error(
+            `${opName}: Token refresh failed — ${getErrorMessage(refreshError)}`,
+          );
+          // Token refresh failed — throw original 401 error
+          throw error;
+        }
       }
 
       // Check if we should retry

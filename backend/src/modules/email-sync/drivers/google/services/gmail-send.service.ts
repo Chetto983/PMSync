@@ -16,13 +16,21 @@ import { MimeBuilder, withRetry, RetryOptions } from '../../../../../common/util
 export class GmailSendService {
   private readonly logger = new Logger(GmailSendService.name);
   private gmail: gmail_v1.Gmail | null = null;
+  /** G-C1 FIX: Token refresh callback — propagated from GoogleDriver */
+  private onTokenRefresh?: () => Promise<void>;
 
   initialize(gmail: gmail_v1.Gmail): void {
     this.gmail = gmail;
   }
 
+  /** G-C1 FIX: Set token refresh callback for mid-operation 401 recovery */
+  setTokenRefreshCallback(callback: () => Promise<void>): void {
+    this.onTokenRefresh = callback;
+  }
+
   clear(): void {
     this.gmail = null;
+    this.onTokenRefresh = undefined;
   }
 
   private ensureInitialized(): void {
@@ -304,6 +312,7 @@ export class GmailSendService {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.onTokenRefresh,
       ...options,
     });
   }

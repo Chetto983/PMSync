@@ -27,6 +27,8 @@ export class GmailMessageService {
 
   // State will be set by facade during connect()
   private gmail: gmail_v1.Gmail | null = null;
+  /** G-C1 FIX: Token refresh callback — propagated from GoogleDriver */
+  private onTokenRefresh?: () => Promise<void>;
 
   /**
    * Initialize service with Gmail API client
@@ -36,11 +38,17 @@ export class GmailMessageService {
     this.gmail = gmail;
   }
 
+  /** G-C1 FIX: Set token refresh callback for mid-operation 401 recovery */
+  setTokenRefreshCallback(callback: () => Promise<void>): void {
+    this.onTokenRefresh = callback;
+  }
+
   /**
    * Clear service state on disconnect
    */
   clear(): void {
     this.gmail = null;
+    this.onTokenRefresh = undefined;
   }
 
   /**
@@ -58,6 +66,7 @@ export class GmailMessageService {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.onTokenRefresh,
       ...options,
     });
   }
