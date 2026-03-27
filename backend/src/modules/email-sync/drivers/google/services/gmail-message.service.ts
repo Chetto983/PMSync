@@ -87,6 +87,9 @@ export class GmailMessageService {
   async listMessages(options: ListMessagesOptions): Promise<ListMessagesResult> {
     this.ensureInitialized();
 
+    // G-C4: Validate pagination token before passing to API
+    this.validatePageToken(options.pageToken);
+
     const labelId = this.canonicalToGmailLabel(options.folder);
     let query = this.buildSearchQuery(options);
 
@@ -138,6 +141,7 @@ export class GmailMessageService {
     options?: GetMessageOptions,
   ): Promise<CanonicalMessage | null> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
 
     try {
       // AI REQUIREMENT: Default to full format for embeddings
@@ -172,6 +176,7 @@ export class GmailMessageService {
 
   async getMessageRaw(messageId: string): Promise<string> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
 
     const response = await this.executeWithRetry(
       () => this.gmail!.users.messages.get({
@@ -372,6 +377,7 @@ export class GmailMessageService {
 
   async setReadStatus(messageId: string, isRead: boolean): Promise<void> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
 
     await this.executeWithRetry(
       () => this.gmail!.users.messages.modify({
@@ -388,6 +394,7 @@ export class GmailMessageService {
 
   async setStarredStatus(messageId: string, isStarred: boolean): Promise<void> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
 
     await this.executeWithRetry(
       () => this.gmail!.users.messages.modify({
@@ -404,6 +411,7 @@ export class GmailMessageService {
 
   async setFlaggedStatus(messageId: string, isFlagged: boolean): Promise<void> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
 
     await this.executeWithRetry(
       () => this.gmail!.users.messages.modify({
@@ -424,6 +432,8 @@ export class GmailMessageService {
 
   async addLabels(messageId: string, labels: string[]): Promise<void> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
+    labels.forEach((l) => this.validateLabelId(l));
 
     await this.executeWithRetry(
       () => this.gmail!.users.messages.modify({
@@ -439,6 +449,8 @@ export class GmailMessageService {
 
   async removeLabels(messageId: string, labels: string[]): Promise<void> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
+    labels.forEach((l) => this.validateLabelId(l));
 
     await this.executeWithRetry(
       () => this.gmail!.users.messages.modify({
@@ -465,6 +477,7 @@ export class GmailMessageService {
    */
   async getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
     this.ensureInitialized();
+    this.validateMessageId(messageId);
 
     // MEMORY FIX: Add size limit constant
     const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
@@ -671,11 +684,69 @@ export class GmailMessageService {
     return addresses.split(',').map((addr) => this.parseEmailAddress(addr.trim()));
   }
 
+  // ============================================
+  // G-C4 FIX: Input validation helpers
+  // ============================================
+
+  /** G-C4: Validate pageToken — base64-encoded, max 500 chars */
+  private validatePageToken(token: string | undefined): void {
+    if (!token) return;
+    if (token.length > 500) {
+      throw new Error(`Invalid pageToken: exceeds 500 character limit (got ${token.length})`);
+    }
+    // Gmail page tokens are base64url-encoded strings
+    if (!/^[A-Za-z0-9_\-=:]+$/.test(token)) {
+      throw new Error('Invalid pageToken: contains disallowed characters');
+    }
+  }
+
+  /** G-C4: Validate Gmail messageId — hex string */
+  private validateMessageId(messageId: string): void {
+    if (!messageId || typeof messageId !== 'string') {
+      throw new Error('messageId is required');
+    }
+    // Gmail message IDs are hex strings (typically 16 chars)
+    if (!/^[a-f0-9]+$/i.test(messageId)) {
+      throw new Error(`Invalid messageId format: "${messageId}" — expected hex string`);
+    }
+  }
+
+  /** G-C4: Validate Gmail labelId — system labels are uppercase, custom are Label_* */
+  private validateLabelId(labelId: string): void {
+    if (!labelId || typeof labelId !== 'string') {
+      throw new Error('labelId is required');
+    }
+    // System labels: INBOX, SENT, DRAFT, TRASH, SPAM, STARRED, IMPORTANT, UNREAD, CATEGORY_*
+    // Custom labels: Label_[a-zA-Z0-9]+
+    const isSystemLabel = /^[A-Z][A-Z_]*$/.test(labelId);
+    const isCustomLabel = /^Label_[a-zA-Z0-9]+$/.test(labelId);
+    if (!isSystemLabel && !isCustomLabel) {
+      throw new Error(`Invalid labelId format: "${labelId}"`);
+    }
+  }
+
+  /**
+   * G-C4/G-H6: Sanitize user search query to prevent Gmail operator injection.
+   * Wraps user input in quotes to prevent operators like `in:`, `from:`, `label:` from
+   * being interpreted as Gmail search commands.
+   */
+  private sanitizeUserQuery(query: string): string {
+    // If query already contains Gmail operators, wrap entire query in quotes
+    // to treat it as literal text search
+    const GMAIL_OPERATORS = /\b(from|to|subject|in|is|has|label|filename|after|before|older|newer|deliveredto|list|cc|bcc|size|larger|smaller|category|rfc822msgid):/i;
+    if (GMAIL_OPERATORS.test(query)) {
+      // Escape existing quotes and wrap
+      return `"${query.replace(/"/g, '')}"`;
+    }
+    return query;
+  }
+
   private buildSearchQuery(options: ListMessagesOptions): string | null {
     const parts: string[] = [];
 
     if (options.query) {
-      parts.push(options.query);
+      // G-C4/G-H6: Sanitize user-provided search queries
+      parts.push(this.sanitizeUserQuery(options.query));
     }
 
     if (options.onlyUnread) {
