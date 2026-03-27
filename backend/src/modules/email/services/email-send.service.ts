@@ -3,6 +3,7 @@ import { ProviderConfig } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { AttachmentStorageService } from './attachment.storage';
+import { StorageService } from './storage.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { EmailSendQueueService } from '../../email-sync/services/email-send-queue.service';
 import { EmailDriverFactory } from '../../email-sync/drivers/driver.factory';
@@ -64,6 +65,7 @@ export class EmailSendService {
     private prisma: PrismaService,
     private crypto: CryptoService,
     private attachmentStorage: AttachmentStorageService,
+    private storage: StorageService,
     private providerTokenService: ProviderTokenService,
     private emailSendQueue: EmailSendQueueService,
     private driverFactory: EmailDriverFactory,
@@ -468,6 +470,7 @@ export class EmailSendService {
   ): Promise<{ success: boolean; messageId: string }> {
     const originalEmail = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId },
+      include: { attachments: true },
     });
 
     if (!originalEmail) {
@@ -508,6 +511,35 @@ ${originalEmail.bodyText || ''}
     `;
     const bodyText = data.bodyText?.trim() || generatedBodyText;
 
+    // Fetch original attachment content from S3 for forwarding
+    const originalAttachments: NonNullable<SendEmailDto['attachments']> = [];
+    if (originalEmail.attachments && originalEmail.attachments.length > 0) {
+      for (const att of originalEmail.attachments) {
+        if (!att.storagePath) {
+          this.logger.warn(`Attachment ${att.filename} has no storagePath, skipping`);
+          continue;
+        }
+        try {
+          const content = await this.storage.getObject(att.storagePath);
+          originalAttachments.push({
+            filename: att.filename,
+            content,
+            contentType: att.mimeType,
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Failed to fetch attachment ${att.filename} (${att.storagePath}) for forward: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+          // Continue forwarding without this attachment rather than failing entirely
+        }
+      }
+    }
+
+    // Merge original + user-provided attachments
+    const mergedAttachments = [...originalAttachments, ...(data.attachments || [])];
+
     return this.sendEmail({
       ...data,
       tenantId,
@@ -516,6 +548,7 @@ ${originalEmail.bodyText || ''}
       subject,
       bodyHtml,
       bodyText,
+      attachments: mergedAttachments.length > 0 ? mergedAttachments : undefined,
     });
   }
 }

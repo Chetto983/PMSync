@@ -49,6 +49,28 @@ export class StorageService {
     return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
   }
 
+  /**
+   * Download object content as Buffer from S3.
+   * Used for re-attaching files in forward operations.
+   */
+  async getObject(key: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+    const response = await this.client.send(command);
+    const stream = response.Body;
+    if (!stream) {
+      throw new Error(`Empty response body for S3 key: ${key}`);
+    }
+    // Convert readable stream to Buffer
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stream as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
+
   async putObject(key: string, body: Buffer, contentType: string): Promise<void> {
     const command = new PutObjectCommand({
       Bucket: this.bucket,
