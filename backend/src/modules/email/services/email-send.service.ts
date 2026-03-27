@@ -209,8 +209,33 @@ export class EmailSendService {
 
       this.logger.log(`Email sent successfully via ${provider.providerType}: ${messageId}`);
 
+      // For Microsoft providers, the driver returns a Graph API ID (e.g. AAMkAGI2...).
+      // We need the RFC 822 internetMessageId for reply threading (In-Reply-To header).
+      let rfcMessageId = messageId;
+      if (providerType === 'microsoft') {
+        try {
+          const sentMessage = await driver.getMessage(messageId);
+          if (sentMessage?.messageId) {
+            rfcMessageId = sentMessage.messageId;
+            this.logger.debug(
+              `Resolved Outlook internetMessageId: ${rfcMessageId} (Graph ID: ${messageId})`,
+            );
+          } else {
+            this.logger.warn(
+              `Could not resolve internetMessageId for Outlook message ${messageId}, using Graph API ID as fallback`,
+            );
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Failed to fetch internetMessageId for Outlook message ${messageId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
+
       // Save to database
-      await this.saveSentEmail(data, messageId, provider.id, uploadedAttachments);
+      await this.saveSentEmail(data, messageId, rfcMessageId, provider.id, uploadedAttachments);
 
       return { success: true, messageId };
     } catch (error) /* istanbul ignore next */ {
@@ -240,7 +265,8 @@ export class EmailSendService {
    */
   private async saveSentEmail(
     data: SendEmailDto,
-    messageId: string,
+    externalId: string,
+    rfcMessageId: string,
     providerId: string,
     uploadedAttachments: {
       storageType: 's3';
@@ -259,9 +285,9 @@ export class EmailSendService {
       data: {
         tenantId: data.tenantId,
         providerId,
-        externalId: messageId,
+        externalId,
         threadId: data.threadId,
-        messageId,
+        messageId: rfcMessageId,
         from: '', // Will be filled in by next sync
         to: data.to,
         cc: data.cc || [],
