@@ -62,6 +62,9 @@ export enum ScheduledJobType {
 
   // Label consistency monitoring (Sprint 08 — T-0804)
   LABEL_CONSISTENCY_CHECK = 'label-consistency-check',
+
+  // CRM Lead Scoring (Sprint 09 — T-0906)
+  LEAD_FEATURE_COMPUTE = 'lead-feature-compute',
 }
 
 /**
@@ -87,6 +90,7 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.TELEGRAM_SLOT_SERA]: '0 18 * * *', // 18:00 daily
   [ScheduledJobType.REMINDER_EMAIL_MONITOR]: '*/5 * * * *', // Every 5 minutes
   [ScheduledJobType.LABEL_CONSISTENCY_CHECK]: '30 2 * * *', // Daily at 2:30 AM
+  [ScheduledJobType.LEAD_FEATURE_COMPUTE]: '0 3 * * *', // Daily at 3 AM
 };
 
 export interface ScheduledJobData {
