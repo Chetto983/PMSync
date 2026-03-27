@@ -284,7 +284,6 @@ export class EmailSendService {
           uploadedAttachments.length > 0
             ? {
                 create: uploadedAttachments.map((att) => ({
-                  tenantId: data.tenantId,
                   filename: att.filename,
                   mimeType: att.mimeType,
                   size: att.size,
