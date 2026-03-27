@@ -103,6 +103,7 @@ export class KnowledgeBaseService {
       tenantId: string;
       subject: string;
       from: string | null;
+      to: string[] | null;
       receivedAt: string | undefined;
       chunkIndex: number;
       chunkCount: number;
@@ -119,7 +120,7 @@ export class KnowledgeBaseService {
       }
 
       const contentResult = await this.composerService.composeEmailEmbeddingContentWithAttachments(
-        { id: options.emailId, subject: options.subject, snippet: options.snippet ?? null, bodyText: options.bodyText ?? null, bodyHtml: options.bodyHtml ?? null },
+        { id: options.emailId, subject: options.subject, snippet: options.snippet ?? null, bodyText: options.bodyText ?? null, bodyHtml: options.bodyHtml ?? null, from: options.from ?? null, to: options.to ?? null, receivedAt: options.receivedAt ?? null },
         options.tenantId,
       );
 
@@ -138,6 +139,7 @@ export class KnowledgeBaseService {
           tenantId: options.tenantId,
           subject: options.subject,
           from: options.from ?? null,
+          to: options.to ?? null,
           receivedAt: receivedAtIso,
           chunkIndex: chunk.index,
           chunkCount: chunks.length,
@@ -180,6 +182,7 @@ export class KnowledgeBaseService {
           emailId: chunkData.emailId,
           subject: chunkData.subject,
           from: chunkData.from,
+          to: chunkData.to,
           receivedAt: chunkData.receivedAt ?? null,
           chunkIndex: chunkData.chunkIndex,
           chunkCount: chunkData.chunkCount,
@@ -224,7 +227,7 @@ export class KnowledgeBaseService {
     }
 
     const contentResult = await this.composerService.composeEmailEmbeddingContentWithAttachments(
-      { id: options.emailId, subject: options.subject, snippet: options.snippet ?? null, bodyText: options.bodyText ?? null, bodyHtml: options.bodyHtml ?? null },
+      { id: options.emailId, subject: options.subject, snippet: options.snippet ?? null, bodyText: options.bodyText ?? null, bodyHtml: options.bodyHtml ?? null, from: options.from ?? null, to: options.to ?? null, receivedAt: options.receivedAt ?? null },
       options.tenantId,
     );
     if (!contentResult.content) return false;
@@ -258,6 +261,7 @@ export class KnowledgeBaseService {
                 emailId: options.emailId,
                 subject: options.subject,
                 from: options.from ?? null,
+                to: options.to ?? null,
                 receivedAt: receivedAtIso ?? null,
                 chunkIndex: chunk.index,
                 chunkCount: chunks.length,
@@ -298,6 +302,7 @@ export class KnowledgeBaseService {
                 emailId: options.emailId,
                 subject: options.subject,
                 from: options.from ?? null,
+                to: options.to ?? null,
                 receivedAt: receivedAtIso ?? null,
                 chunkIndex: chunk.index,
                 chunkCount: chunks.length,
@@ -325,7 +330,7 @@ export class KnowledgeBaseService {
           type: 'email',
           emailId: options.emailId,
           from: options.from ?? null,
-          to: null, // Not available in CreateEmailEmbeddingOptions
+          to: options.to?.join(', ') ?? null,
           subject: options.subject,
           bodySnippet: (options.bodyText || options.bodyHtml || options.snippet || '').slice(0, 500),
         }).catch(err => this.logger.warn(`Entity extraction failed for email ${options.emailId}: ${err.message}`));

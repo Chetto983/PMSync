@@ -30,6 +30,7 @@ export class EmailIndexedEvent {
     public readonly bodyText: string,
     public readonly bodyHtml: string,
     public readonly from: string,
+    public readonly to: string[],
     public readonly receivedAt: Date,
   ) {}
 }

@@ -16,6 +16,9 @@ interface EmailContentInput {
   snippet?: string | null;
   bodyText?: string | null;
   bodyHtml?: string | null;
+  from?: string | null;
+  to?: string[] | null;
+  receivedAt?: Date | string | null;
 }
 
 /**
@@ -141,9 +144,22 @@ export class EmbeddingComposerService {
   composeEmailEmbeddingContent(email: EmailContentInput): string | null {
     const pieces: string[] = [];
 
-    // Subject with Italian prefix (preserved from original)
+    // Structured metadata header for improved entity-based retrieval
+    // e.g. "email from Marco about the contract"
+    if (email.from) {
+      pieces.push(`From: ${email.from}`);
+    }
+    if (email.to && email.to.length > 0) {
+      pieces.push(`To: ${email.to.join(', ')}`);
+    }
+    if (email.receivedAt) {
+      const dateStr = email.receivedAt instanceof Date
+        ? email.receivedAt.toISOString().split('T')[0]
+        : String(email.receivedAt).split('T')[0];
+      pieces.push(`Date: ${dateStr}`);
+    }
     if (email.subject) {
-      pieces.push(`Oggetto: ${email.subject}`);
+      pieces.push(`Subject: ${email.subject}`);
     }
 
     // Priority: bodyHtml > bodyText > snippet
@@ -162,7 +178,7 @@ export class EmbeddingComposerService {
       pieces.push(this.sanitize(email.snippet));
     }
 
-    const combined = pieces.join('\n\n').trim();
+    const combined = pieces.join('\n').trim();
     return combined.length > 0 ? combined : null;
   }
 
@@ -184,13 +200,24 @@ export class EmbeddingComposerService {
   ): Promise<EmailContentResult> {
     const pieces: string[] = [];
 
-    // Subject with Italian prefix
+    // Structured metadata header for improved entity-based retrieval
+    if (email.from) {
+      pieces.push(`From: ${email.from}`);
+    }
+    if (email.to && email.to.length > 0) {
+      pieces.push(`To: ${email.to.join(', ')}`);
+    }
+    if (email.receivedAt) {
+      const dateStr = email.receivedAt instanceof Date
+        ? email.receivedAt.toISOString().split('T')[0]
+        : String(email.receivedAt).split('T')[0];
+      pieces.push(`Date: ${dateStr}`);
+    }
     if (email.subject) {
-      pieces.push(`Oggetto: ${email.subject}`);
+      pieces.push(`Subject: ${email.subject}`);
     }
 
-    // Email body (same as composeEmailEmbeddingContent)
-    // Body content is SANITIZED for GDPR (subject is NOT - preserves search relevance)
+    // Email body — SANITIZED for GDPR (subject is NOT — preserves search relevance)
     if (email.bodyHtml) {
       const extracted = HtmlContentExtractor.extractMainContent(email.bodyHtml);
       if (extracted) pieces.push(this.sanitize(extracted));
@@ -234,7 +261,7 @@ export class EmbeddingComposerService {
       // Continue without attachment metadata (graceful degradation)
     }
 
-    const combined = pieces.join('\n\n').trim();
+    const combined = pieces.join('\n').trim();
     return {
       content: combined.length > 0 ? combined : null,
       hasAttachments,

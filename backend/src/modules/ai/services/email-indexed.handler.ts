@@ -32,6 +32,7 @@ export class EmailIndexedHandler {
         bodyText: event.bodyText,
         bodyHtml: event.bodyHtml,
         from: event.from,
+        to: event.to,
         receivedAt: event.receivedAt,
       });
     } catch (error) {

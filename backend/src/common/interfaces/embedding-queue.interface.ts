@@ -15,6 +15,7 @@ export interface EmailEmbeddingJob {
   bodyText?: string | null;
   bodyHtml?: string | null;
   from?: string | null;
+  to?: string[] | null;
   receivedAt?: string | Date | null;
 }
 
@@ -31,6 +32,7 @@ export interface CreateEmailEmbeddingOptions {
   bodyText?: string | null;
   bodyHtml?: string | null;
   from?: string | null;
+  to?: string[] | null;
   receivedAt?: Date | string | null;
 }
 

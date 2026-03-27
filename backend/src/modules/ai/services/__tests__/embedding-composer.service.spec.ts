@@ -42,7 +42,7 @@ describe('EmbeddingComposerService', () => {
         snippet: 'Snippet content',
       });
 
-      expect(result).toContain('Oggetto: Test Subject');
+      expect(result).toContain('Subject: Test Subject');
       expect(result).toContain('HTML content');
       expect(result).not.toContain('Plain text content');
     });
@@ -81,13 +81,40 @@ describe('EmbeddingComposerService', () => {
       expect(result).toBeNull();
     });
 
-    it('should include Italian subject prefix', () => {
+    it('should include English subject prefix', () => {
       const result = service.composeEmailEmbeddingContent({
         subject: 'Meeting Tomorrow',
         bodyText: 'Let us meet',
       });
 
-      expect(result).toContain('Oggetto: Meeting Tomorrow');
+      expect(result).toContain('Subject: Meeting Tomorrow');
+    });
+
+    it('should include From/To/Date metadata when provided', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: 'Contract Renewal',
+        bodyText: 'Please review the attached contract.',
+        from: 'marco@example.com',
+        to: ['davide@example.com', 'anna@example.com'],
+        receivedAt: new Date('2026-03-25T10:00:00Z'),
+      });
+
+      expect(result).toContain('From: marco@example.com');
+      expect(result).toContain('To: davide@example.com, anna@example.com');
+      expect(result).toContain('Date: 2026-03-25');
+      expect(result).toContain('Subject: Contract Renewal');
+    });
+
+    it('should omit metadata fields when not provided', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: 'Test',
+        bodyText: 'Body',
+      });
+
+      expect(result).not.toContain('From:');
+      expect(result).not.toContain('To:');
+      expect(result).not.toContain('Date:');
+      expect(result).toContain('Subject: Test');
     });
   });
 
@@ -265,7 +292,7 @@ describe('EmbeddingComposerService', () => {
       });
 
       // Subject should be preserved as-is
-      expect(result).toContain('Oggetto: Meeting with john@example.com');
+      expect(result).toContain('Subject: Meeting with john@example.com');
     });
 
     it('should sanitize contact emails and phones', () => {
@@ -341,7 +368,7 @@ describe('EmbeddingComposerService', () => {
         'tenant-1',
       );
 
-      expect(result.content).toContain('Oggetto: Invoice'); // Subject preserved
+      expect(result.content).toContain('Subject: Invoice'); // Subject preserved
       expect(result.content).toContain('[PHONE_REDACTED:');
       expect(result.content).not.toContain('+39-02-1234567');
     });

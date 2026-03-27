@@ -65,6 +65,7 @@ export interface EmailForBackfill {
   bodyText: string | null;
   bodyHtml: string | null;
   from: string | null;
+  to: string[] | null;
   receivedAt: Date | null;
 }
 
@@ -157,6 +158,7 @@ export class EmbeddingBackfillService {
             bodyText: email.bodyText,
             bodyHtml: email.bodyHtml,
             from: email.from,
+            to: email.to,
             receivedAt: email.receivedAt,
           });
           enqueued += 1;
@@ -215,6 +217,7 @@ export class EmbeddingBackfillService {
           e."bodyText",
           e."bodyHtml",
           e."from",
+          e."to",
           e."receivedAt"
         FROM "emails" e
         LEFT JOIN "embeddings" emb
@@ -377,7 +380,7 @@ export class EmbeddingBackfillService {
     const pieces: string[] = [];
 
     if (email.subject) {
-      pieces.push(`Oggetto: ${email.subject}`);
+      pieces.push(`Subject: ${email.subject}`);
     }
 
     // Priority: bodyHtml > bodyText > snippet

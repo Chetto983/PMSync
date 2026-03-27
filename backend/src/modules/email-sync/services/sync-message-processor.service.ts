@@ -405,6 +405,7 @@ export class SyncMessageProcessorService {
               result.bodyText || '',
               result.bodyHtml || '',
               result.from || '',
+              result.to || [],
               result.receivedAt || new Date(),
             ),
           );
@@ -631,6 +632,7 @@ export class SyncMessageProcessorService {
               result.bodyText || '',
               result.bodyHtml || '',
               result.from || '',
+              result.to || [],
               result.receivedAt || new Date(),
             ),
           );

@@ -50,6 +50,7 @@ const makeEvent = () =>
     'body',
     '<p>body</p>',
     'sender@example.com',
+    ['recipient@example.com'],
     new Date(),
   );
 
