@@ -25,23 +25,23 @@ Comprehensive audit of all email and email-sync operations against live provider
 
 ### Email Read
 
-- [ ] **READ-01**: List emails with folder filter returns correct results per provider
-- [ ] **READ-02**: List emails with compound filters (isRead + hasAttachments + dateRange) works
-- [ ] **READ-03**: Pagination returns consistent results across pages
-- [ ] **READ-04**: Thread view groups related emails correctly and lazy-fetches missing bodies
-- [ ] **READ-05**: Single email GET returns full body, headers, and metadata
-- [ ] **READ-06**: Attachment download streams from S3 with correct content-type
-- [ ] **READ-07**: On-demand attachment fetch retrieves from provider when not in S3
-- [ ] **READ-08**: Unread counts and folder stats match actual email state
-- [ ] **READ-09**: Full-text search returns relevant results across providers
+- [x] **READ-01**: List emails with folder filter returns correct results per provider
+- [x] **READ-02**: List emails with compound filters (isRead + hasAttachments + dateRange) works
+- [x] **READ-03**: Pagination returns consistent results across pages
+- [x] **READ-04**: Thread view groups related emails correctly and lazy-fetches missing bodies
+- [x] **READ-05**: Single email GET returns full body, headers, and metadata
+- [x] **READ-06**: Attachment download streams from S3 with correct content-type
+- [x] **READ-07**: On-demand attachment fetch retrieves from provider when not in S3
+- [x] **READ-08**: Unread counts and folder stats match actual email state
+- [x] **READ-09**: Full-text search returns relevant results across providers
 
 ### Email Write
 
-- [ ] **WRITE-01**: Send new email via Gmail delivers to recipient
-- [ ] **WRITE-02**: Send new email via Outlook delivers to recipient
-- [ ] **WRITE-03**: Send new email via IMAP/SMTP delivers to recipient
-- [ ] **WRITE-04**: Reply preserves thread, adds correct headers (In-Reply-To, References)
-- [ ] **WRITE-05**: Forward includes original body and attachments
+- [x] **WRITE-01**: Send new email via Gmail delivers to recipient
+- [x] **WRITE-02**: Send new email via Outlook delivers to recipient
+- [x] **WRITE-03**: Send new email via IMAP/SMTP delivers to recipient
+- [x] **WRITE-04**: Reply preserves thread, adds correct headers (In-Reply-To, References)
+- [x] **WRITE-05**: Forward includes original body and attachments
 - [ ] **WRITE-06**: Draft create/update/retrieve/delete lifecycle works per provider
 - [ ] **WRITE-07**: Bulk mark-read/unread updates DB and triggers sync-back
 - [ ] **WRITE-08**: Bulk move-to-folder updates DB and triggers sync-back
@@ -106,20 +106,20 @@ Comprehensive audit of all email and email-sync operations against live provider
 | SYNC-11 | Phase 114 | Complete |
 | SYNC-12 | Phase 114 | Complete |
 | SYNC-13 | Phase 114 | Complete |
-| READ-01 | Phase 115 | Pending |
-| READ-02 | Phase 115 | Pending |
-| READ-03 | Phase 115 | Pending |
-| READ-04 | Phase 115 | Pending |
-| READ-05 | Phase 115 | Pending |
-| READ-06 | Phase 116 | Pending |
-| READ-07 | Phase 116 | Pending |
-| READ-08 | Phase 116 | Pending |
-| READ-09 | Phase 116 | Pending |
-| WRITE-01 | Phase 117 | Pending |
-| WRITE-02 | Phase 117 | Pending |
-| WRITE-03 | Phase 117 | Pending |
-| WRITE-04 | Phase 117 | Pending |
-| WRITE-05 | Phase 117 | Pending |
+| READ-01 | Phase 115 | Complete |
+| READ-02 | Phase 115 | Complete |
+| READ-03 | Phase 115 | Complete |
+| READ-04 | Phase 115 | Complete |
+| READ-05 | Phase 115 | Complete |
+| READ-06 | Phase 116 | Complete |
+| READ-07 | Phase 116 | Complete |
+| READ-08 | Phase 116 | Complete |
+| READ-09 | Phase 116 | Complete |
+| WRITE-01 | Phase 117 | Complete |
+| WRITE-02 | Phase 117 | Complete |
+| WRITE-03 | Phase 117 | Complete |
+| WRITE-04 | Phase 117 | Complete |
+| WRITE-05 | Phase 117 | Complete |
 | WRITE-06 | Phase 118 | Pending |
 | WRITE-07 | Phase 118 | Pending |
 | WRITE-08 | Phase 118 | Pending |

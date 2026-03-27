@@ -220,7 +220,7 @@ Plans:
   5. Forward includes the original message body and all original attachments
 **Plans**: 2 plans
 Plans:
-- [ ] 117-01-PLAN.md -- Fix forward-attachments bug + validation scripts (WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05)
+- [x] 117-01-PLAN.md -- Fix forward-attachments bug + validation scripts (WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05)
 - [ ] 117-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05)
 
 ### Phase 118: Drafts & Bulk Operations
@@ -290,7 +290,7 @@ Plans:
 | 114. Sync-back Operations | 2/2 | Complete    | 2026-03-26 |
 | 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
-| 117. Email Send & Reply/Forward | 0/2 | Planned | - |
+| 117. Email Send & Reply/Forward | 1/2 | In Progress|  |
 | 118. Drafts & Bulk Operations | 0/? | Not started | - |
 | 119. Folder Operations | 0/? | Not started | - |
 | 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
