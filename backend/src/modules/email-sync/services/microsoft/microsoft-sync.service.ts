@@ -79,18 +79,81 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     this.fullSyncMaxMessages = this.config.get<number>('MS_FULL_MAX_MESSAGES', 2500);
   }
 
+  /** MS-C4: Maximum age for delta tokens before forcing full resync */
+  private readonly DELTA_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
   /**
    * MS-C1 FIX: Override syncProvider to capture providerId/tenantId context
    * so createDriver can wire the token refresher.
+   * MS-C4 FIX: Check delta token age before sync — stale tokens cause 410 Gone.
    */
   async syncProvider(jobData: SyncJobData) {
     this.currentSyncProviderId = jobData.providerId;
     this.currentSyncTenantId = jobData.tenantId;
     try {
-      return await super.syncProvider(jobData);
+      // MS-C4 FIX: Validate delta token age before sync
+      await this.validateDeltaTokenAge(jobData.providerId);
+      const result = await super.syncProvider(jobData);
+
+      // MS-C4 FIX: Store deltaTokenUpdatedAt when sync token changes
+      if (result.lastSyncToken) {
+        await this.prisma.providerConfig.update({
+          where: { id: jobData.providerId },
+          data: {
+            metadata: {
+              ...(await this.getProviderMetadata(jobData.providerId)),
+              deltaTokenUpdatedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }
+
+      return result;
     } finally {
       this.currentSyncProviderId = undefined;
       this.currentSyncTenantId = undefined;
+    }
+  }
+
+  /** Helper to get current provider metadata for atomic updates */
+  private async getProviderMetadata(providerId: string): Promise<Record<string, any>> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+      select: { metadata: true },
+    });
+    return (provider?.metadata as Record<string, any>) || {};
+  }
+
+  /**
+   * MS-C4 FIX: Check if delta token is too old and clear it to force full sync.
+   * Old delta tokens cause Graph API to return 410 Gone or silently skip changes.
+   */
+  private async validateDeltaTokenAge(providerId: string): Promise<void> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+      select: { metadata: true },
+    });
+
+    const metadata = (provider?.metadata as Record<string, any>) || {};
+    const deltaTokenUpdatedAt = metadata.deltaTokenUpdatedAt;
+
+    if (!deltaTokenUpdatedAt || !metadata.lastSyncToken) return;
+
+    const tokenAge = Date.now() - new Date(deltaTokenUpdatedAt).getTime();
+    if (tokenAge > this.DELTA_TOKEN_MAX_AGE_MS) {
+      this.logger.warn(
+        `MS-C4: Delta token for provider ${providerId} is ${Math.round(tokenAge / (24 * 60 * 60 * 1000))}d old (max 7d) — clearing to force full sync`,
+      );
+      await this.prisma.providerConfig.update({
+        where: { id: providerId },
+        data: {
+          metadata: {
+            ...metadata,
+            lastSyncToken: null,
+            deltaTokenUpdatedAt: null,
+          },
+        },
+      });
     }
   }
 
