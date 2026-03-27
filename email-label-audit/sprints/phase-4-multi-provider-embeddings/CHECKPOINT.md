@@ -1,52 +1,58 @@
-# Sprint 10 — Checkpoint
+# Sprint 11 — Checkpoint
 
 ## Status
 
-- **Sprint:** 10 — Embedding Lifecycle Hardening
-- **Last Task Completed:** T-1005 — Embedding cleanup integration tests
-- **Next Task:** Sprint 10 COMPLETE. Next: S11 (Embedding Quality & Chunking)
-- **Tasks Done:** 5/5
-- **SP Completed:** 10/10
-- **Last Updated:** 2026-03-26 20:00
+- **Sprint:** 11 — Embedding Quality & Chunking
+- **Last Task Completed:** T-1104 — Backfill existing embeddings with enriched format
+- **Next Task:** Sprint 11 COMPLETE. Phase 4 COMPLETE. Next: Phase 5 S12 (Google Driver Hardening)
+- **Tasks Done:** 4/4
+- **SP Completed:** 8/8
+- **Last Updated:** 2026-03-27 09:20
 
 ## Audit Findings Addressed
 
-- E1: Bulk soft-delete embedding cleanup (30-min delay) — ✅ T-1001 (immediate fire-and-forget)
-- E2: Draft deletion orphaned queue jobs — ✅ T-1002 (removeJobForEmail before delete)
-- E3: Sync-triggered deletion embedding cleanup (30-min delay) — ✅ T-1003 (immediate fire-and-forget)
-- E4: Orphan cleanup weekly/10k cap — ✅ T-1004 (daily/25k, warning at 1000+)
+- E5: Embedding text missing sender/recipient/date metadata — ✅ T-1101 (From/To/Date/Subject header)
+- E6: No chunk overlap — context lost at boundaries — ✅ T-1102 (20% configurable overlap)
+- E7: Italian prefixes in embedding text — ✅ T-1103 (English Subject: prefix)
+- Backfill: Old-format embeddings coexist with new — ✅ T-1104 (auto-purge + re-embed)
 
 ## Last Modified Files
 
-- backend/src/modules/email-sync/workers/bulk-operations.worker.ts (T-1001)
-- backend/src/modules/ai/services/email-embedding.queue.ts (T-1002: removeJobForEmail)
-- backend/src/modules/email/services/email-crud.service.ts (T-1002: deleteDraft cleanup)
-- backend/src/modules/email-sync/services/sync-message-processor.service.ts (T-1003)
-- backend/src/modules/ai/services/orphan-embedding-cleanup.service.ts (T-1004)
-- backend/src/common/services/scheduled-jobs.queue.ts (T-1004: daily cron)
-- backend/src/modules/ai/services/__tests__/embedding-cleanup-lifecycle.spec.ts (T-1005: new)
+- backend/src/common/interfaces/embedding-queue.interface.ts (T-1101: added `to` field)
+- backend/src/common/events/email.events.ts (T-1101: added `to` to EmailIndexedEvent)
+- backend/src/modules/email-sync/services/sync-message-processor.service.ts (T-1101: pass `to`)
+- backend/src/modules/ai/services/email-indexed.handler.ts (T-1101: pass `to`)
+- backend/src/modules/ai/services/embedding-composer.service.ts (T-1101/T-1102/T-1103)
+- backend/src/modules/ai/services/knowledge-base.service.ts (T-1101: pass metadata to composer)
+- backend/src/modules/ai/services/embedding-backfill.service.ts (T-1101: `to` in query + enqueue)
+- backend/src/modules/ai/services/embedding-backfill-scheduler.service.ts (T-1104: purgeStaleEmbeddings)
+- backend/src/modules/ai/services/__tests__/embedding-composer.service.spec.ts (T-1101/T-1103: updated assertions)
+- backend/src/modules/push/push-dispatch.handler.spec.ts (T-1101: updated test event)
 
 ## Key Decisions Made
 
-- T-1001: Fire-and-forget pattern (`.catch()`) — embedding cleanup failure must never block bulk delete
-- T-1001: Hard-delete path skips cleanup (DB cascade handles it correctly)
-- T-1002: Best-effort queue removal — BullMQ `Queue.remove(jobId)` only works for waiting/delayed, not active
-- T-1003: Per-email cleanup in handleDeletion (not batch) — sync processes deletions individually
-- T-1004: Daily 2 AM schedule (was Sunday 2 AM), MAX_BATCHES 50 (was 20)
+- T-1101: Metadata header uses `\n` separator (not `\n\n`) — keeps header compact, body follows naturally
+- T-1101: `to` field added as `string[]` throughout pipeline (matches Prisma Email model)
+- T-1101+T-1103: Combined in single commit — English prefix change was part of metadata restructure
+- T-1102: Overlap snaps to sentence boundary (previous `\n`) to avoid mid-word splits
+- T-1102: Safety: if overlap > chunk advance distance, falls back to no-overlap to prevent infinite loop
+- T-1104: Detect old format via `metadata->'to' IS NULL` instead of content prefix check — simpler, reliable
+- T-1104: Purge-then-backfill pattern reuses existing orphan detection — no duplicate embedding logic
 
 ## Patterns Established
 
-- `removeJobForEmail(emailId)`: reusable for any code that hard-deletes emails before embeddings complete
-- Fire-and-forget embedding cleanup: `.catch(err => logger.warn(...))` after any soft-delete path
-- Three-layer safety net now tighter: immediate cleanup → 30-min scheduled → daily orphan sweep
+- Embedding text format: `From: ...\nTo: ...\nDate: YYYY-MM-DD\nSubject: ...\n[body]`
+- Chunk overlap: configurable via `AI_EMBEDDING_CHUNK_OVERLAP` env (0-50%, default 20)
+- Stale embedding detection: check JSONB metadata for missing keys (extensible for future format changes)
 
 ## Blockers / Notes
 
-- None. Sprint 10 complete.
-- S11 (Embedding Quality & Chunking) can start immediately.
+- None. Sprint 11 complete. Phase 4 complete.
+- Phase 5 (Driver Resilience) starts with S12 (Google Driver Hardening).
+- Old-format embeddings will be gradually purged (100/run, every 10 min) — full re-index takes ~hours depending on volume.
 
 ## Validation Status
 
 - Backend tsc: ✅ passing
 - Frontend tsc: not affected (backend-only sprint)
-- Tests: ✅ 8/8 passing (embedding-cleanup-lifecycle.spec.ts)
+- Tests: ✅ 25/25 passing (embedding-composer.service.spec.ts)

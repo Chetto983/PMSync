@@ -55,15 +55,15 @@ without changing the embedding model or vector dimensions.
 - [ ] Italian queries will still match because the semantic meaning is preserved in the body
 - [ ] Files: `embedding-composer.service.ts`
 
-### T-1104: Backfill existing embeddings with enriched format [2 SP]
+### T-1104: Backfill existing embeddings with enriched format [2 SP] ✅ DONE
 
-- [ ] After T-1101/T-1102/T-1103 are deployed, existing embeddings use the old format
-- [ ] Add migration flag: `EMBEDDING_REINDEX_REQUIRED=true` in metadata
-- [ ] Modify `EmbeddingBackfillSchedulerService` to detect old-format embeddings (no `From:` prefix)
-- [ ] Re-generate embeddings for emails with old format during backfill window
-- [ ] Rate limit: reindex max 100 emails per backfill run (respect Mistral API limits)
-- [ ] Add progress metric: `{ total, reindexed, remaining }` logged per run
-- [ ] Files: `embedding-backfill-scheduler.service.ts`, `embedding-backfill.service.ts`
+- [x] After T-1101/T-1102/T-1103 are deployed, existing embeddings use the old format
+- [x] Detect old-format via metadata->'to' IS NULL (replaces migration flag approach)
+- [x] Modify `EmbeddingBackfillSchedulerService` to detect old-format embeddings
+- [x] purgeStaleEmbeddings() deletes old-format, regular backfill re-embeds them
+- [x] Rate limit: EMBEDDING_REINDEX_BATCH=100 per run (configurable)
+- [x] Progress logged per run (count of purged embeddings)
+- [x] Files: `embedding-backfill-scheduler.service.ts`, `embedding-backfill.service.ts`
 
 ## Dependencies
 
