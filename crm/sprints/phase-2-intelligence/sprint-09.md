@@ -18,11 +18,11 @@
 - [x] T-0904 — Feature extraction service: behavioral features (deal stage progression velocity, page visits, form submissions, last contact recency) — [2 SP] — ✅ DONE
 - [x] T-0905 — Feature store table PostgreSQL (`lead_feature_store`) con indici su `contactId` + `computedAt`, retention policy 90 giorni — [1 SP] — ✅ DONE
 - [x] T-0906 — BullMQ job `lead-feature-compute` per batch notturno: iterazione su tutti i contatti attivi del tenant, calcolo e persistenza features — [2 SP] — ✅ DONE
-- [ ] T-0907 — Setup ml.js gradient boosting: configurazione iperparametri, normalizzazione features, split train/test 80/20 — [2 SP] — 📋 TODO
-- [ ] T-0908 — Training pipeline completa: data extraction dal feature store → feature matrix → train modello → salvataggio pesi su disco/DB — [2 SP] — 📋 TODO
-- [ ] T-0909 — Metriche di valutazione modello: precision, recall, F1, AUC-ROC. Log risultati su tabella `ModelEvaluation` — [1 SP] — 📋 TODO
-- [ ] T-0910 — API endpoint `GET /crm/leads/:contactId/score` e `GET /crm/leads/scores?sort=score&order=desc` con paginazione — [1 SP] — 📋 TODO
-- [ ] T-0911 — Integration test con seed data: 50 contatti con features variate, verifica pipeline end-to-end — [1 SP] — 📋 TODO
+- [x] T-0907 — LLM-based lead scoring engine (replaces ml.js): OpenRouter + Mistral Small, generateObject with Zod schema — [2 SP] — ✅ DONE
+- [x] T-0908 — Scoring pipeline: feature store → LLM prompt → score/tier/reasons/confidence → persist LeadScore — [2 SP] — ✅ DONE
+- [x] T-0909 — Nightly job integration: features compute → LLM scoring → batch all tenants — [1 SP] — ✅ DONE
+- [x] T-0910 — API endpoint `GET /crm/leads/:contactId/score` e `GET /crm/leads/scores?sort=score&order=desc` con paginazione — [1 SP] — ✅ DONE
+- [x] T-0911 — Integration test con seed data: 50 contatti con features variate, verifica pipeline end-to-end — [1 SP] — ✅ DONE
 
 ---
 
