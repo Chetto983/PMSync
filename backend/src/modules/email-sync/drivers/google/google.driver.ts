@@ -18,7 +18,13 @@ import {
   CANONICAL_TO_GMAIL,
   CanonicalFolderType,
 } from '../interfaces/canonical.types';
-import { withRetry, RetryOptions } from '../../../../common/utils';
+import {
+  withRetry,
+  RetryOptions,
+  googleApiRateLimiter,
+  getHttpStatus,
+  sleep,
+} from '../../../../common/utils';
 import { classifyFolderError } from '../interfaces/folder-errors';
 import { GmailMessageService } from './services/gmail-message.service';
 import { GmailSendService } from './services/gmail-send.service';
@@ -53,6 +59,14 @@ export class GoogleDriver extends BaseEmailDriver {
   private tokenRefresher: TokenRefresherFn | null = null;
   /** G-C1 FIX: Counter for monitoring token refreshes */
   private tokenRefreshCount = 0;
+  /** G-C3 FIX: Consecutive 429 counter — pauses all ops after threshold */
+  private consecutive429Count = 0;
+  /** G-C3 FIX: Timestamp until which all operations are paused (account-level cooldown) */
+  private rateLimitPausedUntil = 0;
+  /** G-C3 FIX: Consecutive 429 threshold before account-level pause */
+  private static readonly RATE_LIMIT_PAUSE_THRESHOLD = 3;
+  /** G-C3 FIX: Account-level pause duration in ms */
+  private static readonly RATE_LIMIT_PAUSE_MS = 60_000;
 
   constructor(
     private readonly messageService: GmailMessageService,
@@ -428,12 +442,53 @@ export class GoogleDriver extends BaseEmailDriver {
   }
 
   // === Private helpers for folder operations ===
-  private executeWithRetry<T>(
+
+  /**
+   * G-C3 FIX: Rate-limited executeWithRetry.
+   * 1. Waits for account-level cooldown if active (3+ consecutive 429s)
+   * 2. Acquires global rate limiter slot (100 req/100s — Gmail quota)
+   * 3. Delegates to withRetry with 429 tracking wrapper
+   */
+  private async executeWithRetry<T>(
     operation: () => Promise<T>,
     operationName: string,
     options?: Partial<RetryOptions>,
   ): Promise<T> {
-    return withRetry(operation, {
+    // G-C3: Enforce account-level pause after repeated 429s
+    const now = Date.now();
+    if (now < this.rateLimitPausedUntil) {
+      const waitMs = this.rateLimitPausedUntil - now;
+      this.logger.warn(
+        `G-C3: Account rate-limited — pausing ${operationName} for ${Math.ceil(waitMs / 1000)}s`,
+      );
+      await sleep(waitMs);
+    }
+
+    // G-C3: Acquire global rate limiter slot before making API call
+    await googleApiRateLimiter.acquire();
+
+    // Wrap operation to track consecutive 429s
+    const trackedOperation = async (): Promise<T> => {
+      try {
+        const result = await operation();
+        // Success resets consecutive 429 counter
+        this.consecutive429Count = 0;
+        return result;
+      } catch (error) {
+        if (getHttpStatus(error) === 429) {
+          this.consecutive429Count++;
+          if (this.consecutive429Count >= GoogleDriver.RATE_LIMIT_PAUSE_THRESHOLD) {
+            this.rateLimitPausedUntil = Date.now() + GoogleDriver.RATE_LIMIT_PAUSE_MS;
+            this.logger.error(
+              `G-C3: ${this.consecutive429Count} consecutive 429s — pausing ALL operations for 60s`,
+            );
+          }
+        }
+        throw error;
+      }
+    };
+
+    return withRetry(trackedOperation, {
       provider: 'google',
       operationName,
       logger: this.logger,
