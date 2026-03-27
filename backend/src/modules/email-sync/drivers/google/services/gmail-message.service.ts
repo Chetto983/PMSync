@@ -285,8 +285,12 @@ export class GmailMessageService {
     return messages;
   }
 
+  /**
+   * G-C2 FIX: Batch read status with chunking and partial failure handling.
+   * Gmail batchModify has ~1000 ID limit per request. Large batches are
+   * chunked, and per-chunk failures are logged with structured details.
+   */
   async batchSetReadStatus(updates: Array<{ id: string; isRead: boolean }>): Promise<void> {
-    // Group by read status for efficiency
     const toRead = updates.filter((u) => u.isRead).map((u) => u.id);
     const toUnread = updates.filter((u) => !u.isRead).map((u) => u.id);
 
@@ -294,35 +298,72 @@ export class GmailMessageService {
 
     if (toRead.length > 0) {
       promises.push(
-        this.executeWithRetry(
-          () => this.gmail!.users.messages.batchModify({
-            userId: 'me',
-            requestBody: {
-              ids: toRead,
-              removeLabelIds: ['UNREAD'],
-            },
-          }),
+        this.executeBatchModify(
+          toRead,
+          { removeLabelIds: ['UNREAD'] },
           'batchSetReadStatus:read',
-        ).then(() => { })
+        ),
       );
     }
 
     if (toUnread.length > 0) {
       promises.push(
-        this.executeWithRetry(
-          () => this.gmail!.users.messages.batchModify({
-            userId: 'me',
-            requestBody: {
-              ids: toUnread,
-              addLabelIds: ['UNREAD'],
-            },
-          }),
+        this.executeBatchModify(
+          toUnread,
+          { addLabelIds: ['UNREAD'] },
           'batchSetReadStatus:unread',
-        ).then(() => { })
+        ),
       );
     }
 
     await Promise.all(promises);
+  }
+
+  /** Gmail batchModify max IDs per request */
+  private static readonly BATCH_MODIFY_CHUNK_SIZE = 1000;
+
+  /**
+   * G-C2 FIX: Execute batchModify in chunks with structured failure logging.
+   */
+  private async executeBatchModify(
+    messageIds: string[],
+    modifications: { addLabelIds?: string[]; removeLabelIds?: string[] },
+    operationName: string,
+  ): Promise<void> {
+    const chunkSize = GmailMessageService.BATCH_MODIFY_CHUNK_SIZE;
+    let succeeded = 0;
+    const failed: Array<{ count: number; error: string; code?: number }> = [];
+
+    for (let i = 0; i < messageIds.length; i += chunkSize) {
+      const chunk = messageIds.slice(i, i + chunkSize);
+      try {
+        await this.executeWithRetry(
+          () => this.gmail!.users.messages.batchModify({
+            userId: 'me',
+            requestBody: {
+              ids: chunk,
+              ...modifications,
+            },
+          }),
+          operationName,
+        );
+        succeeded += chunk.length;
+      } catch (error: any) {
+        const statusCode = error?.response?.status || error?.code;
+        failed.push({
+          count: chunk.length,
+          error: error.message || 'Unknown error',
+          code: typeof statusCode === 'number' ? statusCode : undefined,
+        });
+      }
+    }
+
+    if (failed.length > 0) {
+      this.logger.warn(
+        `${operationName}: partial failure — ${succeeded}/${messageIds.length} succeeded, ` +
+        `${failed.length} chunk(s) failed: ${failed.map(f => `[${f.count} IDs, ${f.code ?? '?'}: ${f.error}]`).join(', ')}`,
+      );
+    }
   }
 
   // ============================================

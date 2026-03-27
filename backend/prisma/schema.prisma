@@ -65,6 +65,8 @@ model Tenant {
   graphEdges               GraphEdge[]
   crmCustomFields          CrmCustomField[]
   crmSavedViews            CrmSavedView[]
+  leadScores               LeadScore[]
+  modelEvaluations         ModelEvaluation[]
 
   @@map("tenants")
 }
@@ -873,6 +875,8 @@ model Contact {
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
   accountContacts     AccountContact[]
   dealContacts        DealContact[]
+  leadScores          LeadScore[]
+  leadFeatures        LeadFeatureStore[]
 
   @@id([id, tenantId])
   @@index([tenantId, displayName])
@@ -1940,6 +1944,63 @@ model CrmCustomFieldValue {
   @@index([entityId, tenantId])
   @@index([fieldId])
   @@map("crm_custom_field_values")
+}
+
+/// ========================================================================
+/// CRM Lead Scoring — ML-based lead scoring (Phase 2, Sprint 09)
+/// ========================================================================
+
+model LeadScore {
+  id         String   @id @default(cuid())
+  tenantId   String
+  contactId  String
+  score      Int      @default(0) // 0-100
+  confidence Float    @default(0) // 0.0-1.0 model confidence
+  features   Json     @default("{}") // snapshot of features used for this score
+  modelId    String?  // which model version produced this score
+  computedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([tenantId, contactId])
+  @@index([tenantId, score])
+  @@index([tenantId, computedAt])
+  @@map("crm_lead_scores")
+}
+
+model LeadFeatureStore {
+  id         String   @id @default(cuid())
+  tenantId   String
+  contactId  String
+  features   Json     // { engagement: {...}, firmographic: {...}, behavioral: {...} }
+  computedAt DateTime @default(now())
+
+  contact Contact @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([tenantId, contactId])
+  @@index([tenantId, computedAt])
+  @@map("crm_lead_feature_store")
+}
+
+model ModelEvaluation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  modelType String   // 'lead_scoring', 'churn_prediction', etc.
+  version   String   // model version identifier
+  metrics   Json     // { precision, recall, f1, aucRoc, trainSize, testSize }
+  weights   Json?    // serialized model weights (optional, can be large)
+  isActive  Boolean  @default(false) // only one active per tenantId+modelType
+  trainedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, modelType])
+  @@index([tenantId, modelType, isActive])
+  @@map("crm_model_evaluations")
 }
 
 /// ========================================================================

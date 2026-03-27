@@ -1,6 +1,7 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import { gmail_v1 } from 'googleapis';
 import { ComposeMessage } from '../../interfaces/canonical.types';
+import { BatchOperationResult } from '../../interfaces/email-driver.interface';
 import { MimeBuilder, withRetry, RetryOptions } from '../../../../../common/utils';
 
 /**
@@ -218,48 +219,124 @@ export class GmailSendService {
   // Batch Operations
   // ============================================
 
-  async batchMoveMessages(messageIds: string[], targetFolder: string): Promise<void> {
+  async batchMoveMessages(messageIds: string[], targetFolder: string): Promise<BatchOperationResult> {
     this.ensureInitialized();
 
     const targetLabelId = this.canonicalToGmailLabel(targetFolder);
 
-    await this.executeWithRetry(
-      () => this.gmail!.users.messages.batchModify({
-        userId: 'me',
-        requestBody: {
-          ids: messageIds,
-          addLabelIds: targetLabelId ? [targetLabelId] : [],
-          // Note: This doesn't remove from source folder - Gmail uses labels
-        },
-      }),
+    return this.executeBatchModify(
+      messageIds,
+      {
+        addLabelIds: targetLabelId ? [targetLabelId] : [],
+      },
       'batchMoveMessages',
     );
   }
 
-  async batchDeleteMessages(messageIds: string[], permanent = false): Promise<void> {
+  async batchDeleteMessages(messageIds: string[], permanent = false): Promise<BatchOperationResult> {
     this.ensureInitialized();
 
     if (permanent) {
-      await this.executeWithRetry(
-        () => this.gmail!.users.messages.batchDelete({
+      return this.executeBatchChunked(
+        messageIds,
+        (chunk) => this.gmail!.users.messages.batchDelete({
           userId: 'me',
-          requestBody: { ids: messageIds },
+          requestBody: { ids: chunk },
         }),
         'batchDeleteMessages:permanent',
       );
-    } else {
-      // Move to trash
-      await this.executeWithRetry(
-        () => this.gmail!.users.messages.batchModify({
-          userId: 'me',
-          requestBody: {
-            ids: messageIds,
-            addLabelIds: ['TRASH'],
-          },
-        }),
-        'batchDeleteMessages:trash',
+    }
+
+    // Move to trash
+    return this.executeBatchModify(
+      messageIds,
+      { addLabelIds: ['TRASH'] },
+      'batchDeleteMessages:trash',
+    );
+  }
+
+  // ============================================
+  // G-C2 FIX: Batch helpers with chunking and partial failure handling
+  // ============================================
+
+  /** Gmail batchModify max IDs per request */
+  private static readonly BATCH_MODIFY_CHUNK_SIZE = 1000;
+
+  /**
+   * G-C2 FIX: Execute batchModify in chunks with partial failure handling.
+   * Gmail's batchModify has a ~1000 ID limit per request and returns
+   * all-or-nothing per chunk. This method chunks large batches and
+   * tracks per-chunk success/failure.
+   */
+  private async executeBatchModify(
+    messageIds: string[],
+    modifications: { addLabelIds?: string[]; removeLabelIds?: string[] },
+    operationName: string,
+  ): Promise<BatchOperationResult> {
+    return this.executeBatchChunked(
+      messageIds,
+      (chunk) => this.gmail!.users.messages.batchModify({
+        userId: 'me',
+        requestBody: {
+          ids: chunk,
+          ...modifications,
+        },
+      }),
+      operationName,
+    );
+  }
+
+  /**
+   * G-C2 FIX: Generic batch chunking with structured logging.
+   * Splits large ID arrays into chunks, executes each, and accumulates results.
+   */
+  private async executeBatchChunked(
+    messageIds: string[],
+    operation: (chunk: string[]) => Promise<unknown>,
+    operationName: string,
+  ): Promise<BatchOperationResult> {
+    if (messageIds.length === 0) {
+      return { totalRequested: 0, succeeded: 0, failed: [] };
+    }
+
+    const result: BatchOperationResult = {
+      totalRequested: messageIds.length,
+      succeeded: 0,
+      failed: [],
+    };
+
+    const chunkSize = GmailSendService.BATCH_MODIFY_CHUNK_SIZE;
+
+    for (let i = 0; i < messageIds.length; i += chunkSize) {
+      const chunk = messageIds.slice(i, i + chunkSize);
+      try {
+        await this.executeWithRetry(() => operation(chunk), operationName);
+        result.succeeded += chunk.length;
+      } catch (error: any) {
+        const statusCode = error?.response?.status || error?.code;
+        result.failed.push({
+          ids: chunk,
+          error: error.message || 'Unknown error',
+          code: typeof statusCode === 'number' ? statusCode : undefined,
+        });
+      }
+    }
+
+    // Structured logging
+    if (result.failed.length > 0) {
+      this.logger.warn(
+        `${operationName}: partial failure — ` +
+        `${result.succeeded}/${result.totalRequested} succeeded, ` +
+        `${result.failed.length} chunk(s) failed: ` +
+        `${result.failed.map(f => `[${f.ids.length} IDs, ${f.code ?? 'unknown'}: ${f.error}]`).join(', ')}`,
+      );
+    } else if (result.totalRequested > 0) {
+      this.logger.debug(
+        `${operationName}: ${result.succeeded}/${result.totalRequested} succeeded`,
       );
     }
+
+    return result;
   }
 
   // ============================================

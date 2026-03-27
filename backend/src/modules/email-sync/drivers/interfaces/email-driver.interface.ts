@@ -94,6 +94,20 @@ export interface ChangesResult {
 export type ChangeCallback = (changes: ProviderChange[]) => void | Promise<void>;
 
 /**
+ * G-C2 FIX: Result from batch operations with per-chunk failure tracking.
+ * Gmail batchModify operates on chunks — individual chunks can fail
+ * while others succeed. This type surfaces that information.
+ */
+export interface BatchOperationResult {
+  /** Total IDs requested */
+  totalRequested: number;
+  /** IDs successfully processed (from successful chunks) */
+  succeeded: number;
+  /** Per-chunk failures with error details */
+  failed: Array<{ ids: string[]; error: string; code?: number }>;
+}
+
+/**
  * Email Driver Interface
  *
  * All email providers must implement this interface to provide

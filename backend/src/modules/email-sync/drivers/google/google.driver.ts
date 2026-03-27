@@ -345,11 +345,13 @@ export class GoogleDriver extends BaseEmailDriver {
   }
 
   async batchMoveMessages(messageIds: string[], targetFolder: string): Promise<void> {
-    return this.sendService.batchMoveMessages(messageIds, targetFolder);
+    // G-C2: Sub-service returns BatchOperationResult with structured logging
+    await this.sendService.batchMoveMessages(messageIds, targetFolder);
   }
 
   async batchDeleteMessages(messageIds: string[], permanent = false): Promise<void> {
-    return this.sendService.batchDeleteMessages(messageIds, permanent);
+    // G-C2: Sub-service returns BatchOperationResult with structured logging
+    await this.sendService.batchDeleteMessages(messageIds, permanent);
   }
 
   // === Sync Operations - DELEGATE ===
