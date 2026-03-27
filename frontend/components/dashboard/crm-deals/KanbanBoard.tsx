@@ -147,7 +147,7 @@ const StageColumn = React.memo(function StageColumn({ stage, deals, isOverCurren
           flex: 1,
           minHeight: 100,
           overflowY: 'auto',
-          maxHeight: 'calc(100vh - 300px)',
+          maxHeight: 'calc(100dvh - 300px)',
         }}
       >
         {stageDeals.length === 0 ? (

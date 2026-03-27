@@ -66,14 +66,30 @@ export function DealsList() {
     return formatDateInTz(dateStr, timezone, locale);
   }, [timezone, locale]);
 
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [page, setPage] = useState(0);
+  // Persist filter state to URL query params (survives refresh & sharing)
+  const q = router.query;
+  const [search, setSearch] = useState(() => (typeof q.q === 'string' ? q.q : ''));
+  const [debouncedSearch, setDebouncedSearch] = useState(() => (typeof q.q === 'string' ? q.q : ''));
+  const [page, setPage] = useState(() => {
+    const p = parseInt(typeof q.page === 'string' ? q.page : '', 10);
+    return isNaN(p) ? 0 : p;
+  });
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
-  const [filterPipeline, setFilterPipeline] = useState('');
+  const [filterPipeline, setFilterPipeline] = useState(() => (typeof q.pipeline === 'string' ? q.pipeline : ''));
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (q.view === 'kanban' ? 'kanban' : 'list'));
+
+  // Sync state → URL (shallow, no navigation)
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (debouncedSearch) params.q = debouncedSearch;
+    if (filterPipeline) params.pipeline = filterPipeline;
+    if (page > 0) params.page = String(page);
+    if (viewMode !== 'list') params.view = viewMode;
+    router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, filterPipeline, page, viewMode]);
 
   const handleApplySavedView = useCallback((filters: Record<string, unknown>) => {
     if (filters.search != null) setSearch(String(filters.search));
