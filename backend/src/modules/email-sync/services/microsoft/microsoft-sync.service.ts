@@ -8,6 +8,7 @@ import { BaseEmailSyncService } from '../base-email-sync.service';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { MicrosoftDriver } from '../../drivers/microsoft/microsoft.driver';
 import { AttachmentMeta } from '../../drivers/interfaces/canonical.types';
+import { SyncJobData } from '../../interfaces/sync-job.interface';
 import { IEmailDriver } from '../../drivers/interfaces/email-driver.interface';
 import { MicrosoftAttachmentHandler } from './microsoft-attachment-handler';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
@@ -33,6 +34,10 @@ import { SyncTokenService } from '../sync-token.service';
 @Injectable()
 export class MicrosoftSyncService extends BaseEmailSyncService {
   protected readonly logger = new Logger(MicrosoftSyncService.name);
+
+  // MS-C1 FIX: Track current sync context for token refresh wiring
+  private currentSyncProviderId: string | undefined;
+  private currentSyncTenantId: string | undefined;
 
   constructor(
     prisma: PrismaService,
@@ -74,6 +79,21 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     this.fullSyncMaxMessages = this.config.get<number>('MS_FULL_MAX_MESSAGES', 2500);
   }
 
+  /**
+   * MS-C1 FIX: Override syncProvider to capture providerId/tenantId context
+   * so createDriver can wire the token refresher.
+   */
+  async syncProvider(jobData: SyncJobData) {
+    this.currentSyncProviderId = jobData.providerId;
+    this.currentSyncTenantId = jobData.tenantId;
+    try {
+      return await super.syncProvider(jobData);
+    } finally {
+      this.currentSyncProviderId = undefined;
+      this.currentSyncTenantId = undefined;
+    }
+  }
+
   // ============================================
   // Abstract Method Implementations (Required)
   // ============================================
@@ -104,9 +124,26 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
 
   /**
    * Create and connect Microsoft driver
+   * MS-C1 FIX: Sets token refresher for mid-operation 401 recovery.
+   * The refresher uses ProviderTokenService (distributed-locked) to get a fresh token.
    */
   protected async createDriver(driverType: string, credentials: any): Promise<IEmailDriver> {
-    return this.driverFactory.createConnectedDriver(driverType as any, credentials);
+    const driver = await this.driverFactory.createConnectedDriver(driverType as any, credentials);
+
+    // MS-C1 FIX: Wire token refresher so driver can recover from 401 mid-operation
+    if (driver instanceof MicrosoftDriver && this.currentSyncProviderId) {
+      const providerId = this.currentSyncProviderId;
+      const tenantId = this.currentSyncTenantId;
+      driver.setTokenRefresher(async () => {
+        const { accessToken } = await this.providerTokenService.getProviderWithToken(
+          providerId,
+          tenantId,
+        );
+        return accessToken;
+      });
+    }
+
+    return driver;
   }
 
   /**

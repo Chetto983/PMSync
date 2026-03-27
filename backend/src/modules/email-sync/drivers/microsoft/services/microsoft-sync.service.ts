@@ -22,6 +22,8 @@ export class MicrosoftSyncService {
   private readonly logger = new Logger(MicrosoftSyncService.name);
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
   private client: AxiosInstance | null = null;
+  /** MS-C1 FIX: Token refresh callback for 401 recovery */
+  private onTokenRefresh?: () => Promise<void>;
 
   // Folder resolution callback (set by facade)
   private resolveFolderIdFn: ((folder: string) => Promise<string>) | null = null;
@@ -37,12 +39,18 @@ export class MicrosoftSyncService {
     this.resolveFolderIdFn = resolveFolderId;
   }
 
+  /** MS-C1 FIX: Set token refresh callback from driver facade */
+  setTokenRefreshCallback(callback: () => Promise<void>): void {
+    this.onTokenRefresh = callback;
+  }
+
   /**
    * Clear the client and resolver (on disconnect)
    */
   clear(): void {
     this.client = null;
     this.resolveFolderIdFn = null;
+    this.onTokenRefresh = undefined;
   }
 
   /**
@@ -255,6 +263,7 @@ export class MicrosoftSyncService {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.onTokenRefresh,
       ...options,
     });
   }

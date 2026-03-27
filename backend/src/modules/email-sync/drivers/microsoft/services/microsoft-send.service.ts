@@ -17,6 +17,8 @@ export class MicrosoftSendService {
   private readonly logger = new Logger(MicrosoftSendService.name);
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
   private client: AxiosInstance | null = null;
+  /** MS-C1 FIX: Token refresh callback for 401 recovery */
+  private onTokenRefresh?: () => Promise<void>;
 
   // Folder ID resolution callback (set by facade)
   // Uses callback pattern to avoid circular dependency on folder service
@@ -30,9 +32,15 @@ export class MicrosoftSendService {
     this.resolveFolderIdFn = resolveFolderId;
   }
 
+  /** MS-C1 FIX: Set token refresh callback from driver facade */
+  setTokenRefreshCallback(callback: () => Promise<void>): void {
+    this.onTokenRefresh = callback;
+  }
+
   clear(): void {
     this.client = null;
     this.resolveFolderIdFn = null;
+    this.onTokenRefresh = undefined;
   }
 
   private ensureInitialized(): void {
@@ -318,6 +326,7 @@ export class MicrosoftSendService {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.onTokenRefresh,
       ...options,
     });
   }

@@ -31,6 +31,8 @@ export class MicrosoftMessageService {
   private client: AxiosInstance | null = null;
   private folderIdCache: Map<string, string> = new Map();
   private folderPathCache: Map<string, string> = new Map();
+  /** MS-C1 FIX: Token refresh callback for 401 recovery */
+  private onTokenRefresh?: () => Promise<void>;
 
   /**
    * Initialize service with Graph API client and caches
@@ -46,6 +48,11 @@ export class MicrosoftMessageService {
     this.folderPathCache = folderPathCache;
   }
 
+  /** MS-C1 FIX: Set token refresh callback from driver facade */
+  setTokenRefreshCallback(callback: () => Promise<void>): void {
+    this.onTokenRefresh = callback;
+  }
+
   /**
    * Clear service state on disconnect
    */
@@ -53,6 +60,7 @@ export class MicrosoftMessageService {
     this.client = null;
     this.folderIdCache.clear();
     this.folderPathCache.clear();
+    this.onTokenRefresh = undefined;
   }
 
   /**
@@ -70,6 +78,7 @@ export class MicrosoftMessageService {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.onTokenRefresh,
       ...options,
     });
   }

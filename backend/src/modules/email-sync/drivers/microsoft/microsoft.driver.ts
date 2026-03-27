@@ -26,6 +26,13 @@ import { MicrosoftSendService } from './services/microsoft-send.service';
 import { MicrosoftSyncService } from './services/microsoft-sync.service';
 
 /**
+ * Token refresher callback type.
+ * Returns a fresh access token. The caller (sync service) provides this
+ * using ProviderTokenService which handles distributed locking internally.
+ */
+export type MsTokenRefresherFn = () => Promise<string>;
+
+/**
  * Microsoft Outlook Driver (Facade)
  *
  * Thin facade that delegates all operations to extracted services:
@@ -82,6 +89,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
   // T-0903: 5-min TTL on folder caches — matches IMAP pattern
   private folderIdCache = new TtlMap<string, string>(5 * 60 * 1000); // canonical -> folderId
   private folderPathCache = new TtlMap<string, string>(5 * 60 * 1000); // folderId -> displayName
+  /** MS-C1 FIX: Callback to refresh OAuth token — set by sync services */
+  private tokenRefresher: MsTokenRefresherFn | null = null;
+  /** MS-C1 FIX: Counter for monitoring token refreshes */
+  private tokenRefreshCount = 0;
 
   constructor(
     private readonly messageService: MicrosoftMessageService,
@@ -89,6 +100,22 @@ export class MicrosoftDriver extends BaseEmailDriver {
     private readonly syncService: MicrosoftSyncService,
   ) {
     super();
+  }
+
+  /**
+   * MS-C1 FIX: Set token refresher callback for mid-operation 401 recovery.
+   * The callback should return a fresh access token. Called by sync services
+   * after driver creation, using ProviderTokenService internally.
+   * Propagates to all sub-services so their executeWithRetry also handles 401.
+   */
+  setTokenRefresher(refresher: MsTokenRefresherFn): void {
+    this.tokenRefresher = refresher;
+    this.propagateTokenRefreshCallback();
+  }
+
+  /** MS-C1 FIX: Get the number of token refreshes performed by this driver instance */
+  getTokenRefreshCount(): number {
+    return this.tokenRefreshCount;
   }
 
   /** T-0902: Microsoft supports Outlook categories for sync-back */
@@ -154,6 +181,11 @@ export class MicrosoftDriver extends BaseEmailDriver {
     this.messageService.initialize(this.client, this.folderIdCache, this.folderPathCache);
     this.sendService.initialize(this.client, (folder) => this.resolveFolderId(folder));
     this.syncService.initialize(this.client, (folder) => this.resolveFolderId(folder));
+
+    // MS-C1 FIX: Propagate token refresh callback if already set before connect
+    if (this.tokenRefresher) {
+      this.propagateTokenRefreshCallback();
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -450,8 +482,49 @@ export class MicrosoftDriver extends BaseEmailDriver {
       logger: this.logger,
       maxRetries: 3,
       useCircuitBreaker: true,
+      onTokenRefresh: this.tokenRefreshCallback,
       ...options,
     });
+  }
+
+  /** MS-C1 FIX: Lazy-built token refresh callback for this driver's own executeWithRetry */
+  private get tokenRefreshCallback(): (() => Promise<void>) | undefined {
+    if (!this.tokenRefresher) return undefined;
+    return async () => {
+      const newToken = await this.tokenRefresher!();
+      // Update the axios client's Authorization header with fresh token
+      if (this.client) {
+        this.client.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      }
+      this.tokenRefreshCount++;
+      this.logger.log(
+        `MS-C1: Token refreshed mid-operation (total: ${this.tokenRefreshCount})`,
+      );
+    };
+  }
+
+  /**
+   * MS-C1 FIX: Build and propagate the token refresh callback to sub-services.
+   * The callback refreshes the access token AND updates the axios client header,
+   * so all sub-services (which share the same axios client instance) benefit.
+   */
+  private propagateTokenRefreshCallback(): void {
+    if (!this.tokenRefresher) return;
+
+    const refreshCallback = async (): Promise<void> => {
+      const newToken = await this.tokenRefresher!();
+      if (this.client) {
+        this.client.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      }
+      this.tokenRefreshCount++;
+      this.logger.log(
+        `MS-C1: Token refreshed mid-operation (total: ${this.tokenRefreshCount})`,
+      );
+    };
+
+    this.messageService.setTokenRefreshCallback(refreshCallback);
+    this.sendService.setTokenRefreshCallback(refreshCallback);
+    this.syncService.setTokenRefreshCallback(refreshCallback);
   }
 
   private async listChildFolders(parentFolderId: string, parentPath: string): Promise<CanonicalFolder[]> {
