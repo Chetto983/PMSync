@@ -66,6 +66,11 @@ export class GmailSendService {
   async saveDraft(message: ComposeMessage, existingDraftId?: string): Promise<string> {
     this.ensureInitialized();
 
+    // G-H3 FIX: Validate threadId exists before creating/updating draft
+    if (message.threadId) {
+      await this.validateThreadExists(message.threadId);
+    }
+
     const raw = await this.composeToRaw(message);
 
     if (existingDraftId) {
@@ -253,6 +258,43 @@ export class GmailSendService {
       { addLabelIds: ['TRASH'] },
       'batchDeleteMessages:trash',
     );
+  }
+
+  // ============================================
+  // G-H3 FIX: Thread validation
+  // ============================================
+
+  /**
+   * G-H3 FIX: Validate that a threadId exists in Gmail before creating a draft.
+   * Prevents orphaned drafts that reference non-existent threads.
+   *
+   * Uses threads.get with format=minimal (cheapest API call) to check existence.
+   * Throws on 404 (thread doesn't exist). Logs warning on other errors
+   * (thread might exist in Gmail but have access issues — allow draft creation).
+   */
+  private async validateThreadExists(threadId: string): Promise<void> {
+    try {
+      await this.executeWithRetry(
+        () => this.gmail!.users.threads.get({
+          userId: 'me',
+          id: threadId,
+          format: 'minimal',
+        }),
+        'validateThread',
+      );
+    } catch (error: any) {
+      const status = error?.response?.status || error?.code;
+      if (status === 404) {
+        throw new Error(
+          `Thread ${threadId} not found — cannot create draft for non-existent thread`,
+        );
+      }
+      // Non-404 errors (network, quota): log warning but allow draft creation
+      // Thread likely exists, just can't verify right now
+      this.logger.warn(
+        `G-H3: Could not verify thread ${threadId} (${status}): ${error.message} — proceeding with draft creation`,
+      );
+    }
   }
 
   // ============================================
