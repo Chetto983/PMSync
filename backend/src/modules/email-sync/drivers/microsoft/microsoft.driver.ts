@@ -19,7 +19,7 @@ import {
   CanonicalFolderType,
   folderNameToCanonical,
 } from '../interfaces/canonical.types';
-import { withRetry, RetryOptions } from '../../../../common/utils';
+import { withRetry, RetryOptions, microsoftGraphRateLimiter } from '../../../../common/utils';
 import { classifyFolderError } from '../interfaces/folder-errors';
 import { MicrosoftMessageService } from './services/microsoft-message.service';
 import { MicrosoftSendService } from './services/microsoft-send.service';
@@ -480,11 +480,14 @@ export class MicrosoftDriver extends BaseEmailDriver {
   }
 
   // === Private helpers needed by folder operations ===
-  private executeWithRetry<T>(
+  private async executeWithRetry<T>(
     operation: () => Promise<T>,
     operationName: string,
     options?: Partial<RetryOptions>,
   ): Promise<T> {
+    // MS-H1 FIX: Acquire rate limiter slot before making Graph API call
+    await microsoftGraphRateLimiter.acquire();
+
     return withRetry(operation, {
       provider: 'microsoft',
       operationName,

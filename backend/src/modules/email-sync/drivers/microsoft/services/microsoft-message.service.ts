@@ -12,7 +12,7 @@ import {
   EmailAddress,
   folderNameToCanonical,
 } from '../../interfaces/canonical.types';
-import { withRetry, RetryOptions } from '../../../../../common/utils';
+import { withRetry, RetryOptions, microsoftGraphRateLimiter } from '../../../../../common/utils';
 
 /**
  * MicrosoftMessageService
@@ -67,11 +67,14 @@ export class MicrosoftMessageService {
    * Execute Microsoft Graph API operation with retry logic
    * Uses consolidated common/utils/withRetry
    */
-  private executeWithRetry<T>(
+  private async executeWithRetry<T>(
     operation: () => Promise<T>,
     operationName: string,
     options?: Partial<RetryOptions>,
   ): Promise<T> {
+    // MS-H1 FIX: Acquire rate limiter slot before making Graph API call
+    await microsoftGraphRateLimiter.acquire();
+
     return withRetry(operation, {
       provider: 'microsoft',
       operationName,

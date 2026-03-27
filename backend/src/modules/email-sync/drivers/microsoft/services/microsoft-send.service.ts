@@ -1,7 +1,7 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import { AxiosInstance } from 'axios';
 import { ComposeMessage } from '../../interfaces/canonical.types';
-import { withRetry, RetryOptions } from '../../../../../common/utils';
+import { withRetry, RetryOptions, microsoftGraphRateLimiter } from '../../../../../common/utils';
 
 /**
  * Microsoft Send Operations Service
@@ -375,11 +375,14 @@ export class MicrosoftSendService {
    * Execute Microsoft Graph API operation with retry logic
    * Handles 429 rate limits and auth errors with exponential backoff
    */
-  private executeWithRetry<T>(
+  private async executeWithRetry<T>(
     operation: () => Promise<T>,
     operationName: string,
     options?: Partial<RetryOptions>,
   ): Promise<T> {
+    // MS-H1 FIX: Acquire rate limiter slot before making Graph API call
+    await microsoftGraphRateLimiter.acquire();
+
     return withRetry(operation, {
       provider: 'microsoft',
       operationName,

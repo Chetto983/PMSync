@@ -2,7 +2,7 @@ import { Injectable, Logger, Scope } from '@nestjs/common';
 import { AxiosInstance, AxiosResponse } from 'axios';
 import { ChangesResult } from '../../interfaces/email-driver.interface';
 import { ProviderChange } from '../../interfaces/canonical.types';
-import { withRetry, RetryOptions } from '../../../../../common/utils';
+import { withRetry, RetryOptions, microsoftGraphRateLimiter } from '../../../../../common/utils';
 
 /**
  * Microsoft Sync Service
@@ -252,11 +252,14 @@ export class MicrosoftSyncService {
    * Execute Microsoft Graph API operation with retry logic
    * Uses consolidated common/utils/retry.utils.ts
    */
-  private executeWithRetry<T>(
+  private async executeWithRetry<T>(
     operation: () => Promise<T>,
     operationName: string,
     options?: Partial<RetryOptions>,
   ): Promise<T> {
+    // MS-H1 FIX: Acquire rate limiter slot before making Graph API call
+    await microsoftGraphRateLimiter.acquire();
+
     return withRetry(operation, {
       provider: 'microsoft',
       operationName,
