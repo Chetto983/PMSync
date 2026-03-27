@@ -90,8 +90,11 @@ async function validateSend(context, cookieHeader, csrfToken, provider) {
   // Railway blocks outbound SMTP (ports 465/587). IMAP providers use SMTP for sending.
   // This causes timeouts on Railway-hosted backends. Skip with documentation.
   if (provType === 'imap' || provType === 'generic') {
-    console.log(`  SKIP: IMAP/SMTP send skipped -- Railway blocks outbound SMTP ports`);
-    console.log(`  NOTE: IMAP send works on localhost/non-Railway environments`);
+    console.log(`  SKIP: IMAP/SMTP send validation skipped`);
+    console.log(`  REASON: Railway production blocks outbound SMTP ports 465/587`);
+    console.log(`  CODE STATUS: imap-send.service.ts implements sendMessage() and compiles clean`);
+    console.log(`  VALIDATION: Requires localhost or non-Railway env with SMTP access`);
+    console.log(`  REQUIREMENT: WRITE-03 marked "Blocked (Infrastructure)" in REQUIREMENTS.md`);
     return { sentEmail: null, messageId: null };
   }
 
@@ -186,15 +189,12 @@ async function validateReply(context, cookieHeader, csrfToken, provider, sendRes
     return;
   }
 
-  // Validate messageId is RFC 822 format for non-Gmail providers
-  // saveSentEmail stores MS Graph API IDs (not RFC 822) for Outlook sent emails,
-  // which causes In-Reply-To header rejection. Only reply to emails with proper messageId.
+  // Check if the reply target has a proper RFC 822 messageId
   const isRfc822 = replyTarget.messageId.includes('@') || replyTarget.messageId.includes('<');
-  const provType = provider.providerType || provider.type || '';
-  if (provType === 'microsoft' && !isRfc822) {
-    console.log(`  SKIP: Outlook reply target has Graph API ID as messageId (not RFC 822), skipping`);
-    console.log(`  NOTE: saveSentEmail stores Graph API ID instead of internetMessageId for Outlook`);
-    return;
+  if (!isRfc822) {
+    console.log(`  WARN: Reply target messageId is not RFC 822 format: ${replyTarget.messageId}`);
+    console.log(`  This may be a pre-fix email with Graph API ID. Reply threading may not work for this target.`);
+    // Continue anyway -- the reply API will still work, just threading might not be correct
   }
 
   console.log(`  Replying to email: ${replyTarget.subject} (id: ${replyTarget.id})`);

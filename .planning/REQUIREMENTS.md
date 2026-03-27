@@ -39,7 +39,7 @@ Comprehensive audit of all email and email-sync operations against live provider
 
 - [x] **WRITE-01**: Send new email via Gmail delivers to recipient
 - [x] **WRITE-02**: Send new email via Outlook delivers to recipient
-- [x] **WRITE-03**: Send new email via IMAP/SMTP delivers to recipient
+- [ ] **WRITE-03**: Send new email via IMAP/SMTP delivers to recipient *(Blocked: Railway blocks SMTP ports 465/587; code exists and compiles but no live validation possible in production environment)*
 - [x] **WRITE-04**: Reply preserves thread, adds correct headers (In-Reply-To, References)
 - [x] **WRITE-05**: Forward includes original body and attachments
 - [ ] **WRITE-06**: Draft create/update/retrieve/delete lifecycle works per provider
@@ -117,7 +117,7 @@ Comprehensive audit of all email and email-sync operations against live provider
 | READ-09 | Phase 116 | Complete |
 | WRITE-01 | Phase 117 | Complete |
 | WRITE-02 | Phase 117 | Complete |
-| WRITE-03 | Phase 117 | Complete |
+| WRITE-03 | Phase 117 | Blocked (Infrastructure) |
 | WRITE-04 | Phase 117 | Complete |
 | WRITE-05 | Phase 117 | Complete |
 | WRITE-06 | Phase 118 | Pending |
