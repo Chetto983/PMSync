@@ -190,15 +190,45 @@ export class MicrosoftSendService {
       const response = await this.client!.post('/$batch', { requests: batch });
 
       // Validate batch responses and track failures
+      // MS-C3 FIX: Collect 401s for targeted retry
       const responses = (response as any).data?.responses || [];
+      const auth401Batch: typeof batch = [];
       for (const resp of responses) {
-        if (resp.status >= 400) {
+        if (resp.status === 401) {
+          auth401Batch.push(batch[parseInt(resp.id, 10)]);
+        } else if (resp.status >= 400) {
           const originalIdx = i + parseInt(resp.id, 10);
           failedIds.push({
             id: messageIds[originalIdx] || resp.id,
             status: resp.status,
             error: resp.body?.error?.message || `HTTP ${resp.status}`,
           });
+        }
+      }
+
+      // MS-C3 FIX: Retry 401 requests after token refresh
+      if (auth401Batch.length > 0 && this.onTokenRefresh) {
+        this.logger.warn(
+          `batchMoveMessages: ${auth401Batch.length}/${batch.length} returned 401 — refreshing token and retrying`,
+        );
+        await this.onTokenRefresh();
+        try {
+          const retryResponse = await this.client!.post('/$batch', { requests: auth401Batch });
+          for (const resp of (retryResponse as any).data?.responses || []) {
+            if (resp.status >= 400) {
+              const originalIdx = i + parseInt(resp.id, 10);
+              failedIds.push({
+                id: messageIds[originalIdx] || resp.id,
+                status: resp.status,
+                error: resp.body?.error?.message || `HTTP ${resp.status} (after 401 retry)`,
+              });
+            }
+          }
+        } catch (retryErr: any) {
+          this.logger.warn(`batchMoveMessages: 401 retry failed: ${retryErr.message}`);
+          for (const req of auth401Batch) {
+            failedIds.push({ id: req.id, status: 401, error: 'Token refresh retry failed' });
+          }
         }
       }
     }
@@ -231,15 +261,45 @@ export class MicrosoftSendService {
         const response = await this.client!.post('/$batch', { requests: batch });
 
         // Validate batch responses and track failures
+        // MS-C3 FIX: Collect 401s for targeted retry
         const responses = (response as any).data?.responses || [];
+        const auth401Batch: typeof batch = [];
         for (const resp of responses) {
-          if (resp.status >= 400) {
+          if (resp.status === 401) {
+            auth401Batch.push(batch[parseInt(resp.id, 10)]);
+          } else if (resp.status >= 400) {
             const originalIdx = i + parseInt(resp.id, 10);
             failedIds.push({
               id: messageIds[originalIdx] || resp.id,
               status: resp.status,
               error: resp.body?.error?.message || `HTTP ${resp.status}`,
             });
+          }
+        }
+
+        // MS-C3 FIX: Retry 401 requests after token refresh
+        if (auth401Batch.length > 0 && this.onTokenRefresh) {
+          this.logger.warn(
+            `batchDeleteMessages: ${auth401Batch.length}/${batch.length} returned 401 — refreshing token and retrying`,
+          );
+          await this.onTokenRefresh();
+          try {
+            const retryResponse = await this.client!.post('/$batch', { requests: auth401Batch });
+            for (const resp of (retryResponse as any).data?.responses || []) {
+              if (resp.status >= 400) {
+                const originalIdx = i + parseInt(resp.id, 10);
+                failedIds.push({
+                  id: messageIds[originalIdx] || resp.id,
+                  status: resp.status,
+                  error: resp.body?.error?.message || `HTTP ${resp.status} (after 401 retry)`,
+                });
+              }
+            }
+          } catch (retryErr: any) {
+            this.logger.warn(`batchDeleteMessages: 401 retry failed: ${retryErr.message}`);
+            for (const req of auth401Batch) {
+              failedIds.push({ id: req.id, status: 401, error: 'Token refresh retry failed' });
+            }
           }
         }
       }

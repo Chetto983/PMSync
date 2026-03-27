@@ -241,6 +241,8 @@ export class MicrosoftMessageService {
         let response = await this.client!.post('/$batch', { requests });
 
         const batchMessages: Array<CanonicalMessage | null> = new Array(batchIds.length).fill(null);
+        // MS-C3 FIX: Collect per-request 401s for targeted retry
+        const auth401Indices: number[] = [];
         for (const res of response.data.responses) {
           const index = Number(res.id);
           if (!Number.isInteger(index) || index < 0 || index >= batchIds.length) {
@@ -248,6 +250,32 @@ export class MicrosoftMessageService {
           }
           if (res.status === 200 && res.body) {
             batchMessages[index] = this.graphMessageToCanonical(res.body);
+          } else if (res.status === 401) {
+            auth401Indices.push(index);
+          }
+        }
+
+        // MS-C3 FIX: Retry 401 requests after token refresh (max 1 retry per batch)
+        if (auth401Indices.length > 0 && this.onTokenRefresh) {
+          this.logger.warn(
+            `batchGetMessages: ${auth401Indices.length}/${batchIds.length} returned 401 — refreshing token and retrying`,
+          );
+          await this.onTokenRefresh();
+          const retryRequests = auth401Indices.map((idx) => ({
+            id: String(idx),
+            method: 'GET',
+            url: `/me/messages/${batchIds[idx]}`,
+          }));
+          try {
+            const retryResponse = await this.client!.post('/$batch', { requests: retryRequests });
+            for (const res of retryResponse.data.responses) {
+              const idx = Number(res.id);
+              if (res.status === 200 && res.body) {
+                batchMessages[idx] = this.graphMessageToCanonical(res.body);
+              }
+            }
+          } catch (retryErr: any) {
+            this.logger.warn(`batchGetMessages: 401 retry batch failed: ${retryErr.message}`);
           }
         }
 
@@ -338,15 +366,45 @@ export class MicrosoftMessageService {
       const response = await this.client!.post('/$batch', { requests: batch });
 
       // FIX Phase 2.1: Validate batch responses and track failures
+      // MS-C3 FIX: Collect 401s for targeted retry
       const responses = (response as any).data?.responses || [];
+      const auth401Batch: typeof batch = [];
       for (const resp of responses) {
-        if (resp.status >= 400) {
+        if (resp.status === 401) {
+          auth401Batch.push(batch[parseInt(resp.id, 10)]);
+        } else if (resp.status >= 400) {
           const originalIdx = i + parseInt(resp.id, 10);
           failedIds.push({
             id: updates[originalIdx]?.id || resp.id,
             status: resp.status,
             error: resp.body?.error?.message || `HTTP ${resp.status}`,
           });
+        }
+      }
+
+      // MS-C3 FIX: Retry 401 requests after token refresh
+      if (auth401Batch.length > 0 && this.onTokenRefresh) {
+        this.logger.warn(
+          `batchSetReadStatus: ${auth401Batch.length}/${batch.length} returned 401 — refreshing token and retrying`,
+        );
+        await this.onTokenRefresh();
+        try {
+          const retryResponse = await this.client!.post('/$batch', { requests: auth401Batch });
+          for (const resp of (retryResponse as any).data?.responses || []) {
+            if (resp.status >= 400) {
+              const originalIdx = i + parseInt(resp.id, 10);
+              failedIds.push({
+                id: updates[originalIdx]?.id || resp.id,
+                status: resp.status,
+                error: resp.body?.error?.message || `HTTP ${resp.status} (after 401 retry)`,
+              });
+            }
+          }
+        } catch (retryErr: any) {
+          this.logger.warn(`batchSetReadStatus: 401 retry failed: ${retryErr.message}`);
+          for (const req of auth401Batch) {
+            failedIds.push({ id: req.id, status: 401, error: 'Token refresh retry failed' });
+          }
         }
       }
     }
