@@ -70,6 +70,7 @@ model Tenant {
   leadFeatureStores        LeadFeatureStore[]
   modelEvaluations         ModelEvaluation[]
   forecastSnapshots        ForecastSnapshot[]
+  churnSignals             ChurnSignal[]
 
   @@map("tenants")
 }
@@ -881,6 +882,7 @@ model Contact {
   leadScores          LeadScore[]
   leadScoreHistory    LeadScoreHistory[]
   leadFeatures        LeadFeatureStore[]
+  churnSignals        ChurnSignal[]
 
   @@id([id, tenantId])
   @@index([tenantId, displayName])
@@ -1707,6 +1709,7 @@ model CrmAccount {
   contacts    AccountContact[]
   deals       CrmDeal[]
   activities  CrmActivity[]
+  churnSignals ChurnSignal[]
 
   @@index([tenantId])
   @@index([tenantId, name])
@@ -2044,6 +2047,36 @@ model ForecastSnapshot {
   @@index([tenantId, pipelineId, periodStart])
   @@index([tenantId, period, periodStart])
   @@map("crm_forecast_snapshots")
+}
+
+/// ========================================================================
+/// CRM Churn Prediction — Engagement-based churn risk (Phase 2, Sprint 12)
+/// ========================================================================
+
+model ChurnSignal {
+  id             String    @id @default(cuid())
+  tenantId       String
+  contactId      String?
+  accountId      String?
+  probability    Float     @default(0) // 0.0-1.0 churn probability
+  riskLevel      String    @default("LOW") // LOW, MEDIUM, HIGH
+  signals        Json      @default("{}") // { responseDecay, meetingDrop, stagnation, inactivity, ... }
+  reasoning      String?   // LLM explanation of risk assessment
+  acknowledgedAt DateTime? // user dismissed / acknowledged the warning
+  computedAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact?    @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  account CrmAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, contactId])
+  @@unique([tenantId, accountId])
+  @@index([tenantId, probability])
+  @@index([tenantId, riskLevel])
+  @@index([tenantId, computedAt])
+  @@map("crm_churn_signals")
 }
 
 /// ========================================================================
