@@ -208,6 +208,9 @@ export class EmailSendQueueService extends BaseQueueService<EmailSendJobData, Em
    * Enqueue an email for immediate sending.
    */
   async enqueueSend(data: EmailSendJobData): Promise<string> {
+    // IF-C6: Backpressure check
+    await this.assertTenantCapacity(data.tenantId);
+
     const idempotencyKey = data.idempotencyKey || this.generateIdempotencyKey(data, 'send');
 
     // Check for duplicate send

@@ -27,6 +27,22 @@ import { getRedisConnectionOptions, getDefaultJobOptions } from '../../../common
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 
 /**
+ * IF-C6: Error thrown when queue backpressure rejects a job.
+ * Callers should catch this and return 429 to the API client.
+ */
+export class BackpressureError extends Error {
+  constructor(
+    message: string,
+    public readonly tenantId: string,
+    public readonly queueName: string,
+    public readonly limit: number,
+  ) {
+    super(message);
+    this.name = 'BackpressureError';
+  }
+}
+
+/**
  * Priority level for job defaults
  */
 export type QueuePriority = 'HIGH' | 'NORMAL' | 'LOW';
@@ -74,6 +90,11 @@ export abstract class BaseQueueService<TJobData, TJobResult>
     protected readonly deadLetterQueue?: DeadLetterQueueService,
   ) {
     this.logger = new Logger(this.constructor.name);
+  }
+
+  /** IF-C6: Default max queue depth per tenant (override in subclass) */
+  protected getMaxTenantQueueDepth(): number {
+    return 1000;
   }
 
   // ==================== Abstract Methods ====================
@@ -144,11 +165,15 @@ export abstract class BaseQueueService<TJobData, TJobResult>
           `Failed to record metrics for job ${jobId}: ${error instanceof Error ? error.message : String(error)}`,
         );
       });
+      // IF-C6: Decrement tenant counter for backpressure tracking
+      void this.decrementTenantCounter(jobId);
     });
 
     this.queueEvents.on('failed', ({ jobId, failedReason }) => {
       this.logger.warn(`Job ${jobId} failed: ${failedReason}`);
       this.recordFailure(failedReason);
+      // IF-C6: Decrement tenant counter for backpressure tracking
+      void this.decrementTenantCounter(jobId);
 
       // Add to DLQ if job exhausted all retries
       this.handlePermanentFailure(jobId, failedReason).catch((err) => {
@@ -274,6 +299,61 @@ export abstract class BaseQueueService<TJobData, TJobResult>
     }
 
     return removed;
+  }
+
+  // ==================== IF-C6: Backpressure ====================
+
+  /**
+   * IF-C6: Check if a tenant can enqueue more jobs. Throws if at capacity.
+   * Uses Redis hash for O(1) per-tenant depth tracking.
+   */
+  protected async assertTenantCapacity(tenantId: string): Promise<void> {
+    const key = `pmsync:queue-depth:${this.getQueueName()}`;
+    const current = await this.redisConnection.hincrby(key, tenantId, 1);
+    // Set TTL on the hash (1 hour) to avoid stale keys
+    await this.redisConnection.expire(key, 3600);
+
+    const limit = this.getMaxTenantQueueDepth();
+    if (current > limit) {
+      // Rollback the increment
+      await this.redisConnection.hincrby(key, tenantId, -1);
+      throw new BackpressureError(
+        `Queue ${this.getQueueName()} at capacity for tenant ${tenantId}: ${current - 1}/${limit}`,
+        tenantId,
+        this.getQueueName(),
+        limit,
+      );
+    }
+  }
+
+  /**
+   * IF-C6: Decrement tenant counter (call on job completion or failure).
+   * Automatically wired via queue events in setupQueueEvents.
+   */
+  protected async decrementTenantCounter(jobId: string): Promise<void> {
+    try {
+      const job = await this.queue.getJob(jobId);
+      const tenantId = (job?.data as any)?.tenantId;
+      if (tenantId) {
+        const key = `pmsync:queue-depth:${this.getQueueName()}`;
+        const val = await this.redisConnection.hincrby(key, tenantId, -1);
+        // Clean up zero/negative entries
+        if (val <= 0) {
+          await this.redisConnection.hdel(key, tenantId);
+        }
+      }
+    } catch {
+      // Non-critical — stale counter will expire via TTL
+    }
+  }
+
+  /**
+   * IF-C6: Get current queue depth for a tenant.
+   */
+  async getTenantQueueDepth(tenantId: string): Promise<number> {
+    const key = `pmsync:queue-depth:${this.getQueueName()}`;
+    const val = await this.redisConnection.hget(key, tenantId);
+    return val ? parseInt(val, 10) : 0;
   }
 
   // ==================== Metrics Tracking ====================

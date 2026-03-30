@@ -117,6 +117,11 @@ export class ProviderSyncBackQueueService extends BaseQueueService<SyncBackJobDa
     return QUEUE_NAMES.PROVIDER_SYNC_BACK;
   }
 
+  /** IF-C6: Sync-back limited to 500 per tenant */
+  protected getMaxTenantQueueDepth(): number {
+    return 500;
+  }
+
   protected getQueuePriority(): QueuePriority {
     return 'HIGH'; // User-initiated operations
   }
@@ -160,6 +165,9 @@ export class ProviderSyncBackQueueService extends BaseQueueService<SyncBackJobDa
    * Automatically deduplicates and batches operations on the same emails.
    */
   async enqueueSyncBack(data: SyncBackJobData): Promise<string> {
+    // IF-C6: Backpressure check
+    await this.assertTenantCapacity(data.tenantId);
+
     const sortedIds = [...data.emailIds].sort().join('-');
     const jobId = `syncback-${data.providerId}-${data.action}-${sortedIds.substring(0, 50)}`;
 

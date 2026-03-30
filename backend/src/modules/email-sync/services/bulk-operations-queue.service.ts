@@ -131,6 +131,11 @@ export class BulkOperationsQueueService extends BaseQueueService<BulkOperationJo
     return QUEUE_NAMES.BULK_OPERATIONS;
   }
 
+  /** IF-C6: Bulk ops limited to 100 per tenant */
+  protected getMaxTenantQueueDepth(): number {
+    return 100;
+  }
+
   protected getQueuePriority(): QueuePriority {
     return 'NORMAL'; // Background batch processing
   }
@@ -187,6 +192,9 @@ export class BulkOperationsQueueService extends BaseQueueService<BulkOperationJo
    * Enqueue a bulk operation.
    */
   async enqueueBulkOperation(data: BulkOperationJobData): Promise<string> {
+    // IF-C6: Backpressure check — throws BackpressureError if at capacity
+    await this.assertTenantCapacity(data.tenantId);
+
     const jobId = `bulk-${data.operation}-${data.providerId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
     const job = await this.queue.add('bulk-operation', {
