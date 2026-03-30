@@ -1,73 +1,69 @@
-# Sprint 12 — Checkpoint
+# Sprint 13 — Checkpoint
 
 ## Stato
 
-- **Sprint:** 12 — Churn Prediction
-- **Last Task Completed:** T-1210 — Type-check validation + circular dep fix
+- **Sprint:** 13 — Next Best Action
+- **Last Task Completed:** T-1310 — Type-check validation, translations, query hooks
 - **Next Task:** Sprint complete — all tasks done
 - **Tasks Done:** 10/10
-- **SP Completed:** 16/16
-- **Last Updated:** 2026-03-30 10:35
+- **SP Completed:** 17/17
+- **Last Updated:** 2026-03-30 15:30
 
 ## Last Modified Files
 
-- backend/prisma/schema.prisma (ChurnSignal model, relations on Tenant/Contact/CrmAccount)
-- backend/src/modules/crm/churn/churn-features.types.ts (new — shared ChurnFeatures interface)
-- backend/src/modules/crm/churn/churn-feature.service.ts (new — feature extraction)
-- backend/src/modules/crm/churn/churn-email-metrics.ts (new — email decay + meeting drop helpers)
-- backend/src/modules/crm/churn/churn-assessment.service.ts (new — LLM-based churn assessment)
-- backend/src/modules/crm/churn/churn.controller.ts (new — REST endpoints)
-- backend/src/modules/crm/churn/churn.module.ts (new — module wiring)
-- backend/src/modules/crm/churn/churn-recompute.cron.ts (new — weekly cron)
-- backend/src/modules/crm/churn/dto/churn.dto.ts (new — query DTOs)
-- backend/src/modules/crm/crm.module.ts (ChurnModule added)
-- frontend/lib/api/crm-churn.ts (new — API module)
-- frontend/hooks/queries/crm-churn-keys.ts (new — query keys)
-- frontend/hooks/queries/use-crm-churn.ts (new — query hooks)
-- frontend/hooks/queries/index.ts (churn exports)
-- frontend/components/dashboard/crm-churn/ChurnWarningsList.tsx (new — list page)
-- frontend/components/dashboard/crm-churn/ChurnRiskBadge.tsx (new — badge component)
-- frontend/components/dashboard/crm-churn/SignalBreakdown.tsx (new — bar chart)
-- frontend/pages/dashboard/crm/churn.tsx (new — page wrapper)
-- frontend/components/dashboard/crm-accounts/AccountDetail.tsx (ChurnRiskBadge added)
-- frontend/components/contacts/ContactDetail.tsx (ChurnRiskBadge added)
-- frontend/locales/en.ts (churn translations)
-- frontend/locales/it.ts (churn translations)
-- frontend/locales/index.ts (churn type definitions)
+- backend/prisma/schema.prisma (NBAAction model, relations on Tenant/CrmDeal/Contact)
+- backend/src/modules/crm/nba/nba-context.types.ts (new — NBADealContext, NBAContactContext)
+- backend/src/modules/crm/nba/nba-context.service.ts (new — context gathering)
+- backend/src/modules/crm/nba/nba-ranking.service.ts (new — weighted rule engine)
+- backend/src/modules/crm/nba/nba.service.ts (new — orchestrator: context + ranking + persistence)
+- backend/src/modules/crm/nba/nba.controller.ts (new — REST endpoints)
+- backend/src/modules/crm/nba/nba.module.ts (new — module wiring)
+- backend/src/modules/crm/nba/dto/nba.dto.ts (new — UpdateNBAStatusDto)
+- backend/src/modules/crm/crm.module.ts (NBAModule added)
+- backend/src/modules/ai-chat/tools/crm-tools.service.ts (get_next_best_action tool)
+- backend/src/modules/ai-chat/ai-chat.module.ts (NBAModule import)
+- frontend/lib/api/crm-nba.ts (new — API module with types)
+- frontend/hooks/queries/crm-nba-keys.ts (new — query keys)
+- frontend/hooks/queries/use-crm-nba.ts (new — query hooks)
+- frontend/hooks/queries/index.ts (NBA exports)
+- frontend/components/dashboard/crm-nba/SuggestionCard.tsx (new)
+- frontend/components/dashboard/crm-nba/NBASection.tsx (new)
+- frontend/components/dashboard/crm-nba/NBAEffectiveness.tsx (new)
+- frontend/components/dashboard/crm-deals/DealDetail.tsx (NBASection integration)
+- frontend/locales/en.ts (NBA translations)
+- frontend/locales/it.ts (NBA translations)
+- frontend/locales/index.ts (NBA type definitions)
 
 ## Key Decisions Made
 
-- T-1204: Used LLM (Mistral via MistralService.completePrompt) instead of ml.js logistic regression — user preference, simpler stack
-- T-1204: Added heuristic fallback when LLM unavailable — rule-based scoring with same signal factors
-- T-1202: Email decay compares 30d vs 31-90d response time windows, meeting drop compares current vs previous quarter
-- T-1208: Used Recharts horizontal bar chart (already installed) instead of radar chart — clearer for signal comparison
-- T-1209: Used @Cron decorator (Sunday 03:00 UTC) instead of BullMQ — simpler for weekly job, same pattern as forecast cron
-- T-1210: Extracted ChurnFeatures interface into churn-features.types.ts to break circular dependency
+- T-1301: NBAAction uses tenantId for Contact composite FK (same pattern as ChurnSignal, LeadScore)
+- T-1302: Aggregates best engagement score and worst churn risk across all deal contacts
+- T-1303: 7 rule categories with confidence threshold >= 0.4, max 3 results
+- T-1304: Controller routes effectiveness/stats as /crm/nba/effectiveness/stats (before :dealId param catch)
+- T-1305: SuggestionCard uses lucide-react icons mapped per action type, collapsible reasoning
+- T-1306: NBASection placed between pipeline progress bar and tabs (no sidebar — current layout is single-column)
+- T-1307: Accept/dismiss tracking reuses useUpdateNbaStatus mutation already built in T-1305
+- T-1308: Tool added to existing CrmToolsService, NBAModule imported in AiChatModule
+- T-1309: Table-based effectiveness view with color-coded acceptance rate progress bars
 
 ## Patterns Established
 
-- Churn module at `backend/src/modules/crm/churn/`
-- Churn API module: `frontend/lib/api/crm-churn.ts`
-- Churn components: `frontend/components/dashboard/crm-churn/`
-- Churn page: `frontend/pages/dashboard/crm/churn.tsx`
-- LLM assessment pattern: system prompt + structured JSON response + heuristic fallback
-- Shared types in `*-types.ts` files to avoid circular deps between service and helper
-- ChurnRiskBadge: reusable component with contactId/accountId prop, auto-fetches signal
+- NBA module at `backend/src/modules/crm/nba/`
+- NBA API module: `frontend/lib/api/crm-nba.ts`
+- NBA components: `frontend/components/dashboard/crm-nba/`
+- Shared types in `nba-context.types.ts` to avoid circular deps
+- Context gathering pattern: gather all signals in parallel, aggregate per-contact
 
 ## Blockers / Notes
 
-- Support ticket trend feature (T-1203) skipped — no support ticket model exists in schema
-- ChurnRiskBadge only shows for probability >= 0.3 (avoid noise for low-risk contacts)
-- Pre-existing type error in TriageToolUI.tsx (toolCallId missing) — unrelated to Sprint 12
+- Effectiveness stats route must be defined before :dealId param route in controller (route ordering)
+- Competitor mentions feature (T-1302 spec) not implemented — no competitor data model exists
+- Action execution flow opens correct path via status tracking, not full automation
 
 ## Validation Status
 
 - Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing (pre-existing TriageToolUI error only)
+- Frontend tsc: ✅ passing
 - Circular deps: ✅ zero
 - Prisma generate: ✅ done
 - DB push: ✅ schema synced to Railway
-- Railway /health: ✅ 200 (DB, Redis, Mistral up)
-- Railway /crm/churn/at-risk: ✅ 401 (route registered, auth guard active)
-- Railway /crm/churn/contact/test: ✅ 401 (route registered)
-- Vercel /dashboard/crm/churn: ✅ 307 (auth redirect, page exists)

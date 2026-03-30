@@ -12,16 +12,16 @@
 
 ## Sprint Backlog
 
-- [ ] T-1301 — Modello Prisma `NBAAction`: relazione a Deal/Contact, action type enum (EMAIL, CALL, MEETING, DISCOUNT, ESCALATE, FOLLOW_UP), expected impact (0-100), reasoning text, status (SUGGESTED, ACCEPTED, DISMISSED, EXECUTED), timestamps — [2 SP] — 📋 TODO
-- [ ] T-1302 — NBA engine service: context gathering (deal stage, days in stage, last contact date, engagement score da LeadScore, churn risk da ChurnSignal, deal value, competitor mentions) — [2 SP] — 📋 TODO
-- [ ] T-1303 — NBA ranking logic: regole pesate per generare e ordinare azioni candidate. Priorità basata su urgency (stagnation, churn risk) + expected impact (storico azioni simili accettate) — [2 SP] — 📋 TODO
-- [ ] T-1304 — API endpoint `GET /crm/nba/:dealId` che restituisce top 3 azioni raccomandate con reasoning e impact score — [1 SP] — 📋 TODO
-- [ ] T-1305 — Suggestion card component MUI: card con icona azione, titolo, reasoning collapsible, barra impatto atteso %, pulsanti "Esegui" e "Ignora" — [2 SP] — 📋 TODO
-- [ ] T-1306 — Integrazione suggestion cards nella sidebar del deal detail: sezione "Azioni Consigliate" con max 3 cards, skeleton loading, empty state — [2 SP] — 📋 TODO
-- [ ] T-1307 — Action acceptance tracking: click su "Esegui" aggiorna status a ACCEPTED, trigger esecuzione (apri composer email, crea meeting, etc.), tracking outcome — [2 SP] — 📋 TODO
-- [ ] T-1308 — AI chat tool `getNextBestAction`: dato un dealId, restituisce le azioni raccomandate in formato conversazionale. Registrazione in ToolRegistry — [2 SP] — 📋 TODO
-- [ ] T-1309 — NBA effectiveness dashboard: ratio accepted/dismissed per action type, trend nel tempo, impatto reale vs predetto — [1 SP] — 📋 TODO
-- [ ] T-1310 — Type-check frontend e backend, traduzioni IT/EN, query hook `useNextBestAction` — [1 SP] — 📋 TODO
+- [x] T-1301 — Modello Prisma `NBAAction`: relazione a Deal/Contact, action type enum (EMAIL, CALL, MEETING, DISCOUNT, ESCALATE, FOLLOW_UP), expected impact (0-100), reasoning text, status (SUGGESTED, ACCEPTED, DISMISSED, EXECUTED), timestamps — [2 SP] — ✅ DONE
+- [x] T-1302 — NBA engine service: context gathering (deal stage, days in stage, last contact date, engagement score da LeadScore, churn risk da ChurnSignal, deal value, competitor mentions) — [2 SP] — ✅ DONE
+- [x] T-1303 — NBA ranking logic: regole pesate per generare e ordinare azioni candidate. Priorità basata su urgency (stagnation, churn risk) + expected impact (storico azioni simili accettate) — [2 SP] — ✅ DONE
+- [x] T-1304 — API endpoint `GET /crm/nba/:dealId` che restituisce top 3 azioni raccomandate con reasoning e impact score — [1 SP] — ✅ DONE
+- [x] T-1305 — Suggestion card component MUI: card con icona azione, titolo, reasoning collapsible, barra impatto atteso %, pulsanti "Esegui" e "Ignora" — [2 SP] — ✅ DONE
+- [x] T-1306 — Integrazione suggestion cards nella sidebar del deal detail: sezione "Azioni Consigliate" con max 3 cards, skeleton loading, empty state — [2 SP] — ✅ DONE
+- [x] T-1307 — Action acceptance tracking: click su "Esegui" aggiorna status a ACCEPTED, trigger esecuzione (apri composer email, crea meeting, etc.), tracking outcome — [2 SP] — ✅ DONE
+- [x] T-1308 — AI chat tool `getNextBestAction`: dato un dealId, restituisce le azioni raccomandate in formato conversazionale. Registrazione in ToolRegistry — [2 SP] — ✅ DONE
+- [x] T-1309 — NBA effectiveness dashboard: ratio accepted/dismissed per action type, trend nel tempo, impatto reale vs predetto — [1 SP] — ✅ DONE
+- [x] T-1310 — Type-check frontend e backend, traduzioni IT/EN, query hook `useNextBestAction` — [1 SP] — ✅ DONE
 
 ---
 
