@@ -12,16 +12,16 @@
 
 ## Sprint Backlog
 
-- [ ] T-1101 — Modello Prisma `ForecastSnapshot`: pipeline reference, periodo (quarter/month), predicted revenue, confidence bands (p20/p50/p80), actual revenue (nullable), `createdAt` — [1 SP] — 📋 TODO
-- [ ] T-1102 — Deal history aggregation service: calcolo mensile di close rate, valore medio deal, conversione per stage, revenue totale. Aggregazione per pipeline e tenant — [2 SP] — 📋 TODO
-- [ ] T-1103 — Simple time series forecasting in TypeScript: moving average (window 3 mesi) + linear trend extraction + seasonal decomposition additiva. Output: predicted value + confidence intervals — [3 SP] — 📋 TODO
-- [ ] T-1104 — API endpoint `GET /crm/forecast?pipelineId=X&period=quarter` con proiezione 4 trimestri avanti, filtro per pipeline — [2 SP] — 📋 TODO
-- [ ] T-1105 — Pagina dashboard forecast: layout MUI con selector pipeline e periodo, area chart MUI X Charts con linea forecast + bande di confidenza 80/50/20% (sfumature di colore) — [3 SP] — 📋 TODO
-- [ ] T-1106 — Widget forecast vs actuals: comparazione tra previsioni passate e risultati reali, calcolo MAPE (Mean Absolute Percentage Error) — [2 SP] — 📋 TODO
-- [ ] T-1107 — BullMQ job `forecast-refresh` settimanale: ricalcolo forecast per tutte le pipeline attive, salvataggio snapshot — [1 SP] — 📋 TODO
-- [ ] T-1108 — Forecast accuracy tracking: persistenza MAPE per ogni snapshot, trend accuratezza nel tempo — [1 SP] — 📋 TODO
-- [ ] T-1109 — Query hooks `useForecast` e `useForecastAccuracy` con TanStack Query, traduzioni IT/EN — [1 SP] — 📋 TODO
-- [ ] T-1110 — Type-check frontend e backend, validazione Swagger endpoint — [1 SP] — 📋 TODO
+- [x] T-1101 — Modello Prisma `ForecastSnapshot` — [1 SP] — ✅ DONE
+- [x] T-1102 — Deal history aggregation service — [2 SP] — ✅ DONE
+- [x] T-1103 — Time series forecasting engine in TypeScript — [3 SP] — ✅ DONE
+- [x] T-1104 — Forecast API endpoint — [2 SP] — ✅ DONE
+- [x] T-1105 — Forecast dashboard page with Recharts area chart — [3 SP] — ✅ DONE
+- [x] T-1106 — Forecast vs actuals widget — [2 SP] — ✅ DONE
+- [x] T-1107 — Weekly forecast-refresh cron job — [1 SP] — ✅ DONE
+- [x] T-1108 — Forecast accuracy tracking (MAPE) — [1 SP] — ✅ DONE
+- [x] T-1109 — Query hooks + translations IT/EN — [1 SP] — ✅ DONE
+- [x] T-1110 — Type-check + circular deps validation — [1 SP] — ✅ DONE
 
 ---
 

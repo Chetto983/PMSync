@@ -1,67 +1,64 @@
-# Sprint 10 — Checkpoint
+# Sprint 11 — Checkpoint
 
 ## Stato
 
-- **Sprint:** 10 — Lead Score UI & CRM AI Tools
-- **Last Task Completed:** T-1010 — Register CRM tools in ToolRegistry
+- **Sprint:** 11 — Revenue Forecasting
+- **Last Task Completed:** T-1110 — Type-check validation
 - **Next Task:** Sprint complete — all tasks done
 - **Tasks Done:** 10/10
 - **SP Completed:** 17/17
-- **Last Updated:** 2026-03-30 10:30
+- **Last Updated:** 2026-03-30 14:30
 
 ## Last Modified Files
 
-- frontend/lib/api/crm-lead-scores.ts (new — API module)
-- frontend/hooks/queries/crm-lead-scores-keys.ts (new — query keys)
-- frontend/hooks/queries/use-crm-lead-scores.ts (new — hooks)
+- backend/prisma/schema.prisma (ForecastSnapshot model, CrmPipeline relation)
+- backend/src/modules/crm/forecasting/deal-aggregation.service.ts (new)
+- backend/src/modules/crm/forecasting/time-series.engine.ts (new)
+- backend/src/modules/crm/forecasting/forecast.service.ts (new)
+- backend/src/modules/crm/forecasting/forecast.controller.ts (new)
+- backend/src/modules/crm/forecasting/forecast-refresh.cron.ts (new)
+- backend/src/modules/crm/forecasting/forecasting.module.ts (new)
+- backend/src/modules/crm/forecasting/dto/forecast.dto.ts (new)
+- backend/src/modules/crm/crm.module.ts (ForecastingModule added)
+- frontend/lib/api/crm-forecast.ts (new)
+- frontend/hooks/queries/crm-forecast-keys.ts (new)
+- frontend/hooks/queries/use-crm-forecast.ts (new)
 - frontend/hooks/queries/index.ts (exports)
-- frontend/components/dashboard/crm-lead-score/LeadScoreGauge.tsx (new)
-- frontend/components/dashboard/crm-lead-score/LeadScoreBadge.tsx (new)
-- frontend/components/dashboard/crm-lead-score/ScoreHistoryChart.tsx (new)
-- frontend/components/dashboard/crm-lead-score/useLeadScoreMap.ts (new)
-- frontend/components/contacts/ContactListItem.tsx (leadScore prop)
-- frontend/components/contacts/ContactList.tsx (leadScoreMap prop)
-- frontend/components/dashboard/Contacts.tsx (score sort + map wiring)
-- frontend/locales/en.ts (leadScore translations)
-- frontend/locales/it.ts (leadScore translations)
-- frontend/locales/index.ts (leadScore types)
-- backend/prisma/schema.prisma (LeadScoreHistory model)
-- backend/src/modules/crm/lead-scoring/lead-scoring.service.ts (history writes)
-- backend/src/modules/crm/lead-scoring/controllers/lead-score.controller.ts (history endpoint)
-- backend/src/modules/crm/scoring/deal-scoring.service.ts (behavioral enhancement)
-- backend/src/modules/ai-chat/tools/crm-tools.service.ts (new — 3 CRM tools)
-- backend/src/modules/ai-chat/tools/index.ts (CrmToolsService export)
-- backend/src/modules/ai-chat/ai-chat.module.ts (CrmToolsService provider)
-- backend/src/modules/ai-chat/services/ai-chat.service.ts (CrmToolsService wiring)
+- frontend/components/dashboard/crm-forecast/ForecastChart.tsx (new)
+- frontend/components/dashboard/crm-forecast/ForecastDashboard.tsx (new)
+- frontend/components/dashboard/crm-forecast/ForecastVsActuals.tsx (new)
+- frontend/pages/dashboard/crm/forecast.tsx (new)
+- frontend/locales/en.ts (forecast translations)
+- frontend/locales/it.ts (forecast translations)
+- frontend/locales/index.ts (forecast type definitions)
 
 ## Key Decisions Made
 
-- T-1001: SVG-based circular gauge (no chart library dependency), semantic colors via getScoreArcColor
-- T-1002: LeadScoreBadge as reusable Chip (same pattern as DealScoreBadge)
-- T-1003: Client-side sorting via leadScoreMap since scores fetched separately from contacts
-- T-1004: Behavioral sub-score uses CrmActivity (not separate interaction model), 60/40 blend
-- T-1005: LeadScoreHistory model added for trend tracking (previously upsert-only); Recharts used instead of MUI X Charts (already installed)
-- T-1007/08/09: Single CrmToolsService for all 3 tools; move_deal_stage requires HITL approval
-- T-1010: Domain set to 'productivity' (no 'crm' domain in existing enum)
+- T-1101: ForecastSnapshot uses Decimal(15,2) for all revenue fields, period as string ('month'|'quarter')
+- T-1103: Pure TypeScript time series engine — no Python/ML deps. Moving average (window=3), OLS linear trend, additive seasonal decomposition. Confidence bands use residual std x z-score x sqrt(1+horizon)
+- T-1104: Forecast API at /crm/forecast, not nested under pipelines. Controller injects PrismaService directly for default pipeline lookup
+- T-1105: Used Recharts (already installed) instead of MUI X Charts. Area chart with p20/p80 confidence band, dashed forecast line, reference line at boundary
+- T-1107: Used @Cron decorator instead of BullMQ queue — simpler for a weekly job with no retry/backpressure needs
+- T-1108: MAPE stored on ForecastSnapshot, accuracy endpoint returns historical snapshots + avg MAPE
 
 ## Patterns Established
 
-- Lead score API module: `frontend/lib/api/crm-lead-scores.ts`
-- Lead score components: `frontend/components/dashboard/crm-lead-score/`
-- CRM AI tools: `backend/src/modules/ai-chat/tools/crm-tools.service.ts`
-- LeadScoreHistory: append-only history for score trend charts
-- useLeadScoreMap hook: batch-fetch scores, returns Map<contactId, {score, tier}>
+- Forecasting module at `backend/src/modules/crm/forecasting/`
+- Forecast API module: `frontend/lib/api/crm-forecast.ts`
+- Forecast components: `frontend/components/dashboard/crm-forecast/`
+- Forecast page: `frontend/pages/dashboard/crm/forecast.tsx`
+- Cron service pattern: `@Cron('0 2 * * 0')` for weekly jobs (Sunday 02:00 UTC)
+- Time series engine is a pure function module (no DI), testable in isolation
 
 ## Blockers / Notes
 
-- Score history will only populate going forward (no backfill of existing scores)
-- T-1003: Implemented sort toggle only (no min/max range slider — would add complexity for low value)
-- CRM tools use 'productivity' domain since ToolDomain enum doesn't include 'crm' yet
-- prisma db push needed before deploy for LeadScoreHistory table
+- Forecast accuracy will only populate once periods close (no historical backfill)
+- Sprint 11 used Recharts for charts instead of MUI X Charts as specified — Recharts was already installed and used in Sprint 08
 
 ## Validation Status
 
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Circular deps: not checked yet (need madge run)
+- Circular deps: ✅ zero
 - Prisma generate: ✅ done
+- DB push: ✅ schema synced to Railway
