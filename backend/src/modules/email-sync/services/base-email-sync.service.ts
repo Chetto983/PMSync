@@ -403,6 +403,36 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       getDriverCredentials: (pid) => this.getDriverCredentials(pid),
       createDriver: (type, creds) => this.createDriver(type, creds),
       messageProcessorContext: this.buildMessageProcessorContext(tenantId, providerId, userId),
+      // IF-H2: Callback to clear stale sync token on 404/410
+      clearSyncToken: async () => {
+        const provider = await this.prisma.providerConfig.findUnique({
+          where: { id: providerId },
+          select: { metadata: true },
+        });
+        const metadata = (provider?.metadata as Record<string, any>) || {};
+        // Prevent full resync more than once per 24h
+        const lastFullSyncAt = metadata.lastFullSyncAt;
+        if (lastFullSyncAt) {
+          const hoursSinceFullSync = (Date.now() - new Date(lastFullSyncAt).getTime()) / (1000 * 60 * 60);
+          if (hoursSinceFullSync < 24) {
+            this.logger.warn(`[IF-H2] Skipping sync token clear — last full sync was ${Math.round(hoursSinceFullSync)}h ago (min 24h)`);
+            return;
+          }
+        }
+        await this.prisma.providerConfig.update({
+          where: { id: providerId },
+          data: {
+            metadata: {
+              ...metadata,
+              lastSyncToken: null,
+              deltaTokenUpdatedAt: null,
+              lastFullSyncAt: new Date().toISOString(),
+              syncTokenClearedReason: 'IF-H2: 404/410 on incremental sync',
+            },
+          },
+        });
+        this.logger.log(`[IF-H2] Cleared sync token for provider ${providerId}`);
+      },
     };
 
     return this.syncOrchestration.executeIncrementalSync(

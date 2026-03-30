@@ -25,6 +25,8 @@ export interface OrchestrationContext {
   getDriverCredentials: GetDriverCredentialsCallback;
   createDriver: CreateDriverCallback;
   messageProcessorContext: MessageProcessorContext;
+  /** IF-H2: Callback to clear stale sync token when 404/410 detected */
+  clearSyncToken?: () => Promise<void>;
 }
 
 /**
@@ -270,7 +272,25 @@ export class SyncOrchestrationService {
     if (!driver.getChangesSince) {
       throw new Error('Driver does not support getChangesSince - cannot complete incremental sync');
     }
-    const changesResult = await driver.getChangesSince(lastSyncToken);
+
+    let changesResult: Awaited<ReturnType<NonNullable<IEmailDriver['getChangesSince']>>>;
+    try {
+      changesResult = await driver.getChangesSince(lastSyncToken);
+    } catch (syncTokenError) {
+      // IF-H2: Handle invalid/expired sync tokens (404 historyId, 410 Gone delta)
+      const errMsg = syncTokenError instanceof Error ? syncTokenError.message : String(syncTokenError);
+      const isTokenInvalid = /404|410|Gone|notFound|historyId|invalid.*token|expired.*token/i.test(errMsg);
+
+      if (isTokenInvalid && context.clearSyncToken) {
+        this.logger.warn(
+          `[IF-H2] Sync token invalid for provider ${context.providerId}: ${errMsg} — clearing token, next sync will be full`,
+        );
+        await context.clearSyncToken();
+        // Return empty result — the next scheduled sync will run as full sync (no token)
+        return { messagesProcessed: 0, newMessages: 0, newSyncToken: '', driver };
+      }
+      throw syncTokenError;
+    }
 
     // Provider-specific handling (e.g., Microsoft delta token expiration)
     const hookResult = onIncrementalChanges(changesResult, lastSyncToken);
