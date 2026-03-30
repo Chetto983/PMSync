@@ -4654,6 +4654,39 @@ export interface AppTranslations {
       select?: string;
     };
   };
+  leadScore?: {
+    title?: string;
+    score?: string;
+    tier?: {
+      hot?: string;
+      warm?: string;
+      cold?: string;
+    };
+    confidence?: string;
+    computedAt?: string;
+    noScore?: string;
+    noScoreDescription?: string;
+    computeScore?: string;
+    computing?: string;
+    computeSuccess?: string;
+    computeError?: string;
+    gauge?: {
+      title?: string;
+      topFactors?: string;
+      noFactors?: string;
+    };
+    factors?: Record<string, string>;
+    badge?: {
+      label?: string;
+    };
+    list?: {
+      column?: string;
+      sortAsc?: string;
+      sortDesc?: string;
+      filterMin?: string;
+      filterMax?: string;
+    };
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
