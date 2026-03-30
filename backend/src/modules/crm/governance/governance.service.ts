@@ -49,7 +49,7 @@ export class GovernanceService {
       'chat',
     ];
 
-    const [predictionCount, costAgg] = await Promise.all([
+    const [predictionCount, costAgg, qualityAgg, distinctModels] = await Promise.all([
       this.prisma.aiRunLedger.count({
         where: { tenantId, runType: { in: intelligenceTypes } },
       }),
@@ -61,23 +61,19 @@ export class GovernanceService {
         },
         _sum: { estimatedCostUsd: true },
       }),
+      this.prisma.aiRunLedger.aggregate({
+        where: {
+          tenantId,
+          runType: { in: intelligenceTypes },
+          qualityScore: { not: null },
+        },
+        _avg: { qualityScore: true },
+      }),
+      this.prisma.aiRunLedger.groupBy({
+        by: ['model'],
+        where: { tenantId, runType: { in: intelligenceTypes } },
+      }),
     ]);
-
-    // Average accuracy from quality scores (non-null only)
-    const qualityAgg = await this.prisma.aiRunLedger.aggregate({
-      where: {
-        tenantId,
-        runType: { in: intelligenceTypes },
-        qualityScore: { not: null },
-      },
-      _avg: { qualityScore: true },
-    });
-
-    // Count distinct model types used
-    const distinctModels = await this.prisma.aiRunLedger.groupBy({
-      by: ['model'],
-      where: { tenantId, runType: { in: intelligenceTypes } },
-    });
 
     return {
       totalPredictions: predictionCount,

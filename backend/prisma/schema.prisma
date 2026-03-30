@@ -1809,6 +1809,7 @@ model CrmDeal {
   @@index([tenantId, stageId])
   @@index([tenantId, accountId])
   @@index([tenantId, expectedCloseDate])
+  @@index([tenantId, closedAt])
   @@index([tenantId, score])
   @@map("crm_deals")
 }
