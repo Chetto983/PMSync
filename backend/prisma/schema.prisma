@@ -69,6 +69,7 @@ model Tenant {
   leadScoreHistory         LeadScoreHistory[]
   leadFeatureStores        LeadFeatureStore[]
   modelEvaluations         ModelEvaluation[]
+  forecastSnapshots        ForecastSnapshot[]
 
   @@map("tenants")
 }
@@ -1725,10 +1726,11 @@ model CrmPipeline {
   updatedAt   DateTime   @updatedAt
   deletedAt   DateTime?
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  stages      CrmStage[]
-  deals       CrmDeal[]
-  savedViews  CrmSavedView[]
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stages            CrmStage[]
+  deals             CrmDeal[]
+  savedViews        CrmSavedView[]
+  forecastSnapshots ForecastSnapshot[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -2020,6 +2022,28 @@ model ModelEvaluation {
   @@index([tenantId, modelType])
   @@index([tenantId, modelType, isActive])
   @@map("crm_model_evaluations")
+}
+
+model ForecastSnapshot {
+  id               String   @id @default(cuid())
+  tenantId         String
+  pipelineId       String
+  period           String   // 'month' or 'quarter'
+  periodStart      DateTime // start of the forecasted period
+  predictedRevenue Decimal  @db.Decimal(15, 2)
+  p20Revenue       Decimal  @db.Decimal(15, 2) // 20th percentile (pessimistic)
+  p50Revenue       Decimal  @db.Decimal(15, 2) // 50th percentile (median)
+  p80Revenue       Decimal  @db.Decimal(15, 2) // 80th percentile (optimistic)
+  actualRevenue    Decimal? @db.Decimal(15, 2) // filled in when period closes
+  mape             Float?   // Mean Absolute Percentage Error (filled when actual is known)
+  createdAt        DateTime @default(now())
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, pipelineId, periodStart])
+  @@index([tenantId, period, periodStart])
+  @@map("crm_forecast_snapshots")
 }
 
 /// ========================================================================
