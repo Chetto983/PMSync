@@ -45,6 +45,7 @@ import { AccountHierarchyTree } from './AccountHierarchyTree';
 import { AccountContactsTab } from './AccountContactsTab';
 import { AddressEditSection } from './AddressEditSection';
 import { AccountActivityTab } from './AccountActivityTab';
+import { ChurnRiskBadge } from '../crm-churn/ChurnRiskBadge';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -491,6 +492,7 @@ export function AccountDetail() {
               onSave={(_, val) => handleSave({ name: val })}
             />
           </Box>
+          <ChurnRiskBadge accountId={account.id} size="medium" />
         </Box>
       </Box>
 

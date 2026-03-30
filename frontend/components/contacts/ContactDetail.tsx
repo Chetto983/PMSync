@@ -25,6 +25,7 @@ import { TabPanel, getContactName, getPrimaryEmail } from './contact-detail/cont
 import { ContactInfoPanel } from './contact-detail/ContactInfoPanel';
 import { ContactActivityFeed } from './contact-detail/ContactActivityFeed';
 import { ContactNotesTab } from './contact-detail/ContactNotesTab';
+import { ChurnRiskBadge } from '../dashboard/crm-churn/ChurnRiskBadge';
 
 /**
  * Props for ContactDetail component
@@ -109,6 +110,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                 sx={{ mt: 0.5 }}
               />
             )}
+            <ChurnRiskBadge contactId={contact.id} />
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Tooltip title={contact.isVip ? (contactsCopy.actions?.removeVip || 'Remove VIP') : (contactsCopy.actions?.markVip || 'Mark as VIP')}>
