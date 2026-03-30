@@ -244,6 +244,54 @@
 
 ---
 
+## Milestone: v10.0 -- Email & Sync Production Validation
+
+**Shipped:** 2026-03-30
+**Phases:** 13 | **Plans:** 27
+
+### What Was Built
+- Comprehensive validation suite: 300+ automated checks across Gmail, Outlook, IMAP on Railway/Vercel production
+- Sync pipeline verified end-to-end: full sync (110/110), incremental sync (19/19), webhooks (17/18), sync-back (26/26)
+- Email operations validated: send, reply, forward, drafts, bulk ops, folder CRUD, attachments, search
+- Infrastructure proven: BullMQ queues (48/48), scheduling with timed delivery, signatures, templates (39/39)
+- Cross-cutting security: tenant isolation, 4-tier rate limiting, response envelope compliance
+- Bug fixes: 5+ real bugs caught and fixed during live validation (envelope parsing, forward attachments, draft orphan, label sync-back, response unwrapping)
+
+### What Worked
+- Edge CDP validation pattern — browser-authenticated API calls via Playwright caught cookie/CSRF issues that pure API tests miss
+- Validation scripts as reusable regression suite — scripts in scripts/lib/ can re-run against any deployment
+- Milestone audit identified 2 real gaps (INFRA-06 timed delivery, INFRA-10 signature content) spawning Phases 123-124
+- Phase 123 human checkpoint pattern — validation ran live, results reviewed before creating VERIFICATION.md
+- 5-day milestone for 50 requirements — efficient use of pre-existing backend code (validation-only, minimal code changes)
+
+### What Was Inefficient
+- Railway SMTP block prevented WRITE-03 and FOLD-03 live validation — infrastructure limitations should be documented upfront
+- Phase 121 verification gaps (INFRA-06/10) were foreseeable — timed delivery polling should have been in the original plan
+- Some phases (118-122) compressed into a single day — risk of fatigue-induced errors in later phases
+- VERIFICATION.md format inconsistencies across phases — no standard template was enforced early
+
+### Patterns Established
+- Edge CDP + validation-helpers.mjs as standard validation infrastructure (auth, CSRF, API helpers, assertions)
+- Per-provider test matrices (Gmail/Outlook/IMAP) with provider-specific skip conditions
+- "Accept failed as evidence" pattern for infrastructure-blocked tests (SMTP, IMAP delete)
+- Code-level evidence fallback with explicit "partial" qualifier when DB access unavailable
+- Milestone audit → gap closure phases → completion as quality gate (6th milestone using this pattern)
+
+### Key Lessons
+1. Validation-only milestones are high-value and fast — 50 requirements in 5 days with mostly script work
+2. Infrastructure limitations (SMTP blocks, IMAP quirks) should be documented in requirements upfront, not discovered during validation
+3. CDP browser validation catches real integration bugs that unit tests and API tests miss (5+ bugs found)
+4. Gap closure phases (123-124) continue to be cheap and high-value — v10.0 adds to the pattern from v4.0, v7.0, v9.0
+5. Timed polling tests need explicit timeout budgets in plan estimates — 4-minute poll loops affect plan timing
+
+### Cost Observations
+- Model mix: quality profile (opus) for all phases
+- 27 plans completed in 5 days (~158 commits, 533 files changed)
+- Average plan execution: ~8min (slightly above v9.0 due to live validation wait times)
+- Gap closure phases (123-124): Phase 123 took ~15min (polling), Phase 124 took ~3min (docs only)
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -264,14 +312,15 @@
 | v7.0 | 10 | 35 | Full-system verification, audit-driven, live validation |
 | v8.0 | 6 | 11 | PWA, fastest milestone (2 days, 5min/plan avg) |
 | v9.0 | 6 | 14 | AI intelligence, audit-driven gap closure (Phases 110-111) |
+| v10.0 | 13 | 27 | Validation-only milestone, 300+ live checks, CDP pattern |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. Milestone audits catch real gaps -- v3.0, v3.1, v4.0, v7.0, and v9.0 all benefited from audit-before-ship (run at 80%+ completion)
+1. Milestone audits catch real gaps -- v3.0, v3.1, v4.0, v7.0, v9.0, and v10.0 all benefited from audit-before-ship
 2. Carry-forward items are fine when scoped explicitly (v3.2->v4.0 worked cleanly)
-3. Gap closure phases are the cheapest quality investment (avg 3-5min vs 7-11min for planned phases) -- confirmed in v9.0 P110/P111
+3. Gap closure phases are the cheapest quality investment (avg 3-5min vs 7-11min for planned phases) -- confirmed across 6 milestones
 4. Facade pattern for god-file splits is the safest refactoring approach -- zero consumer changes across v4.0 and v4.1
-5. Plan execution velocity stabilizes around 5-7min for well-scoped plans (v8.0: 5min, v9.0: 7min)
-6. Live validation is non-negotiable -- v7.0 Phase 90 proved that code review alone misses behavioral bugs (20+ Gmail parity bugs)
-7. SUMMARY.md one_liner fields are still missing after 5 milestones -- fix the template, not the downstream extraction
-8. Wave 0 test stub pattern works but stubs MUST be replaced in the same milestone -- v9.0 proved this with Phase 111
+5. Plan execution velocity stabilizes around 5-8min for well-scoped plans (v8.0: 5min, v10.0: 8min)
+6. Live validation is non-negotiable -- v7.0 and v10.0 both proved that code review alone misses behavioral bugs
+7. Validation-only milestones are high-value -- v10.0 covered 50 requirements in 5 days with minimal code changes
+8. Infrastructure limitations should be documented in requirements upfront -- SMTP/IMAP blocks caused known gaps in v10.0
