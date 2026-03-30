@@ -134,7 +134,7 @@ export async function validateResponseEnvelope(context, cookieHeader, csrfToken)
 
   // XCUT-03d: Validation error has { error, meta } shape
   try {
-    const res = await api.post(BACKEND_URL + '/api/v1/signatures', {
+    const res = await api.post(BACKEND_URL + '/api/v1/emails/signatures', {
       headers: {
         Cookie: cookieHeader,
         'x-csrf-token': csrfToken,

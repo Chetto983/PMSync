@@ -103,14 +103,18 @@ export async function validateRateTiers(context, cookieHeader, csrfToken) {
             // Check @Delete endpoints
             if (lines[i].includes('@Delete(')) {
               deleteEndpoints++;
-              const window = lines.slice(Math.max(0, i - 5), i + 6).join('\n');
+              // Check 10 lines above and 10 lines below for decorator (order varies)
+              const window = lines.slice(Math.max(0, i - 10), Math.min(lines.length, i + 11)).join('\n');
               if (window.includes('@RateTierDecorator')) {
                 deleteWithTier++;
               }
             }
-            // Check destructive POST routes (sync-all, clear)
-            if (lines[i].includes("@Post('sync-all')") || lines[i].includes("'clear')")) {
-              if (lines[i].includes('@Post(') || lines[i - 1]?.includes('@Post(')) {
+            // Check destructive POST routes (sync-all in email-sync only, queues clear)
+            const isEmailSyncFile = file.includes('email-sync');
+            const isSyncAll = lines[i].includes("@Post('sync-all')") && isEmailSyncFile;
+            const isClear = lines[i].match(/['"]queues.*clear['"]/);
+            if (isSyncAll || isClear) {
+              if (lines[i].includes('@Post(') || lines.slice(Math.max(0, i - 3), i).some(l => l.includes('@Post('))) {
                 destructivePosts++;
                 const window = lines.slice(Math.max(0, i - 5), i + 6).join('\n');
                 if (window.includes("@RateTierDecorator('destructive-write')")) {
@@ -137,14 +141,14 @@ export async function validateRateTiers(context, cookieHeader, csrfToken) {
     } else if (totalDestructive > 0) {
       results.push({
         name: 'XCUT-02b: Destructive endpoints have explicit RateTierDecorator',
-        status: 'PASS',
-        detail: `${totalWithTier}/${totalDestructive} destructive endpoints have explicit tier (remainder auto-assigned safe-write)`,
+        status: 'FAIL',
+        detail: `${totalWithTier}/${totalDestructive} destructive endpoints have explicit tier — ${totalDestructive - totalWithTier} missing`,
       });
     } else {
       results.push({
         name: 'XCUT-02b: Destructive endpoints have explicit RateTierDecorator',
-        status: 'PASS',
-        detail: 'No destructive endpoints found to audit',
+        status: 'FAIL',
+        detail: 'No destructive endpoints found to audit — detection logic may be broken',
       });
     }
   } catch (err) {
