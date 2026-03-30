@@ -1,5 +1,5 @@
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ChurnFeatures } from './churn-feature.service';
+import type { ChurnFeatures } from './churn-features.types';
 
 type EmailDecayResult = Pick<
   ChurnFeatures,
