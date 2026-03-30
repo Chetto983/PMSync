@@ -295,7 +295,7 @@ Plans:
 | 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
 | 117. Email Send & Reply/Forward | 3/3 | Complete   | 2026-03-27 |
-| 118. Drafts & Bulk Operations | 2/2 | Complete   | 2026-03-30 |
+| 118. Drafts & Bulk Operations | 2/2 | Complete    | 2026-03-30 |
 | 119. Folder Operations | 0/? | Not started | - |
 | 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
 | 121. Scheduling, Signatures & Templates | 0/? | Not started | - |
