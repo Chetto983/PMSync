@@ -102,6 +102,25 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
       `Processing bulk ${operation}: ${emailIds.length} emails for provider ${providerId}`,
     );
 
+    // IF-H5: Validate all emailIds belong to the tenantId (security boundary check)
+    const validCount = await this.prisma.email.count({
+      where: { id: { in: emailIds }, tenantId },
+    });
+    if (validCount !== emailIds.length) {
+      const invalidCount = emailIds.length - validCount;
+      this.logger.error(
+        `IF-H5: Bulk ${operation} rejected — ${invalidCount}/${emailIds.length} emails do not belong to tenant ${tenantId}`,
+      );
+      return {
+        success: false,
+        processed: 0,
+        failed: emailIds.length,
+        errors: [`${invalidCount} email(s) do not belong to tenant ${tenantId}`],
+        durationMs: Date.now() - startTime,
+        completedAt: new Date().toISOString(),
+      };
+    }
+
     const errors: string[] = [];
     let processed = 0;
     let failed = 0;
