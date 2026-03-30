@@ -4,6 +4,7 @@ import { createClient } from 'redis';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { QueueService, QueueMetricsSummary } from '../../email-sync/services/queue.service';
+import { CalendarSyncQueueService } from '../../calendar/services/calendar-sync-queue.service';
 import { SyncSchedulerService } from '../../email-sync/services/sync-scheduler.service';
 import { getConfiguration, getRedisNodeConnectionOptions } from '../../../config/configuration';
 import { Prisma } from '@prisma/client';
@@ -22,6 +23,7 @@ export class HealthService {
     @Optional() @Inject(QueueService) private queueService?: QueueService,
     @Optional() @Inject(SyncSchedulerService) private syncScheduler?: SyncSchedulerService,
     @Optional() @Inject(OpsAlertService) private opsAlert?: OpsAlertService,
+    @Optional() @Inject(CalendarSyncQueueService) private calendarSyncQueue?: CalendarSyncQueueService,
   ) {
     this.redisClient.connect().catch(() => {
       this.logger.warn('Redis health check client failed to connect');
@@ -73,6 +75,38 @@ export class HealthService {
     if (this.queueService) {
       const metrics = this.queueService.getQueueMetricsSummary();
       health.services.emailSyncQueue = this.buildQueueServiceHealth(metrics);
+    }
+
+    // T-0204: Calendar sync queue DLQ monitoring
+    if (this.calendarSyncQueue) {
+      try {
+        const calMetrics = this.calendarSyncQueue.getAllMetrics();
+        const totalFailed = calMetrics.reduce((sum, m) => sum + m.failed, 0);
+        const totalCompleted = calMetrics.reduce((sum, m) => sum + m.completed, 0);
+        const dlqThreshold = Number(this.configService.get<number>('CALENDAR_SYNC_DLQ_THRESHOLD', 10));
+
+        health.services.calendarSyncQueue = {
+          status: totalFailed >= dlqThreshold ? 'degraded' : 'up',
+          metrics: calMetrics,
+          dlq: { failed: totalFailed, threshold: dlqThreshold },
+          totals: { completed: totalCompleted, failed: totalFailed },
+        };
+
+        if (totalFailed >= dlqThreshold) {
+          const msg = `Calendar sync DLQ depth ${totalFailed} exceeds threshold ${dlqThreshold}`;
+          this.logger.error(`[T-0204-ALERT] ${msg}`);
+          void this.opsAlert?.fire({
+            level: totalFailed >= dlqThreshold * 2 ? 'critical' : 'warning',
+            source: 'calendar-sync-dlq',
+            message: msg,
+            metadata: { totalFailed, threshold: dlqThreshold },
+          });
+          health.status = 'degraded';
+        }
+      } catch (err) {
+        this.logger.warn(`Calendar sync queue health check failed: ${(err as Error)?.message}`);
+        health.services.calendarSyncQueue = { status: 'unavailable' };
+      }
     }
 
     // T-1703: Driver-specific health summary (active accounts + last sync per provider type)
