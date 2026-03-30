@@ -19,8 +19,8 @@ created: 2026-03-30
 |----------|-------|
 | **Framework** | Node.js mjs validation scripts (established pattern from phases 112-117) |
 | **Config file** | none — scripts are self-contained |
-| **Quick run command** | `node scripts/validate-drafts.mjs --quick` |
-| **Full suite command** | `node scripts/validate-drafts.mjs && node scripts/validate-bulk-ops.mjs` |
+| **Quick run command** | `node scripts/validate-drafts-bulk.mjs --provider=gmail` |
+| **Full suite command** | `node scripts/validate-drafts-bulk.mjs` |
 | **Estimated runtime** | ~30 seconds (live Railway API calls) |
 
 ---
@@ -38,11 +38,10 @@ created: 2026-03-30
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 118-01-01 | 01 | 1 | WRITE-06 | integration | `node scripts/validate-drafts.mjs` | ❌ W0 | ⬜ pending |
-| 118-01-02 | 01 | 1 | WRITE-07 | integration | `node scripts/validate-bulk-ops.mjs --mark` | ❌ W0 | ⬜ pending |
-| 118-01-03 | 01 | 1 | WRITE-08 | integration | `node scripts/validate-bulk-ops.mjs --move` | ❌ W0 | ⬜ pending |
-| 118-01-04 | 01 | 1 | WRITE-09 | integration | `node scripts/validate-bulk-ops.mjs --delete` | ❌ W0 | ⬜ pending |
-| 118-01-05 | 01 | 1 | WRITE-10 | integration | `node scripts/validate-bulk-ops.mjs --labels` | ❌ W0 | ⬜ pending |
+| 118-01-T1 | 01 | 1 | WRITE-06 | unit | `cd backend && npx tsc --noEmit` | ✅ | ⬜ pending |
+| 118-01-T2 | 01 | 1 | WRITE-06..10 | integration | `node -c scripts/validate-drafts-bulk.mjs` | ❌ W0 | ⬜ pending |
+| 118-02-T1 | 02 | 2 | WRITE-06..10 | integration | `node scripts/validate-drafts-bulk.mjs` | ❌ W0 | ⬜ pending |
+| 118-02-T2 | 02 | 2 | WRITE-06..10 | manual | human checkpoint | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,8 +49,8 @@ created: 2026-03-30
 
 ## Wave 0 Requirements
 
-- [ ] `scripts/validate-drafts.mjs` — draft CRUD lifecycle validation
-- [ ] `scripts/validate-bulk-ops.mjs` — bulk operations validation (mark, move, delete, labels)
+- [ ] `scripts/validate-drafts-bulk.mjs` — unified orchestrator for draft CRUD + bulk operations validation
+- [ ] `scripts/lib/validate-drafts-bulk.mjs` — validation library (helpers, test functions)
 
 *Scripts follow established pattern from phases 112-117 validation scripts.*
 
