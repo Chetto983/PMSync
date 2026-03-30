@@ -24,7 +24,8 @@ import {
   EmailAddress,
   CanonicalMessage,
 } from '../../interfaces/canonical.types';
-import { MimeBuilder } from '../../../../../common/utils';
+import { MimeBuilder, RateLimiter } from '../../../../../common/utils';
+import { classifySmtpError } from '../imap-errors';
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class ImapSendService {
@@ -32,6 +33,10 @@ export class ImapSendService {
 
   private smtpConfig?: SmtpConfig;
   private userEmail?: string;
+  /** T-1402: Pooled SMTP transport — reused across sends */
+  private transporter?: nodemailer.Transporter;
+  /** T-1402: Rate limiter — max 30 messages/minute per account */
+  private readonly sendRateLimiter = new RateLimiter(30, 60000);
 
   constructor(
     private readonly connectionPool: ImapConnectionPoolService,
@@ -39,11 +44,25 @@ export class ImapSendService {
   ) {}
 
   /**
-   * Initialize the send service with SMTP configuration
+   * Initialize the send service with SMTP configuration.
+   * T-1402: Creates a pooled transport with connection timeouts.
    */
   initialize(smtpConfig: SmtpConfig, userEmail: string): void {
     this.smtpConfig = smtpConfig;
     this.userEmail = userEmail;
+
+    // T-1402: Create pooled SMTP transport (reused across sends)
+    this.transporter = nodemailer.createTransport({
+      host: smtpConfig.host,
+      port: smtpConfig.port,
+      secure: smtpConfig.secure,
+      auth: smtpConfig.auth,
+      pool: true,
+      maxConnections: 5,
+      connectionTimeout: 30000, // 30s connection timeout
+      greetingTimeout: 15000,   // 15s greeting timeout
+      socketTimeout: 60000,     // 60s socket timeout (for send)
+    });
   }
 
   /**
@@ -64,6 +83,11 @@ export class ImapSendService {
    * Clear the configuration (on disconnect)
    */
   clearConfig(): void {
+    // T-1402: Close pooled transport
+    if (this.transporter) {
+      this.transporter.close();
+      this.transporter = undefined;
+    }
     this.smtpConfig = undefined;
     this.userEmail = undefined;
   }
@@ -75,33 +99,35 @@ export class ImapSendService {
    * @returns ID of the sent message
    */
   async sendMessage(message: ComposeMessage): Promise<string> {
-    if (!this.smtpConfig) {
-      throw new Error('SMTP not configured');
+    if (!this.transporter) {
+      throw new Error('SMTP not configured — call initialize() first');
     }
 
-    const transporter = nodemailer.createTransport({
-      host: this.smtpConfig.host,
-      port: this.smtpConfig.port,
-      secure: this.smtpConfig.secure,
-      auth: this.smtpConfig.auth,
-    });
+    // T-1402: Rate limit outgoing messages (30/min per account)
+    await this.sendRateLimiter.acquire();
 
-    const result = await transporter.sendMail({
-      from: message.fromEmail || this.userEmail,
-      to: message.to.map((a) => this.formatEmailAddress(a)).join(', '),
-      cc: message.cc?.map((a) => this.formatEmailAddress(a)).join(', '),
-      bcc: message.bcc?.map((a) => this.formatEmailAddress(a)).join(', '),
-      subject: message.subject,
-      text: message.bodyText,
-      html: message.bodyHtml,
-      attachments: message.attachments?.map((att) => ({
-        filename: att.filename,
-        content: att.content ? Buffer.from(att.content, 'base64') : att.contentStream,
-        contentType: att.mimeType,
-      })),
-      inReplyTo: message.inReplyTo,
-      references: message.references,
-    });
+    let result: nodemailer.SentMessageInfo;
+    try {
+      result = await this.transporter.sendMail({
+        from: message.fromEmail || this.userEmail,
+        to: message.to.map((a) => this.formatEmailAddress(a)).join(', '),
+        cc: message.cc?.map((a) => this.formatEmailAddress(a)).join(', '),
+        bcc: message.bcc?.map((a) => this.formatEmailAddress(a)).join(', '),
+        subject: message.subject,
+        text: message.bodyText,
+        html: message.bodyHtml,
+        attachments: message.attachments?.map((att) => ({
+          filename: att.filename,
+          content: att.content ? Buffer.from(att.content, 'base64') : att.contentStream,
+          contentType: att.mimeType,
+        })),
+        inReplyTo: message.inReplyTo,
+        references: message.references,
+      });
+    } catch (error) {
+      // T-1402: Classify SMTP errors for callers
+      throw classifySmtpError(error);
+    }
 
     // Also save to Sent folder via IMAP
     await this.saveSentMessage(message);

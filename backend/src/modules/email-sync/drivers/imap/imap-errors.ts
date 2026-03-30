@@ -193,3 +193,102 @@ export function classifyImapError(error: unknown): ImapConnectionError {
     error instanceof Error ? error : undefined,
   );
 }
+
+// ── SMTP Error Types ──
+
+export type SmtpErrorCode =
+  | 'smtp-auth-failed'
+  | 'smtp-recipient-rejected'
+  | 'smtp-message-too-large'
+  | 'smtp-try-again'
+  | 'smtp-rate-limited'
+  | 'smtp-network'
+  | 'smtp-server-error';
+
+/** Base SMTP error */
+export class SmtpError extends Error {
+  readonly code: SmtpErrorCode;
+  readonly retryable: boolean;
+  readonly smtpResponseCode?: number;
+  declare readonly cause?: Error;
+
+  constructor(opts: {
+    code: SmtpErrorCode;
+    retryable: boolean;
+    message: string;
+    smtpResponseCode?: number;
+    cause?: Error;
+  }) {
+    super(opts.message);
+    this.name = 'SmtpError';
+    this.code = opts.code;
+    this.retryable = opts.retryable;
+    this.smtpResponseCode = opts.smtpResponseCode;
+    if (opts.cause) this.cause = opts.cause;
+  }
+}
+
+/**
+ * Classify a raw SMTP/nodemailer error into a typed SmtpError.
+ */
+export function classifySmtpError(error: unknown): SmtpError {
+  if (error instanceof SmtpError) return error;
+
+  const msg = error instanceof Error ? error.message : String(error);
+  const lower = msg.toLowerCase();
+  const code = (error as any)?.code as string | undefined;
+  const responseCode = (error as any)?.responseCode as number | undefined;
+  const cause = error instanceof Error ? error : undefined;
+
+  // SMTP response codes
+  if (responseCode) {
+    // 421: Service not available, try again later
+    if (responseCode === 421) {
+      return new SmtpError({ code: 'smtp-try-again', retryable: true, message: msg, smtpResponseCode: responseCode, cause });
+    }
+    // 450: Mailbox unavailable (busy/locked)
+    if (responseCode === 450) {
+      return new SmtpError({ code: 'smtp-try-again', retryable: true, message: msg, smtpResponseCode: responseCode, cause });
+    }
+    // 452: Insufficient storage
+    if (responseCode === 452) {
+      return new SmtpError({ code: 'smtp-message-too-large', retryable: false, message: msg, smtpResponseCode: responseCode, cause });
+    }
+    // 535, 534: Authentication failed
+    if (responseCode === 535 || responseCode === 534) {
+      return new SmtpError({ code: 'smtp-auth-failed', retryable: false, message: msg, smtpResponseCode: responseCode, cause });
+    }
+    // 550: Recipient rejected
+    if (responseCode === 550 || responseCode === 553 || responseCode === 551) {
+      return new SmtpError({ code: 'smtp-recipient-rejected', retryable: false, message: msg, smtpResponseCode: responseCode, cause });
+    }
+    // 552: Message too large
+    if (responseCode === 552) {
+      return new SmtpError({ code: 'smtp-message-too-large', retryable: false, message: msg, smtpResponseCode: responseCode, cause });
+    }
+  }
+
+  // Rate limiting (various forms)
+  if (lower.includes('rate limit') || lower.includes('too many') || responseCode === 451) {
+    return new SmtpError({ code: 'smtp-rate-limited', retryable: true, message: msg, smtpResponseCode: responseCode, cause });
+  }
+
+  // Network errors
+  if (code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ESOCKET') {
+    return new SmtpError({ code: 'smtp-network', retryable: true, message: msg, cause });
+  }
+
+  // Auth errors by message
+  if (lower.includes('authentication') || lower.includes('auth') && lower.includes('fail')) {
+    return new SmtpError({ code: 'smtp-auth-failed', retryable: false, message: msg, cause });
+  }
+
+  // Default: server error (retryable)
+  return new SmtpError({
+    code: 'smtp-server-error',
+    retryable: true,
+    message: `SMTP error: ${msg}`,
+    smtpResponseCode: responseCode,
+    cause,
+  });
+}
