@@ -32,8 +32,10 @@ import {
   Star as StarIcon,
 } from 'lucide-react';
 import type { Contact } from '@/lib/api/contacts';
+import type { LeadScoreTier } from '@/lib/api/crm-lead-scores';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
+import { LeadScoreBadge } from '@/components/dashboard/crm-lead-score/LeadScoreBadge';
 
 function getInitials(contact: Contact): string {
   const name = contact.displayName ||
@@ -65,6 +67,8 @@ interface ContactListItemProps {
   selected?: boolean;
   multiSelected?: boolean;
   isHovered?: boolean;
+  leadScore?: number;
+  leadScoreTier?: LeadScoreTier;
   onToggleSelect?: (id: string) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -82,6 +86,8 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     selected = false,
     multiSelected = false,
     isHovered = false,
+    leadScore,
+    leadScoreTier,
     onToggleSelect,
     onEdit,
     onDelete,
@@ -186,6 +192,9 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 style={{ color: 'var(--mui-palette-warning-main)', flexShrink: 0 }}
               />
             )}
+            {leadScore != null && leadScore > 0 && (
+              <LeadScoreBadge score={leadScore} tier={leadScoreTier} size="small" />
+            )}
             {primaryEmail && (
               <Typography
                 variant="caption"
@@ -287,7 +296,8 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     prev.contact.isVip === next.contact.isVip &&
     prev.selected === next.selected &&
     prev.multiSelected === next.multiSelected &&
-    prev.isHovered === next.isHovered
+    prev.isHovered === next.isHovered &&
+    prev.leadScore === next.leadScore
   ),
 );
 

@@ -29,6 +29,8 @@ import { ChangeCallback } from '../../interfaces/email-driver.interface';
 const IDLE_RECONNECT_MAX_ATTEMPTS = 5;
 const IDLE_RECONNECT_BASE_DELAY_MS = 1000;
 const IDLE_RECONNECT_MAX_DELAY_MS = 30000;
+/** T-1406: Polling interval when IDLE is unavailable or failed */
+const POLLING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * IDLE connection state
@@ -41,6 +43,10 @@ interface IdleState {
   reconnectAttempts: number;
   reconnectTimer?: NodeJS.Timeout;
   shouldReconnect: boolean;
+  /** T-1406: Polling timer when IDLE is unavailable */
+  pollingTimer?: NodeJS.Timeout;
+  /** T-1406: Whether we're in polling fallback mode */
+  pollingMode: boolean;
 }
 
 @Injectable({ scope: Scope.TRANSIENT })
@@ -48,19 +54,25 @@ export class ImapIdleService {
   private readonly logger = new Logger(ImapIdleService.name);
 
   private config?: ImapConfig;
+  /** T-1406: Whether server supports IDLE (detected at connect time) */
+  private serverSupportsIdle = true;
+
   private state: IdleState = {
     active: false,
     reconnectAttempts: 0,
     shouldReconnect: false,
+    pollingMode: false,
   };
 
   constructor(private readonly folderService: ImapFolderService) {}
 
   /**
-   * Initialize the IDLE service with IMAP configuration
+   * Initialize the IDLE service with IMAP configuration.
+   * T-1406: Accepts supportsIdle flag to detect capability early.
    */
-  initialize(config: ImapConfig): void {
+  initialize(config: ImapConfig, supportsIdle = true): void {
     this.config = config;
+    this.serverSupportsIdle = supportsIdle;
   }
 
   /**
@@ -112,7 +124,13 @@ export class ImapIdleService {
     this.state.shouldReconnect = true;
     this.state.reconnectAttempts = 0;
 
-    await this.startIdleConnection();
+    // T-1406: If server doesn't support IDLE, go straight to polling
+    if (!this.serverSupportsIdle) {
+      this.logger.warn('Server does not support IDLE — using polling mode (every 5 min)');
+      this.startPollingMode();
+    } else {
+      await this.startIdleConnection();
+    }
 
     // Return subscription handle
     return {
@@ -192,9 +210,10 @@ export class ImapIdleService {
 
     if (this.state.reconnectAttempts >= IDLE_RECONNECT_MAX_ATTEMPTS) {
       this.logger.warn(
-        `IDLE reconnect stopped after ${IDLE_RECONNECT_MAX_ATTEMPTS} attempts (last reason: ${reason}).`,
+        `IDLE reconnect stopped after ${IDLE_RECONNECT_MAX_ATTEMPTS} attempts (last reason: ${reason}). Switching to polling mode.`,
       );
-      this.state.shouldReconnect = false;
+      // T-1406: Fall back to polling instead of giving up entirely
+      this.startPollingMode();
       return;
     }
 
@@ -345,15 +364,56 @@ export class ImapIdleService {
   }
 
   /**
+   * T-1406: Start polling mode as fallback when IDLE is unavailable or exhausted.
+   * Emits synthetic change events every 5 minutes to trigger sync.
+   */
+  private startPollingMode(): void {
+    if (this.state.pollingMode) return; // Already polling
+
+    this.state.pollingMode = true;
+    this.state.active = true;
+    this.state.shouldReconnect = false;
+
+    this.logger.log(`IDLE polling mode started for folder: ${this.state.folder} (interval: ${POLLING_INTERVAL_MS / 1000}s)`);
+
+    this.state.pollingTimer = setInterval(() => {
+      if (!this.state.callback || !this.state.folder) return;
+
+      // Emit a synthetic "modified" event to trigger sync reconciliation
+      try {
+        const result = this.state.callback([{
+          type: 'modified',
+          messageId: `${this.state.folder}:__POLL__${Date.now()}`,
+          folder: this.pathToCanonicalFolder(this.state.folder),
+          timestamp: new Date(),
+        }]);
+        if (result && typeof (result as Promise<void>).catch === 'function') {
+          (result as Promise<void>).catch((err: Error) => {
+            this.logger.error('Error in polling callback:', err);
+          });
+        }
+      } catch (err) {
+        this.logger.error('Error in polling callback:', err);
+      }
+    }, POLLING_INTERVAL_MS);
+  }
+
+  /**
    * Stop the IDLE subscription and close the dedicated connection
    * HIGH-3 FIX (2025-01-05): Explicitly remove event listeners to prevent memory accumulation
    */
   async stopIdleSubscription(): Promise<void> {
     this.state.shouldReconnect = false;
     this.state.reconnectAttempts = 0;
+    this.state.pollingMode = false;
     if (this.state.reconnectTimer) {
       clearTimeout(this.state.reconnectTimer);
       this.state.reconnectTimer = undefined;
+    }
+    // T-1406: Clear polling timer
+    if (this.state.pollingTimer) {
+      clearInterval(this.state.pollingTimer);
+      this.state.pollingTimer = undefined;
     }
 
     if (this.state.connection) {
@@ -396,6 +456,7 @@ export class ImapIdleService {
     reconnectAttempts: number;
     shouldReconnect: boolean;
     connectionUsable: boolean;
+    pollingMode: boolean;
   } {
     return {
       active: this.state.active,
@@ -403,6 +464,7 @@ export class ImapIdleService {
       reconnectAttempts: this.state.reconnectAttempts,
       shouldReconnect: this.state.shouldReconnect,
       connectionUsable: this.state.connection?.usable ?? false,
+      pollingMode: this.state.pollingMode,
     };
   }
 }

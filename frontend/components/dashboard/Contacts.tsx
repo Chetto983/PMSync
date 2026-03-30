@@ -27,6 +27,7 @@ import { ContactFormDialog, DeleteContactDialog } from './contacts-page/ContactD
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { crmImportExportApi } from '@/lib/api/crm-import-export';
 import { ImportContactsDialog } from './crm-import/ImportContactsDialog';
+import { useLeadScoreMap } from './crm-lead-score/useLeadScoreMap';
 // ComposeDialog removed during email rebuild
 
 export function Contacts() {
@@ -37,6 +38,7 @@ export function Contacts() {
   const data = useContactsPageData();
   const form = useContactForm();
   const handlers = useContactsPageHandlers(data, form, contactsCopy);
+  const leadScoreMap = useLeadScoreMap();
 
   const {
     isMobile,
@@ -207,6 +209,7 @@ export function Contacts() {
           selectedIds={selectedIds}
           isLoading={loading}
           isLoadingMore={loadingMore}
+          leadScoreMap={leadScoreMap}
           onContactClick={handleContactClick}
           onToggleSelect={toggleSelection}
           onEdit={(id) => {

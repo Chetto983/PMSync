@@ -84,7 +84,8 @@ export class IMAPDriver extends BaseEmailDriver {
     };
 
     // Initialize sub-services with context
-    this.idleService.initialize(imapConfig);
+    // T-1406: Pass IDLE capability so service can fall back to polling if unsupported
+    this.idleService.initialize(imapConfig, capabilities.idle);
     this.sendService.initialize(smtpConfig, credentials.username);
 
     this.credentials = credentials;

@@ -15,6 +15,12 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ContactListItem } from './ContactListItem';
 import type { Contact } from '@/lib/api/contacts';
+import type { LeadScoreTier } from '@/lib/api/crm-lead-scores';
+
+export interface LeadScoreEntry {
+  score: number;
+  tier: LeadScoreTier;
+}
 
 interface ContactListProps {
   contacts: Contact[];
@@ -22,6 +28,7 @@ interface ContactListProps {
   selectedIds?: Set<string>;
   isLoading?: boolean;
   isLoadingMore?: boolean;
+  leadScoreMap?: Map<string, LeadScoreEntry>;
   onContactClick?: (contact: Contact) => void;
   onToggleSelect?: (id: string) => void;
   onEdit?: (id: string) => void;
@@ -50,6 +57,7 @@ export const ContactList: React.FC<ContactListProps> = ({
   onEmail,
   onCall,
   onToggleVip,
+  leadScoreMap,
   onLoadMore,
   hasMore = false,
   emptyTitle = 'No contacts',
@@ -172,6 +180,8 @@ export const ContactList: React.FC<ContactListProps> = ({
                 selected={selectedId === contact.id}
                 multiSelected={selectedIds.has(contact.id)}
                 isHovered={hoveredId === contact.id}
+                leadScore={leadScoreMap?.get(contact.id)?.score}
+                leadScoreTier={leadScoreMap?.get(contact.id)?.tier}
                 onToggleSelect={onToggleSelect}
                 onEdit={onEdit}
                 onDelete={onDelete}
