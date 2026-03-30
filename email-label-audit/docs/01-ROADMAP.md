@@ -70,52 +70,52 @@ gantt
 
 ## Milestones
 
-### M1: Google <-> DB Sync Correct (after S03)
-- [ ] Folder determination handles all Gmail label combinations correctly
-- [ ] `Email.labels[]` refreshed during folder sync (no stale IDs)
-- [ ] `Email.folder` always matches folder derivation from `Email.labels[]`
-- [ ] GIN index on `Email.labels[]` for query performance
-- [ ] Sync-back queue processes label changes to Gmail
-- [ ] RC-2 label merge (not atomic overwrite)
+### M1: Google <-> DB Sync Correct (after S03) ✅
+- [x] Folder determination handles all Gmail label combinations correctly
+- [x] `Email.labels[]` refreshed during folder sync (no stale IDs)
+- [x] `Email.folder` always matches folder derivation from `Email.labels[]`
+- [x] GIN index on `Email.labels[]` for query performance
+- [x] Sync-back queue processes label changes to Gmail
+- [x] RC-2 label merge (not atomic overwrite)
 
-### M2: DB <-> Frontend Consistent (after S06)
-- [ ] Email list query includes emailLabels with label details
-- [ ] Email detail view shows all labels with remove capability
-- [ ] AI labels displayed as secondary chips
-- [ ] Sidebar label counts accurate after bulk operations
-- [ ] No hardcoded strings — all translations in en.ts/it.ts
-- [ ] Color validation on label chips
+### M2: DB <-> Frontend Consistent (after S06) ✅
+- [x] Email list query includes emailLabels with label details
+- [x] Email detail view shows all labels with remove capability
+- [x] AI labels displayed as secondary chips
+- [x] Sidebar label counts accurate after bulk operations
+- [x] No hardcoded strings — all translations in en.ts/it.ts
+- [x] Color validation on label chips
 
-### M3: E2E Proven (after S08)
-- [ ] Integration tests cover all 3 layers for label operations
-- [ ] Data validation script can be run on demand
-- [ ] Browser E2E tests for label CRUD workflow
-- [ ] Monitoring alert for label count discrepancies
+### M3: E2E Proven (after S08) ✅
+- [x] Integration tests cover all 3 layers for label operations
+- [x] Data validation script can be run on demand
+- [x] Browser E2E tests for label CRUD workflow
+- [x] Monitoring alert for label count discrepancies
 
-### M4: Multi-Provider & Embedding Integrity (after S11)
-- [ ] Microsoft categories sync bidirectionally (Outlook <-> DB <-> Frontend)
-- [ ] IMAP folder operations robust across server implementations
-- [ ] All email deletion paths clean up embeddings (no orphans)
-- [ ] Bulk soft-delete triggers immediate embedding cleanup (not 30-min delay)
-- [ ] Embedding text includes sender/recipient/date metadata
-- [ ] Chunk overlap prevents context loss at boundaries
-- [ ] Embedding model gets English prefixes (not hardcoded Italian)
+### M4: Multi-Provider & Embedding Integrity (after S11) ✅
+- [x] Microsoft categories sync bidirectionally (Outlook <-> DB <-> Frontend)
+- [x] IMAP folder operations robust across server implementations
+- [x] All email deletion paths clean up embeddings (no orphans)
+- [x] Bulk soft-delete triggers immediate embedding cleanup (not 30-min delay)
+- [x] Embedding text includes sender/recipient/date metadata
+- [x] Chunk overlap prevents context loss at boundaries
+- [x] Embedding model gets English prefixes (not hardcoded Italian)
 
-### M5: All Drivers Production-Hardened (after S14)
-- [ ] Google: token refresh, batch failures, rate limits — all handled
-- [ ] Microsoft: tenant-isolated caches, delta token validation, active rate limiting
-- [ ] IMAP: classified errors, SMTP pooling, reconnection, UTF-7 support
-- [ ] All drivers: typed error hierarchy (recoverable vs fatal)
-- [ ] Input validation on all external IDs (messageId, labelId, folderId, pageToken)
+### M5: All Drivers Production-Hardened (after S14) ✅
+- [x] Google: token refresh, batch failures, rate limits — all handled
+- [x] Microsoft: tenant-isolated caches, delta token validation, active rate limiting
+- [x] IMAP: classified errors, SMTP pooling, reconnection, UTF-7 support
+- [x] All drivers: typed error hierarchy (recoverable vs fatal)
+- [x] Input validation on all external IDs (messageId, labelId, folderId, pageToken)
 
-### M6: Infrastructure Battle-Tested (after S16)
-- [ ] Worker crash isolation — one worker down, others continue
-- [ ] Queue backpressure — bounded depth per tenant
-- [ ] Webhook replay prevention — idempotency + timestamp validation
-- [ ] OAuth token refresh race condition eliminated
-- [ ] Scheduler locks atomic and self-renewing
-- [ ] Sync tokens auto-recover on invalidation
-- [ ] Webhook subscriptions auto-renewed before expiration
+### M6: Infrastructure Battle-Tested (after S16) ✅
+- [x] Worker crash isolation — one worker down, others continue
+- [x] Queue backpressure — bounded depth per tenant
+- [x] Webhook replay prevention — idempotency + timestamp validation
+- [x] OAuth token refresh race condition eliminated
+- [x] Scheduler locks atomic and self-renewing
+- [x] Sync tokens auto-recover on invalidation
+- [x] Webhook subscriptions auto-renewed before expiration
 
 ### M7: Production 10/10 (after S18)
 - [x] Driver integration tests cover all error paths (T-1701: 101 tests)
@@ -129,39 +129,39 @@ gantt
 
 ## Go/No-Go Criteria
 
-### Phase 1 -> Phase 2
-- [ ] All C1-C6 findings addressed or explicitly deferred with rationale
-- [ ] `npx tsc --noEmit` passes in backend
-- [ ] Existing email sync tests pass
-- [ ] Manual verification: Gmail labels match DB labels for 10 sample emails
+### Phase 1 -> Phase 2 ✅
+- [x] All C1-C6 findings addressed or explicitly deferred with rationale
+- [x] `npx tsc --noEmit` passes in backend
+- [x] Existing email sync tests pass
+- [x] Manual verification: Gmail labels match DB labels for 10 sample emails
 
-### Phase 2 -> Phase 3
-- [ ] All H1-H5 findings addressed
-- [ ] `npx tsc --noEmit` passes in frontend
-- [ ] Label display works in both list and detail views
-- [ ] Translations complete for en.ts and it.ts
+### Phase 2 -> Phase 3 ✅
+- [x] All H1-H5 findings addressed
+- [x] `npx tsc --noEmit` passes in frontend
+- [x] Label display works in both list and detail views
+- [x] Translations complete for en.ts and it.ts
 
-### Phase 3 -> Phase 4
-- [ ] S07-S08 complete, validation scripts show 0 inconsistencies
-- [ ] Monitoring health check deployed
-- [ ] No regressions in Google label sync
+### Phase 3 -> Phase 4 ✅
+- [x] S07-S08 complete, validation scripts show 0 inconsistencies
+- [x] Monitoring health check deployed
+- [x] No regressions in Google label sync
 
-### Phase 4 -> Phase 5
-- [ ] S09-S11 complete
-- [ ] Embedding lifecycle proven clean (no orphans after 24h)
-- [ ] Multi-provider label operations work per design (Google: sync-back, MS: categories, IMAP: local-only)
+### Phase 4 -> Phase 5 ✅
+- [x] S09-S11 complete
+- [x] Embedding lifecycle proven clean (no orphans after 24h)
+- [x] Multi-provider label operations work per design (Google: sync-back, MS: categories, IMAP: local-only)
 
-### Phase 5 -> Phase 6
-- [ ] All 3 drivers pass error injection tests
-- [ ] Token refresh works under concurrent load
-- [ ] No cross-tenant data leaks in Microsoft folder cache
-- [ ] IMAP reconnects automatically after network drop
+### Phase 5 -> Phase 6 ✅
+- [x] All 3 drivers pass error injection tests
+- [x] Token refresh works under concurrent load
+- [x] No cross-tenant data leaks in Microsoft folder cache
+- [x] IMAP reconnects automatically after network drop
 
-### Phase 6 -> Phase 7
-- [ ] Worker isolation proven (kill one, others survive)
-- [ ] Queue backpressure returns 429 at limit
-- [ ] Webhook idempotency prevents duplicate processing
-- [ ] All security checks pass
+### Phase 6 -> Phase 7 ✅
+- [x] Worker isolation proven (kill one, others survive)
+- [x] Queue backpressure returns 429 at limit
+- [x] Webhook idempotency prevents duplicate processing
+- [x] All security checks pass
 
 ## Dependency Diagram
 
