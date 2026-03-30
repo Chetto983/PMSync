@@ -201,6 +201,10 @@ scripts/*
 !scripts/lib/validate-scheduling.mjs
 !scripts/lib/validate-signatures.mjs
 !scripts/lib/validate-templates.mjs
+!scripts/validate-cross-cutting.mjs
+!scripts/lib/validate-tenant-isolation.mjs
+!scripts/lib/validate-rate-tiers.mjs
+!scripts/lib/validate-response-envelope.mjs
 artifacts/*
 backend/scripts/screenshots/*
 backups/*
