@@ -45,6 +45,7 @@ import {
   ConversationToolsService,
   SandboxToolsService,
   ReminderToolsService,
+  CrmToolsService,
 } from '../tools/index';
 import { EmailProductivityToolsService } from '../tools/email-productivity-tools.service';
 import { FollowUpToolsService } from '../tools/follow-up-tools.service';
@@ -131,6 +132,8 @@ export class AiChatService {
     private readonly followUpToolsService: FollowUpToolsService,
     // Phase REMINDER: Smart follow-up reminder tools
     private readonly reminderToolsService: ReminderToolsService,
+    // Sprint 10: CRM deal tools
+    private readonly crmToolsService: CrmToolsService,
     private readonly memoryService: MemoryService,
     // Phase 87: Extracted enrichment service (title, summary, runtime context)
     private readonly chatEnrichmentService: ChatEnrichmentService,
@@ -1111,6 +1114,7 @@ export class AiChatService {
       ...this.reminderToolsService.getTools(tenantId, userId),
       ...this.conversationToolsService.getTools(),
       ...this.sandboxToolsService.getTools(tenantId),
+      ...this.crmToolsService.getTools(tenantId, piiResolve),
     };
 
     // Runtime duplicate check

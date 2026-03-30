@@ -168,6 +168,7 @@ describe('Chat Pipeline (MSW)', () => {
       toolsServiceStub, // EmailProductivityToolsService
       toolsServiceStub, // FollowUpToolsService
       toolsServiceStub, // ReminderToolsService
+      { getTools: () => ({}) } as any, // CrmToolsService
       memoryServiceMock,
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
       { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService

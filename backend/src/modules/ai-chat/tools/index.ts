@@ -19,3 +19,4 @@ export { SandboxToolsService } from './sandbox-tools.service';
 export { EmailProductivityToolsService } from './email-productivity-tools.service';
 export { FollowUpToolsService } from './follow-up-tools.service';
 export { ReminderToolsService } from './reminder-tools.service';
+export { CrmToolsService } from './crm-tools.service';

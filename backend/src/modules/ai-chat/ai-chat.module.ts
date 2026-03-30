@@ -25,6 +25,7 @@ import {
   EmailProductivityToolsService,
   FollowUpToolsService,
   ReminderToolsService,
+  CrmToolsService,
 } from './tools/index';
 import { ChatEnrichmentService } from './services/chat-enrichment.service';
 import { SandboxService } from './services/sandbox.service';
@@ -83,6 +84,8 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     FollowUpToolsService,
     // Phase REMINDER: Smart follow-up reminder tools
     ReminderToolsService,
+    // Sprint 10: CRM deal tools (getDealsByPipeline, moveDealStage, getDealTimeline)
+    CrmToolsService,
     // Phase 87: Extracted enrichment service (title, summary, runtime context)
     ChatEnrichmentService,
     SandboxService,

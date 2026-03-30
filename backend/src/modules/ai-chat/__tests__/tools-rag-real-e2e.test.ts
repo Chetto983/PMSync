@@ -323,6 +323,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       { getTools: () => ({}) } as any, // EmailProductivityToolsService
       { getTools: () => ({}) } as any, // FollowUpToolsService
       { getTools: () => ({}) } as any, // ReminderToolsService
+      { getTools: () => ({}) } as any, // CrmToolsService
       memoryService,
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
       { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
