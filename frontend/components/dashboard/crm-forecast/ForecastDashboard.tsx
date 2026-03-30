@@ -19,6 +19,7 @@ import { useForecast, useForecastRefresh } from '@/hooks/queries/use-crm-forecas
 import { crmPipelineListOptions } from '@/hooks/queries/use-crm-pipelines';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ForecastChart } from './ForecastChart';
+import { ForecastVsActuals } from './ForecastVsActuals';
 
 export function ForecastDashboard() {
   const t = useTranslations();
@@ -233,6 +234,11 @@ export function ForecastDashboard() {
               </Grid>
             ))}
           </Grid>
+
+          {/* Forecast vs Actuals */}
+          <Box sx={{ mt: 3 }}>
+            <ForecastVsActuals forecasts={forecast.forecasts} />
+          </Box>
         </>
       )}
     </Box>
