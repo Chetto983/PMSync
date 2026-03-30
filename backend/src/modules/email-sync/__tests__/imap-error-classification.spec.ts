@@ -15,6 +15,10 @@ import {
   ImapConnectionError,
   SmtpError,
 } from '../drivers/imap/imap-errors';
+import {
+  classifyFolderError,
+  FolderOperationError,
+} from '../drivers/interfaces/folder-errors';
 
 // ─── classifyImapError ───
 
