@@ -4687,6 +4687,51 @@ export interface AppTranslations {
       filterMax?: string;
     };
   };
+  forecast?: {
+    title?: string;
+    subtitle?: string;
+    pipeline?: string;
+    period?: string;
+    periodMonth?: string;
+    periodQuarter?: string;
+    method?: string;
+    methodSeasonal?: string;
+    methodTrend?: string;
+    methodAverage?: string;
+    mae?: string;
+    predicted?: string;
+    actual?: string;
+    confidence?: string;
+    p20?: string;
+    p50?: string;
+    p80?: string;
+    noData?: string;
+    noDataDescription?: string;
+    refresh?: string;
+    refreshing?: string;
+    refreshSuccess?: string;
+    refreshError?: string;
+    chart?: {
+      title?: string;
+      history?: string;
+      forecast?: string;
+      band?: string;
+    };
+    accuracy?: {
+      title?: string;
+      mape?: string;
+      noAccuracy?: string;
+      noAccuracyDescription?: string;
+    };
+    vsActuals?: {
+      title?: string;
+      predicted?: string;
+      actual?: string;
+      variance?: string;
+      variancePercent?: string;
+      noPastForecasts?: string;
+    };
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
