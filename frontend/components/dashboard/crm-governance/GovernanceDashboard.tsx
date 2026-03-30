@@ -164,9 +164,7 @@ export function GovernanceDashboard() {
         <CostsTab />
       </TabPanel>
       <TabPanel value={tab} index={2}>
-        <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
-          {tg?.drift?.noData ?? 'No drift data available yet'}
-        </Typography>
+        <DriftTab />
       </TabPanel>
       <TabPanel value={tab} index={3}>
         <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
