@@ -12,6 +12,7 @@ import {
   Alert,
   Skeleton,
   Chip,
+  Tooltip,
 } from '@mui/material';
 import { TrendingUp, RefreshCw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -130,18 +131,24 @@ export function ForecastDashboard() {
           </TextField>
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-          <Button
-            variant="outlined"
-            size="medium"
-            startIcon={<RefreshCw size={16} />}
-            onClick={handleRefresh}
-            disabled={refreshMutation.isPending || !activePipelineId}
-            sx={{ height: 40 }}
+          <Tooltip
+            title={!activePipelineId ? (tf?.noData ?? 'No pipeline available') : ''}
           >
-            {refreshMutation.isPending
-              ? (tf?.refreshing ?? 'Refreshing...')
-              : (tf?.refresh ?? 'Refresh')}
-          </Button>
+            <span>
+              <Button
+                variant="outlined"
+                size="medium"
+                startIcon={<RefreshCw size={16} />}
+                onClick={handleRefresh}
+                disabled={refreshMutation.isPending || !activePipelineId}
+                sx={{ height: 40 }}
+              >
+                {refreshMutation.isPending
+                  ? (tf?.refreshing ?? 'Refreshing...')
+                  : (tf?.refresh ?? 'Refresh')}
+              </Button>
+            </span>
+          </Tooltip>
         </Grid>
       </Grid>
 
@@ -166,8 +173,16 @@ export function ForecastDashboard() {
 
       {/* Error state */}
       {forecastError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {(forecastError as Error).message}
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => window.location.reload()}>
+              {tf?.refresh ?? 'Retry'}
+            </Button>
+          }
+        >
+          {tf?.refreshError ?? 'Could not load forecast data. Check your connection and try again.'}
         </Alert>
       )}
 
@@ -209,6 +224,13 @@ export function ForecastDashboard() {
               history={forecast.history}
               forecasts={forecast.forecasts}
               period={forecast.period}
+              tooltipLabels={{
+                revenue: tf?.chart?.history ?? 'Revenue',
+                predicted: tf?.chart?.forecast ?? 'Forecast',
+                p20: tf?.p20 ?? 'P20 (pessimistic)',
+                p80: tf?.p80 ?? 'P80 (optimistic)',
+                actual: tf?.actual ?? 'Actual',
+              }}
             />
           </Paper>
 

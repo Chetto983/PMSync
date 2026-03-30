@@ -18,6 +18,7 @@ interface ForecastChartProps {
   history: MonthlyAggregate[];
   forecasts: ForecastPeriod[];
   period: 'month' | 'quarter';
+  tooltipLabels?: Record<string, string>;
 }
 
 interface ChartDataPoint {
@@ -29,7 +30,7 @@ interface ChartDataPoint {
   actual?: number | null;
 }
 
-export function ForecastChart({ history, forecasts, period }: ForecastChartProps) {
+export function ForecastChart({ history, forecasts, period, tooltipLabels }: ForecastChartProps) {
   const theme = useTheme();
 
   // Build chart data combining history + forecast
@@ -105,14 +106,16 @@ export function ForecastChart({ history, forecasts, period }: ForecastChartProps
             }}
             formatter={(value, name) => {
               const v = Number(value);
-              const labels: Record<string, string> = {
+              const fallback: Record<string, string> = {
                 revenue: 'Revenue',
                 predicted: 'Forecast',
-                p20: 'P20 (pessimistic)',
-                p80: 'P80 (optimistic)',
+                p20: 'P20',
+                p80: 'P80',
                 actual: 'Actual',
               };
-              return [formatCurrency(v), labels[String(name)] ?? String(name)];
+              const key = String(name);
+              const label = tooltipLabels?.[key] ?? fallback[key] ?? key;
+              return [formatCurrency(v), label];
             }}
           />
 
