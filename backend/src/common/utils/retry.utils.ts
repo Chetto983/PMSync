@@ -391,8 +391,8 @@ export const googleApiRateLimiter = new RateLimiter(
 );
 
 export const microsoftGraphRateLimiter = new RateLimiter(
-  60, // 60 requests
-  60000, // per minute (conservative for Microsoft)
+  240, // 4 requests/second per user (Graph API per-user throttling)
+  60000, // per 60 seconds
 );
 
 export const mistralApiRateLimiter = new RateLimiter(

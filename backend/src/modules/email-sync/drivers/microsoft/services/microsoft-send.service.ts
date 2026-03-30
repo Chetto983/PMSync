@@ -1,7 +1,7 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import { AxiosInstance } from 'axios';
 import { ComposeMessage } from '../../interfaces/canonical.types';
-import { withRetry, RetryOptions, microsoftGraphRateLimiter } from '../../../../../common/utils';
+import { withRetry, RetryOptions, microsoftGraphRateLimiter, sleep } from '../../../../../common/utils';
 
 /**
  * Microsoft Send Operations Service
@@ -187,7 +187,7 @@ export class MicrosoftSendService {
 
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, i + BATCH_SIZE);
-      const response = await this.client!.post('/$batch', { requests: batch });
+      const response = await this.postBatch(batch, 'batchMoveMessages');
 
       // Validate batch responses and track failures
       // MS-C3 FIX: Collect 401s for targeted retry
@@ -213,7 +213,7 @@ export class MicrosoftSendService {
         );
         await this.onTokenRefresh();
         try {
-          const retryResponse = await this.client!.post('/$batch', { requests: auth401Batch });
+          const retryResponse = await this.postBatch(auth401Batch, 'batchMoveMessages:401retry');
           for (const resp of (retryResponse as any).data?.responses || []) {
             if (resp.status >= 400) {
               const originalIdx = i + parseInt(resp.id, 10);
@@ -258,7 +258,7 @@ export class MicrosoftSendService {
 
       for (let i = 0; i < requests.length; i += BATCH_SIZE) {
         const batch = requests.slice(i, i + BATCH_SIZE);
-        const response = await this.client!.post('/$batch', { requests: batch });
+        const response = await this.postBatch(batch, 'batchDeleteMessages');
 
         // Validate batch responses and track failures
         // MS-C3 FIX: Collect 401s for targeted retry
@@ -284,7 +284,7 @@ export class MicrosoftSendService {
           );
           await this.onTokenRefresh();
           try {
-            const retryResponse = await this.client!.post('/$batch', { requests: auth401Batch });
+            const retryResponse = await this.postBatch(auth401Batch, 'batchDeleteMessages:401retry');
             for (const resp of (retryResponse as any).data?.responses || []) {
               if (resp.status >= 400) {
                 const originalIdx = i + parseInt(resp.id, 10);
@@ -392,5 +392,30 @@ export class MicrosoftSendService {
       onTokenRefresh: this.onTokenRefresh,
       ...options,
     });
+  }
+
+  /**
+   * MS-H1 FIX: Execute batch POST with rate limiting and 429/Retry-After handling.
+   * Batch operations bypass executeWithRetry (they have their own per-request retry logic),
+   * but still need rate limiting and 429 protection on the wrapper POST.
+   */
+  private async postBatch(requests: any[], operationName: string): Promise<any> {
+    await microsoftGraphRateLimiter.acquire();
+    try {
+      return await this.client!.post('/$batch', { requests });
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 429) {
+        const retryAfterHeader = error?.response?.headers?.['retry-after'];
+        const waitMs = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : 10000;
+        this.logger.warn(
+          `MS-H1: ${operationName} batch POST 429 — waiting ${waitMs}ms (Retry-After: ${retryAfterHeader || 'unset'})`,
+        );
+        await sleep(waitMs);
+        await microsoftGraphRateLimiter.acquire();
+        return this.client!.post('/$batch', { requests });
+      }
+      throw error;
+    }
   }
 }
