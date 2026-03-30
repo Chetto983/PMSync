@@ -21,21 +21,9 @@ function getHeaders(): Record<string, string> {
 }
 
 /**
- * Module-scoped remoteId — synced from React state on every render.
- *
- * The transport's prepareSendMessagesRequest reads this at send-time
- * to inject the real backend conversation ID into the request body.
- * This follows the AI SDK persistence pattern where the chat ID sent
- * to the server is the real DB identifier, not the client-side UUID.
- *
- * @see https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence
- */
-let _remoteId: string | undefined;
-
-/**
  * Module-scoped ref for AI SDK tool approval responses.
  *
- * assistant-ui's `addResult` routes through `onAddToolResult` → `addToolOutput`
+ * assistant-ui's `addResult` routes through `onAddToolResult` -> `addToolOutput`
  * which sets tool state to 'output-available'. But the AI SDK's
  * `sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses`
  * checks for state 'approval-responded'. Only `chat.addToolApprovalResponse`
@@ -49,34 +37,15 @@ export function getAddToolApprovalResponse() {
   return _addToolApprovalResponse;
 }
 
-// Singleton transport — reused across thread switches.
+// Singleton transport reused across thread switches.
 // Stable reference prevents useChat from re-initializing on re-renders.
 const transport = new AssistantChatTransport({
   api: `${API_BASE_URL}/api/v1/ai/chat`,
   credentials: 'include',
   headers: getHeaders,
-  prepareSendMessagesRequest(options) {
-    // For EXISTING threads, _remoteId is the real backend conversation ID.
-    // Override the body to use it, bypassing the transport's internal
-    // initialize() chain which can be fragile.
-    if (_remoteId) {
-      return {
-        body: {
-          ...options.body,
-          id: _remoteId,
-          messages: options.messages,
-          trigger: options.trigger,
-          messageId: options.messageId,
-          metadata: options.requestMetadata,
-        },
-      };
-    }
-
-    // For NEW threads (_remoteId is undefined), return body=null.
-    // The outer AssistantChatTransport uses `preparedRequest?.body ?? defaultBody`:
-    //   - null is nullish → falls through to defaultBody
-    //   - defaultBody includes `id` from initialize() which creates the
-    //     backend conversation via the adapter
+  prepareSendMessagesRequest() {
+    // Preserve the transport's default request body so initialize() resolves
+    // the active thread's remoteId immediately before each send.
     return { body: null } as never;
   },
 });
@@ -87,14 +56,6 @@ const transport = new AssistantChatTransport({
  */
 function useThreadRuntime() {
   const id = useAuiState((s) => s.threadListItem.id);
-  const remoteId = useAuiState((s) => s.threadListItem.remoteId);
-
-  // Sync remoteId to module scope so the transport can read it at send-time.
-  // Done in useEffect to satisfy React purity rules — the effect fires
-  // after render but before any user interaction triggers a send.
-  useEffect(() => {
-    _remoteId = remoteId;
-  }, [remoteId]);
 
   const chat = useChat({
     id,
@@ -136,7 +97,7 @@ export function ChatRuntimeProvider({
     });
   }, []);
 
-  // Singleton adapter — survives re-renders but not page reloads.
+  // Singleton adapter survives re-renders but not page reloads.
   const adapter = useMemo(() => createPmSyncThreadListAdapter(), []);
 
   const runtime = useRemoteThreadListRuntime({
@@ -144,9 +105,8 @@ export function ChatRuntimeProvider({
     adapter,
   });
 
-  // Set the OUTER runtime on the transport so that initialize() can reach
-  // the thread list adapter for new threads. For existing threads, the
-  // prepareSendMessagesRequest above uses _remoteId directly.
+  // Set the outer runtime so initialize() can resolve the current thread's
+  // remoteId through the adapter before each request.
   if (transport instanceof AssistantChatTransport) {
     transport.setRuntime(runtime);
   }

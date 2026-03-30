@@ -22,6 +22,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useGovernanceOverview } from '@/hooks/queries/use-crm-governance';
 import { AccuracyTab } from './AccuracyTab';
 import { CostsTab } from './CostsTab';
+import { DriftTab } from './DriftTab';
 
 interface KPICardProps {
   icon: React.ReactNode;
