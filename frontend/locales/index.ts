@@ -4732,6 +4732,50 @@ export interface AppTranslations {
       noPastForecasts?: string;
     };
   };
+  churn?: {
+    title?: string;
+    subtitle?: string;
+    columns?: {
+      entity?: string;
+      probability?: string;
+      riskLevel?: string;
+      reasoning?: string;
+      lastInteraction?: string;
+      computedAt?: string;
+    };
+    riskLevels?: {
+      HIGH?: string;
+      MEDIUM?: string;
+      LOW?: string;
+    };
+    filters?: {
+      allLevels?: string;
+      threshold?: string;
+    };
+    actions?: {
+      acknowledge?: string;
+      compute?: string;
+      viewContact?: string;
+      viewAccount?: string;
+    };
+    empty?: string;
+    emptyDescription?: string;
+    acknowledgeSuccess?: string;
+    computeSuccess?: string;
+    signals?: {
+      responseDecay?: string;
+      replyRateDrop?: string;
+      meetingDrop?: string;
+      dealStagnation?: string;
+      inactivity?: string;
+      emailBounce?: string;
+    };
+    badge?: {
+      churnRisk?: string;
+      probability?: string;
+      assessedOn?: string;
+    };
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;

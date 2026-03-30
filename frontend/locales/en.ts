@@ -4935,4 +4935,48 @@ export const en: AppTranslations = {
       noPastForecasts: 'No past forecast data available',
     },
   },
+  churn: {
+    title: 'Churn Early Warnings',
+    subtitle: 'Contacts and accounts at risk of disengagement',
+    columns: {
+      entity: 'Contact / Account',
+      probability: 'Risk',
+      riskLevel: 'Level',
+      reasoning: 'Assessment',
+      lastInteraction: 'Last Interaction',
+      computedAt: 'Assessed',
+    },
+    riskLevels: {
+      HIGH: 'High',
+      MEDIUM: 'Medium',
+      LOW: 'Low',
+    },
+    filters: {
+      allLevels: 'All Risk Levels',
+      threshold: 'Min. Probability',
+    },
+    actions: {
+      acknowledge: 'Dismiss',
+      compute: 'Reassess',
+      viewContact: 'View Contact',
+      viewAccount: 'View Account',
+    },
+    empty: 'No churn warnings found',
+    emptyDescription: 'All contacts and accounts are showing healthy engagement.',
+    acknowledgeSuccess: 'Warning dismissed',
+    computeSuccess: 'Churn assessment updated',
+    signals: {
+      responseDecay: 'Response Decay',
+      replyRateDrop: 'Reply Rate Drop',
+      meetingDrop: 'Meeting Drop',
+      dealStagnation: 'Deal Stagnation',
+      inactivity: 'Inactivity',
+      emailBounce: 'Email Bounce',
+    },
+    badge: {
+      churnRisk: 'Churn Risk',
+      probability: 'Probability',
+      assessedOn: 'Assessed on',
+    },
+  },
 };

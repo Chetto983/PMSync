@@ -4912,4 +4912,48 @@ export const it: AppTranslations = {
       noPastForecasts: 'Nessun dato storico di previsione disponibile',
     },
   },
+  churn: {
+    title: 'Allerta Abbandono',
+    subtitle: 'Contatti e account a rischio di disimpegno',
+    columns: {
+      entity: 'Contatto / Account',
+      probability: 'Rischio',
+      riskLevel: 'Livello',
+      reasoning: 'Valutazione',
+      lastInteraction: 'Ultima Interazione',
+      computedAt: 'Valutato il',
+    },
+    riskLevels: {
+      HIGH: 'Alto',
+      MEDIUM: 'Medio',
+      LOW: 'Basso',
+    },
+    filters: {
+      allLevels: 'Tutti i Livelli',
+      threshold: 'Probabilità Min.',
+    },
+    actions: {
+      acknowledge: 'Ignora',
+      compute: 'Rivaluta',
+      viewContact: 'Vai al Contatto',
+      viewAccount: 'Vai all\'Account',
+    },
+    empty: 'Nessun avviso di abbandono',
+    emptyDescription: 'Tutti i contatti e account mostrano un coinvolgimento sano.',
+    acknowledgeSuccess: 'Avviso ignorato',
+    computeSuccess: 'Valutazione churn aggiornata',
+    signals: {
+      responseDecay: 'Decadimento Risposta',
+      replyRateDrop: 'Calo Tasso Risposta',
+      meetingDrop: 'Calo Riunioni',
+      dealStagnation: 'Stagnazione Trattativa',
+      inactivity: 'Inattività',
+      emailBounce: 'Email Rimbalzata',
+    },
+    badge: {
+      churnRisk: 'Rischio Abbandono',
+      probability: 'Probabilità',
+      assessedOn: 'Valutato il',
+    },
+  },
 };
