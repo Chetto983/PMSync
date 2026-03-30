@@ -19,9 +19,9 @@
 - [x] T-1205 — API endpoint `GET /crm/churn/at-risk?threshold=0.4&sort=probability&order=desc` con paginazione e filtro per Account — [1 SP] — ✅ DONE
 - [x] T-1206 — Pagina early warning list: tabella MUI con colonne (contatto/account, probabilità churn, livello rischio, valutazione, ultimo contatto), chip colorati per livello — [2 SP] — ✅ DONE
 - [x] T-1207 — Churn risk badge su contact detail e account detail: indicatore visivo con probabilità e breakdown fattori on hover (Tooltip MUI) — [1 SP] — ✅ DONE
-- [ ] T-1208 — Signal breakdown component: radar chart o barre orizzontali che mostrano quali fattori contribuiscono al rischio (response decay, meeting drop, stagnation, inactivity) — [2 SP] — 📋 TODO
-- [ ] T-1209 — BullMQ job `churn-recompute` settimanale: ricalcolo probabilità churn per tutti i contatti attivi, notifica se nuovi high-risk detected — [1 SP] — 📋 TODO
-- [ ] T-1210 — Type-check frontend e backend, traduzioni IT/EN, query hook `useChurnRisk` — [1 SP] — 📋 TODO
+- [x] T-1208 — Signal breakdown component: barre orizzontali Recharts che mostrano quali fattori contribuiscono al rischio (response decay, meeting drop, stagnation, inactivity) — [2 SP] — ✅ DONE
+- [x] T-1209 — Cron `churn-recompute` settimanale (Sun 03:00 UTC): ricalcolo probabilità churn per tutti i contatti/account attivi, log high-risk count — [1 SP] — ✅ DONE
+- [x] T-1210 — Type-check frontend e backend, traduzioni IT/EN, query hook `useChurnAtRisk`, circular dep fix — [1 SP] — ✅ DONE
 
 ---
 
