@@ -30,6 +30,7 @@ export interface WorkerHealthStatus {
     concurrency: number;
   }>;
   errorCount5m: number;
+  stalledCount5m: number;
   autoPaused: boolean;
   autoPausedAt: string | null;
 }
@@ -129,6 +130,7 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
   protected workers: Worker<TData, TResult>[] = [];
 
   private errorTimestamps: number[] = [];
+  private stalledTimestamps: number[] = [];
   private _autoPaused = false;
   private _autoPausedAt: Date | null = null;
 
@@ -342,6 +344,8 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
 
     worker.on('stalled', (jobId: string) => {
       this.logger.warn(`[${config.queueName}] Job ${jobId} stalled - will be retried`);
+      // IF-H4: Track stalled jobs for monitoring
+      this.stalledTimestamps.push(Date.now());
     });
 
     this.workers.push(worker);
@@ -401,6 +405,10 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
     const cutoff = now - ERROR_WINDOW_MS;
     const recentErrors = this.errorTimestamps.filter((t) => t >= cutoff).length;
 
+    // IF-H4: Prune old stalled timestamps and count recent ones
+    this.stalledTimestamps = this.stalledTimestamps.filter((t) => t >= cutoff);
+    const recentStalled = this.stalledTimestamps.length;
+
     const configs = this.getWorkerConfig();
     const configArray = Array.isArray(configs) ? configs : [configs];
 
@@ -414,6 +422,7 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
         concurrency: configArray[i]?.concurrency ?? 1,
       })),
       errorCount5m: recentErrors,
+      stalledCount5m: recentStalled,
       autoPaused: this._autoPaused,
       autoPausedAt: this._autoPausedAt?.toISOString() ?? null,
     };

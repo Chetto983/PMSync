@@ -2,7 +2,7 @@
 phase: 119
 slug: folder-operations
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-30
 ---
@@ -17,20 +17,20 @@ created: 2026-03-30
 
 | Property | Value |
 |----------|-------|
-| **Framework** | jest 29.x (backend) |
-| **Config file** | `backend/jest.config.ts` |
-| **Quick run command** | `cd backend && npx jest --testPathPattern folder --no-coverage` |
-| **Full suite command** | `cd backend && npx jest --no-coverage` |
-| **Estimated runtime** | ~30 seconds |
+| **Framework** | Playwright/Edge CDP validation scripts |
+| **Config file** | `scripts/validate-folder-ops.mjs` (orchestrator) |
+| **Quick run command** | `node -c scripts/validate-folder-ops.mjs` (syntax check, Wave 1) |
+| **Full suite command** | `node scripts/validate-folder-ops.mjs --provider=gmail` (live validation, Wave 2) |
+| **Estimated runtime** | ~60 seconds (live run) |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && npx jest --testPathPattern folder --no-coverage`
-- **After every plan wave:** Run `cd backend && npx jest --no-coverage`
-- **Before `/gsd:verify-work`:** Full suite must be green
-- **Max feedback latency:** 30 seconds
+- **After Wave 1 task commit:** Run `node -c scripts/validate-folder-ops.mjs && node -c scripts/lib/validate-folder-ops.mjs` (syntax gate)
+- **After Wave 2 Task 1:** Run `node scripts/validate-folder-ops.mjs --provider=gmail` (functional gate)
+- **Before `/gsd:verify-work`:** Full live validation must be green + human checkpoint approved
+- **Max feedback latency:** 60 seconds
 
 ---
 
@@ -38,11 +38,10 @@ created: 2026-03-30
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 119-01-01 | 01 | 1 | FOLD-01 | integration | `npx jest --testPathPattern folder-create` | ❌ W0 | ⬜ pending |
-| 119-01-02 | 01 | 1 | FOLD-02 | integration | `npx jest --testPathPattern folder-rename` | ❌ W0 | ⬜ pending |
-| 119-01-03 | 01 | 1 | FOLD-03 | integration | `npx jest --testPathPattern folder-delete` | ❌ W0 | ⬜ pending |
-| 119-01-04 | 01 | 1 | FOLD-04 | integration | `npx jest --testPathPattern folder-sync` | ❌ W0 | ⬜ pending |
-| 119-01-05 | 01 | 1 | FOLD-05 | integration | `npx jest --testPathPattern system-folder` | ❌ W0 | ⬜ pending |
+| 119-01-01 | 01 | 1 | FOLD-01..05 | syntax | `node -c scripts/validate-folder-ops.mjs` | ❌ W0 | ⬜ pending |
+| 119-01-02 | 01 | 1 | FOLD-01..05 | syntax | `node -c scripts/lib/validate-folder-ops.mjs` | ❌ W0 | ⬜ pending |
+| 119-02-01 | 02 | 2 | FOLD-01..05 | live E2E | `node scripts/validate-folder-ops.mjs --provider=gmail` | depends on W1 | ⬜ pending |
+| 119-02-02 | 02 | 2 | FOLD-04 | manual | Human checkpoint: external folder sync | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,10 +49,11 @@ created: 2026-03-30
 
 ## Wave 0 Requirements
 
-- [ ] `backend/src/modules/email/folders/__tests__/folder-operations.spec.ts` — stubs for FOLD-01 through FOLD-05
-- [ ] Shared fixtures for mock provider drivers (Gmail, Outlook, IMAP)
+- [ ] `scripts/validate-folder-ops.mjs` — orchestrator entry point (created by Plan 01 Task 1)
+- [ ] `scripts/lib/validate-folder-ops.mjs` — test logic library (created by Plan 01 Task 2)
+- [ ] `scripts/lib/validation-helpers.mjs` — already exists (shared auth/CSRF/reporting utilities)
 
-*Existing BullMQ and folder infrastructure covers base requirements.*
+*Wave 0 = Plan 01 (Wave 1). Scripts are created as the first wave, then executed in Wave 2.*
 
 ---
 
@@ -61,8 +61,8 @@ created: 2026-03-30
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Folder changes reflected on provider | FOLD-01, FOLD-02, FOLD-03 | Requires live OAuth connection | Use Edge CDP validation script |
-| External folder changes sync locally | FOLD-04 | Requires provider-side folder creation | Create folder in Gmail/Outlook UI, trigger sync |
+| External folder changes sync locally | FOLD-04 | Requires creating folder in provider web UI | 1. Create folder in Gmail/Outlook web UI. 2. POST /folders/sync/:id. 3. Confirm new folder appears in local DB. |
+| IMAP provider folder ops | FOLD-01..05 | Railway blocks IMAP ports | Document as infrastructure-blocked (consistent with WRITE-03) |
 
 ---
 
@@ -72,7 +72,7 @@ created: 2026-03-30
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
+- [ ] Feedback latency < 60s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
