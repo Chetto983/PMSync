@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { Roles } from '../../../common/auth/roles.decorator';
 import { EmailSignatureService } from '../services/email-signature.service';
 import { CreateSignatureDto, UpdateSignatureDto, SignatureResponseDto } from '../dto/signature.dto';
@@ -70,6 +71,7 @@ export class SignaturesController {
 
   @Delete(':id')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Delete a signature' })
   @ApiResponse({ status: 200 })
   async delete(@Request() req: AuthenticatedRequest, @Param('id') id: string) {

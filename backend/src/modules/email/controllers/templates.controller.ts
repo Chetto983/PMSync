@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { Roles } from '../../../common/auth/roles.decorator';
 import { EmailTemplateService } from '../services/email-template.service';
 import {
@@ -81,6 +82,7 @@ export class TemplatesController {
 
   @Delete(':id')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Delete a template' })
   @ApiResponse({ status: 200 })
   async delete(@Request() req: AuthenticatedRequest, @Param('id') id: string) {

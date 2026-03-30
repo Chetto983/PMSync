@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { ScheduledEmailService } from '../services/scheduled-email.service';
 import { RescheduleEmailDto, ScheduledEmailResponseDto } from '../dto/scheduled-email.dto';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
@@ -33,6 +34,7 @@ export class ScheduledEmailsController {
 
   @Delete(':id')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Cancel a pending scheduled email' })
   @ApiResponse({ status: 200, description: 'Email cancelled' })
   @ApiResponse({ status: 404, description: 'Email not found or not pending' })
