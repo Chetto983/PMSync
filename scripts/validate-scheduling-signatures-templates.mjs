@@ -38,7 +38,7 @@ async function main() {
   }
 
   // INFRA-08, INFRA-10: Signatures
-  if (checkFlag === 'all' || checkFlag === 'signatures' || checkFlag === 'signature-send') {
+  if (checkFlag === 'all' || checkFlag === 'signatures' || checkFlag === 'signature-send' || checkFlag === 'signature-content') {
     const sigResults = await validateSignatures(context, finalCookies, csrfToken, checkFlag);
     results.push(...sigResults);
   }
