@@ -50,6 +50,8 @@ export * from './crm-forecast-keys';
 export * from './use-crm-forecast';
 export * from './crm-churn-keys';
 export * from './use-crm-churn';
+export * from './crm-nba-keys';
+export * from './use-crm-nba';
 // Note: use-providers exports are NOT re-exported here because use-settings already
 // exports useProviders, useSyncAllProviders, useDeleteProvider. Import directly from
 // './use-providers' if you need the dedicated provider hooks (useProvider, useUpdateProvider etc).
