@@ -39,6 +39,7 @@ import { DealNotes } from './DealNotes';
 import { DealContactsTab } from './DealContactsTab';
 import { DealProductsTab } from './DealProductsTab';
 import { DealScoreBadge } from './DealScoreBadge';
+import { NBASection } from '../crm-nba/NBASection';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -277,6 +278,9 @@ export function DealDetail() {
           translations={td?.detail?.progressBar}
         />
       )}
+
+      {/* NBA Recommendations */}
+      <NBASection dealId={id} />
 
       {/* Tabs */}
       <Tabs
