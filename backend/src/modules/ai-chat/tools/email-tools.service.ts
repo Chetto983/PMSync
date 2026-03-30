@@ -330,7 +330,7 @@ export class EmailToolsService implements OnModuleInit {
       description:
         'Forward an existing email to another recipient, including the original email body. ' +
         'ALWAYS search first to get the email ID, then verify the recipient via search_contacts. ' +
-        'Returns: { jobId, forwardedEmailId, to, subject, status: "queued" }. ' +
+        'Returns: { messageId, forwardedEmailId, to, subject, status: "sent" }. ' +
         'Requires user approval before execution.',
       inputSchema: schemas.forward_email,
       needsApproval: () => sensitivity !== 'NONE',
@@ -343,25 +343,27 @@ export class EmailToolsService implements OnModuleInit {
         if (!original) {
           return truncateToolResult({ error: 'Original email not found', emailId: resolved.emailId });
         }
+        const forwardBody = resolved.message?.trim()
+          ? `${resolved.message.trim()}\n\n---------- Forwarded message ----------\nFrom: ${original.from}\nSubject: ${original.subject}\n\n${original.bodyText ?? original.snippet ?? ''}`
+          : undefined;
 
-        const provider = await this.getDefaultProvider(tenantId, resolved.from);
-        const forwardBody = `${resolved.message ?? ''}\n\n---------- Forwarded message ----------\nFrom: ${original.from}\nSubject: ${original.subject}\n\n${original.bodyText ?? original.snippet ?? ''}`;
-
-        const result = await this.emailSendService.queueSend({
+        const result = await this.emailSendService.forwardEmail(
+          resolved.emailId,
           tenantId,
-          providerId: provider.id,
-          to: [resolved.to],
-          subject: `Fwd: ${original.subject}`,
-          bodyHtml: forwardBody,
-          bodyText: forwardBody,
-        });
+          {
+            to: [resolved.to],
+            subject: `Fwd: ${original.subject}`,
+            bodyHtml: forwardBody,
+            bodyText: forwardBody,
+          },
+        );
 
         return truncateToolResult({
-          jobId: result.jobId,
+          messageId: result.messageId,
           forwardedEmailId: resolved.emailId,
           to: resolved.to,
           subject: `Fwd: ${original.subject}`,
-          status: 'queued',
+          status: 'sent',
         });
       },
     });

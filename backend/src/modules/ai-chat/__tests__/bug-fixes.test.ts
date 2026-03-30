@@ -125,6 +125,86 @@ describe('BUG-1: reply_email replyAll CC handling', () => {
   });
 });
 
+describe('BUG-6: forward_email uses dedicated forward flow', () => {
+  let prisma: Record<string, any>;
+  let emailSendService: Record<string, any>;
+  let emailSearchService: Record<string, any>;
+  let emailCrudService: Record<string, any>;
+  let emailFetchService: Record<string, any>;
+  let toolRegistry: Record<string, any>;
+  let piiResolve: Mock;
+
+  const originalEmail = {
+    id: 'email-1',
+    providerId: 'provider-1',
+    from: 'sender@example.com',
+    to: ['me@example.com'],
+    cc: [],
+    subject: 'Quarterly Update',
+    bodyText: 'Original body',
+    snippet: 'Original body',
+  };
+
+  beforeEach(() => {
+    prisma = {
+      email: {
+        findFirst: vi.fn().mockResolvedValue(originalEmail),
+      },
+      providerConfig: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'provider-1', providerType: 'google' }),
+      },
+    };
+
+    emailSendService = {
+      queueSend: vi.fn().mockResolvedValue({ jobId: 'job-1' }),
+      forwardEmail: vi.fn().mockResolvedValue({ success: true, messageId: 'msg-1' }),
+    };
+
+    emailSearchService = { searchEmails: vi.fn() };
+    emailCrudService = { updateEmail: vi.fn(), deleteEmail: vi.fn() };
+    emailFetchService = {};
+    toolRegistry = { registerTool: vi.fn() };
+    piiResolve = vi.fn(async (args: Record<string, unknown>) => args);
+  });
+
+  it('delegates to emailSendService.forwardEmail instead of queueSend', async () => {
+    const { EmailToolsService } = await import('../tools/email-tools.service');
+    const service = new EmailToolsService(
+      emailSearchService as any,
+      emailCrudService as any,
+      emailSendService as any,
+      emailFetchService as any,
+      prisma as any,
+      toolRegistry as any,
+    );
+
+    const tools = service.getTools('tenant-1', piiResolve);
+
+    const result = await tools.forward_email.execute!(
+      { emailId: 'email-1', to: 'friend@example.com', message: 'FYI' },
+      { toolCallId: 'tc-1', messages: [], abortSignal: undefined as any },
+    );
+
+    expect(emailSendService.forwardEmail).toHaveBeenCalledTimes(1);
+    expect(emailSendService.queueSend).not.toHaveBeenCalled();
+    expect(emailSendService.forwardEmail).toHaveBeenCalledWith(
+      'email-1',
+      'tenant-1',
+      expect.objectContaining({
+        to: ['friend@example.com'],
+        subject: 'Fwd: Quarterly Update',
+      }),
+    );
+    expect(result).toMatchObject({
+      messageId: 'msg-1',
+      forwardedEmailId: 'email-1',
+      to: 'friend@example.com',
+      subject: 'Fwd: Quarterly Update',
+      status: 'sent',
+    });
+  }, 15000);
+});
+
 // ---- BUG-5: summary trigger frequency ----
 
 describe('BUG-5: maybeTriggerSummaryGeneration frequency', () => {
