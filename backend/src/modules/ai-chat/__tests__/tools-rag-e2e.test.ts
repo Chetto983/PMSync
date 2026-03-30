@@ -67,6 +67,11 @@ const piiResolutionStub = {
     .mockImplementation(
       async (_t: string, _s: string, text: string) => text,
     ),
+  resolveValue: vi
+    .fn()
+    .mockImplementation(
+      async (_t: string, _s: string, value: unknown) => value,
+    ),
 } as any;
 
 /** ToolsService stub -- empty tools (tool execution is covered elsewhere) */

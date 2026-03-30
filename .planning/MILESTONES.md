@@ -1,5 +1,32 @@
 # Project Milestones: PMSync
 
+## v10.0 Email & Sync Production Validation (Shipped: 2026-03-30)
+
+**Phases completed:** 13 phases, 27 plans, 48 tasks
+
+**Key accomplishments:**
+
+- Gmail validation: 40/40 checks passed
+- All three providers validated against production: 110/110 checks passed.
+- Incremental sync validation scripts for Gmail (historyId), Outlook (deltaLink map), and IMAP (modseq tokens) — all 19 checks passing against Railway production
+- Gmail Pub/Sub + Microsoft Graph webhooks both validated (active subscriptions, sync pipeline wired) — 13/13 quick, 17/18 full (1 transient ECONNRESET)
+- Fixed SYNC-13 label sync-back bug via Folder.externalId resolution, added addLabel/removeLabel to Gmail sync paths, and created validation scripts for mark-read/star/move-to-folder roundtrips
+- SYNC-12 delete and SYNC-13 label validation added to sync-back script; 26/26 checks pass across IMAP, Outlook, and Gmail on Railway/Vercel production
+- Ran email read validation against live Gmail provider, fixed envelope parsing bug, all 5 READ requirements pass
+- 35/35 checks passed across Gmail (22) and Outlook (13) — attachment download, on-demand S3 fetch, folder stats, and full-text search all validated against production
+- Fixed forward-attachments bug (WRITE-05) by adding StorageService.getObject and wiring original attachment fetch into forwardEmail, plus validation scripts for all 5 WRITE requirements
+- Ran validation scripts against Gmail and Outlook, fixed 3 bugs, verified delivery via CDP browser inspection
+- Fixed deleteDraft orphan bug (provider-side delete via driver.deleteMessage) and created validation scripts for draft CRUD + all 4 bulk operations
+- All 40 validation checks passed (Gmail 18/18, Outlook 16/16, IMAP 6/6 blocked-as-expected) for draft CRUD and bulk operations against live Railway production
+- 24/25 folder CRUD checks passing across Gmail (8/8), Outlook (8/8), IMAP (6/7) with system folder protection verified -- only IMAP delete blocked by Libero infrastructure
+- All 48 queue and webhook infrastructure checks PASS against live Railway deployment after fixing response envelope unwrapping bug
+- 31/31 validation checks pass on Railway — scheduling, signatures, and templates confirmed end-to-end via CDP + automated suite
+- Validation scripts for tenant isolation (5 checks), rate tier audit (4 checks), and response envelope (5 checks), plus email-sync destructive-write rate tier fix
+- 39/39 validation checks PASS on Railway production for INFRA-06..10, 121-VERIFICATION.md created with per-requirement evidence, human approved
+- Aligned REQUIREMENTS.md and ROADMAP.md with actual v10.0 completion state — 10 checkboxes fixed, coverage count corrected 41→50, FOLD-03 IMAP qualifier added, 10 traceability rows updated to Satisfied.
+
+---
+
 ## v9.0 AI Intelligence & Platform Hardening (Shipped: 2026-03-25)
 
 **Delivered:** AI intelligence upgrade with graph-aware RAG, full push notification delivery, tiered rate limiting, and explicit HITL approval routing with per-user sensitivity control.

@@ -10,7 +10,7 @@
  * - PII Detection: Redacts to "Send email to [EMAIL_REDACTED:abcd1234]"
  * - This Service: Stores mapping { "[EMAIL_REDACTED:abcd1234]": "john@example.com" }
  * - LLM: Sees redacted text, generates tool call with [EMAIL_REDACTED:abcd1234]
- * - Tool Execution: Resolves [EMAIL_REDACTED:abcd1234] → john@example.com
+ * - Tool Execution: Resolves [EMAIL_REDACTED:abcd1234] -> john@example.com
  * - Action: Sends email to john@example.com
  *
  * @security Mappings are tenant-isolated and session-scoped
@@ -56,6 +56,60 @@ export class PiiResolutionService {
     return `pii:${tenantId}:${sessionId}`;
   }
 
+  private replacePlaceholdersInString(
+    value: string,
+    mappings: PiiMapping[],
+  ): { value: string; resolutionCount: number } {
+    let resolved = value;
+    let resolutionCount = 0;
+
+    for (const mapping of mappings) {
+      const noBrackets = mapping.placeholder.replace(/^\[|\]$/g, '');
+      if (resolved.includes(mapping.placeholder)) {
+        resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
+        resolutionCount++;
+      } else if (resolved.includes(noBrackets)) {
+        resolved = resolved.replaceAll(noBrackets, mapping.originalValue);
+        resolutionCount++;
+        this.logger.warn(
+          `[PII-DEBUG] Resolved bracket-stripped placeholder: "${noBrackets}" -> originalValue`,
+        );
+      }
+    }
+
+    return { value: resolved, resolutionCount };
+  }
+
+  private resolveWithMappings<T>(
+    value: T,
+    mappings: PiiMapping[],
+    stats?: { resolutionCount: number },
+  ): T {
+    if (typeof value === 'string') {
+      const result = this.replacePlaceholdersInString(value, mappings);
+      if (stats) stats.resolutionCount += result.resolutionCount;
+      return result.value as T;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) =>
+        this.resolveWithMappings(item, mappings, stats),
+      ) as T;
+    }
+
+    if (value && typeof value === 'object') {
+      const resolved: Record<string, unknown> = {};
+      for (const [key, nestedValue] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        resolved[key] = this.resolveWithMappings(nestedValue, mappings, stats);
+      }
+      return resolved as T;
+    }
+
+    return value;
+  }
+
   /**
    * Store PII mappings from detection result.
    * Call this after PiiDetectionService.detect() and before sending to LLM.
@@ -77,7 +131,6 @@ export class PiiResolutionService {
     const now = new Date().toISOString();
 
     try {
-      // Get existing store or create new one
       let store = await this.cacheService.get<SessionPiiStore>(key, {
         namespace: CacheNamespace.PII_RESOLUTION,
       });
@@ -90,8 +143,9 @@ export class PiiResolutionService {
         };
       }
 
-      // Add new mappings (deduplicate by placeholder)
-      const existingPlaceholders = new Set(store.mappings.map((m) => m.placeholder));
+      const existingPlaceholders = new Set(
+        store.mappings.map((mapping) => mapping.placeholder),
+      );
 
       for (const match of matches) {
         if (!existingPlaceholders.has(match.redactedValue)) {
@@ -107,7 +161,6 @@ export class PiiResolutionService {
 
       store.updatedAt = now;
 
-      // Store with TTL
       await this.cacheService.set(key, store, {
         namespace: CacheNamespace.PII_RESOLUTION,
         ttl: PII_MAPPING_TTL_SECONDS,
@@ -118,7 +171,6 @@ export class PiiResolutionService {
       );
     } catch (error) {
       this.logger.error(`Failed to store PII mapping: ${error}`);
-      // Don't throw - PII resolution is best-effort, don't break chat flow
     }
   }
 
@@ -181,22 +233,8 @@ export class PiiResolutionService {
         return text;
       }
 
-      let resolved = text;
-      let resolutionCount = 0;
-
-      for (const mapping of store.mappings) {
-        const noBrackets = mapping.placeholder.replace(/^\[|\]$/g, '');
-        if (resolved.includes(mapping.placeholder)) {
-          resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
-          resolutionCount++;
-        } else if (resolved.includes(noBrackets)) {
-          resolved = resolved.replaceAll(noBrackets, mapping.originalValue);
-          resolutionCount++;
-          this.logger.warn(
-            `[PII-DEBUG] Resolved bracket-stripped placeholder in text: "${noBrackets}" → originalValue`,
-          );
-        }
-      }
+      const { value: resolved, resolutionCount } =
+        this.replacePlaceholdersInString(text, store.mappings);
 
       if (resolutionCount > 0) {
         this.logger.debug(
@@ -207,12 +245,12 @@ export class PiiResolutionService {
       return resolved;
     } catch (error) {
       this.logger.error(`Failed to resolve PII in text: ${error}`);
-      return text; // Return original on error
+      return text;
     }
   }
 
   /**
-   * Resolve PII in an object's string values (shallow).
+   * Resolve PII in an object's string values.
    * Useful for resolving tool payloads before execution.
    *
    * @param tenantId - Tenant isolation
@@ -245,56 +283,63 @@ export class PiiResolutionService {
         `[PII-DEBUG] resolvePayload: ${store.mappings.length} mapping(s), payload keys=${Object.keys(payload).join(',')}`,
       );
 
-      let resolutionCount = 0;
+      const stats = { resolutionCount: 0 };
+      const resolved = this.resolveWithMappings(
+        payload,
+        store.mappings,
+        stats,
+      ) as T;
 
-      // Recursive resolver for nested structures
-      const resolveValue = (value: unknown): unknown => {
-        if (typeof value === 'string') {
-          let resolved = value;
-          for (const mapping of store.mappings) {
-            // Also try without brackets — LLMs sometimes strip them
-            const noBrackets = mapping.placeholder.replace(/^\[|\]$/g, '');
-            if (resolved.includes(mapping.placeholder)) {
-              resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
-              resolutionCount++;
-            } else if (resolved.includes(noBrackets)) {
-              resolved = resolved.replaceAll(noBrackets, mapping.originalValue);
-              resolutionCount++;
-              this.logger.warn(
-                `[PII-DEBUG] Resolved bracket-stripped placeholder: "${noBrackets}" → originalValue`,
-              );
-            }
-          }
-          return resolved;
-        }
-
-        if (Array.isArray(value)) {
-          return value.map((item) => resolveValue(item));
-        }
-
-        if (value && typeof value === 'object') {
-          const resolved: Record<string, unknown> = {};
-          for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
-            resolved[key] = resolveValue(val);
-          }
-          return resolved;
-        }
-
-        return value;
-      };
-
-      const resolved = resolveValue(payload) as T;
-
-      if (resolutionCount > 0) {
+      if (stats.resolutionCount > 0) {
         this.logger.debug(
-          `Resolved ${resolutionCount} PII placeholders in payload for session ${sessionId}`,
+          `Resolved ${stats.resolutionCount} PII placeholders in payload for session ${sessionId}`,
         );
       }
 
       return resolved;
     } catch (error) {
       this.logger.error(`Failed to resolve PII in payload: ${error}`);
-      return payload; // Return original on error
+      return payload;
+    }
+  }
+
+  /**
+   * Resolve placeholders in any string / object / array value with a single store lookup.
+   * Shared by streaming, persistence, and conversation history readback.
+   */
+  async resolveValue<T>(
+    tenantId: string,
+    sessionId: string,
+    value: T,
+  ): Promise<T> {
+    if (value == null || (typeof value !== 'string' && typeof value !== 'object')) {
+      return value;
+    }
+
+    const key = this.getStoreKey(tenantId, sessionId);
+
+    try {
+      const store = await this.cacheService.get<SessionPiiStore>(key, {
+        namespace: CacheNamespace.PII_RESOLUTION,
+      });
+
+      if (!store || store.mappings.length === 0) {
+        return value;
+      }
+
+      const stats = { resolutionCount: 0 };
+      const resolved = this.resolveWithMappings(value, store.mappings, stats);
+
+      if (stats.resolutionCount > 0) {
+        this.logger.debug(
+          `Resolved ${stats.resolutionCount} PII placeholders in value for session ${sessionId}`,
+        );
+      }
+
+      return resolved;
+    } catch (error) {
+      this.logger.error(`Failed to resolve PII in value: ${error}`);
+      return value;
     }
   }
 
@@ -346,7 +391,6 @@ export class PiiResolutionService {
    */
   containsPlaceholders(text: string): boolean {
     if (!text) return false;
-    // Match both bracketed and bare placeholder formats.
     return /\[?[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]?/.test(text);
   }
 

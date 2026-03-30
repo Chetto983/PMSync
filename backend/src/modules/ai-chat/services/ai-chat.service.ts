@@ -564,6 +564,22 @@ export class AiChatService {
         // Resolve PII placeholders before persisting — the LLM outputs redacted
         // tokens (EMAIL_REDACTED:xxx) in its text and tool-call args. We resolve
         // them here so conversation history displayed in the frontend is clean.
+        const resolvedReasoning = reasoning?.length
+          ? await Promise.all(
+              reasoning.map(async (part) => ({
+                ...part,
+                text:
+                  typeof part.text === "string"
+                    ? await this.piiResolutionService.resolveText(
+                        tenantId,
+                        conversation.id,
+                        part.text,
+                      )
+                    : part.text,
+              })),
+            )
+          : reasoning;
+
         const resolvedText = text
           ? await this.piiResolutionService.resolveText(
               tenantId,
@@ -573,8 +589,8 @@ export class AiChatService {
           : text;
 
         const contentParts: Prisma.InputJsonValue[] = [];
-        if (reasoning?.length) {
-          const reasoningText = reasoning.map((r) => r.text).join("\n");
+        if (resolvedReasoning?.length) {
+          const reasoningText = resolvedReasoning.map((r) => r.text).join("\n");
           if (reasoningText) {
             contentParts.push({ type: "reasoning", text: reasoningText });
           }
@@ -624,6 +640,7 @@ export class AiChatService {
         if (filteredToolResults.length > 0) {
           await this.persistToolResults(
             conversation.id,
+            tenantId,
             stepIndex,
             filteredToolResults,
           )
@@ -682,8 +699,19 @@ export class AiChatService {
       onFinish: async ({ text, usage, steps }) => {
         circuitBreaker.reset();
 
-        if (!conversationId && text) {
-          const title = text.slice(0, 100).replace(/\n/g, " ").trim();
+        const resolvedFinishText = text
+          ? await this.piiResolutionService.resolveText(
+              tenantId,
+              conversation.id,
+              text,
+            )
+          : text;
+
+        if (!conversationId && resolvedFinishText) {
+          const title = resolvedFinishText
+            .slice(0, 100)
+            .replace(/\n/g, " ")
+            .trim();
           await this.conversationService
             .updateConversationTitle(
               conversation.id,
@@ -947,17 +975,30 @@ export class AiChatService {
 
   private async persistToolResults(
     conversationId: string,
+    tenantId: string,
     stepIndex: number,
     toolResults: StepResult<ToolSet>["toolResults"],
   ): Promise<void> {
     // RACE-4: All tool results persisted in a single transaction via saveToolMessagesBatch.
+    const entries = await Promise.all(
+      toolResults.map(async (toolResult) => {
+        const content = (await this.piiResolutionService.resolveValue(
+          tenantId,
+          conversationId,
+          this.serializeToolResult(toolResult),
+        )) as Prisma.InputJsonValue;
+
+        return {
+          content,
+          toolCallId: toolResult.toolCallId,
+          stepIndex,
+        };
+      }),
+    );
+
     await this.conversationService.saveToolMessagesBatch(
       conversationId,
-      toolResults.map((toolResult) => ({
-        content: this.serializeToolResult(toolResult),
-        toolCallId: toolResult.toolCallId,
-        stepIndex,
-      })),
+      entries,
     );
   }
 
@@ -1176,15 +1217,18 @@ export class AiChatService {
   ): ReadableStream {
     const piiService = this.piiResolutionService;
     const PII_COMPLETE = /\[?[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]?/;
-    // Detects a partial token at end of string: "[" followed by uppercase/underscore
-    // that could be a PII token being streamed across multiple chunks.
-    const PII_PARTIAL_TAIL = /\[[A-Z_]*(?:_REDACTED(?::[a-f0-9]*)?)?$/;
+    // Detects a partial token at end of string, including both bracketed and bare forms.
+    const PII_PARTIAL_TAIL =
+      /(?:\[[A-Z_]*(?:_REDACTED(?::[a-f0-9]*)?)?|[A-Z_]+_REDACTED(?::[a-f0-9]*)?)$/;
 
     const resolveStr = (s: string) =>
       piiService.resolveText(tenantId, conversationId, s);
 
     const resolveObj = (obj: Record<string, unknown>) =>
       piiService.resolvePayload(tenantId, conversationId, obj);
+
+    const resolveAny = (value: unknown) =>
+      piiService.resolveValue(tenantId, conversationId, value);
 
     // Per-type buffers for accumulating partial PII tokens across chunks
     const buffers: Record<string, string> = {};
@@ -1255,13 +1299,36 @@ export class AiChatService {
           return;
         }
 
-        // Resolve PII in tool-call input (tool-input-available)
+        // Resolve PII in tool-call input (tool-input-available / tool-input-error)
         if (type === "tool-input-available" && chunk.input) {
           const inputStr = JSON.stringify(chunk.input);
           if (PII_COMPLETE.test(inputStr)) {
             chunk = {
               ...chunk,
               input: await resolveObj(chunk.input as Record<string, unknown>),
+            };
+          }
+        }
+
+        if (type === "tool-input-error" && chunk.input) {
+          const inputStr = JSON.stringify(chunk.input);
+          if (PII_COMPLETE.test(inputStr)) {
+            chunk = {
+              ...chunk,
+              input: (await resolveAny(chunk.input)) as Record<string, unknown>,
+            };
+          }
+        }
+
+        if (type === "tool-output-available" && chunk.output != null) {
+          const outputStr =
+            typeof chunk.output === "string"
+              ? chunk.output
+              : JSON.stringify(chunk.output);
+          if (PII_COMPLETE.test(outputStr)) {
+            chunk = {
+              ...chunk,
+              output: await resolveAny(chunk.output),
             };
           }
         }

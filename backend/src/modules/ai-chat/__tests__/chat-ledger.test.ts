@@ -80,6 +80,7 @@ describe('AiChatService ledger wiring', () => {
     const mockPiiResolution = {
       resolveText: vi.fn().mockImplementation(async (_tenantId: string, _conversationId: string, text: string) => text),
       resolvePayload: vi.fn().mockImplementation(async (_tenantId: string, _conversationId: string, payload: Record<string, unknown>) => payload),
+      resolveValue: vi.fn().mockImplementation(async (_tenantId: string, _conversationId: string, value: unknown) => value),
     };
     const mockAudit = { logAudit: vi.fn().mockResolvedValue(undefined), logToolExecution: vi.fn().mockResolvedValue(undefined) };
     const mockRateLimiter = { checkRateLimit: vi.fn().mockResolvedValue({ allowed: true }) };

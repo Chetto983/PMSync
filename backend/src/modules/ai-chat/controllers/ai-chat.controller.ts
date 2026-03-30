@@ -33,6 +33,7 @@ import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard
 import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
+import { PiiResolutionService } from '../../ai/guards/pii-resolution.service';
 import {
   ChatRequestDto,
   extractUserMessageFromDto,
@@ -78,6 +79,7 @@ export class AiChatController {
   constructor(
     private readonly aiChatService: AiChatService,
     private readonly conversationService: ConversationService,
+    private readonly piiResolutionService: PiiResolutionService,
   ) {}
 
   /**
@@ -254,10 +256,23 @@ export class AiChatController {
       );
     }
 
-    const messages = await this.conversationService.getRecentMessages(
+    const rawMessages = await this.conversationService.getRecentMessages(
       conversationId,
       200,
       req.user.tenantId,
+    );
+    const messages = await Promise.all(
+      rawMessages.map(async (message) => {
+        if (message.role === 'user') return message;
+        return {
+          ...message,
+          content: await this.piiResolutionService.resolveValue(
+            req.user.tenantId,
+            conversationId,
+            message.content,
+          ),
+        };
+      }),
     );
 
     return {

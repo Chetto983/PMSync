@@ -65,6 +65,11 @@ const piiResolutionStub = {
     .mockImplementation(
       async (_t: string, _s: string, t: string) => t,
     ),
+  resolveValue: vi
+    .fn()
+    .mockImplementation(
+      async (_t: string, _s: string, value: unknown) => value,
+    ),
 } as any;
 
 const identityPiiResolve = async (

@@ -61,6 +61,7 @@ describe('TelegramWebhookService', () => {
   const mockPiiResolutionService = {
     resolveText: jest.fn().mockImplementation(async (_tenantId, _conversationId, value) => value),
     resolvePayload: jest.fn().mockImplementation(async (_tenantId, _conversationId, value) => value),
+    resolveValue: jest.fn().mockImplementation(async (_tenantId, _conversationId, value) => value),
   };
 
   beforeEach(async () => {
