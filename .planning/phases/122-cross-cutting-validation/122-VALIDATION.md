@@ -19,15 +19,15 @@ created: 2026-03-30
 |----------|-------|
 | **Framework** | jest 29.x (backend), node scripts (validation) |
 | **Config file** | `backend/jest.config.ts` |
-| **Quick run command** | `cd backend && npx jest --testPathPattern="cross-cutting" --no-coverage` |
-| **Full suite command** | `cd backend && npx jest --no-coverage && node scripts/validate-cross-cutting.mjs` |
+| **Quick run command** | `cd backend && npx jest --testPathPattern="rate-tier-audit" --no-coverage` |
+| **Full suite command** | `cd backend && npx jest --no-coverage && node scripts/validate-cross-cutting.mjs --check=all` |
 | **Estimated runtime** | ~30 seconds |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && npx jest --testPathPattern="cross-cutting" --no-coverage`
+- **After every task commit:** Run `cd backend && npx jest --testPathPattern="rate-tier-audit" --no-coverage`
 - **After every plan wave:** Run `cd backend && npx jest --no-coverage`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 30 seconds
@@ -38,9 +38,9 @@ created: 2026-03-30
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 122-01-01 | 01 | 1 | XCUT-01 | integration | `node scripts/validate-tenant-isolation.mjs` | ❌ W0 | ⬜ pending |
-| 122-01-02 | 01 | 1 | XCUT-02 | unit+static | `cd backend && npx jest --testPathPattern="rate-tier"` | ✅ | ⬜ pending |
-| 122-01-03 | 01 | 1 | XCUT-03 | integration | `node scripts/validate-response-envelope.mjs` | ❌ W0 | ⬜ pending |
+| 122-01-01 | 01 | 1 | XCUT-02 | unit+static | `cd backend && npx jest --testPathPattern="rate-tier-audit" --no-coverage` | ✅ | ⬜ pending |
+| 122-01-02 | 01 | 1 | XCUT-01,02,03 | integration | `node scripts/validate-cross-cutting.mjs --check=all` | ❌ W0 | ⬜ pending |
+| 122-01-03 | 01 | 1 | (sign-off) | meta | `node -e "..."` (VALIDATION.md flag check) | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,8 +48,9 @@ created: 2026-03-30
 
 ## Wave 0 Requirements
 
-- [ ] `scripts/validate-tenant-isolation.mjs` — cross-tenant request script for XCUT-01
-- [ ] `scripts/validate-response-envelope.mjs` — envelope format + correlation ID checks for XCUT-03
+- [ ] `scripts/lib/validate-tenant-isolation.mjs` — cross-tenant request checks for XCUT-01
+- [ ] `scripts/lib/validate-rate-tiers.mjs` — per-endpoint tier verification for XCUT-02
+- [ ] `scripts/lib/validate-response-envelope.mjs` — envelope format + correlation ID checks for XCUT-03
 - [ ] `scripts/validate-cross-cutting.mjs` — orchestrator running all three checks
 
 *Existing `rate-tier-audit.spec.ts` covers XCUT-02 static analysis.*
