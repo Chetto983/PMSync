@@ -14,9 +14,9 @@ Scorecard is 9.9/10. The single remaining gap is "External alert sink" — metri
 
 ## Sprint Backlog
 
-### T-1801: Ops alert service — structured log -> external channel [3 SP]
+### T-1801: Ops alert service — structured log -> external channel [3 SP] ✅ DONE
 
-- [ ] Create `backend/src/common/services/ops-alert.service.ts`
+- [x] Create `backend/src/common/services/ops-alert.service.ts`
 - [ ] Interface:
   ```typescript
   interface OpsAlert {

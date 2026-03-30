@@ -8,6 +8,7 @@ import { SyncSchedulerService } from '../../email-sync/services/sync-scheduler.s
 import { getConfiguration, getRedisNodeConnectionOptions } from '../../../config/configuration';
 import { Prisma } from '@prisma/client';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
+import { OpsAlertService } from '../../../common/services/ops-alert.service';
 
 @Injectable()
 export class HealthService {
@@ -20,6 +21,7 @@ export class HealthService {
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(QueueService) private queueService?: QueueService,
     @Optional() @Inject(SyncSchedulerService) private syncScheduler?: SyncSchedulerService,
+    @Optional() @Inject(OpsAlertService) private opsAlert?: OpsAlertService,
   ) {
     this.redisClient.connect().catch(() => {
       this.logger.warn('Redis health check client failed to connect');
@@ -107,9 +109,15 @@ export class HealthService {
           if (total > 0) {
             const failureRate = m.failed / total;
             if (failureRate > 0.05) {
-              this.logger.error(
-                `[T-1703-ALERT] Queue "${m.queue}" failure rate ${(failureRate * 100).toFixed(1)}% (${m.failed}/${total}) exceeds 5% threshold`,
-              );
+              const msg = `Queue "${m.queue}" failure rate ${(failureRate * 100).toFixed(1)}% (${m.failed}/${total}) exceeds 5% threshold`;
+              this.logger.error(`[T-1703-ALERT] ${msg}`);
+              // T-1801: Fire ops alert
+              void this.opsAlert?.fire({
+                level: failureRate > 0.2 ? 'critical' : 'warning',
+                source: 'worker-failure-rate',
+                message: msg,
+                metadata: { queue: m.queue, failureRate: `${(failureRate * 100).toFixed(1)}%`, failed: m.failed, total },
+              });
               health.status = 'degraded';
             }
           }

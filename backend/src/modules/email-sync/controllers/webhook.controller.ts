@@ -24,6 +24,7 @@ import { Public } from '../../../common/auth/public.decorator';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { SkipThrottle } from '@nestjs/throttler';
 import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator';
+import { OpsAlertService } from '../../../common/services/ops-alert.service';
 
 @ApiTags('Webhooks - Email Sync')
 @Public()
@@ -32,10 +33,16 @@ import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
 
+  /** T-1801: Sliding window for rejection counting (fire alert if >5 in 5 min) */
+  private rejectionTimestamps: number[] = [];
+  private static readonly REJECTION_WINDOW_MS = 5 * 60 * 1000;
+  private static readonly REJECTION_ALERT_THRESHOLD = 5;
+
   constructor(
     private gmailWebhook: GmailWebhookService,
     private microsoftWebhook: MicrosoftWebhookService,
     private readonly syncAuth: SyncAuthService,
+    private readonly opsAlert: OpsAlertService,
   ) {}
 
   /**
@@ -98,6 +105,7 @@ export class WebhookController {
           this.logger.warn(
             `[WEBHOOK-REJECTED] Gmail push too old: publishTime=${publishTime}, age=${Math.round(ageMs / 1000)}s, ip=${clientIp}, reason=stale`,
           );
+          this.trackRejection('stale');
           return { success: true, skipped: true, reason: 'stale' };
         }
       }
@@ -110,6 +118,7 @@ export class WebhookController {
           this.logger.warn(
             `[WEBHOOK-REJECTED] Gmail duplicate: messageId=${messageId}, ip=${clientIp}, reason=duplicate`,
           );
+          this.trackRejection('duplicate');
           return { success: true, skipped: true, reason: 'duplicate' };
         }
       }
@@ -204,5 +213,25 @@ export class WebhookController {
         microsoft: microsoftStats,
       };
     });
+  }
+
+  /**
+   * T-1801: Track webhook rejections and fire ops alert if threshold exceeded.
+   * Sliding window: >5 rejections in 5 minutes triggers an alert.
+   */
+  private trackRejection(reason: string): void {
+    const now = Date.now();
+    this.rejectionTimestamps.push(now);
+    const cutoff = now - WebhookController.REJECTION_WINDOW_MS;
+    this.rejectionTimestamps = this.rejectionTimestamps.filter((t) => t >= cutoff);
+
+    if (this.rejectionTimestamps.length >= WebhookController.REJECTION_ALERT_THRESHOLD) {
+      void this.opsAlert.fire({
+        level: this.rejectionTimestamps.length >= 20 ? 'critical' : 'warning',
+        source: 'webhook-rejections',
+        message: `${this.rejectionTimestamps.length} webhook rejections in 5 min (last: ${reason})`,
+        metadata: { count: this.rejectionTimestamps.length, lastReason: reason },
+      });
+    }
   }
 }

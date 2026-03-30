@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import {
@@ -6,6 +6,7 @@ import {
   releaseSharedRedisConnection,
   QUEUE_NAMES,
 } from '../config';
+import { OpsAlertService } from './ops-alert.service';
 
 /**
  * Queue status for a single queue
@@ -84,6 +85,10 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   private redisConnection: Redis;
   private queues: Map<string, Queue> = new Map();
 
+  constructor(
+    @Optional() @Inject(OpsAlertService) private readonly opsAlert?: OpsAlertService,
+  ) {}
+
   // Thresholds for health determination
   private readonly THRESHOLDS = {
     maxWaitingPerQueue: 1000,
@@ -145,9 +150,15 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
       // T-1703: Queue depth alert — log warning at 80% capacity
       const depthPct = queue.waiting / this.THRESHOLDS.maxWaitingPerQueue;
       if (depthPct >= 0.8) {
-        this.logger.warn(
-          `[T-1703-ALERT] Queue "${queue.name}" at ${(depthPct * 100).toFixed(0)}% capacity (${queue.waiting}/${this.THRESHOLDS.maxWaitingPerQueue})`,
-        );
+        const msg = `Queue "${queue.name}" at ${(depthPct * 100).toFixed(0)}% capacity (${queue.waiting}/${this.THRESHOLDS.maxWaitingPerQueue})`;
+        this.logger.warn(`[T-1703-ALERT] ${msg}`);
+        // T-1801: Fire ops alert to external channel
+        void this.opsAlert?.fire({
+          level: depthPct >= 0.95 ? 'critical' : 'warning',
+          source: 'queue-backpressure',
+          message: msg,
+          metadata: { queue: queue.name, waiting: queue.waiting, pct: `${(depthPct * 100).toFixed(0)}%` },
+        });
       }
     }
 
