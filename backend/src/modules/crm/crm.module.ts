@@ -11,14 +11,15 @@ import { LeadScoringModule } from './lead-scoring/lead-scoring.module';
 import { ForecastingModule } from './forecasting/forecasting.module';
 import { ChurnModule } from './churn/churn.module';
 import { NBAModule } from './nba/nba.module';
+import { GovernanceModule } from './governance/governance.module';
 
 /**
  * CrmModule - Umbrella module for all CRM sub-modules.
  * Phase 1: Account, Pipeline, Deal, Import/Export, Custom Fields, Product, Scoring.
- * Phase 2: Lead Scoring, Forecasting, Churn Prediction, NBA (Intelligence Layer).
+ * Phase 2: Lead Scoring, Forecasting, Churn Prediction, NBA, Governance (Intelligence Layer).
  */
 @Module({
-  imports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule],
-  exports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule],
+  imports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule, GovernanceModule],
+  exports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule, GovernanceModule],
 })
 export class CrmModule {}

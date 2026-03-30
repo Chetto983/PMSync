@@ -1,0 +1,38 @@
+import { useQuery, queryOptions } from '@tanstack/react-query';
+import {
+  crmGovernanceApi,
+  type TimeRange,
+} from '@/lib/api/crm-governance';
+import { crmGovernanceKeys } from './crm-governance-keys';
+
+// ---- Query Options ----
+
+export function crmGovernanceOverviewOptions() {
+  return queryOptions({
+    queryKey: crmGovernanceKeys.overview(),
+    queryFn: () => crmGovernanceApi.getOverview().then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function crmGovernanceCostsOptions(range: TimeRange = '30d') {
+  return queryOptions({
+    queryKey: crmGovernanceKeys.costs(range),
+    queryFn: () => crmGovernanceApi.getCostBreakdown(range).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+// ---- Hooks ----
+
+export function useGovernanceOverview() {
+  return useQuery(crmGovernanceOverviewOptions());
+}
+
+export function useGovernanceCosts(range: TimeRange = '30d') {
+  return useQuery(crmGovernanceCostsOptions(range));
+}

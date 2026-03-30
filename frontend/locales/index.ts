@@ -301,6 +301,7 @@ export interface AppTranslations {
     crmAccounts: string;
     crmPipelines: string;
     crmDeals: string;
+    crmGovernance: string;
     settings: string;
     profile: string;
     logout: string;
@@ -4809,6 +4810,75 @@ export interface AppTranslations {
       accepted?: string;
       executed?: string;
       dismissed?: string;
+    };
+  };
+  aiGovernance?: {
+    title?: string;
+    subtitle?: string;
+    tabs?: {
+      accuracy?: string;
+      costs?: string;
+      drift?: string;
+      models?: string;
+    };
+    kpi?: {
+      totalPredictions?: string;
+      averageAccuracy?: string;
+      monthlyCost?: string;
+      activeModels?: string;
+    };
+    accuracy?: {
+      title?: string;
+      subtitle?: string;
+      auc?: string;
+      mape?: string;
+      precision?: string;
+      recall?: string;
+      timeRange?: string;
+      last7d?: string;
+      last30d?: string;
+      last90d?: string;
+      noData?: string;
+    };
+    costs?: {
+      title?: string;
+      subtitle?: string;
+      featureType?: string;
+      totalCost?: string;
+      tokenCount?: string;
+      callCount?: string;
+      trend?: string;
+      projection?: string;
+      noData?: string;
+    };
+    drift?: {
+      title?: string;
+      subtitle?: string;
+      feature?: string;
+      psi?: string;
+      status?: string;
+      stable?: string;
+      warning?: string;
+      critical?: string;
+      lastChecked?: string;
+      noData?: string;
+    };
+    models?: {
+      title?: string;
+      subtitle?: string;
+      modelName?: string;
+      type?: string;
+      version?: string;
+      lastTrained?: string;
+      accuracy?: string;
+      status?: string;
+      actions?: string;
+      retrain?: string;
+      retrainStarted?: string;
+      retrainFailed?: string;
+      enabled?: string;
+      disabled?: string;
+      noData?: string;
     };
   };
 }
