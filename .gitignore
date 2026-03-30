@@ -194,6 +194,8 @@ scripts/*
 !scripts/lib/validate-drafts-bulk.mjs
 !scripts/validate-folder-ops.mjs
 !scripts/lib/validate-folder-ops.mjs
+!scripts/validate-queue-webhook-infra.mjs
+!scripts/lib/validate-queue-health.mjs
 artifacts/*
 backend/scripts/screenshots/*
 backups/*
