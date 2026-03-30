@@ -22,8 +22,8 @@ See: `.planning/PROJECT.md` (updated 2026-03-25)
 
 ## Current Position
 
-Phase: 120
-Plan: Not started
+Phase: 120 (queue-webhook-infrastructure) -- EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
