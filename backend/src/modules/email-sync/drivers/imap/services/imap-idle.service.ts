@@ -15,6 +15,7 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import { ImapFlow } from 'imapflow';
 import { ImapFolderService } from './imap-folder.service';
+import { RedisLockService } from '../../../../../common/services/redis-lock.service';
 import {
   ImapConfig,
 } from '../interfaces/imap-internal.interface';
@@ -47,6 +48,10 @@ interface IdleState {
   pollingTimer?: NodeJS.Timeout;
   /** T-1406: Whether we're in polling fallback mode */
   pollingMode: boolean;
+  /** IF-H6: Redis lock ID for per-account IDLE concurrency control */
+  idleLockId?: string;
+  /** IF-H6: Redis lock key for per-account IDLE concurrency control */
+  idleLockKey?: string;
 }
 
 @Injectable({ scope: Scope.TRANSIENT })
@@ -56,6 +61,8 @@ export class ImapIdleService {
   private config?: ImapConfig;
   /** T-1406: Whether server supports IDLE (detected at connect time) */
   private serverSupportsIdle = true;
+  /** IF-H6: Account identifier for per-account IDLE lock */
+  private accountId?: string;
 
   private state: IdleState = {
     active: false,
@@ -64,15 +71,19 @@ export class ImapIdleService {
     pollingMode: false,
   };
 
-  constructor(private readonly folderService: ImapFolderService) {}
+  constructor(
+    private readonly folderService: ImapFolderService,
+    private readonly redisLock: RedisLockService,
+  ) {}
 
   /**
    * Initialize the IDLE service with IMAP configuration.
    * T-1406: Accepts supportsIdle flag to detect capability early.
    */
-  initialize(config: ImapConfig, supportsIdle = true): void {
+  initialize(config: ImapConfig, supportsIdle = true, accountId?: string): void {
     this.config = config;
     this.serverSupportsIdle = supportsIdle;
+    this.accountId = accountId || `${config.host}:${config.auth?.user || 'unknown'}`;
   }
 
   /**
@@ -113,6 +124,21 @@ export class ImapIdleService {
     if (!this.config) {
       throw new Error('IDLE service not initialized. Call initialize() first.');
     }
+
+    // IF-H6: Per-account IDLE lock — RFC 2177 allows only one IDLE per connection
+    // This prevents multiple workers from opening concurrent IDLE sessions
+    const lockKey = `idle:${this.accountId}`;
+    const lockId = await this.redisLock.acquireLock(lockKey, 30 * 60 * 1000, { maxRetries: 1 });
+    if (!lockId) {
+      this.logger.warn(`IF-H6: IDLE already active for account ${this.accountId} — skipping`);
+      return {
+        unsubscribe: async () => { /* no-op — we never started */ },
+        isActive: () => false,
+      };
+    }
+    // Store lockId so we can release on stop
+    this.state.idleLockId = lockId;
+    this.state.idleLockKey = lockKey;
 
     // Stop any existing IDLE subscription
     await this.stopIdleSubscription();
@@ -438,6 +464,13 @@ export class ImapIdleService {
     this.state.callback = undefined;
     this.state.folder = undefined;
     this.state.active = false;
+
+    // IF-H6: Release per-account IDLE lock
+    if (this.state.idleLockId && this.state.idleLockKey) {
+      await this.redisLock.releaseLock(this.state.idleLockKey, this.state.idleLockId).catch(() => undefined);
+      this.state.idleLockId = undefined;
+      this.state.idleLockKey = undefined;
+    }
   }
 
   /**
