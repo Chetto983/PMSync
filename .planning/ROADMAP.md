@@ -264,7 +264,11 @@ Plans:
   3. Gmail Pub/Sub subscription can be created and renewed before expiry without dropping notifications
   4. Microsoft Graph subscription can be created and renewed before expiry without dropping notifications
   5. Webhook health endpoint accurately reports subscription status for both Gmail and Outlook
-**Plans**: [to be planned]
+**Plans**: 3 plans
+Plans:
+- [ ] 120-01-PLAN.md -- Queue health validation scripts (INFRA-01, INFRA-02)
+- [ ] 120-02-PLAN.md -- Webhook lifecycle validation scripts (INFRA-03, INFRA-04, INFRA-05)
+- [ ] 120-03-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-01..05)
 
 ### Phase 121: Scheduling, Signatures & Templates
 **Goal**: Scheduled emails send at the right time, and signature/template management works end-to-end
@@ -276,7 +280,11 @@ Plans:
   3. Signature CRUD works and the default signature selection persists across sessions
   4. Template CRUD works, including duplicate, and the default template selection persists
   5. Sent emails include the user's selected default signature in the message body
-**Plans**: [to be planned]
+**Plans**: 3 plans
+Plans:
+- [ ] 120-01-PLAN.md -- Queue health validation scripts (INFRA-01, INFRA-02)
+- [ ] 120-02-PLAN.md -- Webhook lifecycle validation scripts (INFRA-03, INFRA-04, INFRA-05)
+- [ ] 120-03-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-01..05)
 
 ### Phase 122: Cross-cutting Validation
 **Goal**: Security, observability, and API contract guarantees hold across all email operations
@@ -286,7 +294,11 @@ Plans:
   1. No email endpoint returns data belonging to a different tenant — verified via cross-tenant request script
   2. Rate limiting enforces the correct tier (read/safe-write/destructive-write/send) on every email endpoint
   3. All error responses follow the standard envelope format with a correlation ID present in every response
-**Plans**: [to be planned]
+**Plans**: 3 plans
+Plans:
+- [ ] 120-01-PLAN.md -- Queue health validation scripts (INFRA-01, INFRA-02)
+- [ ] 120-02-PLAN.md -- Webhook lifecycle validation scripts (INFRA-03, INFRA-04, INFRA-05)
+- [ ] 120-03-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-01..05)
 
 ## Progress
 
@@ -300,7 +312,7 @@ Plans:
 | 117. Email Send & Reply/Forward | 3/3 | Complete   | 2026-03-27 |
 | 118. Drafts & Bulk Operations | 2/2 | Complete    | 2026-03-30 |
 | 119. Folder Operations | 2/2 | Complete    | 2026-03-30 |
-| 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
+| 120. Queue & Webhook Infrastructure | 0/3 | Not started | - |
 | 121. Scheduling, Signatures & Templates | 0/? | Not started | - |
 | 122. Cross-cutting Validation | 0/? | Not started | - |
 
