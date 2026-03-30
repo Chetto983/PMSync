@@ -70,12 +70,19 @@ async function validatePrometheusMetrics(context, cookieHeader, results) {
 
   let metricsText;
   try {
-    // /health/metrics returns text/plain, use context.request.get() directly
+    // /health/metrics returns text/plain but ResponseEnvelopeInterceptor may wrap it in JSON
     const api = context.request;
     const response = await api.get(BACKEND_URL + '/health/metrics', {
       headers: { Cookie: cookieHeader },
     });
-    metricsText = await response.text();
+    const raw = await response.text();
+    // Unwrap envelope if present: { "data": "<prometheus text>", "meta": {...} }
+    try {
+      const parsed = JSON.parse(raw);
+      metricsText = parsed?.data ?? raw;
+    } catch {
+      metricsText = raw;
+    }
   } catch (err) {
     console.log(`  ERROR: /health/metrics failed: ${err.message}`);
     assertTrue(false, 'INFRA-01: /health/metrics returns success');
@@ -83,7 +90,11 @@ async function validatePrometheusMetrics(context, cookieHeader, results) {
   }
 
   assertTrue(typeof metricsText === 'string' && metricsText.length > 0, 'INFRA-01: Metrics response is non-empty text');
-  assertTrue(metricsText.includes('bullmq_queue_depth'), 'INFRA-01: Metrics contain bullmq_queue_depth gauge');
+  // The QueueHealthService exports queue_jobs_waiting (not bullmq_queue_depth) as the depth gauge
+  assertTrue(
+    metricsText.includes('bullmq_queue_depth') || metricsText.includes('queue_jobs_waiting'),
+    'INFRA-01: Metrics contain queue depth gauge (bullmq_queue_depth or queue_jobs_waiting)',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -105,16 +116,18 @@ async function validatePauseResumeInfra(context, cookieHeader, results) {
   }
 
   if (singleQueue) {
+    // Unwrap response envelope if present
+    const sq = singleQueue?.data ?? singleQueue;
     assertTrue(
-      typeof singleQueue.paused === 'boolean' || singleQueue.paused === undefined,
+      typeof sq.paused === 'boolean' || sq.paused === undefined,
       'INFRA-02: email-sync-low has paused field (boolean)',
     );
     // If paused field exists, it should be boolean
-    if (singleQueue.paused !== undefined) {
-      assertTrue(typeof singleQueue.paused === 'boolean', 'INFRA-02: email-sync-low paused is boolean');
+    if (sq.paused !== undefined) {
+      assertTrue(typeof sq.paused === 'boolean', 'INFRA-02: email-sync-low paused is boolean');
     }
     assertTrue(
-      typeof singleQueue.waiting === 'number',
+      typeof sq.waiting === 'number',
       'INFRA-02: email-sync-low has numeric waiting count',
     );
   }
@@ -153,16 +166,18 @@ async function validatePauseResumeInfra(context, cookieHeader, results) {
   }
 
   if (workerHealth) {
+    // Unwrap response envelope if present
+    const wh = workerHealth?.data ?? workerHealth;
     assertTrue(
-      typeof workerHealth.status === 'string',
+      typeof wh.status === 'string',
       'INFRA-02: Worker health has status field',
     );
     assertTrue(
-      typeof workerHealth.totalWorkers === 'number' && workerHealth.totalWorkers > 0,
+      typeof wh.totalWorkers === 'number' && wh.totalWorkers > 0,
       'INFRA-02: totalWorkers > 0',
     );
     assertTrue(
-      workerHealth.autoPausedCount === 0,
+      wh.autoPausedCount === 0,
       'INFRA-02: autoPausedCount === 0 (no auto-paused workers)',
     );
   }
