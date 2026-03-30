@@ -467,6 +467,61 @@ export class RedisLockService implements OnModuleInit {
     }
   }
 
+  /**
+   * IF-C4: Execute with auto-renewing lock for long-running scheduled jobs
+   *
+   * Renews the lock every ttl/2 interval to prevent expiration during execution.
+   * Stops renewal on completion or if lock ownership is lost.
+   *
+   * @param key - Lock key
+   * @param ttlMs - Lock TTL in milliseconds (auto-renewed)
+   * @param fn - Async function to execute while holding the lock
+   * @param options - Retry options for initial acquisition
+   * @returns Result of fn
+   * @throws Error if lock cannot be acquired or is lost mid-execution
+   */
+  async withAutoRenewLock<T>(
+    key: string,
+    ttlMs: number,
+    fn: () => Promise<T>,
+    options: LockOptions = {},
+  ): Promise<T> {
+    const lockId = await this.acquireLock(key, ttlMs, options);
+
+    if (!lockId) {
+      throw new Error(`Failed to acquire lock: ${key}`);
+    }
+
+    // Auto-renew at half the TTL interval
+    const renewIntervalMs = Math.floor(ttlMs / 2);
+    let renewalFailed = false;
+
+    const renewalTimer = setInterval(async () => {
+      const extended = await this.extendLock(key, lockId, ttlMs);
+      if (!extended) {
+        renewalFailed = true;
+        this.logger.warn(`Lock renewal failed for ${key} — lock may have been stolen`);
+        clearInterval(renewalTimer);
+      } else {
+        this.logger.debug(`Lock renewed: ${key}`);
+      }
+    }, renewIntervalMs);
+
+    try {
+      const result = await fn();
+
+      // IF-C4: Check lock ownership before returning results
+      if (renewalFailed) {
+        throw new Error(`Lock lost mid-execution for ${key} — results may be inconsistent`);
+      }
+
+      return result;
+    } finally {
+      clearInterval(renewalTimer);
+      await this.releaseLock(key, lockId);
+    }
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

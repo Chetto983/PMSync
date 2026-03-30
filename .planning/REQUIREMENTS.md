@@ -50,11 +50,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 
 ### Folder Operations
 
-- [ ] **FOLD-01**: Create folder via BullMQ queue succeeds on all three providers
-- [ ] **FOLD-02**: Rename folder updates both local DB and provider
-- [ ] **FOLD-03**: Delete folder removes from provider and cleans up local records
-- [ ] **FOLD-04**: Folder sync from provider reflects external changes (folders created/renamed/deleted outside app)
-- [ ] **FOLD-05**: System folders (Inbox, Sent, Trash, Drafts) are protected from delete/rename
+- [x] **FOLD-01**: Create folder via BullMQ queue succeeds on all three providers
+- [x] **FOLD-02**: Rename folder updates both local DB and provider
+- [x] **FOLD-03**: Delete folder removes from provider and cleans up local records
+- [x] **FOLD-04**: Folder sync from provider reflects external changes (folders created/renamed/deleted outside app)
+- [x] **FOLD-05**: System folders (Inbox, Sent, Trash, Drafts) are protected from delete/rename
 
 ### Infrastructure
 
@@ -125,11 +125,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 | WRITE-08 | Phase 118 | Complete |
 | WRITE-09 | Phase 118 | Complete |
 | WRITE-10 | Phase 118 | Complete |
-| FOLD-01 | Phase 119 | Pending |
-| FOLD-02 | Phase 119 | Pending |
-| FOLD-03 | Phase 119 | Pending |
-| FOLD-04 | Phase 119 | Pending |
-| FOLD-05 | Phase 119 | Pending |
+| FOLD-01 | Phase 119 | Complete |
+| FOLD-02 | Phase 119 | Complete |
+| FOLD-03 | Phase 119 | Complete |
+| FOLD-04 | Phase 119 | Complete |
+| FOLD-05 | Phase 119 | Complete |
 | INFRA-01 | Phase 120 | Pending |
 | INFRA-02 | Phase 120 | Pending |
 | INFRA-03 | Phase 120 | Pending |

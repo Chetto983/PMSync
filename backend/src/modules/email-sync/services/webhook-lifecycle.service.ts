@@ -175,7 +175,8 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
     const lockTtlMs = 5 * 60 * 1000; // 5 minutes for renewal process
 
     try {
-      await this.redisLock.withLock(
+      // IF-C4: Use auto-renewing lock for long-running renewal process
+      await this.redisLock.withAutoRenewLock(
         lockKey,
         lockTtlMs,
         async () => {
@@ -215,7 +216,8 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
     const lockTtlMs = 10 * 60 * 1000; // 10 minutes for deep check process
 
     try {
-      await this.redisLock.withLock(
+      // IF-C4: Use auto-renewing lock for long-running deep check
+      await this.redisLock.withAutoRenewLock(
         lockKey,
         lockTtlMs,
         async () => {
