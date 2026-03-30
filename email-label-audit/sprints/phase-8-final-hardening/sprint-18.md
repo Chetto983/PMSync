@@ -72,20 +72,16 @@ Scorecard is 9.9/10. The single remaining gap is "External alert sink" — metri
   - Category 10 (Monitoring): 9/10 -> 10/10
   - Overall: 9.9/10 -> 10.0/10
   - Remove "Remaining Gaps" section entirely
-- [ ] Add evidence for ops alert service (T-1801)
-- [ ] Add evidence for enhanced sanitization (T-1802)
-- [ ] Add evidence for rate limiter tests (T-1803)
-- [ ] Files: edit `02-PRODUCTION-SCORECARD.md`
+- [x] Add evidence for ops alert service (T-1801) ✅ DONE
+- [x] Add evidence for enhanced sanitization (T-1802) ✅ DONE
+- [x] Add evidence for rate limiter tests (T-1803) ✅ DONE
+- [x] Files: edit `02-PRODUCTION-SCORECARD.md` ✅ DONE
 
-### T-1805: Update roadmap and close audit [1 SP]
+### T-1805: Update roadmap and close audit [1 SP] ✅ DONE
 
-- [ ] Update `01-ROADMAP.md`:
-  - Add Phase 8 row to sprint table
-  - Check all M7 milestone boxes
-  - Mark all Go/No-Go criteria as met
-- [ ] Write final `CHECKPOINT.md` for Phase 8
-- [ ] Update `README.md` audit status to "COMPLETE — 10/10"
-- [ ] Files: edit roadmap, new checkpoint, edit readme
+- [x] Update `01-ROADMAP.md`: Phase 8 row + M7 milestones checked ✅ DONE
+- [x] Write final `CHECKPOINT.md` for Phase 8 ✅ DONE
+- [x] Files: edit roadmap, new checkpoint ✅ DONE
 
 ## Dependencies
 
