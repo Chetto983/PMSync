@@ -109,6 +109,7 @@ export function useCalendarData(
 
   // Ref to avoid stale closure in loadData callback
   const providersRef = useRef(providers);
+  const loadRequestIdRef = useRef(0);
   useEffect(() => {
     providersRef.current = providers;
   }, [providers]);
@@ -116,6 +117,8 @@ export function useCalendarData(
   // Load events
   const loadData = useCallback(
     async (triggerSync = false) => {
+      const requestId = ++loadRequestIdRef.current;
+
       try {
         setLoading(true);
 
@@ -144,6 +147,10 @@ export function useCalendarData(
 
         await loadCalendars();
 
+        if (requestId !== loadRequestIdRef.current) {
+          return;
+        }
+
         let startTime: Date;
         let endTime: Date;
 
@@ -166,10 +173,19 @@ export function useCalendarData(
               providerId: selectedProvider,
             })
           );
+
+          if (requestId !== loadRequestIdRef.current) {
+            return;
+          }
+
           const events = eventsRes.events || [];
           setStoreEvents(events);
           setLastSyncAt(new Date());
         } catch (eventsError) {
+          if (requestId !== loadRequestIdRef.current) {
+            return;
+          }
+
           logger.error('Failed to load calendar events', { error: eventsError });
           setSnackbar({
             open: true,
@@ -178,7 +194,9 @@ export function useCalendarData(
           });
         }
       } finally {
-        setLoading(false);
+        if (requestId === loadRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient, calendarCopy.failedToLoadEvents, setSnackbar]

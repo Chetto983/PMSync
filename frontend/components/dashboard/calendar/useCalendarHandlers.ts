@@ -137,27 +137,32 @@ export function useCalendarHandlers(
     });
   }, [calendarPrefs, defaultCalendarSelection]);
 
+  const navigateCalendar = useCallback(
+    (direction: 'prev' | 'next' | 'today') => {
+      if (!calendarRef.current) return;
+
+      const calendarApi = calendarRef.current.getApi();
+      calendarApi[direction]();
+      updateCalendarHeader();
+
+      // Month navigation must pull the newly visible range and sync all providers automatically.
+      void loadData(true);
+    },
+    [calendarRef, loadData, updateCalendarHeader],
+  );
+
   // Navigation handlers
   const handlePrevMonth = useCallback(() => {
-    if (calendarRef.current) {
-      calendarRef.current.getApi().prev();
-      updateCalendarHeader();
-    }
-  }, [calendarRef, updateCalendarHeader]);
+    navigateCalendar('prev');
+  }, [navigateCalendar]);
 
   const handleNextMonth = useCallback(() => {
-    if (calendarRef.current) {
-      calendarRef.current.getApi().next();
-      updateCalendarHeader();
-    }
-  }, [calendarRef, updateCalendarHeader]);
+    navigateCalendar('next');
+  }, [navigateCalendar]);
 
   const handleToday = useCallback(() => {
-    if (calendarRef.current) {
-      calendarRef.current.getApi().today();
-      updateCalendarHeader();
-    }
-  }, [calendarRef, updateCalendarHeader]);
+    navigateCalendar('today');
+  }, [navigateCalendar]);
 
   // Quick event creation
   const handleQuickEvent = useCallback(() => {
