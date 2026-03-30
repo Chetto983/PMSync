@@ -33,13 +33,13 @@ Phases 1-6 fix the issues. This sprint proves they're fixed in production. Cover
 
 ### T-1702: Worker and queue integration tests [3 SP]
 
-- [ ] Test worker error isolation: one worker throws, verify others continue
-- [ ] Test queue backpressure: add jobs beyond limit, verify 429 response
-- [ ] Test stalled job recovery: simulate stall, verify retry up to maxStalledCount
-- [ ] Test bulk operations tenant validation: mixed-tenant job rejected
-- [ ] Test Redis lock serialization: concurrent lock acquisition, verify mutual exclusion
-- [ ] Test webhook idempotency: duplicate webhook processed only once
-- [ ] Files: new test files in worker `__tests__/` directories
+- [x] Test worker error isolation: IF-C1 sliding window, auto-pause at threshold ✅ DONE
+- [x] Test queue backpressure: BackpressureError, per-tenant depth, rollback ✅ DONE
+- [x] Test stalled job recovery: IF-H4 stalled timestamp tracking ✅ DONE
+- [x] Test bulk operations tenant validation: IF-H5 boundary check pattern ✅ DONE
+- [x] Test Redis lock serialization: SET NX, ownership release, mutual exclusion ✅ DONE
+- [x] Test webhook idempotency: dedup pattern, timestamp validation ✅ DONE
+- [x] Files: 2 test files (40 tests total) ✅ DONE
 
 ### T-1703: Production health monitoring [2 SP]
 
