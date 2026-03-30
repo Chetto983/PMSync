@@ -29,6 +29,13 @@ export interface AccuracyPoint {
   value: number;
 }
 
+export interface MonthlyCostTrend {
+  month: string;
+  predictionType: string;
+  totalCost: number;
+  callCount: number;
+}
+
 export type TimeRange = '7d' | '30d' | '90d';
 
 // ---- API ----
@@ -44,4 +51,7 @@ export const crmGovernanceApi = {
 
   getCostBreakdown: (range: TimeRange = '30d') =>
     apiClient.get<CostBreakdown[]>(`${BASE}/costs`, { params: { range } }),
+
+  getMonthlyCostTrend: () =>
+    apiClient.get<MonthlyCostTrend[]>(`${BASE}/costs/trend`),
 };

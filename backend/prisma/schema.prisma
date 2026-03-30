@@ -1487,33 +1487,44 @@ enum AiRunStatus {
   TIMEOUT
 }
 
+enum PredictionType {
+  LEAD_SCORE
+  CHURN
+  FORECAST
+  NBA
+  CHAT
+  OTHER
+}
+
 model AiRunLedger {
-  id               String      @id @default(cuid())
+  id               String          @id @default(cuid())
   tenantId         String
   userId           String
-  runType          String      // 'chat', 'briefing', 'follow-up-detection', 'draft-generation'
-  model            String      // 'mistral-large-latest', 'mistral-small-latest', etc.
-  promptTokens     Int         @default(0)
-  completionTokens Int         @default(0)
-  totalTokens      Int         @default(0)
-  estimatedCostUsd Float       @default(0)
-  latencyMs        Int         @default(0)
-  toolCallCount    Int         @default(0)
-  hitlRequired     Boolean     @default(false)
-  requestId        String?     // Correlation ID from X-Request-Id header (Phase 33)
-  status           AiRunStatus @default(SUCCESS)
+  runType          String          // 'chat', 'briefing', 'follow-up-detection', 'draft-generation'
+  predictionType   PredictionType? // Governance cost attribution (Sprint 14)
+  model            String          // 'mistral-large-latest', 'mistral-small-latest', etc.
+  promptTokens     Int             @default(0)
+  completionTokens Int             @default(0)
+  totalTokens      Int             @default(0)
+  estimatedCostUsd Float           @default(0)
+  latencyMs        Int             @default(0)
+  toolCallCount    Int             @default(0)
+  hitlRequired     Boolean         @default(false)
+  requestId        String?         // Correlation ID from X-Request-Id header (Phase 33)
+  status           AiRunStatus     @default(SUCCESS)
   errorCode        String?
   errorMessage     String?
-  promptVersion    String?     // Correlate cost changes to prompt changes
-  qualityScore     Float?      // 0.0-1.0 retroactive quality rating (NeMo evaluator)
-  qualityMethod    String?     // 'schema-completeness', 'user-action'
-  rawContextTokens       Int?  // Token count before context assembly
-  assembledContextTokens Int?  // Token count after context assembly
-  createdAt        DateTime    @default(now())
+  promptVersion    String?         // Correlate cost changes to prompt changes
+  qualityScore     Float?          // 0.0-1.0 retroactive quality rating (NeMo evaluator)
+  qualityMethod    String?         // 'schema-completeness', 'user-action'
+  rawContextTokens       Int?      // Token count before context assembly
+  assembledContextTokens Int?      // Token count after context assembly
+  createdAt        DateTime        @default(now())
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([tenantId, userId, createdAt(sort: Desc)])
   @@index([tenantId, runType])
+  @@index([tenantId, predictionType, createdAt(sort: Desc)])
   @@map("ai_run_ledger")
 }
 

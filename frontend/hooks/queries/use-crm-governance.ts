@@ -47,6 +47,20 @@ export function useGovernanceAccuracy(range: TimeRange = '30d') {
   return useQuery(crmGovernanceAccuracyOptions(range));
 }
 
+export function crmGovernanceCostTrendOptions() {
+  return queryOptions({
+    queryKey: crmGovernanceKeys.costTrend(),
+    queryFn: () => crmGovernanceApi.getMonthlyCostTrend().then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
 export function useGovernanceCosts(range: TimeRange = '30d') {
   return useQuery(crmGovernanceCostsOptions(range));
+}
+
+export function useGovernanceCostTrend() {
+  return useQuery(crmGovernanceCostTrendOptions());
 }

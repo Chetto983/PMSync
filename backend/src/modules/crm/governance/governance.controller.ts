@@ -55,4 +55,11 @@ export class GovernanceController {
       query.range!,
     );
   }
+
+  @Get('costs/trend')
+  @ApiOperation({ summary: 'Get monthly AI cost trend (last 6 months)' })
+  @ApiResponse({ status: 200, description: 'Monthly cost trend returned' })
+  async getMonthlyCostTrend(@Req() req: any) {
+    return this.governanceService.getMonthlyCostTrend(req.user.tenantId);
+  }
 }

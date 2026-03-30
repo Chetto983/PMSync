@@ -23,6 +23,13 @@ export interface CostBreakdown {
   callCount: number;
 }
 
+export interface MonthlyCostTrend {
+  month: string; // YYYY-MM
+  predictionType: string;
+  totalCost: number;
+  callCount: number;
+}
+
 @Injectable()
 export class GovernanceService {
   private readonly logger = new Logger(GovernanceService.name);
@@ -88,23 +95,97 @@ export class GovernanceService {
   ): Promise<CostBreakdown[]> {
     const since = this.rangeToDate(range);
 
+    // Use predictionType when available, fall back to runType for old records
     const groups = await this.prisma.aiRunLedger.groupBy({
-      by: ['runType'],
+      by: ['predictionType'],
       where: {
         tenantId,
         createdAt: { gte: since },
+        predictionType: { not: null },
       },
       _sum: { estimatedCostUsd: true, totalTokens: true },
       _count: { id: true },
       orderBy: { _sum: { estimatedCostUsd: 'desc' } },
     });
 
-    return groups.map((g) => ({
-      predictionType: g.runType,
+    // Also grab records without predictionType (pre-Sprint 14 data)
+    const legacyGroups = await this.prisma.aiRunLedger.groupBy({
+      by: ['runType'],
+      where: {
+        tenantId,
+        createdAt: { gte: since },
+        predictionType: null,
+      },
+      _sum: { estimatedCostUsd: true, totalTokens: true },
+      _count: { id: true },
+      orderBy: { _sum: { estimatedCostUsd: 'desc' } },
+    });
+
+    const result: CostBreakdown[] = groups.map((g) => ({
+      predictionType: g.predictionType!,
       totalCost: g._sum.estimatedCostUsd ?? 0,
       totalTokens: g._sum.totalTokens ?? 0,
       callCount: g._count.id,
     }));
+
+    // Merge legacy data by runType
+    for (const lg of legacyGroups) {
+      result.push({
+        predictionType: lg.runType,
+        totalCost: lg._sum.estimatedCostUsd ?? 0,
+        totalTokens: lg._sum.totalTokens ?? 0,
+        callCount: lg._count.id,
+      });
+    }
+
+    return result.sort((a, b) => b.totalCost - a.totalCost);
+  }
+
+  async getMonthlyCostTrend(
+    tenantId: string,
+  ): Promise<MonthlyCostTrend[]> {
+    // Fetch last 6 months of cost data
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const runs = await this.prisma.aiRunLedger.findMany({
+      where: {
+        tenantId,
+        createdAt: { gte: sixMonthsAgo },
+      },
+      select: {
+        runType: true,
+        predictionType: true,
+        estimatedCostUsd: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const trendMap = new Map<string, { totalCost: number; callCount: number }>();
+
+    for (const r of runs) {
+      const month = r.createdAt.toISOString().slice(0, 7);
+      const pt = r.predictionType ?? r.runType;
+      const key = `${month}|${pt}`;
+      const entry = trendMap.get(key) ?? { totalCost: 0, callCount: 0 };
+      entry.totalCost += r.estimatedCostUsd;
+      entry.callCount += 1;
+      trendMap.set(key, entry);
+    }
+
+    const trends: MonthlyCostTrend[] = [];
+    for (const [key, entry] of trendMap) {
+      const [month, predictionType] = key.split('|');
+      trends.push({
+        month,
+        predictionType,
+        totalCost: Math.round(entry.totalCost * 100) / 100,
+        callCount: entry.callCount,
+      });
+    }
+
+    return trends.sort((a, b) => a.month.localeCompare(b.month));
   }
 
   async getAccuracyMetrics(

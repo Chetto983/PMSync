@@ -9,7 +9,7 @@
  * in the hot path (fire-and-forget with .catch for safety).
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { AiRunStatus } from '@prisma/client';
+import { AiRunStatus, PredictionType } from '@prisma/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Counter } from 'prom-client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -112,6 +112,7 @@ export class AiRunLedgerService {
         tenantId: params.tenantId,
         userId: params.userId,
         runType: params.runType,
+        predictionType: this.resolvePredictionType(params.runType),
         model: params.model,
         promptTokens,
         completionTokens,
@@ -129,6 +130,24 @@ export class AiRunLedgerService {
         assembledContextTokens: params.assembledContextTokens != null ? this.safeInt(params.assembledContextTokens) : null,
       },
     });
+  }
+
+  /** Map runType to PredictionType enum for governance attribution. */
+  private resolvePredictionType(runType: string): PredictionType {
+    switch (runType) {
+      case 'lead-scoring':
+        return PredictionType.LEAD_SCORE;
+      case 'churn-prediction':
+        return PredictionType.CHURN;
+      case 'forecast':
+        return PredictionType.FORECAST;
+      case 'nba':
+        return PredictionType.NBA;
+      case 'chat':
+        return PredictionType.CHAT;
+      default:
+        return PredictionType.OTHER;
+    }
   }
 
   /** Coerce non-finite values to 0. */
