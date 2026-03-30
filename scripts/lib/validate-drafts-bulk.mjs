@@ -78,6 +78,7 @@ async function getLabels(context, cookieHeader) {
     const res = await apiGet(context, '/api/v1/labels', cookieHeader);
     const labels = Array.isArray(res) ? res
       : Array.isArray(res?.data) ? res.data
+      : Array.isArray(res?.labels) ? res.labels
       : [];
     return labels;
   } catch {
@@ -257,13 +258,15 @@ async function validateBulkMarkRead(context, cookieHeader, csrfToken, provider) 
     return;
   }
 
-  // Verify all are read
-  await new Promise(r => setTimeout(r, 1000));
-  const afterRead = await findTestEmails(context, cookieHeader, provider.id, 10);
+  // Verify all are read (use per-email GET for accuracy -- inbox listing may page differently)
+  await new Promise(r => setTimeout(r, 1500));
   for (const eid of emailIds) {
-    const e = afterRead.find(x => x.id === eid);
-    if (e) {
-      assertEqual(e.isRead, true, `WRITE-07 ${label}: email ${eid.substring(0, 8)} is read after bulk mark-read`);
+    try {
+      const emailRes = await apiGet(context, `/api/v1/emails/${eid}`, cookieHeader);
+      const emailData = emailRes?.data ?? emailRes;
+      assertEqual(emailData?.isRead, true, `WRITE-07 ${label}: email ${eid.substring(0, 8)} is read after bulk mark-read`);
+    } catch (err) {
+      console.log(`  WARN: Could not verify email ${eid.substring(0, 8)}: ${err.message}`);
     }
   }
 
@@ -449,10 +452,35 @@ async function validateBulkLabels(context, cookieHeader, csrfToken, provider) {
     return;
   }
 
-  // Get available labels
-  const labels = await getLabels(context, cookieHeader);
+  // Get available labels (user-created labels in PMSync)
+  let labels = await getLabels(context, cookieHeader);
+
+  // If no labels exist, create a temporary one for testing
   if (labels.length === 0) {
-    console.log(`  SKIP: No labels found for Gmail provider`);
+    console.log(`  No labels found -- creating temporary test label...`);
+    try {
+      const createRes = await apiPost(
+        context,
+        '/api/v1/labels',
+        {
+          name: `Test Label ${Date.now()}`,
+          color: { backgroundColor: '#4CAF50', textColor: '#FFFFFF' },
+        },
+        cookieHeader,
+        csrfToken,
+      );
+      const created = createRes?.data?.label ?? createRes?.label ?? createRes?.data ?? createRes;
+      if (created?.id) {
+        labels = [created];
+        console.log(`  Created test label: ${created.id} (${created.name})`);
+      }
+    } catch (err) {
+      console.log(`  WARN: Could not create test label: ${err.message}`);
+    }
+  }
+
+  if (labels.length === 0) {
+    console.log(`  SKIP: No labels available and could not create one (feature flag may be off)`);
     assertTrue(false, `WRITE-10 ${label}: labels available for test`);
     return;
   }
@@ -505,6 +533,16 @@ async function validateBulkLabels(context, cookieHeader, csrfToken, provider) {
   } catch (err) {
     console.log(`  ERROR: Bulk label remove failed: ${err.message}`);
     assertTrue(false, `WRITE-10 ${label}: bulk label remove succeeds`);
+  }
+
+  // Clean up test label if we created one
+  if (testLabel.name && testLabel.name.startsWith('Test Label ')) {
+    try {
+      await apiDelete(context, `/api/v1/labels/${testLabel.id}`, cookieHeader, csrfToken);
+      console.log(`  Cleaned up test label: ${testLabel.id}`);
+    } catch {
+      // best-effort cleanup
+    }
   }
 }
 
