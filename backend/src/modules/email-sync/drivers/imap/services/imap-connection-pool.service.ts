@@ -102,10 +102,37 @@ export class ImapConnectionPoolService {
       // Try to find an available connection in pool
       const available = this.connectionPool.find((p) => !p.inUse);
       if (available) {
-        available.inUse = true;
-        available.lastUsed = Date.now();
-        available._semaphoreRelease = semaphoreRelease;
-        return available.client;
+        // T-1403: Health check before returning pooled connection
+        if (!available.client.usable) {
+          this.logger.warn('IMAP pooled connection is no longer usable — removing from pool');
+          const idx = this.connectionPool.indexOf(available);
+          if (idx >= 0) this.connectionPool.splice(idx, 1);
+          // Fall through to create a new connection below
+        } else {
+          // T-1403: NOOP health check — verify server responds
+          try {
+            await Promise.race([
+              available.client.noop(),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('NOOP timeout')), 5000),
+              ),
+            ]);
+          } catch {
+            this.logger.warn('IMAP pooled connection failed NOOP health check — removing from pool');
+            const idx = this.connectionPool.indexOf(available);
+            if (idx >= 0) this.connectionPool.splice(idx, 1);
+            try { await available.client.logout(); } catch { /* ignore */ }
+            // Fall through to create a new connection below
+          }
+
+          // Re-check: if we didn't remove it, return it
+          if (this.connectionPool.includes(available)) {
+            available.inUse = true;
+            available.lastUsed = Date.now();
+            available._semaphoreRelease = semaphoreRelease;
+            return available.client;
+          }
+        }
       }
 
       // Pool isn't full, create new connection
