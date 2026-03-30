@@ -11,6 +11,9 @@ import { CORE_SYSTEM_FOLDERS } from '../drivers/interfaces/canonical.types';
 
 export type { FolderInfo, FolderCountResult } from './folder-sync-query.service';
 
+// IF-C5: No email system supports nesting deeper than 10 levels
+const MAX_FOLDER_DEPTH = 10;
+
 /** FolderSyncService - Thin facade (Phase 4 refactor from 1,653 to ~200 lines) */
 @Injectable()
 export class FolderSyncService {
@@ -78,10 +81,21 @@ export class FolderSyncService {
     return this.redisLock.withLock(`folder-crud:${providerId}`, 30000, async () => {
       const provider = await this.prisma.providerConfig.findUnique({ where: { id: providerId } });
       if (!provider) throw new Error(`Provider ${providerId} not found`);
+
+      // IF-C5: Check depth limit before creating
+      let parentLevel = 0;
+      if (parentPath) {
+        const parentFolder = await this.prisma.folder.findFirst({ where: { providerId, path: parentPath, tenantId } });
+        parentLevel = parentFolder?.level ?? 0;
+        if (parentLevel + 1 >= MAX_FOLDER_DEPTH) {
+          throw new ConflictException(`Cannot create folder: maximum nesting depth of ${MAX_FOLDER_DEPTH} exceeded`);
+        }
+      }
+
       this.logger.log(`Creating folder "${name}" for provider ${providerId}`);
       const result = await this.routeCreate(provider.providerType, providerId, name, parentPath);
       const folder = await this.prisma.folder.create({
-        data: { tenantId, providerId, externalId: result.externalId, path: result.path, name, delimiter: '/', isSelectable: true, level: parentPath ? 1 : 0 },
+        data: { tenantId, providerId, externalId: result.externalId, path: result.path, name, delimiter: '/', isSelectable: true, level: parentPath ? parentLevel + 1 : 0 },
       });
       this.logger.log(`Created folder "${name}" with id ${folder.id}`);
       return { id: folder.id, path: result.path, name };
@@ -196,8 +210,14 @@ export class FolderSyncService {
       throw new ConflictException('Cannot create circular folder hierarchy');
     }
 
-    // 6. Update folder parent and level
+    // IF-C5: Check depth limit — new level + max subtree depth must not exceed limit
     const newLevel = parent.level + 1;
+    const subtreeDepth = await this.getSubtreeDepth(folderId, tenantId);
+    if (newLevel + subtreeDepth >= MAX_FOLDER_DEPTH) {
+      throw new ConflictException(`Cannot move folder: would exceed maximum nesting depth of ${MAX_FOLDER_DEPTH}`);
+    }
+
+    // 6. Update folder parent and level
     await this.prisma.folder.update({
       where: { id_tenantId: { id: folderId, tenantId } },
       data: { parentId, level: newLevel },
@@ -211,22 +231,27 @@ export class FolderSyncService {
   /**
    * Check if moving a folder to a new parent would create a circular reference.
    * Walks up the parent chain from newParentId to ensure folderId is not an ancestor.
+   * IF-C5: Capped at MAX_FOLDER_DEPTH iterations to prevent stack overflow.
    */
   private async wouldCreateCircularReference(
     folderId: string,
     newParentId: string,
     tenantId: string,
   ): Promise<boolean> {
-    // Self-reference is circular
     if (folderId === newParentId) {
       return true;
     }
 
-    // Walk up parent chain from newParentId
     let currentParentId: string | null | undefined = newParentId;
+    let iterations = 0;
     while (currentParentId) {
+      if (++iterations > MAX_FOLDER_DEPTH) {
+        this.logger.warn(`[IF-C5] Circular reference check exceeded ${MAX_FOLDER_DEPTH} iterations for folder ${folderId}`);
+        return true; // Treat as circular to be safe
+      }
+
       if (currentParentId === folderId) {
-        return true; // Found folderId in ancestor chain
+        return true;
       }
 
       const parent: { parentId: string | null } | null = await this.prisma.folder.findFirst({
@@ -242,12 +267,19 @@ export class FolderSyncService {
 
   /**
    * Recursively update levels of all descendant folders.
+   * IF-C5: Capped at MAX_FOLDER_DEPTH to prevent stack overflow.
    */
   private async updateChildrenLevels(
     parentFolderId: string,
     parentLevel: number,
     tenantId: string,
+    depth = 0,
   ): Promise<void> {
+    if (depth >= MAX_FOLDER_DEPTH) {
+      this.logger.warn(`[IF-C5] updateChildrenLevels reached max depth ${MAX_FOLDER_DEPTH} for folder ${parentFolderId}, stopping recursion`);
+      return;
+    }
+
     const children = await this.prisma.folder.findMany({
       where: { parentId: parentFolderId, tenantId },
       select: { id: true },
@@ -259,8 +291,30 @@ export class FolderSyncService {
         where: { id_tenantId: { id: child.id, tenantId } },
         data: { level: childLevel },
       });
-      // Recursively update grandchildren
-      await this.updateChildrenLevels(child.id, childLevel, tenantId);
+      await this.updateChildrenLevels(child.id, childLevel, tenantId, depth + 1);
     }
+  }
+
+  /**
+   * IF-C5: Get the maximum depth of a folder's subtree.
+   * Used to validate that moving a folder won't exceed MAX_FOLDER_DEPTH.
+   */
+  private async getSubtreeDepth(folderId: string, tenantId: string, depth = 0): Promise<number> {
+    if (depth >= MAX_FOLDER_DEPTH) return depth;
+
+    const children = await this.prisma.folder.findMany({
+      where: { parentId: folderId, tenantId },
+      select: { id: true },
+    });
+
+    if (children.length === 0) return 0;
+
+    let maxChildDepth = 0;
+    for (const child of children) {
+      const childDepth = await this.getSubtreeDepth(child.id, tenantId, depth + 1);
+      maxChildDepth = Math.max(maxChildDepth, childDepth + 1);
+    }
+
+    return maxChildDepth;
   }
 }
