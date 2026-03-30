@@ -60,3 +60,12 @@
 - Frontend tsc: ✅ passing
 - Integration tests: ✅ 8/8 passing
 - Circular deps: ✅ zero
+
+## Production Validation (2026-03-30)
+- Railway `/health`: ✅ 200 — DB, Redis, Mistral up
+- `GET /crm/governance/overview`: ✅ 401 (route registered, auth guard active)
+- `GET /crm/governance/accuracy`: ✅ 401 (route registered)
+- `GET /crm/governance/costs`: ✅ 401 (route registered)
+- `GET /crm/governance/drift`: ✅ 401 (route registered)
+- `GET /crm/governance/models`: ✅ 401 (route registered)
+- Vercel `/dashboard/crm/ai-governance`: ✅ 307 (auth redirect, page exists)
