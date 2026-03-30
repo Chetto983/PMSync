@@ -101,16 +101,92 @@ export class DealScoringService {
     // 10. Products linked (0-10 pts)
     score += Math.round(Math.min(deal._count.dealProducts, 3) * 3.33);
 
-    // Clamp to 0-100
-    const finalScore = Math.min(100, Math.max(0, score));
+    // Clamp rule score to 0-100
+    const ruleScore = Math.min(100, Math.max(0, score));
+
+    // Behavioral scoring (engagement velocity, recency, activity volume)
+    const behavioralScore = await this.computeBehavioralScore(dealId, deal.tenantId);
+
+    // Blend: 40% rules + 60% behavioral (if behavioral data exists)
+    const finalScore =
+      behavioralScore > 0
+        ? Math.round(0.4 * ruleScore + 0.6 * behavioralScore)
+        : ruleScore;
 
     // Persist
     await this.prisma.crmDeal.update({
       where: { id: dealId },
-      data: { score: finalScore },
+      data: { score: Math.min(100, Math.max(0, finalScore)) },
     });
 
     return finalScore;
+  }
+
+  /**
+   * Compute behavioral sub-score based on engagement signals.
+   *
+   * Uses CrmActivity records linked to the deal.
+   *
+   * Factors (max 100 points):
+   *   - Activity count (30d):      up to 25 pts
+   *   - Activity count (7d):       up to 15 pts (recency boost)
+   *   - Linked contacts count:     up to 20 pts (stakeholder engagement)
+   *   - Deal age velocity:         up to 20 pts (younger = more momentum)
+   *   - Stage changes count:       up to 20 pts (active progression)
+   */
+  private async computeBehavioralScore(
+    dealId: string,
+    _tenantId: string,
+  ): Promise<number> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const [activities30d, activities7d, stageChanges, contactCount, deal] =
+      await Promise.all([
+        this.prisma.crmActivity.count({
+          where: { dealId, createdAt: { gte: thirtyDaysAgo } },
+        }),
+        this.prisma.crmActivity.count({
+          where: { dealId, createdAt: { gte: sevenDaysAgo } },
+        }),
+        this.prisma.crmActivity.count({
+          where: { dealId, type: 'STAGE_CHANGE' },
+        }),
+        this.prisma.dealContact.count({ where: { dealId } }),
+        this.prisma.crmDeal.findUnique({
+          where: { id: dealId },
+          select: { createdAt: true },
+        }),
+      ]);
+
+    const ageInDays = deal
+      ? (Date.now() - deal.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+      : 90;
+
+    let behavioralScore = 0;
+
+    // 1. Activity volume 30d (0-25 pts)
+    behavioralScore += Math.min(25, activities30d * 5);
+
+    // 2. Recent activity 7d (0-15 pts, recency boost)
+    behavioralScore += Math.min(15, activities7d * 5);
+
+    // 3. Stakeholder engagement — linked contacts (0-20 pts)
+    behavioralScore += Math.min(20, contactCount * 5);
+
+    // 4. Deal velocity — younger = more momentum (0-20 pts)
+    if (ageInDays <= 7) behavioralScore += 20;
+    else if (ageInDays <= 14) behavioralScore += 16;
+    else if (ageInDays <= 30) behavioralScore += 12;
+    else if (ageInDays <= 60) behavioralScore += 8;
+    else if (ageInDays <= 90) behavioralScore += 4;
+
+    // 5. Stage progression (0-20 pts)
+    behavioralScore += Math.min(20, stageChanges * 5);
+
+    return Math.min(100, behavioralScore);
   }
 
   /**
