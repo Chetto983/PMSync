@@ -12,16 +12,16 @@
 
 ## Sprint Backlog
 
-- [ ] T-1001 — Componente `LeadScoreGauge`: gauge circolare 0-100 con colorazione semantica (rosso < 30, giallo 30-70, verde > 70), top 5 fattori contribuenti con barre orizzontali — [2 SP] — 📋 TODO
-- [ ] T-1002 — Lead score badge nella contact list: chip colorato con score, visibile in riga tabella e card view — [1 SP] — 📋 TODO
-- [ ] T-1003 — Sorting e filtering per lead score nella lista contatti: colonna ordinabile, filtro range (min-max slider) — [2 SP] — 📋 TODO
-- [ ] T-1004 — Deal score ML enhancement: aggiungere behavioral features (engagement velocity, response time trend) al rule-based scoring esistente, blending pesato 60% ML + 40% rules — [2 SP] — 📋 TODO
-- [ ] T-1005 — Score history chart: grafico lineare MUI X Charts con trend score ultimi 90 giorni, tooltip con data e valore — [2 SP] — 📋 TODO
-- [ ] T-1006 — Query hook `useLeadScore` e `useLeadScoreHistory` con TanStack Query, `staleTime: 5min` — [1 SP] — 📋 TODO
-- [ ] T-1007 — AI chat tool `getDealsByPipeline`: ricerca deal per pipeline con filtri stato, owner, range importo. Registrazione in ToolRegistry — [2 SP] — 📋 TODO
-- [ ] T-1008 — AI chat tool `moveDealStage`: sposta deal tra stage con validazione transizione, log attività automatico — [2 SP] — 📋 TODO
-- [ ] T-1009 — AI chat tool `getDealTimeline`: restituisce timeline completa del deal (stage changes, email, meeting, note) ordinata cronologicamente — [2 SP] — 📋 TODO
-- [ ] T-1010 — Registrazione tools T-1007/1008/1009 nel ToolRegistry esistente in `backend/src/modules/ai-chat/tools/`, type-check completo — [1 SP] — 📋 TODO
+- [x] T-1001 — Componente `LeadScoreGauge`: gauge circolare 0-100 con colorazione semantica (rosso < 30, giallo 30-70, verde > 70), top 5 fattori contribuenti con barre orizzontali — [2 SP] — ✅ DONE
+- [x] T-1002 — Lead score badge nella contact list: chip colorato con score, visibile in riga tabella e card view — [1 SP] — ✅ DONE
+- [x] T-1003 — Sorting e filtering per lead score nella lista contatti: colonna ordinabile, filtro range (min-max slider) — [2 SP] — ✅ DONE
+- [x] T-1004 — Deal score ML enhancement: aggiungere behavioral features (engagement velocity, response time trend) al rule-based scoring esistente, blending pesato 60% ML + 40% rules — [2 SP] — ✅ DONE
+- [x] T-1005 — Score history chart: grafico lineare Recharts con trend score ultimi 90 giorni, tooltip con data e valore — [2 SP] — ✅ DONE
+- [x] T-1006 — Query hook `useLeadScore` e `useLeadScoreHistory` con TanStack Query, `staleTime: 5min` — [1 SP] — ✅ DONE
+- [x] T-1007 — AI chat tool `getDealsByPipeline`: ricerca deal per pipeline con filtri stato, owner, range importo. Registrazione in ToolRegistry — [2 SP] — ✅ DONE
+- [x] T-1008 — AI chat tool `moveDealStage`: sposta deal tra stage con validazione transizione, log attività automatico — [2 SP] — ✅ DONE
+- [x] T-1009 — AI chat tool `getDealTimeline`: restituisce timeline completa del deal (stage changes, email, meeting, note) ordinata cronologicamente — [2 SP] — ✅ DONE
+- [x] T-1010 — Registrazione tools T-1007/1008/1009 nel ToolRegistry esistente in `backend/src/modules/ai-chat/tools/`, type-check completo — [1 SP] — ✅ DONE
 
 ---
 

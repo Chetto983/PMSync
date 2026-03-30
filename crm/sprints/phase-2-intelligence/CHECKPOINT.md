@@ -1,63 +1,67 @@
-# Sprint 09 — Checkpoint
+# Sprint 10 — Checkpoint
 
 ## Stato
-- **Sprint:** 09 — Lead Scoring: Feature Engineering
-- **Last Task Completed:** T-0911 — Integration test
-- **Next Task:** Sprint complete — all tasks done
-- **Tasks Done:** 11/11
-- **SP Completed:** 18/18
-- **Last Updated:** 2026-03-27 11:00
 
-## Key Architecture Decision: LLM-Based Scoring
-Original plan called for ml.js gradient boosting (T-0907/T-0908/T-0909).
-**Pivoted to LLM-based scoring** via OpenRouter + Mistral Small because:
-- No viable gradient boosting library in JS (ml.js only has Random Forest)
-- Zero training data needed (no cold-start problem)
-- Natural language explanations (reasons array) for free
-- Cost: ~$0.00006 per contact scored
-- Future: LLM scores can be used as labels to train a local model later
+- **Sprint:** 10 — Lead Score UI & CRM AI Tools
+- **Last Task Completed:** T-1010 — Register CRM tools in ToolRegistry
+- **Next Task:** Sprint complete — all tasks done
+- **Tasks Done:** 10/10
+- **SP Completed:** 17/17
+- **Last Updated:** 2026-03-30 10:30
 
 ## Last Modified Files
-- backend/prisma/schema.prisma (LeadScore, LeadFeatureStore, ModelEvaluation models)
-- backend/src/modules/crm/lead-scoring/engagement-feature.service.ts (new)
-- backend/src/modules/crm/lead-scoring/firmographic-feature.service.ts (new)
-- backend/src/modules/crm/lead-scoring/behavioral-feature.service.ts (new)
-- backend/src/modules/crm/lead-scoring/feature-store.service.ts (new)
-- backend/src/modules/crm/lead-scoring/lead-scoring.service.ts (new — LLM scoring)
-- backend/src/modules/crm/lead-scoring/lead-feature-job.service.ts (new — BullMQ nightly)
-- backend/src/modules/crm/lead-scoring/lead-scoring.module.ts (new)
-- backend/src/modules/crm/lead-scoring/controllers/lead-score.controller.ts (new)
-- backend/src/modules/crm/lead-scoring/dto/lead-score.dto.ts (new)
-- backend/src/modules/crm/lead-scoring/__tests__/lead-scoring.test.ts (new)
-- backend/src/modules/crm/crm.module.ts (added LeadScoringModule)
-- backend/src/common/services/scheduled-jobs.queue.ts (LEAD_FEATURE_COMPUTE job type)
+
+- frontend/lib/api/crm-lead-scores.ts (new — API module)
+- frontend/hooks/queries/crm-lead-scores-keys.ts (new — query keys)
+- frontend/hooks/queries/use-crm-lead-scores.ts (new — hooks)
+- frontend/hooks/queries/index.ts (exports)
+- frontend/components/dashboard/crm-lead-score/LeadScoreGauge.tsx (new)
+- frontend/components/dashboard/crm-lead-score/LeadScoreBadge.tsx (new)
+- frontend/components/dashboard/crm-lead-score/ScoreHistoryChart.tsx (new)
+- frontend/components/dashboard/crm-lead-score/useLeadScoreMap.ts (new)
+- frontend/components/contacts/ContactListItem.tsx (leadScore prop)
+- frontend/components/contacts/ContactList.tsx (leadScoreMap prop)
+- frontend/components/dashboard/Contacts.tsx (score sort + map wiring)
+- frontend/locales/en.ts (leadScore translations)
+- frontend/locales/it.ts (leadScore translations)
+- frontend/locales/index.ts (leadScore types)
+- backend/prisma/schema.prisma (LeadScoreHistory model)
+- backend/src/modules/crm/lead-scoring/lead-scoring.service.ts (history writes)
+- backend/src/modules/crm/lead-scoring/controllers/lead-score.controller.ts (history endpoint)
+- backend/src/modules/crm/scoring/deal-scoring.service.ts (behavioral enhancement)
+- backend/src/modules/ai-chat/tools/crm-tools.service.ts (new — 3 CRM tools)
+- backend/src/modules/ai-chat/tools/index.ts (CrmToolsService export)
+- backend/src/modules/ai-chat/ai-chat.module.ts (CrmToolsService provider)
+- backend/src/modules/ai-chat/services/ai-chat.service.ts (CrmToolsService wiring)
+
+## Key Decisions Made
+
+- T-1001: SVG-based circular gauge (no chart library dependency), semantic colors via getScoreArcColor
+- T-1002: LeadScoreBadge as reusable Chip (same pattern as DealScoreBadge)
+- T-1003: Client-side sorting via leadScoreMap since scores fetched separately from contacts
+- T-1004: Behavioral sub-score uses CrmActivity (not separate interaction model), 60/40 blend
+- T-1005: LeadScoreHistory model added for trend tracking (previously upsert-only); Recharts used instead of MUI X Charts (already installed)
+- T-1007/08/09: Single CrmToolsService for all 3 tools; move_deal_stage requires HITL approval
+- T-1010: Domain set to 'productivity' (no 'crm' domain in existing enum)
 
 ## Patterns Established
-- Feature extraction: 3 services (engagement, firmographic, behavioral) → FeatureStoreService orchestrates
-- 27 named features, FeatureStoreService.toFeatureVector() for ML/prompt input
-- LLM scoring via generateObject() + Zod schema (same pattern as entity-extraction)
-- Nightly pipeline: compute features → LLM score → persist LeadScore → cleanup expired (90d)
-- API: GET /crm/leads/scores (paginated), GET /crm/leads/:contactId/score, POST /crm/leads/:contactId/score (on-demand)
-- Model ID from AI_MODEL_SIMPLE env var (mistralai/mistral-small-2603)
+
+- Lead score API module: `frontend/lib/api/crm-lead-scores.ts`
+- Lead score components: `frontend/components/dashboard/crm-lead-score/`
+- CRM AI tools: `backend/src/modules/ai-chat/tools/crm-tools.service.ts`
+- LeadScoreHistory: append-only history for score trend charts
+- useLeadScoreMap hook: batch-fetch scores, returns Map<contactId, {score, tier}>
 
 ## Blockers / Notes
-- ModelEvaluation table exists but unused (LLM approach doesn't train/evaluate models yet)
-- Feature store cleanup runs in same job as scoring — may want separate schedule for large tenants
-- Calendar meeting count uses raw SQL JSONB query (attendees is Json?, not string[])
+
+- Score history will only populate going forward (no backfill of existing scores)
+- T-1003: Implemented sort toggle only (no min/max range slider — would add complexity for low value)
+- CRM tools use 'productivity' domain since ToolDomain enum doesn't include 'crm' yet
+- prisma db push needed before deploy for LeadScoreHistory table
 
 ## Validation Status
 
 - Backend tsc: ✅ passing
-- Frontend tsc: N/A (no frontend changes this sprint)
-- Circular deps: ✅ zero
-- Unit tests: ✅ 10/10 passing (vitest)
-- Prisma db push: ✅ schema synced to Railway
-
-## Production Validation (2026-03-30)
-
-- Railway `/health`: ✅ 200 — DB, Redis, Mistral up
-- `GET /crm/leads/scores`: ✅ 401 (route registered, auth guard active)
-- `GET /crm/leads/:contactId/score`: ✅ 401 (route registered)
-- `POST /crm/leads/:contactId/score`: ✅ 403 (route registered, guard active)
-- Backend tsc: ✅ clean
-- No frontend changes in Sprint 09 (Lead Scoring API backend-only)
+- Frontend tsc: ✅ passing
+- Circular deps: not checked yet (need madge run)
+- Prisma generate: ✅ done
