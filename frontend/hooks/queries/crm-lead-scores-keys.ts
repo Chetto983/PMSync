@@ -6,4 +6,6 @@ export const crmLeadScoresKeys = {
   details: () => [...crmLeadScoresKeys.all, 'detail'] as const,
   detail: (contactId: string) =>
     [...crmLeadScoresKeys.details(), contactId] as const,
+  history: (contactId: string) =>
+    [...crmLeadScoresKeys.all, 'history', contactId] as const,
 } as const;

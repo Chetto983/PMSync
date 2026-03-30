@@ -84,6 +84,16 @@ export interface ListLeadScoresResponse {
   };
 }
 
+export interface ScoreHistoryEntry {
+  score: number;
+  confidence: number;
+  computedAt: string;
+}
+
+export interface ScoreHistoryResponse {
+  data: ScoreHistoryEntry[];
+}
+
 export interface ComputeScoreResponse {
   score: number | null;
   tier?: LeadScoreTier;
@@ -103,6 +113,12 @@ export const crmLeadScoresApi = {
 
   getByContact(contactId: string) {
     return apiClient.get<LeadScore>(`/crm/leads/${contactId}/score`);
+  },
+
+  getScoreHistory(contactId: string) {
+    return apiClient.get<ScoreHistoryResponse>(
+      `/crm/leads/${contactId}/score/history`,
+    );
   },
 
   computeScore(contactId: string) {

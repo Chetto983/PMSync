@@ -108,6 +108,7 @@ export class LeadScoringService {
     const result = await this.callLlmSingle(features);
 
     // Persist to LeadScore
+    const now = new Date();
     await this.prisma.leadScore.upsert({
       where: {
         tenantId_contactId: { tenantId, contactId },
@@ -118,13 +119,24 @@ export class LeadScoringService {
         score: result.score,
         confidence: result.confidence,
         features: JSON.parse(JSON.stringify(features)) as any,
-        computedAt: new Date(),
+        computedAt: now,
       },
       update: {
         score: result.score,
         confidence: result.confidence,
         features: JSON.parse(JSON.stringify(features)) as any,
-        computedAt: new Date(),
+        computedAt: now,
+      },
+    });
+
+    // Write history entry for trend tracking
+    await this.prisma.leadScoreHistory.create({
+      data: {
+        tenantId,
+        contactId,
+        score: result.score,
+        confidence: result.confidence,
+        computedAt: now,
       },
     });
 
@@ -167,6 +179,7 @@ export class LeadScoringService {
           const result = results[j];
           if (!result) continue;
 
+          const batchNow = new Date();
           await this.prisma.leadScore.upsert({
             where: { tenantId_contactId: { tenantId, contactId } },
             create: {
@@ -175,13 +188,23 @@ export class LeadScoringService {
               score: result.score,
               confidence: result.confidence,
               features: JSON.parse(JSON.stringify(features)) as any,
-              computedAt: new Date(),
+              computedAt: batchNow,
             },
             update: {
               score: result.score,
               confidence: result.confidence,
               features: JSON.parse(JSON.stringify(features)) as any,
-              computedAt: new Date(),
+              computedAt: batchNow,
+            },
+          });
+          // Write history entry for trend tracking
+          await this.prisma.leadScoreHistory.create({
+            data: {
+              tenantId,
+              contactId,
+              score: result.score,
+              confidence: result.confidence,
+              computedAt: batchNow,
             },
           });
           scored++;

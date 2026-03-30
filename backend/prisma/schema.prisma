@@ -66,6 +66,7 @@ model Tenant {
   crmCustomFields          CrmCustomField[]
   crmSavedViews            CrmSavedView[]
   leadScores               LeadScore[]
+  leadScoreHistory         LeadScoreHistory[]
   leadFeatureStores        LeadFeatureStore[]
   modelEvaluations         ModelEvaluation[]
 
@@ -877,6 +878,7 @@ model Contact {
   accountContacts     AccountContact[]
   dealContacts        DealContact[]
   leadScores          LeadScore[]
+  leadScoreHistory    LeadScoreHistory[]
   leadFeatures        LeadFeatureStore[]
 
   @@id([id, tenantId])
@@ -1970,6 +1972,21 @@ model LeadScore {
   @@index([tenantId, score])
   @@index([tenantId, computedAt])
   @@map("crm_lead_scores")
+}
+
+model LeadScoreHistory {
+  id         String   @id @default(cuid())
+  tenantId   String
+  contactId  String
+  score      Int // 0-100
+  confidence Float
+  computedAt DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([tenantId, contactId, computedAt])
+  @@map("crm_lead_score_history")
 }
 
 model LeadFeatureStore {

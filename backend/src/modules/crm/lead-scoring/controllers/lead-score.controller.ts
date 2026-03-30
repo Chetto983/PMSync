@@ -151,6 +151,34 @@ export class LeadScoreController {
     };
   }
 
+  @Get(':contactId/score/history')
+  @ApiOperation({ summary: 'Get lead score history for a contact (last 90 days)' })
+  @ApiResponse({ status: 200, description: 'Score history returned' })
+  async getScoreHistory(
+    @Req() req: any,
+    @Param('contactId') contactId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const history = await this.prisma.leadScoreHistory.findMany({
+      where: {
+        tenantId,
+        contactId,
+        computedAt: { gte: ninetyDaysAgo },
+      },
+      orderBy: { computedAt: 'asc' },
+      select: {
+        score: true,
+        confidence: true,
+        computedAt: true,
+      },
+    });
+
+    return { data: history };
+  }
+
   @Post(':contactId/score')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Trigger on-demand lead scoring for a contact' })
