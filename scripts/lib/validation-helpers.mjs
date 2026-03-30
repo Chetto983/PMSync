@@ -258,6 +258,44 @@ export async function apiDelete(context, path, cookieHeader, csrfToken) {
   return data;
 }
 
+/**
+ * DELETE with JSON body (needed for bulk delete endpoints).
+ * Playwright's api.delete() doesn't support body, so use api.fetch() with method override.
+ */
+export async function apiDeleteWithBody(context, path, body, cookieHeader, csrfToken) {
+  const api = context.request;
+  const url = BACKEND_URL + path;
+  const headers = {
+    Cookie: cookieHeader,
+    'Content-Type': 'application/json',
+  };
+  if (csrfToken) {
+    headers['x-csrf-token'] = csrfToken;
+  }
+
+  const response = await api.fetch(url, {
+    method: 'DELETE',
+    headers,
+    data: body,
+  });
+  const status = response.status();
+
+  if (status === 204) return null;
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = await response.text();
+  }
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`DELETE ${path} returned ${status}: ${JSON.stringify(data).substring(0, 200)}`);
+  }
+
+  return data;
+}
+
 // --- Assertion helpers ---
 
 // Module-level results collector (reset per test run)

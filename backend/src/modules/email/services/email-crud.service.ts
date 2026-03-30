@@ -558,11 +558,65 @@ export class EmailCrudService {
           where: { storageType: 's3' },
           select: { storagePath: true },
         },
+        provider: true,
       },
     });
 
     if (!draft) {
       return;
+    }
+
+    // Delete draft from provider (fire-and-forget -- don't block local cleanup)
+    if (draft.externalId && draft.provider) {
+      try {
+        const providerType =
+          draft.provider.providerType === 'generic' ? 'imap' : draft.provider.providerType;
+        const accessToken =
+          providerType === 'imap'
+            ? this.getSmtpPassword(draft.provider)
+            : (await this.providerTokenService.getProviderWithToken(draft.provider.id, tenantId))
+                .accessToken;
+
+        const credentials: DriverCredentials =
+          providerType === 'imap'
+            ? {
+                type: 'basic',
+                username: draft.provider.email,
+                password: accessToken,
+                imapHost: draft.provider.imapHost || undefined,
+                imapPort: draft.provider.imapPort || undefined,
+                imapTls: draft.provider.imapUseTls ?? true,
+                smtpHost: draft.provider.smtpHost || undefined,
+                smtpPort: draft.provider.smtpPort || undefined,
+                smtpTls: draft.provider.smtpUseTls ?? true,
+              }
+            : {
+                type: 'oauth2',
+                accessToken,
+                emailHint: draft.provider.email,
+              };
+
+        const driver = await this.driverFactory.createConnectedDriver(
+          providerType as 'google' | 'microsoft' | 'imap',
+          credentials,
+        );
+        try {
+          await driver.deleteMessage(draft.externalId, true);
+          this.logger.debug(
+            `Draft ${id}: deleted from provider (externalId=${draft.externalId})`,
+          );
+        } finally {
+          try {
+            await driver.disconnect();
+          } catch {
+            // ignore disconnect errors
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Draft ${id}: provider delete failed - ${error instanceof Error ? error.message : 'unknown'}`,
+        );
+      }
     }
 
     const s3Keys = draft.attachments
