@@ -249,7 +249,10 @@ Plans:
   3. Delete folder removes the folder from the provider and cleans up the local DB record and email associations
   4. Folder sync from provider detects folders created, renamed, or deleted externally and updates local state
   5. System folders (Inbox, Sent, Trash, Drafts) cannot be deleted or renamed — API returns appropriate error
-**Plans**: [to be planned]
+**Plans**: 2 plans
+Plans:
+- [ ] 119-01-PLAN.md -- Validation scripts for folder CRUD, sync, and system folder protection (FOLD-01, FOLD-02, FOLD-03, FOLD-04, FOLD-05)
+- [ ] 119-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (FOLD-01, FOLD-02, FOLD-03, FOLD-04, FOLD-05)
 
 ### Phase 120: Queue & Webhook Infrastructure
 **Goal**: BullMQ queues and provider webhooks are healthy, resilient, and accurately monitored
@@ -296,7 +299,7 @@ Plans:
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
 | 117. Email Send & Reply/Forward | 3/3 | Complete   | 2026-03-27 |
 | 118. Drafts & Bulk Operations | 2/2 | Complete    | 2026-03-30 |
-| 119. Folder Operations | 0/? | Not started | - |
+| 119. Folder Operations | 0/2 | Planned | - |
 | 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
 | 121. Scheduling, Signatures & Templates | 0/? | Not started | - |
 | 122. Cross-cutting Validation | 0/? | Not started | - |
