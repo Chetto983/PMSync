@@ -132,7 +132,7 @@
 - [x] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD (completed 2026-03-30)
 - [x] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency (completed 2026-03-30)
 - [ ] **Phase 123: Phase 121 Verification Gap Closure** - Run live verification for scheduling/signatures/templates, test timed delivery E2E, create VERIFICATION.md
-- [ ] **Phase 124: Documentation & Traceability Cleanup** - Fix 10 stale checkboxes, requirement count, ROADMAP stale entries, FOLD-03 qualifier
+- [x] **Phase 124: Documentation & Traceability Cleanup** - Fix 10 stale checkboxes, requirement count, ROADMAP stale entries, FOLD-03 qualifier (completed 2026-03-30)
 
 ## Phase Details
 
@@ -314,7 +314,7 @@ Plans:
   6. VERIFICATION.md created for Phase 121 with pass/fail per requirement
 **Plans**: 1 plan
 Plans:
-- [ ] 124-01-PLAN.md -- Fix stale checkboxes, coverage count, FOLD-03 qualifier, and progress entries
+- [x] 124-01-PLAN.md -- Fix stale checkboxes, coverage count, FOLD-03 qualifier, and progress entries
 
 ### Phase 124: Documentation & Traceability Cleanup
 **Goal**: Fix all documentation inconsistencies found by milestone audit — stale checkboxes, wrong counts, stale roadmap entries, missing qualifiers
@@ -348,7 +348,7 @@ Plans:
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
 | 122. Cross-cutting Validation | 2/2 | Complete    | 2026-03-30 |
 | 123. Phase 121 Verification Gap Closure | 0/0 | Not Started | — |
-| 124. Documentation & Traceability Cleanup | 0/1 | Not Started | — |
+| 124. Documentation & Traceability Cleanup | 1/1 | Complete   | 2026-03-30 |
 
 ---
 *Roadmap created: 2026-02-09*
