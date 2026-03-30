@@ -19,6 +19,7 @@ import { EmailCleanupService } from '../services/email-cleanup.service';
 import { StorageService } from '../services/storage.service';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
 import { EmailSignatureService } from '../services/email-signature.service';
+import { ScheduledEmailService } from '../services/scheduled-email.service';
 import {
   ReplyEmailRequestDto,
   ForwardEmailRequestDto,
@@ -91,6 +92,7 @@ export class EmailActionsController {
     private attachmentOnDemandService: AttachmentOnDemandService,
     private prisma: PrismaService,
     private signatureService: EmailSignatureService,
+    private scheduledEmailService: ScheduledEmailService,
   ) {}
 
   /**
@@ -102,7 +104,7 @@ export class EmailActionsController {
   async sendEmail(@Req() req: AuthenticatedRequest, @Body() body: SendEmailRequestDto) {
     const tenantId = req.user.tenantId;
     const userId = req.user.id;
-    const { providerId, attachments, signatureId, ...rest } = body;
+    const { providerId, attachments, signatureId, scheduledAt, ...rest } = body;
 
     let bodyHtml = rest.bodyHtml;
     const signature = await this.signatureService.getSignatureForSend(
@@ -113,6 +115,28 @@ export class EmailActionsController {
     );
     if (signature) {
       bodyHtml = `${bodyHtml}<br><br>${signature}`;
+    }
+
+    // Route to scheduler if scheduledAt is provided (per INFRA-06)
+    if (scheduledAt) {
+      return this.scheduledEmailService.scheduleEmail({
+        tenantId,
+        providerId,
+        to: rest.to,
+        cc: rest.cc,
+        bcc: rest.bcc,
+        subject: rest.subject,
+        bodyHtml,
+        bodyText: rest.bodyText || '',
+        inReplyTo: rest.inReplyTo,
+        references: rest.references,
+        attachments: decodeAttachments(attachments)?.map(a => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType,
+        })),
+        scheduledAt: new Date(scheduledAt),
+      });
     }
 
     return this.emailSendService.sendEmail({
