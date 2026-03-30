@@ -30,9 +30,9 @@ import {
  */
 async function getProviders(context, cookieHeader) {
   const res = await apiGet(context, '/api/v1/providers', cookieHeader);
-  const providers = Array.isArray(res) ? res
-    : Array.isArray(res?.data) ? res.data
-    : [];
+  // Response may be wrapped: { data: [...], meta } or flat array
+  const payload = res?.data ?? res;
+  const providers = Array.isArray(payload) ? payload : [];
   return providers;
 }
 
@@ -65,8 +65,10 @@ function matchesProviderFilter(provider, filter) {
  */
 async function getFolders(context, cookieHeader, providerId) {
   const res = await apiGet(context, `/api/v1/folders/provider/${providerId}`, cookieHeader);
-  const folders = Array.isArray(res) ? res
-    : Array.isArray(res?.data) ? res.data
+  // Response may be wrapped: { data: { provider, folders }, meta } or { provider, folders } or flat array
+  const payload = res?.data ?? res;
+  const folders = Array.isArray(payload) ? payload
+    : Array.isArray(payload?.folders) ? payload.folders
     : [];
   return folders;
 }
