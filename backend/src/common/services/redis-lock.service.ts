@@ -56,8 +56,11 @@ export class RedisLockService implements OnModuleInit {
   private readonly logger = new Logger(RedisLockService.name);
   private redis!: Redis;
 
-  // Redis key prefix for distributed locks
-  private readonly KEY_PREFIX = 'lock:';
+  // Redis key prefix for distributed locks (IF-C2: namespaced under pmsync)
+  private readonly KEY_PREFIX = 'pmsync:lock:';
+
+  // IF-C2: Maximum lock TTL to prevent deadlocks from crashed processes (5 minutes)
+  private readonly MAX_LOCK_TTL_MS = 5 * 60 * 1000;
 
   // Unique identifier for this instance
   private readonly instanceId: string;
@@ -86,13 +89,18 @@ export class RedisLockService implements OnModuleInit {
     options: LockOptions = {},
   ): Promise<string | null> {
     const { maxRetries = 5, baseDelayMs = 50, maxDelayMs = 500 } = options;
+    // IF-C2: Cap TTL to prevent deadlocks from crashed processes
+    const cappedTtl = Math.min(ttlMs, this.MAX_LOCK_TTL_MS);
+    if (ttlMs > this.MAX_LOCK_TTL_MS) {
+      this.logger.warn(`Lock TTL capped: ${key} requested ${ttlMs}ms, capped to ${this.MAX_LOCK_TTL_MS}ms`);
+    }
     const fullKey = `${this.KEY_PREFIX}${key}`;
     const lockId = `${this.instanceId}-${Date.now()}`;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         // Atomic SET NX with PX (TTL in ms)
-        const result = await this.redis.set(fullKey, lockId, 'PX', ttlMs, 'NX');
+        const result = await this.redis.set(fullKey, lockId, 'PX', cappedTtl, 'NX');
 
         if (result === 'OK') {
           this.logger.debug(`Lock acquired: ${key} (attempt ${attempt + 1})`);
