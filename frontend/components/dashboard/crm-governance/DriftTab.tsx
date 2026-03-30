@@ -48,7 +48,7 @@ export function DriftTab() {
   }
 
   if (error) {
-    return <Alert severity="error">Failed to load drift data</Alert>;
+    return <Alert severity="error">{td?.loadError ?? 'Failed to load drift data'}</Alert>;
   }
 
   return (
@@ -70,7 +70,7 @@ export function DriftTab() {
           onClick={() => runCheck.mutate()}
           disabled={runCheck.isPending}
         >
-          {runCheck.isPending ? 'Checking...' : 'Run Check'}
+          {runCheck.isPending ? (td?.runCheckPending ?? 'Checking...') : (td?.runCheck ?? 'Run Check')}
         </Button>
       </Box>
 
@@ -82,7 +82,7 @@ export function DriftTab() {
             {td?.noData ?? 'No drift data available yet'}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-            Click &quot;Run Check&quot; to analyze feature distributions
+            {td?.noDataHint ?? 'Click "Run Check" to analyze feature distributions'}
           </Typography>
         </Paper>
       ) : (

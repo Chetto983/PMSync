@@ -39,14 +39,14 @@
 
 ## Definition of Done
 
-- [ ] Migrazione Prisma `ForecastSnapshot` applicata
-- [ ] Aggregation service calcola metriche mensili correttamente su seed data
-- [ ] Forecasting produce proiezioni con confidence bands per 4 trimestri
-- [ ] Dashboard mostra area chart con bande di confidenza visivamente chiare
-- [ ] Forecast vs actuals widget calcola e mostra MAPE
-- [ ] Job settimanale registrato e testabile manualmente
-- [ ] `npx tsc --noEmit` passa su frontend e backend
-- [ ] Traduzioni IT/EN complete
+- [x] Migrazione Prisma `ForecastSnapshot` applicata
+- [x] Aggregation service calcola metriche mensili correttamente su seed data
+- [x] Forecasting produce proiezioni con confidence bands per 4 trimestri
+- [x] Dashboard mostra area chart con bande di confidenza visivamente chiare
+- [x] Forecast vs actuals widget calcola e mostra MAPE
+- [x] Job settimanale registrato e testabile manualmente
+- [x] `npx tsc --noEmit` passa su frontend e backend
+- [x] Traduzioni IT/EN complete
 
 ## Deliverable Attesi
 

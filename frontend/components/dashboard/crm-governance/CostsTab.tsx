@@ -96,7 +96,7 @@ export function CostsTab() {
   }
 
   if (costsError) {
-    return <Alert severity="error">Failed to load cost data</Alert>;
+    return <Alert severity="error">{tc?.loadError ?? 'Failed to load cost data'}</Alert>;
   }
 
   if (!costs || costs.length === 0) {

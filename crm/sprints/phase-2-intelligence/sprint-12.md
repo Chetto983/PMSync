@@ -39,14 +39,14 @@
 
 ## Definition of Done
 
-- [ ] Migrazione Prisma `ChurnSignal` applicata
-- [ ] Feature extraction calcola tutti i segnali (response decay, meeting drop, stagnation, inactivity)
-- [ ] Logistic regression produce probabilità calibrate (somma delle classi ~ 1.0)
-- [ ] Early warning list mostra contatti ordinati per rischio con breakdown
-- [ ] Badge churn visibile su contact e account detail
-- [ ] Job settimanale testabile manualmente
-- [ ] `npx tsc --noEmit` passa su frontend e backend
-- [ ] Traduzioni IT/EN complete per tutti i nuovi componenti
+- [x] Migrazione Prisma `ChurnSignal` applicata
+- [x] Feature extraction calcola tutti i segnali (response decay, meeting drop, stagnation, inactivity)
+- [x] Logistic regression produce probabilità calibrate (somma delle classi ~ 1.0)
+- [x] Early warning list mostra contatti ordinati per rischio con breakdown
+- [x] Badge churn visibile su contact e account detail
+- [x] Job settimanale testabile manualmente
+- [x] `npx tsc --noEmit` passa su frontend e backend
+- [x] Traduzioni IT/EN complete per tutti i nuovi componenti
 
 ## Deliverable Attesi
 

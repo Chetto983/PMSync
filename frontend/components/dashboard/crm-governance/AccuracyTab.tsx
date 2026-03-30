@@ -110,7 +110,7 @@ export function AccuracyTab() {
   if (error) {
     return (
       <Alert severity="error" sx={{ mb: 2 }}>
-        Failed to load accuracy metrics
+        {ta?.loadError ?? 'Failed to load accuracy metrics'}
       </Alert>
     );
   }

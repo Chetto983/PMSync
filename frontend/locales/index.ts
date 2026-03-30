@@ -4817,6 +4817,7 @@ export interface AppTranslations {
   aiGovernance?: {
     title?: string;
     subtitle?: string;
+    loadError?: string;
     tabs?: {
       accuracy?: string;
       costs?: string;
@@ -4841,6 +4842,7 @@ export interface AppTranslations {
       last30d?: string;
       last90d?: string;
       noData?: string;
+      loadError?: string;
     };
     costs?: {
       title?: string;
@@ -4852,6 +4854,7 @@ export interface AppTranslations {
       trend?: string;
       projection?: string;
       noData?: string;
+      loadError?: string;
     };
     drift?: {
       title?: string;
@@ -4864,6 +4867,10 @@ export interface AppTranslations {
       critical?: string;
       lastChecked?: string;
       noData?: string;
+      noDataHint?: string;
+      runCheck?: string;
+      runCheckPending?: string;
+      loadError?: string;
     };
     models?: {
       title?: string;
@@ -4881,6 +4888,7 @@ export interface AppTranslations {
       enabled?: string;
       disabled?: string;
       noData?: string;
+      loadError?: string;
     };
   };
 }

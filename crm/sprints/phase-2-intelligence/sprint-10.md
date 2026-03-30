@@ -40,14 +40,14 @@
 
 ## Definition of Done
 
-- [ ] `LeadScoreGauge` renderizza correttamente score 0-100 con fattori contribuenti
-- [ ] Badge visibile in lista contatti con colorazione corretta
-- [ ] Sorting per score funzionante (ASC/DESC)
-- [ ] Score history chart mostra trend 90 giorni
-- [ ] Tutti e 3 i CRM AI tools rispondono correttamente via AI chat
-- [ ] `moveDealStage` rifiuta transizioni non valide con errore descrittivo
-- [ ] `npx tsc --noEmit` passa su frontend e backend
-- [ ] Traduzioni IT/EN complete per tutti i nuovi componenti
+- [x] `LeadScoreGauge` renderizza correttamente score 0-100 con fattori contribuenti
+- [x] Badge visibile in lista contatti con colorazione corretta
+- [x] Sorting per score funzionante (ASC/DESC)
+- [x] Score history chart mostra trend 90 giorni
+- [x] Tutti e 3 i CRM AI tools rispondono correttamente via AI chat
+- [x] `moveDealStage` rifiuta transizioni non valide con errore descrittivo
+- [x] `npx tsc --noEmit` passa su frontend e backend
+- [x] Traduzioni IT/EN complete per tutti i nuovi componenti
 
 ## Deliverable Attesi
 

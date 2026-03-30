@@ -107,7 +107,7 @@ export function GovernanceDashboard() {
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load governance data
+          {tg?.loadError ?? 'Failed to load governance data'}
         </Alert>
       )}
 

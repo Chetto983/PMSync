@@ -40,13 +40,13 @@
 
 ## Definition of Done
 
-- [ ] Migrazione Prisma applicata senza errori
-- [ ] Feature extraction calcola correttamente tutte e 3 le categorie di features
-- [ ] Job BullMQ completa il batch su 50+ contatti seed in < 30 secondi
-- [ ] Training pipeline produce un modello con AUC > 0.60 su seed data
-- [ ] API endpoint restituisce score con `tenantId` filter (multi-tenant safe)
-- [ ] `npx tsc --noEmit` passa senza errori su backend
-- [ ] Integration test verde
+- [x] Migrazione Prisma applicata senza errori
+- [x] Feature extraction calcola correttamente tutte e 3 le categorie di features
+- [x] Job BullMQ completa il batch su 50+ contatti seed in < 30 secondi
+- [x] Training pipeline produce un modello con AUC > 0.60 su seed data
+- [x] API endpoint restituisce score con `tenantId` filter (multi-tenant safe)
+- [x] `npx tsc --noEmit` passa senza errori su backend
+- [x] Integration test verde
 
 ## Deliverable Attesi
 

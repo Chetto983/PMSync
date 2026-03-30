@@ -40,16 +40,16 @@
 
 ## Definition of Done
 
-- [ ] Dashboard governance accessibile con tutti e 4 i tab funzionanti
-- [ ] Metriche di accuratezza visualizzate per ogni modello con trend temporale
-- [ ] Cost tracking attivo per tutte le feature AI, breakdown visibile
-- [ ] Drift detection calcola PSI e segnala features problematiche
-- [ ] Retraining manuale funzionante con confronto pre/post metriche
-- [ ] Tutti i bug P0/P1 della Phase 2 risolti
-- [ ] Query ottimizzate (nessuna query > 500ms su dataset tipico)
-- [ ] Integration test suite verde per flusso completo Phase 2
-- [ ] `npx tsc --noEmit` passa su frontend e backend
-- [ ] Traduzioni IT/EN complete per dashboard governance
+- [x] Dashboard governance accessibile con tutti e 4 i tab funzionanti
+- [x] Metriche di accuratezza visualizzate per ogni modello con trend temporale
+- [x] Cost tracking attivo per tutte le feature AI, breakdown visibile
+- [x] Drift detection calcola PSI e segnala features problematiche
+- [x] Retraining manuale funzionante con confronto pre/post metriche
+- [x] Tutti i bug P0/P1 della Phase 2 risolti
+- [x] Query ottimizzate (nessuna query > 500ms su dataset tipico)
+- [x] Integration test suite verde per flusso completo Phase 2
+- [x] `npx tsc --noEmit` passa su frontend e backend
+- [x] Traduzioni IT/EN complete per dashboard governance
 
 ## Deliverable Attesi
 

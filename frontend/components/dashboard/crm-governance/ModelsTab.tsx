@@ -50,7 +50,7 @@ export function ModelsTab() {
   }
 
   if (error) {
-    return <Alert severity="error">Failed to load model registry</Alert>;
+    return <Alert severity="error">{tm?.loadError ?? 'Failed to load model registry'}</Alert>;
   }
 
   if (!data || data.length === 0) {

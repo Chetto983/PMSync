@@ -40,14 +40,14 @@
 
 ## Definition of Done
 
-- [ ] Migrazione Prisma `NBAAction` applicata
-- [ ] NBA engine genera azioni contestuali basate su deal stage, engagement e churn risk
-- [ ] Top 3 azioni visibili nella sidebar del deal detail con reasoning
-- [ ] Click "Esegui" apre il flusso corretto (composer, meeting modal, etc.)
-- [ ] Tracking accepted/dismissed persiste su DB
-- [ ] AI chat tool `getNextBestAction` risponde correttamente
-- [ ] `npx tsc --noEmit` passa su frontend e backend
-- [ ] Traduzioni IT/EN complete
+- [x] Migrazione Prisma `NBAAction` applicata
+- [x] NBA engine genera azioni contestuali basate su deal stage, engagement e churn risk
+- [x] Top 3 azioni visibili nella sidebar del deal detail con reasoning
+- [x] Click "Esegui" apre il flusso corretto (composer, meeting modal, etc.)
+- [x] Tracking accepted/dismissed persiste su DB
+- [x] AI chat tool `getNextBestAction` risponde correttamente
+- [x] `npx tsc --noEmit` passa su frontend e backend
+- [x] Traduzioni IT/EN complete
 
 ## Deliverable Attesi
 
