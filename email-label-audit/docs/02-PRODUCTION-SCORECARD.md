@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-30
 **Phases Completed:** 1-6 (S01-S16)
-**Overall Score:** 9.9/10
+**Overall Score:** 10.0/10
 
 ## Scoring Criteria
 
@@ -125,7 +125,7 @@ Each category scored 0-10 based on:
 | Graceful shutdown with job draining | PASS | `onModuleDestroy` closes workers then Redis |
 | Job idempotency via BullMQ jobId | PASS | `generateIdempotencyKey` utility |
 
-### 10. Monitoring & Observability (9/10)
+### 10. Monitoring & Observability (10/10)
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -137,7 +137,7 @@ Each category scored 0-10 based on:
 | Webhook monitoring metrics (IF-H3) | PASS | T-1606: `[WEBHOOK-MONITOR]` structured log |
 | Prometheus metrics export | PASS | GET /health/metrics |
 | Data validation script | PASS | T-1704: 6 checks, JSON report, exit codes |
-| **Gap:** Alerting pipeline to PagerDuty/Slack | NOT DONE | Metrics emitted but no external alert sink |
+| External alert sink (Slack/Discord) | PASS | T-1801: `OpsAlertService` with webhook POST + 15-min cooldown dedup |
 
 ## Score Summary
 
@@ -152,16 +152,13 @@ Each category scored 0-10 based on:
 | 7. Embedding Integrity | 10/10 |
 | 8. Multi-Provider Parity | 10/10 |
 | 9. Queue & Worker Safety | 10/10 |
-| 10. Monitoring & Observability | 9/10 |
-| **Overall** | **9.9/10** |
+| 10. Monitoring & Observability | 10/10 |
+| **Overall** | **10.0/10** |
 
-## Remaining Gaps (Not Blocking)
+## All Gaps Closed
 
-1. **External alert sink:** Metrics logged and exposed via Prometheus, no PagerDuty/Slack integration yet
-
-All other previously-reported gaps have been verified as already implemented:
-- ~~IMAP SMTP rate limiting (IM-H2)~~ — `RateLimiter(30, 60000)` active in `imap-send.service.ts`
-- ~~Gmail search operator injection (G-H6)~~ — `sanitizeUserQuery()` wraps operator input in quotes
+All previously-reported gaps have been resolved:
+- ~~External alert sink~~ — T-1801: `OpsAlertService` fires to Slack/Discord webhook with 15-min cooldown
+- ~~IMAP SMTP rate limiting (IM-H2)~~ — T-1402: `RateLimiter(30, 60000)` active in `imap-send.service.ts`; T-1803: 7 integration tests
+- ~~Gmail search operator injection (G-H6)~~ — T-1802: Enhanced `sanitizeUserQuery()` covers booleans, negation, grouping; 26 tests
 - ~~IMAP label simulation~~ — N/A by design (folders serve as proxy)
-
-The single remaining gap (external alert sink) is infrastructure, not code quality.

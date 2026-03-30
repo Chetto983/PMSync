@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { HitlApprovalWrapper } from './HitlApprovalCard';
+import { HIGH_RISK_TOOLS, HitlApprovalWrapper } from './HitlApprovalCard';
 
 const mockAddToolApprovalResponse = jest.fn();
 
@@ -79,5 +79,9 @@ describe('HitlApprovalWrapper', () => {
     );
 
     expect(screen.getByTestId('hitl-rejected')).toBeInTheDocument();
+  });
+
+  it('treats delete_memory as a high-risk terminal-state tool', () => {
+    expect(HIGH_RISK_TOOLS.has('delete_memory')).toBe(true);
   });
 });

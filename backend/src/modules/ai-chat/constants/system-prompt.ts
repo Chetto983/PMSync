@@ -205,8 +205,12 @@ Messages may contain redacted PII tokens like \`EMAIL_REDACTED:abc123\`, \`PHONE
 - When the "Known Facts" section is present below, use that knowledge naturally in your responses. For example, if you know the user's preferred language or key contacts, apply that without being asked.
 - Proactively use save_memory when the user states a preference (language, email tone, important contacts, workflows, recurring tasks).
 - Also save_memory when you learn something important during tool use: a key contact's email, a recurring meeting pattern, the user's typical working hours.
+- When the user asks you to remember/store/update a fact or preference, use save_memory.
+- Do NOT call delete_memory to deduplicate or replace an existing memory. save_memory already updates matching memories safely.
 - When the user asks "what do you remember?" or "show my memories", use list_memories.
-- When the user asks to "forget" something, use list_memories to find it, then delete_memory (requires approval).
+- When the user asks to "forget" something, use list_memories to identify the candidate memory.
+- If exactly one memory clearly matches, call delete_memory once (requires approval).
+- If multiple memories could match, use ask_user to clarify which single memory to remove. Never issue multiple delete_memory calls in one turn.
 - Do NOT mention memory mechanics to the user unless they ask — just use the knowledge seamlessly.
 - In briefings: combine Known Facts with fresh tool results to give personalized context (e.g., "You have a meeting with Marco — he's your key client based on previous conversations").
 
@@ -214,6 +218,7 @@ Messages may contain redacted PII tokens like \`EMAIL_REDACTED:abc123\`, \`PHONE
 The system automatically pauses these tools for user approval — you MUST call them directly when the user's intent is clear. Do NOT ask for text-based confirmation yourself — the approval UI handles that.
 - send_email, reply_email, forward_email (emails leaving the system)
 - delete_email, delete_event, delete_contact (destroying data)
+- delete_memory (forgetting stored user memory)
 
 CRITICAL: When the user says "send an email to X", call send_email immediately. The system will show an approval card to the user. Do NOT output text like "This requires your approval" or "Should I proceed?" — just call the tool.
 
@@ -258,16 +263,16 @@ export function buildRuntimeContext(
   providerType?: string,
   userLocale?: string,
 ): string {
-  const tz = timezone || 'Europe/Rome';
+  const tz = timezone || "Europe/Rome";
   const now = new Date();
-  const formatted = now.toLocaleString('en-US', {
+  const formatted = now.toLocaleString("en-US", {
     timeZone: tz,
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   });
 
@@ -284,7 +289,7 @@ export function buildRuntimeContext(
     lines.push(`User locale: ${userLocale}`);
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 export interface EmailAccountInfo {
@@ -321,9 +326,7 @@ export function buildExtendedRuntimeContext(
   }
 
   const profileLines = [
-    metadata.jobTitle
-      ? `Profile role/title: ${metadata.jobTitle}`
-      : null,
+    metadata.jobTitle ? `Profile role/title: ${metadata.jobTitle}` : null,
     metadata.communicationStyle
       ? `Preferred communication style: ${metadata.communicationStyle}`
       : null,
@@ -336,21 +339,25 @@ export function buildExtendedRuntimeContext(
   ].filter((line): line is string => Boolean(line));
 
   if (profileLines.length > 0) {
-    lines.push('Saved AI profile preferences:');
+    lines.push("Saved AI profile preferences:");
     lines.push(...profileLines);
   }
 
   // Multi-provider: list all connected email accounts so the LLM can ask which to use
   if (metadata.emailAccounts && metadata.emailAccounts.length > 1) {
-    lines.push('Connected email accounts:');
+    lines.push("Connected email accounts:");
     for (let i = 0; i < metadata.emailAccounts.length; i++) {
       const acc = metadata.emailAccounts[i];
-      const label = acc.displayName ? `${acc.displayName} (${acc.providerType})` : acc.providerType;
-      const isDefault = i === 0 ? ' [default]' : '';
-      lines.push(`  - ${acc.email ?? 'unknown'}  (${label})${isDefault}`);
+      const label = acc.displayName
+        ? `${acc.displayName} (${acc.providerType})`
+        : acc.providerType;
+      const isDefault = i === 0 ? " [default]" : "";
+      lines.push(`  - ${acc.email ?? "unknown"}  (${label})${isDefault}`);
     }
-    lines.push('IMPORTANT: When sending/drafting/forwarding/replying to email with multiple accounts available, ALWAYS ask which account to send from using ask_user — unless the user already specified a "from" address. Never silently default to one account. After the user selects an account, immediately proceed with the original request (call send_email with the specified from address and all the original parameters). Do NOT re-ask for recipient, subject, or body — they were already provided.');
+    lines.push(
+      'IMPORTANT: When sending/drafting/forwarding/replying to email with multiple accounts available, ALWAYS ask which account to send from using ask_user — unless the user already specified a "from" address. Never silently default to one account. After the user selects an account, immediately proceed with the original request (call send_email with the specified from address and all the original parameters). Do NOT re-ask for recipient, subject, or body — they were already provided.',
+    );
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }

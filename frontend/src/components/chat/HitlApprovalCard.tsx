@@ -39,6 +39,10 @@ const HIGH_RISK_TEMPLATES: Record<string, (args: Record<string, unknown>) => str
     const name = typeof args.name === 'string' ? args.name : typeof args.email === 'string' ? args.email : 'selected contact';
     return `Delete contact ${name}`;
   },
+  delete_memory: (args) => {
+    const memoryId = typeof args.memoryId === 'string' ? args.memoryId : 'selected memory';
+    return `Delete memory ${memoryId}`;
+  },
 };
 
 export const HIGH_RISK_TOOLS = new Set(Object.keys(HIGH_RISK_TEMPLATES));
