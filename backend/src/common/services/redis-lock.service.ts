@@ -468,6 +468,27 @@ export class RedisLockService implements OnModuleInit {
   }
 
   // ====================================
+  // Deduplication (uncapped TTL)
+  // ====================================
+
+  /**
+   * Atomic SET NX with TTL — for deduplication markers (NOT locks).
+   * Unlike acquireLock(), this does NOT cap TTL at MAX_LOCK_TTL_MS,
+   * because dedup markers need to persist for their full window (e.g. 24h for Gmail).
+   *
+   * @returns true if key was SET (new), false if key already EXISTS (duplicate)
+   */
+  async setNX(key: string, ttlMs: number): Promise<boolean> {
+    try {
+      const result = await this.redis.set(key, '1', 'PX', ttlMs, 'NX');
+      return result === 'OK';
+    } catch (error) {
+      this.logger.error(`setNX error for ${key}: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  // ====================================
   // IF-H1: Simple key-value cache
   // ====================================
 

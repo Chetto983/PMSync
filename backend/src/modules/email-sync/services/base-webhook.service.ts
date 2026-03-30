@@ -58,17 +58,14 @@ export abstract class BaseWebhookService {
     const key = `${this.DEDUP_KEY_PREFIX}${messageId}`;
 
     try {
-      // Atomic SET NX with TTL - returns lockId if new, null if exists
-      const lockId = await this.redisLock.acquireLock(
+      // Atomic SET NX with uncapped TTL for dedup markers (not locks)
+      const isNew = await this.redisLock.setNX(
         key,
-        this.DEDUP_TTL_SECONDS * 1000, // Convert to ms
-        { maxRetries: 1 }, // Single attempt - if exists, it's a replay
+        this.DEDUP_TTL_SECONDS * 1000, // Full TTL without lock cap
       );
 
-      if (lockId) {
+      if (isNew) {
         this.logger.debug(`[DEDUP] New message accepted: ${messageId}`);
-        // Note: We intentionally don't release the lock - it expires after TTL
-        // This prevents the same message from being processed again
         return true; // NEW message
       }
 
