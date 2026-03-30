@@ -752,6 +752,17 @@ Frontend can use this to avoid duplicating folder type logic.`,
         const result = await this.folderQueue.waitForJob(jobId, 30000);
 
         if (!result) {
+          // Fallback: check if the worker already renamed the folder in DB
+          const updatedFolder = await this.prisma.folder.findFirst({
+            where: { id: folderId, tenantId },
+          });
+          if (updatedFolder && updatedFolder.name === dto.newName.trim()) {
+            return {
+              id: updatedFolder.id,
+              path: updatedFolder.path,
+              name: updatedFolder.name,
+            };
+          }
           throw new BadRequestException('Failed to rename folder: job not found');
         }
 
@@ -838,6 +849,16 @@ Frontend can use this to avoid duplicating folder type logic.`,
       const result = await this.folderQueue.waitForJob(jobId, 30000);
 
       if (!result) {
+        // Fallback: check if the worker already deleted the folder from DB
+        const stillExists = await this.prisma.folder.findFirst({
+          where: { id: folderId, tenantId },
+        });
+        if (!stillExists) {
+          return {
+            success: true,
+            message: `Folder "${folder.name}" deleted successfully`,
+          };
+        }
         throw new BadRequestException('Failed to delete folder: job not found');
       }
 
