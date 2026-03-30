@@ -185,9 +185,16 @@ export class PiiResolutionService {
       let resolutionCount = 0;
 
       for (const mapping of store.mappings) {
+        const noBrackets = mapping.placeholder.replace(/^\[|\]$/g, '');
         if (resolved.includes(mapping.placeholder)) {
           resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
           resolutionCount++;
+        } else if (resolved.includes(noBrackets)) {
+          resolved = resolved.replaceAll(noBrackets, mapping.originalValue);
+          resolutionCount++;
+          this.logger.warn(
+            `[PII-DEBUG] Resolved bracket-stripped placeholder in text: "${noBrackets}" → originalValue`,
+          );
         }
       }
 
@@ -339,8 +346,8 @@ export class PiiResolutionService {
    */
   containsPlaceholders(text: string): boolean {
     if (!text) return false;
-    // Match patterns like [EMAIL_REDACTED], [EMAIL_REDACTED:abcd1234], etc.
-    return /\[[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]/.test(text);
+    // Match both bracketed and bare placeholder formats.
+    return /\[?[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]?/.test(text);
   }
 
   /**

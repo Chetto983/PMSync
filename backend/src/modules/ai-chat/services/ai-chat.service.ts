@@ -1016,7 +1016,7 @@ export class AiChatService {
     conversationId: string,
   ): ReadableStream {
     const piiService = this.piiResolutionService;
-    const PII_COMPLETE = /\[[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]/;
+    const PII_COMPLETE = /\[?[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]?/;
     // Detects a partial token at end of string: "[" followed by uppercase/underscore
     // that could be a PII token being streamed across multiple chunks.
     const PII_PARTIAL_TAIL = /\[[A-Z_]*(?:_REDACTED(?::[a-f0-9]*)?)?$/;
