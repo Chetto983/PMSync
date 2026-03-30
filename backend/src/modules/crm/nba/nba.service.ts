@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NBAContextService } from './nba-context.service';
 import { NBARankingService } from './nba-ranking.service';
@@ -96,6 +96,20 @@ export class NBAService {
 
     if (!action) {
       throw new NotFoundException(`NBA action ${actionId} not found`);
+    }
+
+    // Validate status transitions: DISMISSED and EXECUTED are terminal
+    const current = action.status as string;
+    if (current === 'DISMISSED' || current === 'EXECUTED') {
+      throw new BadRequestException(
+        `Cannot transition from ${current} — it is a terminal status`,
+      );
+    }
+    // SUGGESTED can go to ACCEPTED or DISMISSED; ACCEPTED can go to EXECUTED or DISMISSED
+    if (current === 'SUGGESTED' && status === NBAActionStatus.EXECUTED) {
+      throw new BadRequestException(
+        'Cannot execute directly from SUGGESTED — accept first',
+      );
     }
 
     const data: any = { status };

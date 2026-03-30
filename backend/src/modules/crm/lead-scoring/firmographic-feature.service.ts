@@ -45,8 +45,8 @@ export class FirmographicFeatureService {
 
     // Use the first (primary) linked account
     const accountId = accountLinks[0].accountId;
-    const account = await this.prisma.crmAccount.findUnique({
-      where: { id: accountId },
+    const account = await this.prisma.crmAccount.findFirst({
+      where: { id: accountId, tenantId },
       select: {
         size: true,
         industry: true,
