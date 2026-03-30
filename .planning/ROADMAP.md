@@ -293,7 +293,10 @@ Plans:
   1. No email endpoint returns data belonging to a different tenant — verified via cross-tenant request script
   2. Rate limiting enforces the correct tier (read/safe-write/destructive-write/send) on every email endpoint
   3. All error responses follow the standard envelope format with a correlation ID present in every response
-**Plans**: Not yet planned
+**Plans**: 2 plans
+Plans:
+- [ ] 122-01-PLAN.md -- Validation scripts + rate tier fix (XCUT-01, XCUT-02, XCUT-03)
+- [ ] 122-02-PLAN.md -- Live validation run + bug fixes + human checkpoint (XCUT-01, XCUT-02, XCUT-03)
 
 ## Progress
 
@@ -309,7 +312,7 @@ Plans:
 | 119. Folder Operations | 2/2 | Complete    | 2026-03-30 |
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
-| 122. Cross-cutting Validation | 0/? | Not started | - |
+| 122. Cross-cutting Validation | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
