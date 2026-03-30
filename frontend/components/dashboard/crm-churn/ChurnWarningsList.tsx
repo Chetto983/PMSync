@@ -285,6 +285,8 @@ export function ChurnWarningsList() {
                         size="small"
                         onClick={() => handleAcknowledge(signal.id)}
                         disabled={acknowledgeMutation.isPending}
+                        aria-label={tc?.actions?.acknowledge ?? 'Dismiss'}
+                        sx={{ minWidth: 44, minHeight: 44 }}
                       >
                         <Check size={16} />
                       </IconButton>
@@ -297,6 +299,8 @@ export function ChurnWarningsList() {
                           size="small"
                           component="a"
                           href={`/dashboard/contacts/${signal.contactId}`}
+                          aria-label={tc?.actions?.viewContact ?? 'View Contact'}
+                          sx={{ minWidth: 44, minHeight: 44 }}
                         >
                           <Eye size={16} />
                         </IconButton>
