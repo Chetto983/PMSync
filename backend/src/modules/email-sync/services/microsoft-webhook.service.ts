@@ -228,18 +228,30 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
       `Microsoft notification: ${notification.changeType} for subscription ${notification.subscriptionId}`,
     );
 
+    // IF-C3: Timestamp validation — reject notifications for expired subscriptions
+    if (notification.subscriptionExpirationDateTime) {
+      const expiresAt = new Date(notification.subscriptionExpirationDateTime);
+      if (expiresAt.getTime() < Date.now()) {
+        this.logger.warn(
+          `[WEBHOOK-REJECTED] Microsoft notification for expired subscription: subscriptionId=${notification.subscriptionId}, ` +
+          `expiredAt=${notification.subscriptionExpirationDateTime}, reason=expired_subscription`,
+        );
+        return;
+      }
+    }
+
     // RC-NEW-3 FIX: Apply distributed rate limiting per subscription via Redis
     if (!await this.checkRateLimit(notification.subscriptionId)) {
       this.logger.warn(
-        `[RATE-LIMIT] Rate limit exceeded for subscription ${notification.subscriptionId}, dropping notification`,
+        `[WEBHOOK-REJECTED] Rate limit exceeded for subscription ${notification.subscriptionId}, reason=rate_limited`,
       );
       return;
     }
 
     // RC-12 FIX: Check for duplicate notifications using distributed Redis dedup
     if (!await this.checkAndMarkProcessedDistributed(notification)) {
-      this.logger.debug(
-        `[DEDUP] Duplicate notification detected for subscription ${notification.subscriptionId}, skipping`,
+      this.logger.warn(
+        `[WEBHOOK-REJECTED] Microsoft duplicate: subscriptionId=${notification.subscriptionId}, reason=duplicate`,
       );
       return;
     }
@@ -279,7 +291,8 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
       (subscription as any).clientState;
     if (expectedClientState && !this.safeCompare(notification.clientState || '', expectedClientState)) {
       this.logger.warn(
-        `ClientState mismatch for provider ${provider.id}: expected ${expectedClientState}, got ${notification.clientState}; dropping notification.`,
+        `[WEBHOOK-REJECTED] Microsoft clientState mismatch: subscriptionId=${notification.subscriptionId}, ` +
+        `providerId=${provider.id}, reason=clientState_mismatch`,
       );
       return;
     }

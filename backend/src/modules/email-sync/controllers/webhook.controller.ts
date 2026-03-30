@@ -88,12 +88,28 @@ export class WebhookController {
     }
 
     try {
+      // IF-C3: Timestamp validation — reject webhooks older than 5 minutes (clock skew tolerance)
+      const publishTime = payload?.message?.publishTime;
+      if (publishTime) {
+        const publishDate = new Date(publishTime);
+        const ageMs = Date.now() - publishDate.getTime();
+        const MAX_WEBHOOK_AGE_MS = 5 * 60 * 1000; // 5 minutes
+        if (ageMs > MAX_WEBHOOK_AGE_MS) {
+          this.logger.warn(
+            `[WEBHOOK-REJECTED] Gmail push too old: publishTime=${publishTime}, age=${Math.round(ageMs / 1000)}s, ip=${clientIp}, reason=stale`,
+          );
+          return { success: true, skipped: true, reason: 'stale' };
+        }
+      }
+
       // Security fix (Issue #2): Atomic check-and-mark for replay attack prevention
       const messageId = payload?.message?.messageId;
       if (messageId) {
         const isNew = await this.gmailWebhook.checkAndMarkProcessed(messageId);
         if (!isNew) {
-          this.logger.warn(`[WEBHOOK] Duplicate message detected: ${messageId}`);
+          this.logger.warn(
+            `[WEBHOOK-REJECTED] Gmail duplicate: messageId=${messageId}, ip=${clientIp}, reason=duplicate`,
+          );
           return { success: true, skipped: true, reason: 'duplicate' };
         }
       }

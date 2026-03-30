@@ -26,7 +26,8 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
   protected readonly providerType = 'google' as const;
   protected readonly resourcePath = GMAIL_WEBHOOK_RESOURCE;
   protected readonly DEDUP_KEY_PREFIX = 'webhook:gmail:dedup:';
-  protected readonly DEDUP_TTL_SECONDS = 3600; // 1 hour
+  // IF-C3: 24h TTL for replay prevention — covers Google's retry window
+  protected readonly DEDUP_TTL_SECONDS = 86400; // 24 hours
 
   // Google OAuth2 client for JWT verification
   private readonly oauth2Client: OAuth2Client;
