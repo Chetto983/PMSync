@@ -7,6 +7,33 @@ import { getRedisConnectionOptions } from '../config';
 /** Default timeout for Redis connection check (5 seconds) */
 const REDIS_CONNECT_TIMEOUT = 5000;
 
+/** IF-C1: Error threshold — max errors in a sliding window before auto-pause */
+const ERROR_THRESHOLD = 10;
+/** IF-C1: Sliding window duration in ms (5 minutes) */
+const ERROR_WINDOW_MS = 5 * 60 * 1000;
+/** IF-C1: Cooldown after auto-pause before resuming (60 seconds) */
+const PAUSE_COOLDOWN_MS = 60 * 1000;
+
+/** Whether the global unhandledRejection handler has been installed */
+let globalRejectionHandlerInstalled = false;
+
+/**
+ * Worker health status returned by getStatus()
+ */
+export interface WorkerHealthStatus {
+  name: string;
+  enabled: boolean;
+  queues: Array<{
+    queueName: string;
+    running: boolean;
+    paused: boolean;
+    concurrency: number;
+  }>;
+  errorCount5m: number;
+  autoPaused: boolean;
+  autoPausedAt: string | null;
+}
+
 /**
  * Base Worker Configuration
  *
@@ -78,6 +105,14 @@ export interface BaseWorkerConfig {
  * ```
  */
 export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModuleDestroy {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private static readonly registry: BaseWorker<any, any>[] = [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static getAll(): BaseWorker<any, any>[] {
+    return [...BaseWorker.registry];
+  }
+
   /** Logger instance - override in subclass with specific name */
   protected abstract readonly logger: Logger;
 
@@ -92,6 +127,10 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
 
   /** BullMQ worker instance(s) - can be single or array */
   protected workers: Worker<TData, TResult>[] = [];
+
+  private errorTimestamps: number[] = [];
+  private _autoPaused = false;
+  private _autoPausedAt: Date | null = null;
 
   constructor(protected readonly configService: ConfigService) {}
 
@@ -132,6 +171,23 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
    * Initialize Redis connection and start worker(s)
    */
   async onModuleInit(): Promise<void> {
+    // IF-C1: Register in global registry for health reporting
+    if (!BaseWorker.registry.includes(this)) {
+      BaseWorker.registry.push(this);
+    }
+
+    // IF-C1: Install global unhandledRejection handler (once)
+    if (!globalRejectionHandlerInstalled) {
+      globalRejectionHandlerInstalled = true;
+      process.on('unhandledRejection', (reason: unknown) => {
+        const msg = reason instanceof Error ? reason.message : String(reason);
+        Logger.error(
+          `Unhandled rejection in worker process (swallowed): ${msg}`,
+          'BaseWorker',
+        );
+      });
+    }
+
     if (!this.isEnabled()) {
       this.logger.warn(`${this.workerName} workers disabled via ${this.envToggle}=false`);
       return;
@@ -276,10 +332,12 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
 
     worker.on('failed', (job: Job<TData> | undefined, error: Error) => {
       this.logger.error(`[${config.queueName}] ${this.formatFailedLog(job, error)}`);
+      this.recordError();
     });
 
     worker.on('error', (error: Error) => {
       this.logger.error(`[${config.queueName}] Worker error: ${error.message}`);
+      this.recordError();
     });
 
     worker.on('stalled', (jobId: string) => {
@@ -288,6 +346,77 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
 
     this.workers.push(worker);
     this.logger.log(`Started worker for queue ${config.queueName} (concurrency: ${config.concurrency})`);
+  }
+
+  // ========== IF-C1: Error Tracking & Auto-Pause ==========
+
+  private recordError(): void {
+    const now = Date.now();
+    this.errorTimestamps.push(now);
+
+    const cutoff = now - ERROR_WINDOW_MS;
+    this.errorTimestamps = this.errorTimestamps.filter((t) => t >= cutoff);
+
+    if (this.errorTimestamps.length >= ERROR_THRESHOLD && !this._autoPaused) {
+      this._autoPaused = true;
+      this._autoPausedAt = new Date();
+      this.logger.error(
+        `IF-C1: ${this.workerName} hit ${this.errorTimestamps.length} errors in 5 min — auto-pausing all queues`,
+      );
+
+      for (const w of this.workers) {
+        void w.pause().catch((err: unknown) => {
+          this.logger.debug(
+            `Failed to pause worker: ${err instanceof Error ? err.message : err}`,
+          );
+        });
+      }
+
+      const timer = setTimeout(() => {
+        this.resumeAfterCooldown();
+      }, PAUSE_COOLDOWN_MS);
+      timer.unref?.();
+    }
+  }
+
+  private resumeAfterCooldown(): void {
+    this._autoPaused = false;
+    this._autoPausedAt = null;
+    this.errorTimestamps = [];
+    this.logger.warn(`${this.workerName} resuming after auto-pause cooldown`);
+
+    for (const w of this.workers) {
+      try {
+        w.resume();
+      } catch (err: unknown) {
+        this.logger.debug(
+          `Failed to resume worker: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+  }
+
+  getStatus(): WorkerHealthStatus {
+    const now = Date.now();
+    const cutoff = now - ERROR_WINDOW_MS;
+    const recentErrors = this.errorTimestamps.filter((t) => t >= cutoff).length;
+
+    const configs = this.getWorkerConfig();
+    const configArray = Array.isArray(configs) ? configs : [configs];
+
+    return {
+      name: this.workerName,
+      enabled: this.isEnabled(),
+      queues: this.workers.map((w, i) => ({
+        queueName: configArray[i]?.queueName ?? w.name,
+        running: w.isRunning(),
+        paused: w.isPaused(),
+        concurrency: configArray[i]?.concurrency ?? 1,
+      })),
+      errorCount5m: recentErrors,
+      autoPaused: this._autoPaused,
+      autoPausedAt: this._autoPausedAt?.toISOString() ?? null,
+    };
   }
 
   /**
@@ -335,6 +464,9 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
     } finally {
       // Clear workers array to allow re-initialization if needed
       this.workers = [];
+      // IF-C1: Remove from global registry
+      const idx = BaseWorker.registry.indexOf(this);
+      if (idx >= 0) BaseWorker.registry.splice(idx, 1);
       this.logger.log(`${this.workerName} workers stopped`);
     }
   }

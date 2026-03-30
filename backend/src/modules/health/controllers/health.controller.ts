@@ -4,6 +4,7 @@ import { Public } from '../../../common/auth/public.decorator';
 import { HealthService } from '../services/health.service';
 import { LabelConsistencyService } from '../services/label-consistency.service';
 import { QueueHealthService } from '../../../common/services/queue-health.service';
+import { BaseWorker } from '../../../common/workers/base.worker';
 
 @ApiTags('Health')
 @Public()
@@ -69,6 +70,28 @@ export class HealthController {
       return { status: 'unavailable', message: 'QueueHealthService not available' };
     }
     return this.queueHealthService.getHealthStatus();
+  }
+
+  /**
+   * IF-C1: Worker health status
+   * GET /health/workers
+   */
+  @Get('workers')
+  @ApiOperation({ summary: 'Worker health', description: 'Returns status of all BullMQ workers' })
+  @ApiResponse({ status: 200, description: 'Worker health status returned' })
+  async getWorkerHealth() {
+    const workers = BaseWorker.getAll();
+    const statuses = workers.map((w) => w.getStatus());
+    const anyAutoPaused = statuses.some((s) => s.autoPaused);
+    const totalErrors5m = statuses.reduce((sum, s) => sum + s.errorCount5m, 0);
+
+    return {
+      status: anyAutoPaused ? 'degraded' : 'healthy',
+      totalWorkers: statuses.length,
+      totalErrors5m,
+      autoPausedCount: statuses.filter((s) => s.autoPaused).length,
+      workers: statuses,
+    };
   }
 
   /**
