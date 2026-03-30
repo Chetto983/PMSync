@@ -165,6 +165,7 @@ gantt
 | S12 | Churn Prediction | L | 18 | Churn model training, early warning alerts, risk indicators UI |
 | S13 | Next Best Action Engine | M | 17 | Recommendation engine, suggestion cards in deal view, action queue |
 | S14 | AI Governance Dashboard | M | 15 | Costo per modello, accuracy tracking, model versioning UI |
+| **S14.1** | **AI Tool & LLM Integration (sub-sprint)** | **M** | **14** | **11 new AI tools, system prompt CRM guidance, 3 tool renderers** |
 
 #### Milestones
 
