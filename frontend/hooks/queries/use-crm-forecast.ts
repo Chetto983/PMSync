@@ -24,6 +24,18 @@ export function useForecast(
   return useQuery(crmForecastOptions(pipelineId, period));
 }
 
+export function useForecastAccuracy(pipelineId: string) {
+  return useQuery({
+    queryKey: crmForecastKeys.accuracy(pipelineId),
+    queryFn: () =>
+      crmForecastApi.getAccuracy(pipelineId).then((r) => r.data),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!pipelineId,
+  });
+}
+
 export function useForecastRefresh() {
   const queryClient = useQueryClient();
 

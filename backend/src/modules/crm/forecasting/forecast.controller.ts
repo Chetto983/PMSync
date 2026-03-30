@@ -113,4 +113,18 @@ export class ForecastController {
       actualsUpdated: totalActualsUpdated,
     };
   }
+
+  @Get('accuracy')
+  @ApiOperation({ summary: 'Get forecast accuracy metrics for a pipeline' })
+  @ApiResponse({ status: 200, description: 'Accuracy data returned' })
+  async getAccuracy(@Req() req: any, @Query() query: ForecastQueryDto) {
+    const tenantId = req.user.tenantId;
+    const pipelineId = query.pipelineId;
+
+    if (!pipelineId) {
+      return { snapshots: [], avgMape: null };
+    }
+
+    return this.forecastService.getAccuracy(tenantId, pipelineId);
+  }
 }

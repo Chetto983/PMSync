@@ -15,7 +15,11 @@ import {
 } from '@mui/material';
 import { TrendingUp, RefreshCw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { useForecast, useForecastRefresh } from '@/hooks/queries/use-crm-forecast';
+import {
+  useForecast,
+  useForecastRefresh,
+  useForecastAccuracy,
+} from '@/hooks/queries/use-crm-forecast';
 import { crmPipelineListOptions } from '@/hooks/queries/use-crm-pipelines';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ForecastChart } from './ForecastChart';
@@ -41,6 +45,8 @@ export function ForecastDashboard() {
     isLoading: forecastLoading,
     error: forecastError,
   } = useForecast(activePipelineId, period);
+
+  const { data: accuracy } = useForecastAccuracy(activePipelineId);
 
   const refreshMutation = useForecastRefresh();
 
@@ -234,6 +240,33 @@ export function ForecastDashboard() {
               </Grid>
             ))}
           </Grid>
+
+          {/* Accuracy card */}
+          {accuracy && (
+            <Paper variant="outlined" sx={{ p: 2, mt: 3 }}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                {tf?.accuracy?.title ?? 'Forecast Accuracy'}
+              </Typography>
+              {accuracy.avgMape !== null ? (
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                  <Typography variant="h4" fontWeight={700}>
+                    {accuracy.avgMape.toFixed(1)}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {tf?.accuracy?.mape ?? 'MAPE'}
+                    {' · '}
+                    {accuracy.snapshots.length}{' '}
+                    {(tf?.period ?? 'periods').toLowerCase()}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {tf?.accuracy?.noAccuracyDescription ??
+                    'Accuracy will be calculated once forecast periods close.'}
+                </Typography>
+              )}
+            </Paper>
+          )}
 
           {/* Forecast vs Actuals */}
           <Box sx={{ mt: 3 }}>

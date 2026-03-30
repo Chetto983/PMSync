@@ -174,6 +174,48 @@ export class ForecastService {
     return updated;
   }
 
+  /**
+   * Get accuracy metrics for past forecasts.
+   */
+  async getAccuracy(tenantId: string, pipelineId: string) {
+    const snapshots = await this.prisma.forecastSnapshot.findMany({
+      where: {
+        tenantId,
+        pipelineId,
+        mape: { not: null },
+      },
+      select: {
+        periodStart: true,
+        period: true,
+        predictedRevenue: true,
+        actualRevenue: true,
+        mape: true,
+        createdAt: true,
+      },
+      orderBy: { periodStart: 'asc' },
+    });
+
+    const mapeValues = snapshots
+      .map((s) => s.mape)
+      .filter((m): m is number => m !== null);
+
+    const avgMape =
+      mapeValues.length > 0
+        ? mapeValues.reduce((a, b) => a + b, 0) / mapeValues.length
+        : null;
+
+    return {
+      snapshots: snapshots.map((s) => ({
+        periodStart: s.periodStart.toISOString(),
+        period: s.period,
+        predicted: Number(s.predictedRevenue),
+        actual: s.actualRevenue ? Number(s.actualRevenue) : null,
+        mape: s.mape,
+      })),
+      avgMape: avgMape !== null ? Math.round(avgMape * 10000) / 100 : null, // As percentage
+    };
+  }
+
   // ---- Private helpers ----
 
   private monthsToQuarters(months: MonthlyAggregate[]): number[] {

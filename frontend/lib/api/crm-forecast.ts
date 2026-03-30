@@ -45,6 +45,19 @@ export interface ForecastRefreshResult {
   actualsUpdated: number;
 }
 
+export interface AccuracySnapshot {
+  periodStart: string;
+  period: string;
+  predicted: number;
+  actual: number | null;
+  mape: number | null;
+}
+
+export interface ForecastAccuracyResponse {
+  snapshots: AccuracySnapshot[];
+  avgMape: number | null;
+}
+
 // ---- API ----
 
 const BASE = '/crm/forecast';
@@ -65,4 +78,9 @@ export const crmForecastApi = {
       params,
     });
   },
+
+  getAccuracy: (pipelineId: string) =>
+    apiClient.get<ForecastAccuracyResponse>(`${BASE}/accuracy`, {
+      params: { pipelineId },
+    }),
 };
