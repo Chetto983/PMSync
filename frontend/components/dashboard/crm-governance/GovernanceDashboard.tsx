@@ -23,6 +23,7 @@ import { useGovernanceOverview } from '@/hooks/queries/use-crm-governance';
 import { AccuracyTab } from './AccuracyTab';
 import { CostsTab } from './CostsTab';
 import { DriftTab } from './DriftTab';
+import { ModelsTab } from './ModelsTab';
 
 interface KPICardProps {
   icon: React.ReactNode;
@@ -167,9 +168,7 @@ export function GovernanceDashboard() {
         <DriftTab />
       </TabPanel>
       <TabPanel value={tab} index={3}>
-        <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
-          {tg?.models?.noData ?? 'No models registered yet'}
-        </Typography>
+        <ModelsTab />
       </TabPanel>
     </Box>
   );

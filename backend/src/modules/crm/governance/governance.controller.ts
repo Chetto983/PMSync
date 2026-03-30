@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Body,
   Query,
   Req,
   UseGuards,
@@ -16,7 +17,8 @@ import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { GovernanceService } from './governance.service';
 import { DriftDetectionService } from './drift-detection.service';
-import { GovernanceQueryDto } from './dto/governance.dto';
+import { ModelRetrainService } from './model-retrain.service';
+import { GovernanceQueryDto, RetrainModelDto } from './dto/governance.dto';
 
 @ApiTags('CRM - AI Governance')
 @ApiBearerAuth()
@@ -26,6 +28,7 @@ export class GovernanceController {
   constructor(
     private readonly governanceService: GovernanceService,
     private readonly driftDetectionService: DriftDetectionService,
+    private readonly modelRetrainService: ModelRetrainService,
   ) {}
 
   @Get('overview')
@@ -80,5 +83,25 @@ export class GovernanceController {
   @ApiResponse({ status: 200, description: 'Drift check completed' })
   async runDriftCheck(@Req() req: any) {
     return this.driftDetectionService.checkLeadScoringDrift(req.user.tenantId);
+  }
+
+  @Get('models')
+  @ApiOperation({ summary: 'Get model registry for tenant' })
+  @ApiResponse({ status: 200, description: 'Model registry returned' })
+  async getModels(@Req() req: any) {
+    return this.modelRetrainService.getModelRegistry(req.user.tenantId);
+  }
+
+  @Post('models/retrain')
+  @ApiOperation({ summary: 'Trigger model retraining' })
+  @ApiResponse({ status: 200, description: 'Retrain job enqueued' })
+  async triggerRetrain(
+    @Req() req: any,
+    @Body() dto: RetrainModelDto,
+  ) {
+    return this.modelRetrainService.triggerRetrain(
+      req.user.tenantId,
+      dto.modelType,
+    );
   }
 }

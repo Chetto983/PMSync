@@ -45,6 +45,14 @@ export interface DriftResult {
   checkedAt: string;
 }
 
+export interface ModelRegistryEntry {
+  modelType: string;
+  version: string;
+  isActive: boolean;
+  lastTrained: string;
+  accuracy: number | null;
+}
+
 export type TimeRange = '7d' | '30d' | '90d';
 
 // ---- API ----
@@ -69,4 +77,10 @@ export const crmGovernanceApi = {
 
   runDriftCheck: () =>
     apiClient.post<DriftResult[]>(`${BASE}/drift/check`),
+
+  getModels: () =>
+    apiClient.get<ModelRegistryEntry[]>(`${BASE}/models`),
+
+  triggerRetrain: (modelType: string) =>
+    apiClient.post<{ jobId: string }>(`${BASE}/models/retrain`, { modelType }),
 };

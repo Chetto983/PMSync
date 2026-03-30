@@ -88,3 +88,28 @@ export function useRunDriftCheck() {
     },
   });
 }
+
+export function crmGovernanceModelsOptions() {
+  return queryOptions({
+    queryKey: crmGovernanceKeys.models(),
+    queryFn: () => crmGovernanceApi.getModels().then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function useGovernanceModels() {
+  return useQuery(crmGovernanceModelsOptions());
+}
+
+export function useTriggerRetrain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (modelType: string) =>
+      crmGovernanceApi.triggerRetrain(modelType).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: crmGovernanceKeys.models() });
+    },
+  });
+}

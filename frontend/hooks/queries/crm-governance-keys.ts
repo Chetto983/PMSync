@@ -9,4 +9,6 @@ export const crmGovernanceKeys = {
     [...crmGovernanceKeys.all, 'cost-trend'] as const,
   drift: () =>
     [...crmGovernanceKeys.all, 'drift'] as const,
+  models: () =>
+    [...crmGovernanceKeys.all, 'models'] as const,
 };

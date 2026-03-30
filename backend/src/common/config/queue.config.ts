@@ -444,4 +444,7 @@ export const QUEUE_NAMES = {
 
   // CRM contact import (async CSV processing with progress)
   CRM_CONTACT_IMPORT: 'crm-contact-import',
+
+  // CRM model retraining (AI governance, Sprint 14)
+  CRM_MODEL_RETRAIN: 'crm-model-retrain',
 } as const;
