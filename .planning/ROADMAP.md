@@ -130,7 +130,7 @@
 - [x] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection (completed 2026-03-30)
 - [x] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle (completed 2026-03-30)
 - [x] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD (completed 2026-03-30)
-- [ ] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency
+- [x] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency (completed 2026-03-30)
 
 ## Phase Details
 
@@ -296,7 +296,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 122-01-PLAN.md -- Validation scripts + rate tier fix (XCUT-01, XCUT-02, XCUT-03)
-- [ ] 122-02-PLAN.md -- Live validation run + bug fixes + human checkpoint (XCUT-01, XCUT-02, XCUT-03)
+- [x] 122-02-PLAN.md -- Live validation run + bug fixes + human checkpoint (XCUT-01, XCUT-02, XCUT-03)
 
 ## Progress
 
@@ -312,7 +312,7 @@ Plans:
 | 119. Folder Operations | 2/2 | Complete    | 2026-03-30 |
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
-| 122. Cross-cutting Validation | 1/2 | In Progress|  |
+| 122. Cross-cutting Validation | 2/2 | Complete    | 2026-03-30 |
 
 ---
 *Roadmap created: 2026-02-09*
