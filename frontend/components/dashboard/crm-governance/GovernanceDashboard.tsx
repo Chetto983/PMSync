@@ -21,6 +21,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useGovernanceOverview } from '@/hooks/queries/use-crm-governance';
 import { AccuracyTab } from './AccuracyTab';
+import { CostsTab } from './CostsTab';
 
 interface KPICardProps {
   icon: React.ReactNode;
@@ -159,9 +160,7 @@ export function GovernanceDashboard() {
         <AccuracyTab />
       </TabPanel>
       <TabPanel value={tab} index={1}>
-        <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
-          {tg?.costs?.noData ?? 'No cost data available yet'}
-        </Typography>
+        <CostsTab />
       </TabPanel>
       <TabPanel value={tab} index={2}>
         <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
