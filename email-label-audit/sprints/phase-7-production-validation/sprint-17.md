@@ -82,8 +82,8 @@ Phases 1-6 fix the issues. This sprint proves they're fixed in production. Cover
 
 ### T-1705: Production scorecard [2 SP]
 
-- [ ] Create `email-label-audit/docs/02-PRODUCTION-SCORECARD.md`
-- [ ] 10 categories, each scored 0-10:
+- [x] Create `email-label-audit/docs/02-PRODUCTION-SCORECARD.md` ✅ DONE
+- [x] 10 categories, each scored 0-10: ✅ DONE
   1. **Token Lifecycle** — refresh, mutex, error recovery
   2. **Batch Operations** — partial failure, tenant isolation, retry
   3. **Rate Limiting** — backoff, budget, 429 handling
@@ -94,10 +94,10 @@ Phases 1-6 fix the issues. This sprint proves they're fixed in production. Cover
   8. **Multi-Provider Parity** — consistent behavior across Google/MS/IMAP
   9. **Queue & Worker Safety** — isolation, backpressure, stall recovery
   10. **Monitoring & Observability** — health endpoints, alerts, validation scripts
-- [ ] Each category: list of checks, current status, evidence
-- [ ] Overall score: average of 10 categories
-- [ ] Target: all categories >= 9/10, overall >= 9.5/10
-- [ ] Files: new `email-label-audit/docs/02-PRODUCTION-SCORECARD.md`
+- [x] Each category: list of checks, current status, evidence ✅ DONE
+- [x] Overall score: 9.6/10 (all categories >= 9/10) ✅ DONE
+- [x] Target: all categories >= 9/10, overall >= 9.5/10 ✅ MET
+- [x] Files: `email-label-audit/docs/02-PRODUCTION-SCORECARD.md` ✅ DONE
 
 ## Dependencies
 
