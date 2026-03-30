@@ -123,7 +123,7 @@
 - [x] **Phase 112: Full Sync Validation** - Verify full sync downloads all emails/folders correctly across Gmail, Outlook, IMAP (completed 2026-03-26)
 - [x] **Phase 113: Incremental Sync & Webhooks** - Verify delta sync and webhook-triggered sync detect changes correctly (completed 2026-03-26)
 - [x] **Phase 114: Sync-back Operations** - Verify local state changes propagate back to all three providers (completed 2026-03-26)
-- [ ] **Phase 115: Email List & Thread Reading** - Verify list filtering, pagination, thread grouping, and single email retrieval
+- [x] **Phase 115: Email List & Thread Reading** - Verify list filtering, pagination, thread grouping, and single email retrieval
 - [x] **Phase 116: Attachments & Search** - Verify attachment download (S3 + on-demand), folder stats, and full-text search (completed 2026-03-26)
 - [x] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers (completed 2026-03-27)
 - [x] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations (completed 2026-03-30)
@@ -163,8 +163,8 @@ Plans:
   5. Microsoft Graph webhook triggers an automatic sync when a new email arrives on the provider
 **Plans**: 2 plans
 Plans:
-- [ ] 113-01-PLAN.md -- Incremental sync validation for Gmail, Outlook, IMAP (SYNC-04, SYNC-05, SYNC-06)
-- [ ] 113-02-PLAN.md -- Webhook sync validation for Gmail Pub/Sub and Microsoft Graph (SYNC-07, SYNC-08)
+- [x] 113-01-PLAN.md -- Incremental sync validation for Gmail, Outlook, IMAP (SYNC-04, SYNC-05, SYNC-06)
+- [x] 113-02-PLAN.md -- Webhook sync validation for Gmail Pub/Sub and Microsoft Graph (SYNC-07, SYNC-08)
 
 ### Phase 114: Sync-back Operations
 **Goal**: State changes made locally in PMSync propagate correctly to the remote provider
@@ -193,8 +193,8 @@ Plans:
   5. Single email GET returns the full HTML body, all headers, and complete metadata
 **Plans**: 2 plans
 Plans:
-- [ ] 115-01-PLAN.md -- Validation scripts for folder filter, compound filters, pagination, thread view, single email GET (READ-01, READ-02, READ-03, READ-04, READ-05)
-- [ ] 115-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (READ-01, READ-02, READ-03, READ-04, READ-05)
+- [x] 115-01-PLAN.md -- Validation scripts for folder filter, compound filters, pagination, thread view, single email GET (READ-01, READ-02, READ-03, READ-04, READ-05)
+- [x] 115-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (READ-01, READ-02, READ-03, READ-04, READ-05)
 
 ### Phase 116: Attachments & Search
 **Goal**: Users can download attachments and search emails reliably regardless of storage location
@@ -337,7 +337,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 112. Full Sync Validation | 2/2 | Complete    | 2026-03-26 |
-| 113. Incremental Sync & Webhooks | 0/2 | Complete    | 2026-03-26 |
+| 113. Incremental Sync & Webhooks | 2/2 | Complete    | 2026-03-26 |
 | 114. Sync-back Operations | 2/2 | Complete    | 2026-03-26 |
 | 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |

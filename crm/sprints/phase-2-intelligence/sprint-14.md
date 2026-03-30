@@ -17,11 +17,11 @@
 - [x] T-1403 — Cost tracking per AI feature: estensione `AiRunLedger` con campo `prediction_type` (lead_score, churn, forecast, nba, chat), aggregazione costi per tipo e periodo — [2 SP] — ✅ DONE
 - [x] T-1404 — Tab Costs: breakdown costo per feature AI, trend mensile, proiezione costo prossimo mese basata su volume corrente — [1 SP] — ✅ DONE
 - [x] T-1405 — Data drift detection service: confronto distribuzione features tra training set e ultimo batch di inference (PSI — Population Stability Index), alert se PSI > 0.2 — [2 SP] — ✅ DONE
-- [ ] T-1406 — Tab Drift: visualizzazione PSI per ogni feature di ogni modello, evidenziazione features con drift significativo, storico drift — [1 SP] — 📋 TODO
-- [ ] T-1407 — Model retraining trigger: pulsante manuale "Retrain" per ogni modello + alert automatico quando accuracy scende sotto soglia configurabile. Job BullMQ `model-retrain` — [2 SP] — 📋 TODO
-- [ ] T-1408 — Phase 2 bug fixes: revisione e fix di tutti i bug aperti su lead scoring, forecasting, churn, NBA accumulati negli sprint 09-13 — [2 SP] — 📋 TODO
-- [ ] T-1409 — Performance review: analisi query lente (Prisma query logging), ottimizzazione indici, tuning cache Redis (TTL, eviction policy) per tutti i servizi intelligence — [1 SP] — 📋 TODO
-- [ ] T-1410 — Integration test suite Phase 2: test end-to-end che copre il flusso completo (feature compute → scoring → forecast → churn → NBA → governance) — [1 SP] — 📋 TODO
+- [x] T-1406 — Tab Drift: visualizzazione PSI per ogni feature di ogni modello, evidenziazione features con drift significativo, storico drift — [1 SP] — ✅ DONE
+- [x] T-1407 — Model retraining trigger: pulsante manuale "Retrain" per ogni modello + alert automatico quando accuracy scende sotto soglia configurabile. Job BullMQ `model-retrain` — [2 SP] — ✅ DONE
+- [x] T-1408 — Phase 2 bug fixes: revisione e fix di tutti i bug aperti su lead scoring, forecasting, churn, NBA accumulati negli sprint 09-13 — [2 SP] — ✅ DONE
+- [x] T-1409 — Performance review: analisi query lente (Prisma query logging), ottimizzazione indici, tuning cache Redis (TTL, eviction policy) per tutti i servizi intelligence — [1 SP] — ✅ DONE
+- [x] T-1410 — Integration test suite Phase 2: test end-to-end che copre il flusso completo (feature compute → scoring → forecast → churn → NBA → governance) — [1 SP] — ✅ DONE
 
 ---
 

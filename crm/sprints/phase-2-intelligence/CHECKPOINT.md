@@ -1,76 +1,62 @@
-# Sprint 13 — Checkpoint
+# Sprint 14 — Checkpoint
 
 ## Stato
-
-- **Sprint:** 13 — Next Best Action
-- **Last Task Completed:** T-1310 — Type-check validation, translations, query hooks
+- **Sprint:** 14 — AI Governance & Phase 2 Wrap-up
+- **Last Task Completed:** T-1410 — Integration test suite Phase 2
 - **Next Task:** Sprint complete — all tasks done
 - **Tasks Done:** 10/10
-- **SP Completed:** 17/17
-- **Last Updated:** 2026-03-30 15:30
+- **SP Completed:** 16/16
+- **Last Updated:** 2026-03-30 16:05
 
 ## Last Modified Files
-
-- backend/prisma/schema.prisma (NBAAction model, relations on Tenant/CrmDeal/Contact)
-- backend/src/modules/crm/nba/nba-context.types.ts (new — NBADealContext, NBAContactContext)
-- backend/src/modules/crm/nba/nba-context.service.ts (new — context gathering)
-- backend/src/modules/crm/nba/nba-ranking.service.ts (new — weighted rule engine)
-- backend/src/modules/crm/nba/nba.service.ts (new — orchestrator: context + ranking + persistence)
-- backend/src/modules/crm/nba/nba.controller.ts (new — REST endpoints)
-- backend/src/modules/crm/nba/nba.module.ts (new — module wiring)
-- backend/src/modules/crm/nba/dto/nba.dto.ts (new — UpdateNBAStatusDto)
-- backend/src/modules/crm/crm.module.ts (NBAModule added)
-- backend/src/modules/ai-chat/tools/crm-tools.service.ts (get_next_best_action tool)
-- backend/src/modules/ai-chat/ai-chat.module.ts (NBAModule import)
-- frontend/lib/api/crm-nba.ts (new — API module with types)
-- frontend/hooks/queries/crm-nba-keys.ts (new — query keys)
-- frontend/hooks/queries/use-crm-nba.ts (new — query hooks)
-- frontend/hooks/queries/index.ts (NBA exports)
-- frontend/components/dashboard/crm-nba/SuggestionCard.tsx (new)
-- frontend/components/dashboard/crm-nba/NBASection.tsx (new)
-- frontend/components/dashboard/crm-nba/NBAEffectiveness.tsx (new)
-- frontend/components/dashboard/crm-deals/DealDetail.tsx (NBASection integration)
-- frontend/locales/en.ts (NBA translations)
-- frontend/locales/it.ts (NBA translations)
-- frontend/locales/index.ts (NBA type definitions)
+- backend/prisma/schema.prisma (PredictionType enum, DriftCheck model, closedAt index)
+- backend/src/modules/crm/governance/governance.service.ts (overview, accuracy, costs, trend)
+- backend/src/modules/crm/governance/governance.controller.ts (all endpoints)
+- backend/src/modules/crm/governance/governance.module.ts (3 providers)
+- backend/src/modules/crm/governance/dto/governance.dto.ts
+- backend/src/modules/crm/governance/drift-detection.service.ts (PSI calculation)
+- backend/src/modules/crm/governance/model-retrain.service.ts (BullMQ retrain)
+- backend/src/modules/crm/crm.module.ts (GovernanceModule registered)
+- backend/src/modules/ai/services/ai-run-ledger.service.ts (predictionType auto-populate)
+- backend/src/modules/crm/lead-scoring/firmographic-feature.service.ts (tenantId fix)
+- backend/src/modules/crm/nba/nba.service.ts (status transition validation)
+- backend/src/common/config/queue.config.ts (CRM_MODEL_RETRAIN queue)
+- backend/src/modules/crm/__tests__/phase-2-integration.test.ts (8 tests)
+- frontend/pages/dashboard/crm/ai-governance.tsx (page)
+- frontend/components/dashboard/crm-governance/GovernanceDashboard.tsx (main)
+- frontend/components/dashboard/crm-governance/AccuracyTab.tsx (recharts)
+- frontend/components/dashboard/crm-governance/CostsTab.tsx (table + bar chart)
+- frontend/components/dashboard/crm-governance/DriftTab.tsx (PSI table)
+- frontend/components/dashboard/crm-governance/ModelsTab.tsx (registry + retrain)
+- frontend/lib/api/crm-governance.ts (API module)
+- frontend/hooks/queries/use-crm-governance.ts (TanStack Query hooks)
+- frontend/hooks/queries/crm-governance-keys.ts (query keys)
+- frontend/components/layout/Sidebar.tsx (nav entry)
+- frontend/locales/en.ts, it.ts, index.ts (governance translations)
 
 ## Key Decisions Made
-
-- T-1301: NBAAction uses tenantId for Contact composite FK (same pattern as ChurnSignal, LeadScore)
-- T-1302: Aggregates best engagement score and worst churn risk across all deal contacts
-- T-1303: 7 rule categories with confidence threshold >= 0.4, max 3 results
-- T-1304: Controller routes effectiveness/stats as /crm/nba/effectiveness/stats (before :dealId param catch)
-- T-1305: SuggestionCard uses lucide-react icons mapped per action type, collapsible reasoning
-- T-1306: NBASection placed between pipeline progress bar and tabs (no sidebar — current layout is single-column)
-- T-1307: Accept/dismiss tracking reuses useUpdateNbaStatus mutation already built in T-1305
-- T-1308: Tool added to existing CrmToolsService, NBAModule imported in AiChatModule
-- T-1309: Table-based effectiveness view with color-coded acceptance rate progress bars
+- Used Recharts (already installed) instead of MUI X Charts (not installed)
+- PredictionType enum auto-populated from runType mapping in ledger service
+- Drift detection uses PSI with 10 equal-width bins and Laplace smoothing
+- PSI thresholds: <0.1 stable, 0.1-0.2 warning, >0.2 critical
+- Model registry shows known types even without evaluations (defaults to rule-based)
+- BullMQ queue for retrain jobs (fire-and-forget, worker to be implemented when ML pipeline exists)
 
 ## Patterns Established
+- GovernanceModule pattern: service + controller + drift + retrain in single module
+- Frontend governance tabs: each tab is a separate component with own data fetching
+- Cost aggregation uses predictionType with legacy runType fallback for pre-Sprint 14 data
 
-- NBA module at `backend/src/modules/crm/nba/`
-- NBA API module: `frontend/lib/api/crm-nba.ts`
-- NBA components: `frontend/components/dashboard/crm-nba/`
-- Shared types in `nba-context.types.ts` to avoid circular deps
-- Context gathering pattern: gather all signals in parallel, aggregate per-contact
+## Bug Fixes Applied (T-1408)
+- firmographic-feature.service.ts: findUnique → findFirst with tenantId (defense-in-depth)
+- nba.service.ts: Status transition validation (DISMISSED/EXECUTED are terminal)
 
-## Blockers / Notes
-
-- Effectiveness stats route must be defined before :dealId param route in controller (route ordering)
-- Competitor mentions feature (T-1302 spec) not implemented — no competitor data model exists
-- Action execution flow opens correct path via status tracking, not full automation
+## Performance Fixes Applied (T-1409)
+- Added @@index([tenantId, closedAt]) on CrmDeal for forecast queries
+- Parallelized all 4 queries in GovernanceService.getOverview() (3 round trips → 1)
 
 ## Validation Status
-
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
+- Integration tests: ✅ 8/8 passing
 - Circular deps: ✅ zero
-- Prisma generate: ✅ done
-- DB push: ✅ schema synced to Railway
-
-## Production Validation (2026-03-30)
-
-- Railway `/health`: ✅ 200 — DB, Redis, Mistral up
-- `GET /crm/nba/test-deal-id`: ✅ 401 (route registered, auth guard active)
-- `GET /crm/nba/effectiveness/stats`: ✅ 401 (route registered, auth guard active)
-- Vercel `/dashboard/crm/deals`: ✅ 307 (auth redirect, page exists)
