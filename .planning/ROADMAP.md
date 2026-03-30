@@ -128,7 +128,7 @@
 - [x] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers (completed 2026-03-27)
 - [x] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations (completed 2026-03-30)
 - [x] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection (completed 2026-03-30)
-- [ ] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle
+- [x] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle (completed 2026-03-30)
 - [ ] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD
 - [ ] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency
 
@@ -266,9 +266,9 @@ Plans:
   5. Webhook health endpoint accurately reports subscription status for both Gmail and Outlook
 **Plans**: 3 plans
 Plans:
-- [ ] 120-01-PLAN.md -- Queue health validation scripts (INFRA-01, INFRA-02)
-- [ ] 120-02-PLAN.md -- Webhook lifecycle validation scripts (INFRA-03, INFRA-04, INFRA-05)
-- [ ] 120-03-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-01..05)
+- [x] 120-01-PLAN.md -- Queue health validation scripts (INFRA-01, INFRA-02)
+- [x] 120-02-PLAN.md -- Webhook lifecycle validation scripts (INFRA-03, INFRA-04, INFRA-05)
+- [x] 120-03-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-01..05)
 
 ### Phase 121: Scheduling, Signatures & Templates
 **Goal**: Scheduled emails send at the right time, and signature/template management works end-to-end
@@ -280,11 +280,7 @@ Plans:
   3. Signature CRUD works and the default signature selection persists across sessions
   4. Template CRUD works, including duplicate, and the default template selection persists
   5. Sent emails include the user's selected default signature in the message body
-**Plans**: 3 plans
-Plans:
-- [ ] 120-01-PLAN.md -- Queue health validation scripts (INFRA-01, INFRA-02)
-- [ ] 120-02-PLAN.md -- Webhook lifecycle validation scripts (INFRA-03, INFRA-04, INFRA-05)
-- [ ] 120-03-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-01..05)
+**Plans**: Not yet planned
 
 ### Phase 122: Cross-cutting Validation
 **Goal**: Security, observability, and API contract guarantees hold across all email operations
@@ -294,11 +290,7 @@ Plans:
   1. No email endpoint returns data belonging to a different tenant — verified via cross-tenant request script
   2. Rate limiting enforces the correct tier (read/safe-write/destructive-write/send) on every email endpoint
   3. All error responses follow the standard envelope format with a correlation ID present in every response
-**Plans**: 3 plans
-Plans:
-- [ ] 120-01-PLAN.md -- Queue health validation scripts (INFRA-01, INFRA-02)
-- [ ] 120-02-PLAN.md -- Webhook lifecycle validation scripts (INFRA-03, INFRA-04, INFRA-05)
-- [ ] 120-03-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-01..05)
+**Plans**: Not yet planned
 
 ## Progress
 
@@ -312,7 +304,7 @@ Plans:
 | 117. Email Send & Reply/Forward | 3/3 | Complete   | 2026-03-27 |
 | 118. Drafts & Bulk Operations | 2/2 | Complete    | 2026-03-30 |
 | 119. Folder Operations | 2/2 | Complete    | 2026-03-30 |
-| 120. Queue & Webhook Infrastructure | 0/3 | Not started | - |
+| 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
 | 121. Scheduling, Signatures & Templates | 0/? | Not started | - |
 | 122. Cross-cutting Validation | 0/? | Not started | - |
 
