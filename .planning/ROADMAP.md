@@ -312,9 +312,10 @@ Plans:
   4. INFRA-09: Template CRUD verified on live production with API response confirmation
   5. INFRA-10: Sent email body contains the selected signature content (verified from API response)
   6. VERIFICATION.md created for Phase 121 with pass/fail per requirement
-**Plans**: 0 plans
+**Plans**: 2 plans
 Plans:
-(none yet — phase not started)
+- [ ] 123-01-PLAN.md -- Enhance validation scripts for INFRA-06 timed delivery + INFRA-10 signature content
+- [ ] 123-02-PLAN.md -- Live validation run + VERIFICATION.md creation + human approval
 
 ### Phase 124: Documentation & Traceability Cleanup
 **Goal**: Fix all documentation inconsistencies found by milestone audit — stale checkboxes, wrong counts, stale roadmap entries, missing qualifiers
@@ -347,7 +348,7 @@ Plans:
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
 | 122. Cross-cutting Validation | 2/2 | Complete    | 2026-03-30 |
-| 123. Phase 121 Verification Gap Closure | 0/0 | Not Started | — |
+| 123. Phase 121 Verification Gap Closure | 0/2 | In Progress | — |
 | 124. Documentation & Traceability Cleanup | 1/1 | Complete    | 2026-03-30 |
 
 ---
