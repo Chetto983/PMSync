@@ -188,6 +188,9 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
           // Renew Microsoft subscriptions
           await this.microsoftWebhook.renewExpiringSubscriptions();
 
+          // IF-H3: Emit monitoring metrics after renewal
+          await this.getHealthStatus();
+
           this.logger.log('Webhook renewal completed');
         },
         { maxRetries: 1 }, // Only try once - if another instance is running, skip
@@ -330,12 +333,13 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
   }
 
   /**
-   * Health check for webhook system
+   * IF-H3: Enhanced health check with polling/webhook metrics
    */
   async getHealthStatus(): Promise<{
     healthy: boolean;
     gmail: { active: number; expiring: number };
     microsoft: { active: number; expiring: number; staleRenewals?: number };
+    monitoring: { accountsWithActiveWebhook: number; accountsPolling: number; renewalFailures: number };
     issues: string[];
   }> {
     const issues: string[] = [];
@@ -343,7 +347,18 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
     const gmailStats = await this.gmailWebhook.getStats();
     const microsoftStats = await this.microsoftWebhook.getStats();
 
-    // Check for issues
+    // IF-H3: Count accounts with active webhooks vs polling
+    const totalActiveProviders = await this.prisma.providerConfig.count({
+      where: { isActive: true, providerType: { in: ['google', 'microsoft'] } },
+    });
+    const accountsWithActiveWebhook = await this.prisma.webhookSubscription.count({
+      where: { isActive: true },
+    });
+    const accountsPolling = Math.max(0, totalActiveProviders - accountsWithActiveWebhook);
+    const renewalFailures = await this.prisma.webhookSubscription.count({
+      where: { isActive: false, errorCount: { gt: 0 } },
+    });
+
     if (
       (gmailStats.expiringWithin24h ?? 0) > 0 ||
       (microsoftStats.expiringWithin24h ?? 0) > 0
@@ -364,6 +379,17 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
       issues.push('Multiple webhooks with errors detected');
     }
 
+    if (accountsPolling > 0) {
+      issues.push(`${accountsPolling} accounts falling back to polling (no active webhook)`);
+    }
+
+    // IF-H3: Log structured monitoring metrics
+    this.logger.log(
+      `[WEBHOOK-MONITOR] active=${accountsWithActiveWebhook}, polling=${accountsPolling}, ` +
+      `renewalFailures=${renewalFailures}, gmail=${gmailStats.activeSubscriptions ?? 0}, ` +
+      `microsoft=${microsoftStats.activeSubscriptions ?? 0}`,
+    );
+
     return {
       healthy: issues.length === 0,
       gmail: {
@@ -375,6 +401,7 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
         expiring: microsoftStats.expiringWithin24h ?? 0,
         staleRenewals: (microsoftStats as any)?.staleRenewals ?? 0,
       },
+      monitoring: { accountsWithActiveWebhook, accountsPolling, renewalFailures },
       issues,
     };
   }
