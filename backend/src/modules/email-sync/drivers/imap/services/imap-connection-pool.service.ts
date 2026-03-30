@@ -20,6 +20,7 @@ import {
   ServerCapabilities,
   POOL_CONFIG,
 } from '../interfaces/imap-internal.interface';
+import { classifyImapError } from '../imap-errors';
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class ImapConnectionPoolService {
@@ -117,7 +118,12 @@ export class ImapConnectionPoolService {
           logger: false,
         });
 
-        await client.connect();
+        try {
+          await client.connect();
+        } catch (connectErr) {
+          // T-1401: Classify connection errors for callers to handle appropriately
+          throw classifyImapError(connectErr);
+        }
 
         // Detect server capabilities after connection
         this.detectServerCapabilities(client);
@@ -210,6 +216,9 @@ export class ImapConnectionPoolService {
     const client = await this.acquireConnection();
     try {
       return await operation(client);
+    } catch (error) {
+      // T-1401: Classify operation errors for callers
+      throw classifyImapError(error);
     } finally {
       this.releaseConnection(client);
     }

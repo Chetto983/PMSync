@@ -8,5 +8,8 @@ export { ImapMessageService } from './services/imap-message.service';
 export { ImapIdleService } from './services/imap-idle.service';
 export { ImapSendService } from './services/imap-send.service';
 
+// Error hierarchy (T-1401)
+export * from './imap-errors';
+
 // Internal interfaces (exported for testing)
 export * from './interfaces/imap-internal.interface';
