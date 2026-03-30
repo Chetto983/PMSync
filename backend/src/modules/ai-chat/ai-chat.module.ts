@@ -8,6 +8,7 @@ import { CalendarModule } from '../calendar/calendar.module';
 import { ContactsModule } from '../contacts/contacts.module';
 import { AiModule } from '../ai/ai.module';
 import { ReminderModule } from '../reminder/reminder.module';
+import { NBAModule } from '../crm/nba/nba.module';
 import { AiChatController } from './controllers/ai-chat.controller';
 import { AiChatService } from './services/ai-chat.service';
 import { ConversationService } from './services/conversation.service';
@@ -61,6 +62,7 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     ContactsModule, // ContactsService
     AiModule, // EmbeddingsService, KnowledgeBaseService
     ReminderModule, // ReminderService (for AI reminder tools)
+    NBAModule, // Sprint 13: NBAService for AI chat tool
   ],
   controllers: [AiChatController],
   providers: [

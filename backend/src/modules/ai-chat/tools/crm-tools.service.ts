@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NBAService } from '../../crm/nba/nba.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
 import {
   TOOL_REGISTRY_SERVICE,
@@ -45,6 +46,9 @@ const schemas = {
       .optional()
       .describe('Max activities (default: 20)'),
   }),
+  get_next_best_action: z.object({
+    dealId: z.string().describe('Deal ID to get recommended actions for'),
+  }),
 };
 
 @Injectable()
@@ -53,6 +57,7 @@ export class CrmToolsService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly nbaService: NBAService,
     @Inject(TOOL_REGISTRY_SERVICE)
     private readonly toolRegistry: IToolRegistryService,
   ) {}
@@ -84,6 +89,14 @@ export class CrmToolsService implements OnModuleInit {
         requiresApproval: false,
         inputSchema: schemas.get_deal_timeline,
       },
+      {
+        name: 'get_next_best_action',
+        description:
+          'Get AI-recommended next best actions for a CRM deal',
+        riskLevel: 'LOW' as const,
+        requiresApproval: false,
+        inputSchema: schemas.get_next_best_action,
+      },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
@@ -104,6 +117,7 @@ export class CrmToolsService implements OnModuleInit {
       get_deals_by_pipeline: this.buildGetDealsByPipeline(tenantId),
       move_deal_stage: this.buildMoveDealStage(tenantId),
       get_deal_timeline: this.buildGetDealTimeline(tenantId),
+      get_next_best_action: this.buildGetNextBestAction(tenantId),
     };
   }
 
@@ -276,6 +290,42 @@ export class CrmToolsService implements OnModuleInit {
           to: targetStage.name,
           probability: targetStage.probability,
         });
+      },
+    });
+  }
+
+  // ---- T-1308: getNextBestAction ----
+
+  private buildGetNextBestAction(tenantId: string) {
+    return tool({
+      description:
+        'Get AI-recommended next best actions for a CRM deal. ' +
+        'Analyzes deal context (stage, engagement, churn risk, activity) ' +
+        'and returns top 3 recommended actions with reasoning and impact scores.',
+      inputSchema: schemas.get_next_best_action,
+      execute: async (args) => {
+        try {
+          const result = await this.nbaService.getRecommendations(
+            tenantId,
+            args.dealId,
+          );
+          return truncateToolResult({
+            deal: result.dealName,
+            stage: result.stageName,
+            recommendations: result.actions.map((a) => ({
+              type: a.actionType,
+              title: a.title,
+              reasoning: a.reasoning,
+              impact: `${a.expectedImpact}%`,
+              confidence: `${Math.round(a.confidence * 100)}%`,
+            })),
+            count: result.actions.length,
+          });
+        } catch (err: any) {
+          return truncateToolResult({
+            error: err.message ?? 'Failed to get recommendations',
+          });
+        }
       },
     });
   }
