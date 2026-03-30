@@ -769,11 +769,23 @@ export class GmailMessageService {
    * being interpreted as Gmail search commands.
    */
   private sanitizeUserQuery(query: string): string {
-    // If query already contains Gmail operators, wrap entire query in quotes
-    // to treat it as literal text search
+    // Gmail operators (keyword followed by colon)
     const GMAIL_OPERATORS = /\b(from|to|subject|in|is|has|label|filename|after|before|older|newer|deliveredto|list|cc|bcc|size|larger|smaller|category|rfc822msgid):/i;
-    if (GMAIL_OPERATORS.test(query)) {
-      // Escape existing quotes and wrap
+    // Boolean operators that modify query logic
+    const BOOLEAN_OPS = /\b(OR|AND)\b/;
+    // Negation prefix (e.g., -in:inbox, -from:user)
+    const NEGATION = /-\w+:/;
+    // Parenthesized groups or curly brace ranges
+    const GROUPING = /[(){}]/;
+
+    const needsQuoting =
+      GMAIL_OPERATORS.test(query) ||
+      BOOLEAN_OPS.test(query) ||
+      NEGATION.test(query) ||
+      GROUPING.test(query);
+
+    if (needsQuoting) {
+      // Strip quotes and re-wrap to treat entire input as literal text
       return `"${query.replace(/"/g, '')}"`;
     }
     return query;
