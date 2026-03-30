@@ -190,6 +190,10 @@ scripts/*
 !scripts/lib/validate-attachments-search.mjs
 !scripts/validate-email-send.mjs
 !scripts/lib/validate-email-send.mjs
+!scripts/validate-drafts-bulk.mjs
+!scripts/lib/validate-drafts-bulk.mjs
+!scripts/validate-folder-ops.mjs
+!scripts/lib/validate-folder-ops.mjs
 artifacts/*
 backend/scripts/screenshots/*
 backups/*
