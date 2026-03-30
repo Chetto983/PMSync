@@ -1,58 +1,52 @@
-# Sprint 12 — Checkpoint
+# Sprint 13 — Checkpoint
 
 ## Status
 
-- **Sprint:** 12 — Google Driver Hardening
-- **Last Task Completed:** T-1206 — Draft thread validation before creation
-- **Next Task:** Sprint 12 COMPLETE. Next: S13 (Microsoft Driver Hardening)
+- **Sprint:** 13 — Microsoft Driver Hardening
+- **Last Task Completed:** T-1306 — Attachment and inline image handling (pre-existing)
+- **Next Task:** Sprint 13 COMPLETE. Next: S14 (IMAP Driver Hardening)
 - **Tasks Done:** 6/6
 - **SP Completed:** 13/13
-- **Last Updated:** 2026-03-27 10:45
+- **Last Updated:** 2026-03-30 12:00
 
 ## Audit Findings Addressed
 
-- G-C1: Token refresh fails mid-operation — ✅ T-1201 (onTokenRefresh callback in withRetry)
-- G-C2: Batch API partial failures silently ignored — ✅ T-1202 (chunking + structured logging)
-- G-C3: Rate limit 429 retries amplify load — ✅ T-1203 (rate limiter + consecutive 429 pause)
-- G-C4: pageToken passed without validation — ✅ T-1204 (pageToken/messageId/labelId validation)
-- G-H1: Attachment size validated after download — ✅ T-1205 (metadata check before download)
-- G-H2: Error responses not categorized — ✅ already handled by withRetry (isRetryableError)
-- G-H3: createDraft accepts unvalidated threadId — ✅ T-1206 (threads.get validation)
-- G-H6: Search query allows operator injection — ✅ T-1204 (sanitizeUserQuery)
+- MS-C1: Token refresh fails mid-operation — ✅ T-1301 (onTokenRefresh callback, propagated to sub-services)
+- MS-C2: Folder cache tenant isolation — ✅ T-1302 (TRANSIENT scope = per-instance caches, no leak possible)
+- MS-C3: Batch 401 silently ignored — ✅ T-1303 (per-request 401 detection + targeted retry in all 4 batch methods)
+- MS-C4: Delta token age not validated — ✅ T-1304 (7-day threshold, stale tokens trigger full resync)
+- MS-H1: Rate limiter not applied to API calls — ✅ T-1305 (postBatch helper, 4 req/s, 429/Retry-After handling)
+- MS-H2: Attachment size not validated — ✅ T-1306 (pre-existing: 50MB limit, metadata-first check)
+- MS-H3: Inline images not distinguished — ✅ T-1306 (pre-existing: isInline flag, embedding skip)
 
 ## Last Modified Files
 
-- backend/src/common/utils/retry.utils.ts (T-1201: onTokenRefresh callback)
-- backend/src/modules/email-sync/drivers/google/google.driver.ts (T-1201/T-1203: token refresh + rate limiting)
-- backend/src/modules/email-sync/drivers/google/services/gmail-message.service.ts (T-1202/T-1204/T-1205)
-- backend/src/modules/email-sync/drivers/google/services/gmail-send.service.ts (T-1202/T-1206)
-- backend/src/modules/email-sync/drivers/google/services/gmail-sync.service.ts (T-1201: token refresh)
-- backend/src/modules/email-sync/services/gmail/google-sync.service.ts (T-1201: sync context for refresher)
-- backend/src/modules/email-sync/drivers/interfaces/email-driver.interface.ts (T-1202: BatchOperationResult)
+- backend/src/common/utils/retry.utils.ts (T-1305: rate limiter config 240 req/60s)
+- backend/src/modules/email-sync/drivers/microsoft/services/microsoft-message.service.ts (T-1305: postBatch helper)
+- backend/src/modules/email-sync/drivers/microsoft/services/microsoft-send.service.ts (T-1305: postBatch helper)
+- backend/src/modules/email-sync/drivers/microsoft/microsoft.driver.ts (T-1301: tokenRefresher, T-1302: providerIdBound)
+- backend/src/modules/email-sync/drivers/microsoft/services/microsoft-sync.service.ts (T-1301/T-1304)
 
 ## Key Decisions Made
 
-- T-1201: Token refresh via callback pattern (not direct ProviderTokenService injection) to avoid circular deps
-- T-1201: onTokenRefresh called at most once per withRetry invocation to prevent refresh loops
-- T-1201: Sub-services share same oauth2Client — token update propagates automatically
-- T-1202: Gmail batchModify is all-or-nothing per chunk — chunked at 1000 IDs, not per-message
-- T-1203: Global rate limiter (100 req/100s) + per-driver consecutive 429 pause (3 strikes → 60s)
-- T-1204: Search sanitization wraps user queries in quotes when Gmail operators detected
-- T-1205: Metadata fetch before download — trades 1 extra API call for bandwidth savings on large files
-- T-1206: Thread validation uses format=minimal (cheapest call), non-404 errors allowed through
+- T-1301: Token refresh via callback pattern (same as Google S12) — avoids circular deps
+- T-1302: TRANSIENT scope is the primary isolation mechanism — folder caches are per-instance
+- T-1303: Max 1 retry per batch chunk for 401s — prevents infinite loops
+- T-1304: 7-day delta token threshold — conservative (Graph API invalidates after ~30 days)
+- T-1305: Rate limiter updated from 60 req/min to 240 req/min (4 req/s) — matches Graph per-user limits
+- T-1305: All 8 batch POST calls now go through postBatch() with rate limiting + 429/Retry-After
+- T-1306: All requirements already met by existing code — no changes needed
 
 ## Patterns Established
 
-- `onTokenRefresh` callback in RetryOptions — reusable for Microsoft driver (S13)
-- `executeBatchChunked()` pattern — reusable for any Gmail batch operation
-- Rate limit guard (consecutive 429 tracking) — reusable for all drivers
-- Input validation at service boundary — validators as private methods on service class
+- `postBatch()` helper — rate-limited batch POST with 429/Retry-After handling (reusable pattern)
+- `setTokenRefresher()` propagation — driver sets once, all sub-services inherit
+- `deltaTokenUpdatedAt` validation — reusable for any provider with delta sync
 
 ## Blockers / Notes
 
-- None. Sprint 12 complete.
-- gmail-message.service.ts is 825 lines (exceeds 500-line limit) — pre-existing, needs future split
-- Phase 5 continues with S13 (Microsoft Driver Hardening)
+- None. Sprint 13 complete.
+- Phase 5 continues with S14 (IMAP Driver Hardening)
 
 ## Validation Status
 
