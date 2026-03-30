@@ -369,6 +369,8 @@ export class RagToolsService implements OnModuleInit {
         "Save a fact or preference that the AI should remember for future conversations. " +
         'Use when the user explicitly states a preference ("I prefer emails in Italian") ' +
         "or when you learn an important fact about the user during conversation. " +
+        'If the user says "remember this", "save this", "store this", or "remember this exactly", call save_memory with that content instead of just summarizing existing memories. ' +
+        'When the user asks to remember something exactly, preserve the user text verbatim in content. Do not translate or paraphrase it. ' +
         "Deduplicates automatically — if a very similar memory already exists, it updates instead of creating a duplicate. " +
         'Categories: "preference" (user preferences), "fact" (important info), ' +
         '"contact_note" (notes about specific contacts), "workflow" (user workflows). ' +

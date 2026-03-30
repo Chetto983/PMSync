@@ -25,6 +25,7 @@ import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { aiChatApi } from '@/lib/api/ai';
+import { markManualNewThreadRequested } from './thread-restore-guard';
 
 /* ------------------------------------------------------------------ */
 /*  Selection context — shared between header and each thread item    */
@@ -315,6 +316,7 @@ export function ChatThreadList() {
               <ThreadListPrimitive.New
                 className="chat-sidebar-new-btn"
                 aria-label={t.chat.threadList.newChat}
+                onClick={() => markManualNewThreadRequested()}
               >
                 <Plus size={14} strokeWidth={2.5} />
               </ThreadListPrimitive.New>

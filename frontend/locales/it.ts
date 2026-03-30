@@ -4997,6 +4997,7 @@ export const it: AppTranslations = {
   aiGovernance: {
     title: 'Governance AI',
     subtitle: 'Monitora accuratezza modelli, costi e data drift di tutte le funzionalità AI',
+    loadError: 'Impossibile caricare i dati di governance',
     tabs: {
       accuracy: 'Accuratezza',
       costs: 'Costi',
@@ -5021,6 +5022,7 @@ export const it: AppTranslations = {
       last30d: 'Ultimi 30 giorni',
       last90d: 'Ultimi 90 giorni',
       noData: 'Nessun dato di accuratezza disponibile',
+      loadError: 'Impossibile caricare le metriche di accuratezza',
     },
     costs: {
       title: 'Ripartizione Costi AI',
@@ -5032,6 +5034,7 @@ export const it: AppTranslations = {
       trend: 'Tendenza',
       projection: 'Proiezione Mese Prossimo',
       noData: 'Nessun dato di costo disponibile',
+      loadError: 'Impossibile caricare i dati di costo',
     },
     drift: {
       title: 'Rilevamento Data Drift',
@@ -5044,6 +5047,10 @@ export const it: AppTranslations = {
       critical: 'Critico',
       lastChecked: 'Ultimo Controllo',
       noData: 'Nessun dato di drift disponibile',
+      noDataHint: 'Clicca "Controlla" per analizzare le distribuzioni delle feature',
+      runCheck: 'Controlla',
+      runCheckPending: 'Controllo...',
+      loadError: 'Impossibile caricare i dati di drift',
     },
     models: {
       title: 'Registro Modelli',
@@ -5061,6 +5068,7 @@ export const it: AppTranslations = {
       enabled: 'Attivo',
       disabled: 'Disattivato',
       noData: 'Nessun modello registrato',
+      loadError: 'Impossibile caricare il registro modelli',
     },
   },
 };

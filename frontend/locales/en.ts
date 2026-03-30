@@ -5020,6 +5020,7 @@ export const en: AppTranslations = {
   aiGovernance: {
     title: 'AI Governance',
     subtitle: 'Monitor model accuracy, costs, and data drift across all AI features',
+    loadError: 'Failed to load governance data',
     tabs: {
       accuracy: 'Accuracy',
       costs: 'Costs',
@@ -5044,6 +5045,7 @@ export const en: AppTranslations = {
       last30d: 'Last 30 days',
       last90d: 'Last 90 days',
       noData: 'No accuracy data available yet',
+      loadError: 'Failed to load accuracy metrics',
     },
     costs: {
       title: 'AI Cost Breakdown',
@@ -5055,6 +5057,7 @@ export const en: AppTranslations = {
       trend: 'Trend',
       projection: 'Projected Next Month',
       noData: 'No cost data available yet',
+      loadError: 'Failed to load cost data',
     },
     drift: {
       title: 'Data Drift Detection',
@@ -5067,6 +5070,10 @@ export const en: AppTranslations = {
       critical: 'Critical',
       lastChecked: 'Last Checked',
       noData: 'No drift data available yet',
+      noDataHint: 'Click "Run Check" to analyze feature distributions',
+      runCheck: 'Run Check',
+      runCheckPending: 'Checking...',
+      loadError: 'Failed to load drift data',
     },
     models: {
       title: 'Model Registry',
@@ -5084,6 +5091,7 @@ export const en: AppTranslations = {
       enabled: 'Enabled',
       disabled: 'Disabled',
       noData: 'No models registered yet',
+      loadError: 'Failed to load model registry',
     },
   },
 };

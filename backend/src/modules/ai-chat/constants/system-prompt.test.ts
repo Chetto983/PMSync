@@ -39,4 +39,18 @@ describe("buildSystemPrompt", () => {
       "Do NOT call delete_memory to deduplicate or replace an existing memory.",
     );
   });
+
+  it("forces explicit remember requests through save_memory even when similar facts already exist", () => {
+    const prompt = buildSystemPrompt();
+
+    expect(prompt).toContain(
+      'If the user says "remember this", "save this", "store this", "keep this in mind", or "remember this exactly", call save_memory',
+    );
+    expect(prompt).toContain(
+      "Even if the fact looks similar to an existing Known Fact, still call save_memory",
+    );
+    expect(prompt).toContain(
+      "If the user asks you to remember something \"exactly\", pass the exact user-provided text into save_memory.content.",
+    );
+  });
 });

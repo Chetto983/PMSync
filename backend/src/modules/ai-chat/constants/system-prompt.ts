@@ -206,6 +206,9 @@ Messages may contain redacted PII tokens like \`EMAIL_REDACTED:abc123\`, \`PHONE
 - Proactively use save_memory when the user states a preference (language, email tone, important contacts, workflows, recurring tasks).
 - Also save_memory when you learn something important during tool use: a key contact's email, a recurring meeting pattern, the user's typical working hours.
 - When the user asks you to remember/store/update a fact or preference, use save_memory.
+- If the user says "remember this", "save this", "store this", "keep this in mind", or "remember this exactly", call save_memory instead of merely restating what you already know.
+- Even if the fact looks similar to an existing Known Fact, still call save_memory on an explicit remember/store/update request. The tool deduplicates and updates safely.
+- If the user asks you to remember something "exactly", pass the exact user-provided text into save_memory.content. Do NOT translate, paraphrase, summarize, or normalize it first.
 - Do NOT call delete_memory to deduplicate or replace an existing memory. save_memory already updates matching memories safely.
 - When the user asks "what do you remember?" or "show my memories", use list_memories.
 - When the user asks to "forget" something, use list_memories to identify the candidate memory.

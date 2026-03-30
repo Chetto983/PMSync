@@ -12,6 +12,10 @@ import { AssistantRuntimeProvider } from '@assistant-ui/react';
 import { API_BASE_URL, getCsrfToken } from '@/lib/api-client';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { createPmSyncThreadListAdapter } from './chat-thread-list-adapter';
+import {
+  resetManualNewThreadRequested,
+  shouldSkipInitialThreadRestore,
+} from './thread-restore-guard';
 
 // Module-scoped CSRF token cache.
 let csrfCache = '';
@@ -92,6 +96,7 @@ export function ChatRuntimeProvider({
 
   // Warm CSRF cache eagerly.
   useEffect(() => {
+    resetManualNewThreadRequested();
     getCsrfToken().then((t) => {
       csrfCache = t;
     });
@@ -117,6 +122,12 @@ export function ChatRuntimeProvider({
 
       const state = runtime.threads.getState();
       if (state.isLoading || state.threadIds.length === 0) return;
+
+      if (shouldSkipInitialThreadRestore()) {
+        restoredInitialThreadRef.current = true;
+        resetManualNewThreadRequested();
+        return;
+      }
 
       restoredInitialThreadRef.current = true;
 
