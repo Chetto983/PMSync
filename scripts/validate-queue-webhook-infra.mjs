@@ -1,20 +1,21 @@
 /**
  * Queue & Webhook Infrastructure Validation Orchestrator
  *
- * Usage:
- *   node scripts/validate-queue-webhook-infra.mjs --check=queues
- *   node scripts/validate-queue-webhook-infra.mjs --check=pause-resume
- *   node scripts/validate-queue-webhook-infra.mjs --check=all
- *   node scripts/validate-queue-webhook-infra.mjs                  # defaults to all
+ * Runs validation checks for:
+ *   --check=queues         INFRA-01: BullMQ queue health
+ *   --check=pause-resume   INFRA-02: Queue pause/resume
+ *   --check=gmail          INFRA-03: Gmail Pub/Sub subscription
+ *   --check=microsoft      INFRA-04: Microsoft Graph subscription
+ *   --check=webhook-health INFRA-05: Webhook health endpoint
+ *   --check=all            All of the above (default)
  *
- * Tests: INFRA-01 (Queue health), INFRA-02 (Pause/resume infrastructure)
- * Webhook checks (INFRA-03+) will be wired by Plan 02.
+ * Usage: node scripts/validate-queue-webhook-infra.mjs [--check=all]
  *
  * Requires Edge running with --remote-debugging-port=9222 and logged into PMSync.
  */
 import { connectCDP, getAuthCookies, getCsrfToken, report } from './lib/validation-helpers.mjs';
 import { validateQueueHealth } from './lib/validate-queue-health.mjs';
-// Webhook import will be added by Plan 02
+import { validateWebhookLifecycle } from './lib/validate-webhook-lifecycle.mjs';
 
 const args = process.argv.slice(2);
 const checkFlag = args.find(a => a.startsWith('--check='))?.split('=')[1] || 'all';
@@ -29,12 +30,17 @@ async function main() {
 
   let results = [];
 
+  // INFRA-01, INFRA-02: Queue health and pause/resume
   if (checkFlag === 'all' || checkFlag === 'queues' || checkFlag === 'pause-resume') {
     const queueResults = await validateQueueHealth(context, finalCookies, csrfToken);
     results.push(...queueResults);
   }
 
-  // Webhook checks will be wired by Plan 02
+  // INFRA-03, INFRA-04, INFRA-05: Webhook subscription lifecycle
+  if (checkFlag === 'all' || checkFlag === 'gmail' || checkFlag === 'microsoft' || checkFlag === 'webhook-health') {
+    const webhookResults = await validateWebhookLifecycle(context, finalCookies, csrfToken);
+    results.push(...webhookResults);
+  }
 
   const exitCode = report('Queue & Webhook Infrastructure', results);
   await browser.close();
