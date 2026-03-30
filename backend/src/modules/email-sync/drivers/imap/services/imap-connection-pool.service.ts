@@ -20,7 +20,7 @@ import {
   ServerCapabilities,
   POOL_CONFIG,
 } from '../interfaces/imap-internal.interface';
-import { classifyImapError } from '../imap-errors';
+import { classifyImapError, ImapConnectionError, ImapAuthError, ImapProtocolError } from '../imap-errors';
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class ImapConnectionPoolService {
@@ -235,20 +235,57 @@ export class ImapConnectionPoolService {
   }
 
   /**
-   * Execute an operation with automatic connection handling
+   * Execute an operation with automatic connection handling.
+   * T-1404: Retries on transient errors (network/server) with exponential backoff.
+   * Non-retryable errors (auth, protocol) are thrown immediately.
    */
   async withConnection<T>(
     operation: (client: ImapFlow) => Promise<T>,
   ): Promise<T> {
-    const client = await this.acquireConnection();
-    try {
-      return await operation(client);
-    } catch (error) {
-      // T-1401: Classify operation errors for callers
-      throw classifyImapError(error);
-    } finally {
-      this.releaseConnection(client);
+    const MAX_RETRIES = 3;
+    const BASE_DELAY_MS = 1000;
+    const MAX_DELAY_MS = 15000;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const client = await this.acquireConnection();
+      try {
+        return await operation(client);
+      } catch (error) {
+        const classified = classifyImapError(error);
+
+        // T-1404: Remove dead connection from pool on error
+        const pooled = this.connectionPool.find((p) => p.client === client);
+        if (pooled && !client.usable) {
+          const idx = this.connectionPool.indexOf(pooled);
+          if (idx >= 0) this.connectionPool.splice(idx, 1);
+        }
+
+        // Non-retryable errors: throw immediately
+        if (classified instanceof ImapAuthError || classified instanceof ImapProtocolError || !classified.retryable) {
+          throw classified;
+        }
+
+        // Last attempt: throw
+        if (attempt >= MAX_RETRIES) {
+          this.logger.warn(
+            `IMAP operation failed after ${MAX_RETRIES + 1} attempts: ${classified.message}`,
+          );
+          throw classified;
+        }
+
+        // T-1404: Exponential backoff before retry
+        const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), MAX_DELAY_MS);
+        this.logger.warn(
+          `IMAP transient error (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying in ${delay}ms: ${classified.code}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } finally {
+        this.releaseConnection(client);
+      }
     }
+
+    // Unreachable, but TypeScript needs it
+    throw new Error('IMAP operation failed');
   }
 
   /**
