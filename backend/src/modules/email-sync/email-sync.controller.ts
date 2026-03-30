@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { TenantGuard } from '../../common/auth/tenant.guard';
 import { RolesGuard } from '../../common/auth/roles.guard';
 import { Roles } from '../../common/auth/roles.decorator';
+import { RateTierDecorator } from '../../common/decorators/rate-tier.decorator';
 import { QueueService } from './services/queue.service';
 import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { WebhookLifecycleService } from './services/webhook-lifecycle.service';
@@ -86,6 +87,7 @@ export class EmailSyncController {
   }
 
   @Post('sync-all')
+  @RateTierDecorator('destructive-write')
   @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Purge all emails, attachments, embeddings and re-sync all providers (DANGEROUS)' })
   @ApiResponse({ status: 200, description: 'All data purged, webhooks renewed, and sync jobs queued' })
@@ -245,6 +247,7 @@ export class EmailSyncController {
   }
 
   @Post('queues/:priority/clear')
+  @RateTierDecorator('destructive-write')
   @UseGuards(RolesGuard)
   @Roles('super-admin')
   @ApiOperation({ summary: 'Clear all jobs from a queue - DANGEROUS (super-admin only)' })
