@@ -22,6 +22,13 @@ export interface CostBreakdown {
   callCount: number;
 }
 
+export interface AccuracyPoint {
+  date: string;
+  modelType: string;
+  metric: string;
+  value: number;
+}
+
 export type TimeRange = '7d' | '30d' | '90d';
 
 // ---- API ----
@@ -31,6 +38,9 @@ const BASE = '/crm/governance';
 export const crmGovernanceApi = {
   getOverview: () =>
     apiClient.get<GovernanceOverview>(`${BASE}/overview`),
+
+  getAccuracy: (range: TimeRange = '30d') =>
+    apiClient.get<AccuracyPoint[]>(`${BASE}/accuracy`, { params: { range } }),
 
   getCostBreakdown: (range: TimeRange = '30d') =>
     apiClient.get<CostBreakdown[]>(`${BASE}/costs`, { params: { range } }),

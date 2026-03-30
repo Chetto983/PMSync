@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useGovernanceOverview } from '@/hooks/queries/use-crm-governance';
+import { AccuracyTab } from './AccuracyTab';
 
 interface KPICardProps {
   icon: React.ReactNode;
@@ -155,9 +156,7 @@ export function GovernanceDashboard() {
 
       {/* Tab Panels — placeholder content for T-1401, filled in subsequent tasks */}
       <TabPanel value={tab} index={0}>
-        <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>
-          {tg?.accuracy?.noData ?? 'No accuracy data available yet'}
-        </Typography>
+        <AccuracyTab />
       </TabPanel>
       <TabPanel value={tab} index={1}>
         <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>

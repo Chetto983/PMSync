@@ -17,6 +17,16 @@ export function crmGovernanceOverviewOptions() {
   });
 }
 
+export function crmGovernanceAccuracyOptions(range: TimeRange = '30d') {
+  return queryOptions({
+    queryKey: crmGovernanceKeys.accuracy(range),
+    queryFn: () => crmGovernanceApi.getAccuracy(range).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
 export function crmGovernanceCostsOptions(range: TimeRange = '30d') {
   return queryOptions({
     queryKey: crmGovernanceKeys.costs(range),
@@ -31,6 +41,10 @@ export function crmGovernanceCostsOptions(range: TimeRange = '30d') {
 
 export function useGovernanceOverview() {
   return useQuery(crmGovernanceOverviewOptions());
+}
+
+export function useGovernanceAccuracy(range: TimeRange = '30d') {
+  return useQuery(crmGovernanceAccuracyOptions(range));
 }
 
 export function useGovernanceCosts(range: TimeRange = '30d') {

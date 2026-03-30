@@ -107,6 +107,101 @@ export class GovernanceService {
     }));
   }
 
+  async getAccuracyMetrics(
+    tenantId: string,
+    range: TimeRange,
+  ): Promise<ModelAccuracyPoint[]> {
+    const since = this.rangeToDate(range);
+    const points: ModelAccuracyPoint[] = [];
+
+    // 1. Forecast MAPE from ForecastSnapshot (real ground-truth accuracy)
+    const forecasts = await this.prisma.forecastSnapshot.findMany({
+      where: {
+        tenantId,
+        createdAt: { gte: since },
+        mape: { not: null },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { createdAt: true, mape: true },
+    });
+
+    for (const f of forecasts) {
+      points.push({
+        date: f.createdAt.toISOString().slice(0, 10),
+        modelType: 'forecast',
+        metric: 'mape',
+        value: Math.round((f.mape ?? 0) * 100) / 100,
+      });
+    }
+
+    // 2. ModelEvaluation metrics (precision, recall, AUC from trained models)
+    const evaluations = await this.prisma.modelEvaluation.findMany({
+      where: {
+        tenantId,
+        trainedAt: { gte: since },
+      },
+      orderBy: { trainedAt: 'asc' },
+      select: { modelType: true, metrics: true, trainedAt: true },
+    });
+
+    for (const ev of evaluations) {
+      const m = ev.metrics as Record<string, number> | null;
+      if (!m) continue;
+      const date = ev.trainedAt.toISOString().slice(0, 10);
+      if (m.aucRoc != null) {
+        points.push({ date, modelType: ev.modelType, metric: 'auc', value: m.aucRoc });
+      }
+      if (m.precision != null) {
+        points.push({ date, modelType: ev.modelType, metric: 'precision', value: m.precision });
+      }
+      if (m.recall != null) {
+        points.push({ date, modelType: ev.modelType, metric: 'recall', value: m.recall });
+      }
+    }
+
+    // 3. AiRunLedger quality scores averaged per day per runType
+    const intelligenceTypes = [
+      'lead-scoring',
+      'churn-prediction',
+      'forecast',
+      'nba',
+    ];
+
+    const ledgerRuns = await this.prisma.aiRunLedger.findMany({
+      where: {
+        tenantId,
+        runType: { in: intelligenceTypes },
+        qualityScore: { not: null },
+        createdAt: { gte: since },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { runType: true, qualityScore: true, createdAt: true },
+    });
+
+    // Group by day + runType, compute daily avg
+    const dailyMap = new Map<string, { sum: number; count: number }>();
+    for (const r of ledgerRuns) {
+      const day = r.createdAt.toISOString().slice(0, 10);
+      const key = `${day}|${r.runType}`;
+      const entry = dailyMap.get(key) ?? { sum: 0, count: 0 };
+      entry.sum += r.qualityScore ?? 0;
+      entry.count += 1;
+      dailyMap.set(key, entry);
+    }
+
+    for (const [key, entry] of dailyMap) {
+      const [date, modelType] = key.split('|');
+      points.push({
+        date,
+        modelType,
+        metric: 'quality',
+        value: Math.round((entry.sum / entry.count) * 100) / 100,
+      });
+    }
+
+    return points.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   private rangeToDate(range: TimeRange): Date {
     const now = new Date();
     switch (range) {
