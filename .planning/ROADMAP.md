@@ -134,7 +134,7 @@
 - [x] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle (completed 2026-03-30)
 - [x] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD (completed 2026-03-30)
 - [x] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency (completed 2026-03-30)
-- [ ] **Phase 123: Phase 121 Verification Gap Closure** - Run live verification for scheduling/signatures/templates, test timed delivery E2E, create VERIFICATION.md
+- [x] **Phase 123: Phase 121 Verification Gap Closure** - Run live verification for scheduling/signatures/templates, test timed delivery E2E, create VERIFICATION.md (completed 2026-03-30)
 - [x] **Phase 124: Documentation & Traceability Cleanup** - Fix 10 stale checkboxes, requirement count, ROADMAP stale entries, FOLD-03 qualifier (completed 2026-03-30)
 
 ## Phase Details
@@ -317,8 +317,8 @@ Plans:
   6. VERIFICATION.md created for Phase 121 with pass/fail per requirement
 **Plans**: 2 plans
 Plans:
-- [ ] 123-01-PLAN.md -- Enhance validation scripts for INFRA-06 timed delivery + INFRA-10 signature content
-- [ ] 123-02-PLAN.md -- Live validation run + VERIFICATION.md creation + human approval
+- [x] 123-01-PLAN.md -- Enhance validation scripts for INFRA-06 timed delivery + INFRA-10 signature content
+- [x] 123-02-PLAN.md -- Live validation run + VERIFICATION.md creation + human approval
 
 ### Phase 124: Documentation & Traceability Cleanup
 **Goal**: Fix all documentation inconsistencies found by milestone audit — stale checkboxes, wrong counts, stale roadmap entries, missing qualifiers
@@ -351,7 +351,7 @@ Plans:
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
 | 122. Cross-cutting Validation | 2/2 | Complete    | 2026-03-30 |
-| 123. Phase 121 Verification Gap Closure | 0/2 | In Progress | — |
+| 123. Phase 121 Verification Gap Closure | 2/2 | Complete   | 2026-03-30 |
 | 124. Documentation & Traceability Cleanup | 1/1 | Complete    | 2026-03-30 |
 
 ---

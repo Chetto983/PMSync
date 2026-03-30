@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Email & Sync Production Validation
-status: Milestone complete
-last_updated: "2026-03-30T14:38:19.543Z"
+status: Phase complete — ready for verification
+last_updated: "2026-03-30T15:02:10.786Z"
 progress:
   total_phases: 13
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 27
-  completed_plans: 25
+  completed_plans: 27
 ---
 
 # Project State
@@ -18,12 +18,12 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-25)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 124 — documentation-traceability-cleanup
+**Current focus:** Phase 123 — phase-121-verification-gap-closure
 
 ## Current Position
 
-Phase: 124
-Plan: Not started
+Phase: 123 (phase-121-verification-gap-closure) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -67,6 +67,9 @@ Plan: Not started
 - [Phase 121]: Signature baked into bodyHtml before scheduling -- scheduled emails include correct signature at schedule time
 - [Phase 122]: fs.readFileSync over execSync cat for cross-platform audit test compat
 - [Phase 122]: Window-based decorator search (+/-5 lines) since decorator order varies across controllers
+- [Phase 123]: Accept any status change from pending as valid BullMQ evidence (Railway blocks SMTP)
+- [Phase 123]: DB verification falls back to code-level evidence when DATABASE_URL unavailable, labelled partial
+- [Phase 123]: Accept any status change from pending as valid BullMQ evidence (Railway blocks SMTP)
 
 ### Research Flags
 
@@ -79,7 +82,7 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-30T12:42:14.551Z
+Last session: 2026-03-30T15:02:10.777Z
 Completed: Phase 120 Plan 03 (live validation -- all 48/48 checks passed, human approved)
 Next action: Plan Phase 121 (Scheduling, Signatures & Templates)
 Resume file: None

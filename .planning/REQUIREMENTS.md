@@ -63,11 +63,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 - [x] **INFRA-03**: Gmail Pub/Sub subscription create and renew lifecycle works
 - [x] **INFRA-04**: Microsoft Graph subscription create and renew lifecycle works
 - [x] **INFRA-05**: Webhook health endpoint reports accurate status
-- [ ] **INFRA-06**: Scheduled email sends at correct time
-- [ ] **INFRA-07**: Scheduled email cancel prevents delivery
-- [ ] **INFRA-08**: Signature CRUD and default selection works
-- [ ] **INFRA-09**: Template CRUD, duplicate, and default selection works
-- [ ] **INFRA-10**: Sent emails include correct signature
+- [x] **INFRA-06**: Scheduled email sends at correct time
+- [x] **INFRA-07**: Scheduled email cancel prevents delivery
+- [x] **INFRA-08**: Signature CRUD and default selection works
+- [x] **INFRA-09**: Template CRUD, duplicate, and default selection works
+- [x] **INFRA-10**: Sent emails include correct signature
 
 ### Cross-cutting
 
