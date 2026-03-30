@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { DealAggregationService } from './deal-aggregation.service';
+import { ForecastService } from './forecast.service';
+import { ForecastController } from './forecast.controller';
 
 @Module({
   imports: [PrismaModule],
-  providers: [DealAggregationService],
-  exports: [DealAggregationService],
+  controllers: [ForecastController],
+  providers: [DealAggregationService, ForecastService],
+  exports: [DealAggregationService, ForecastService],
 })
 export class ForecastingModule {}

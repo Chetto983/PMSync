@@ -127,7 +127,7 @@
 - [x] **Phase 116: Attachments & Search** - Verify attachment download (S3 + on-demand), folder stats, and full-text search (completed 2026-03-26)
 - [x] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers (completed 2026-03-27)
 - [x] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations (completed 2026-03-30)
-- [ ] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection
+- [x] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection (completed 2026-03-30)
 - [ ] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle
 - [ ] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD
 - [ ] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency
@@ -251,8 +251,8 @@ Plans:
   5. System folders (Inbox, Sent, Trash, Drafts) cannot be deleted or renamed — API returns appropriate error
 **Plans**: 2 plans
 Plans:
-- [ ] 119-01-PLAN.md -- Validation scripts for folder CRUD, sync, and system folder protection (FOLD-01, FOLD-02, FOLD-03, FOLD-04, FOLD-05)
-- [ ] 119-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (FOLD-01, FOLD-02, FOLD-03, FOLD-04, FOLD-05)
+- [x] 119-01-PLAN.md -- Validation scripts for folder CRUD, sync, and system folder protection (FOLD-01, FOLD-02, FOLD-03, FOLD-04, FOLD-05)
+- [x] 119-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (FOLD-01, FOLD-02, FOLD-03, FOLD-04, FOLD-05)
 
 ### Phase 120: Queue & Webhook Infrastructure
 **Goal**: BullMQ queues and provider webhooks are healthy, resilient, and accurately monitored
@@ -299,7 +299,7 @@ Plans:
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
 | 117. Email Send & Reply/Forward | 3/3 | Complete   | 2026-03-27 |
 | 118. Drafts & Bulk Operations | 2/2 | Complete    | 2026-03-30 |
-| 119. Folder Operations | 0/2 | Planned | - |
+| 119. Folder Operations | 2/2 | Complete   | 2026-03-30 |
 | 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
 | 121. Scheduling, Signatures & Templates | 0/? | Not started | - |
 | 122. Cross-cutting Validation | 0/? | Not started | - |

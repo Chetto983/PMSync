@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Email & Sync Production Validation
-status: Ready to plan
-last_updated: "2026-03-30T07:16:22.657Z"
+status: Phase complete — ready for verification
+last_updated: "2026-03-30T08:43:51.394Z"
 progress:
   total_phases: 11
-  completed_phases: 7
-  total_plans: 15
-  completed_plans: 15
+  completed_phases: 8
+  total_plans: 17
+  completed_plans: 17
 ---
 
 # Project State
@@ -18,12 +18,12 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-25)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 118 — drafts-bulk-operations
+**Current focus:** Phase 119 — folder-operations
 
 ## Current Position
 
-Phase: 119
-Plan: Not started
+Phase: 119 (folder-operations) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -59,6 +59,9 @@ Plan: Not started
 - [Phase 117]: WRITE-03 marked Blocked (Infrastructure) -- Railway blocks SMTP ports 465/587, code compiles but cannot be live-validated
 - [Phase 118]: Provider delete is fire-and-forget in deleteDraft; local cleanup always proceeds
 - [Phase 118]: Labels API returns flat array, not paginated envelope; per-email verification needed after bulk label ops
+- [Phase 119]: Added gitignore exceptions for folder-ops and drafts-bulk validation scripts
+- [Phase 119]: IMAP FOLD-03 delete marked infrastructure-blocked (Libero limitation), consistent with WRITE-03
+- [Phase 119]: No backend worker/controller changes needed -- folder operations worked correctly on first live run
 
 ### Research Flags
 
@@ -71,7 +74,7 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-30T07:15:00Z
+Last session: 2026-03-30T08:43:51.388Z
 Completed: Phase 118 Plan 02 (live validation -- all 40/40 checks passed, human approved)
 Next action: Execute Phase 119 (Folder Operations)
 Resume file: None
