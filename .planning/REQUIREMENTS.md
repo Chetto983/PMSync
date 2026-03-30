@@ -12,11 +12,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 - [x] **SYNC-01**: Full sync from Gmail downloads all emails, folders, and labels correctly
 - [x] **SYNC-02**: Full sync from Outlook downloads all emails and folders correctly
 - [x] **SYNC-03**: Full sync from IMAP downloads all emails and folders correctly
-- [ ] **SYNC-04**: Incremental sync via Gmail history API picks up new/changed/deleted emails
-- [ ] **SYNC-05**: Incremental sync via Microsoft delta API picks up new/changed/deleted emails
-- [ ] **SYNC-06**: Incremental sync via IMAP detects new/changed emails
-- [ ] **SYNC-07**: Gmail Pub/Sub webhook triggers sync on new email arrival
-- [ ] **SYNC-08**: Microsoft Graph webhook triggers sync on new email arrival
+- [x] **SYNC-04**: Incremental sync via Gmail history API picks up new/changed/deleted emails
+- [x] **SYNC-05**: Incremental sync via Microsoft delta API picks up new/changed/deleted emails
+- [x] **SYNC-06**: Incremental sync via IMAP detects new/changed emails
+- [x] **SYNC-07**: Gmail Pub/Sub webhook triggers sync on new email arrival
+- [x] **SYNC-08**: Microsoft Graph webhook triggers sync on new email arrival
 - [x] **SYNC-09**: Sync-back reflects mark-read/unread on all three providers
 - [x] **SYNC-10**: Sync-back reflects star/unstar on all three providers
 - [x] **SYNC-11**: Sync-back reflects move-to-folder on all three providers
@@ -52,17 +52,17 @@ Comprehensive audit of all email and email-sync operations against live provider
 
 - [x] **FOLD-01**: Create folder via BullMQ queue succeeds on all three providers
 - [x] **FOLD-02**: Rename folder updates both local DB and provider
-- [x] **FOLD-03**: Delete folder removes from provider and cleans up local records
+- [x] **FOLD-03**: Delete folder removes from provider and cleans up local records *(IMAP: Blocked by Libero infrastructure limitation; code exists and compiles but IMAP folder delete cannot be live-validated -- consistent with WRITE-03 SMTP block)*
 - [x] **FOLD-04**: Folder sync from provider reflects external changes (folders created/renamed/deleted outside app)
 - [x] **FOLD-05**: System folders (Inbox, Sent, Trash, Drafts) are protected from delete/rename
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: All 7 BullMQ queues report healthy status with correct metrics
-- [ ] **INFRA-02**: Queue pause/resume works without data loss
-- [ ] **INFRA-03**: Gmail Pub/Sub subscription create and renew lifecycle works
-- [ ] **INFRA-04**: Microsoft Graph subscription create and renew lifecycle works
-- [ ] **INFRA-05**: Webhook health endpoint reports accurate status
+- [x] **INFRA-01**: All 7 BullMQ queues report healthy status with correct metrics
+- [x] **INFRA-02**: Queue pause/resume works without data loss
+- [x] **INFRA-03**: Gmail Pub/Sub subscription create and renew lifecycle works
+- [x] **INFRA-04**: Microsoft Graph subscription create and renew lifecycle works
+- [x] **INFRA-05**: Webhook health endpoint reports accurate status
 - [ ] **INFRA-06**: Scheduled email sends at correct time
 - [ ] **INFRA-07**: Scheduled email cancel prevents delivery
 - [ ] **INFRA-08**: Signature CRUD and default selection works
@@ -96,11 +96,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 | SYNC-01 | Phase 112 | Satisfied |
 | SYNC-02 | Phase 112 | Satisfied |
 | SYNC-03 | Phase 112 | Satisfied |
-| SYNC-04 | Phase 113 | Pending |
-| SYNC-05 | Phase 113 | Pending |
-| SYNC-06 | Phase 113 | Pending |
-| SYNC-07 | Phase 113 | Pending |
-| SYNC-08 | Phase 113 | Pending |
+| SYNC-04 | Phase 113 | Satisfied |
+| SYNC-05 | Phase 113 | Satisfied |
+| SYNC-06 | Phase 113 | Satisfied |
+| SYNC-07 | Phase 113 | Satisfied |
+| SYNC-08 | Phase 113 | Satisfied |
 | SYNC-09 | Phase 114 | Complete |
 | SYNC-10 | Phase 114 | Complete |
 | SYNC-11 | Phase 114 | Complete |
@@ -130,11 +130,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 | FOLD-03 | Phase 119 | Complete |
 | FOLD-04 | Phase 119 | Complete |
 | FOLD-05 | Phase 119 | Complete |
-| INFRA-01 | Phase 120 | Pending |
-| INFRA-02 | Phase 120 | Pending |
-| INFRA-03 | Phase 120 | Pending |
-| INFRA-04 | Phase 120 | Pending |
-| INFRA-05 | Phase 120 | Pending |
+| INFRA-01 | Phase 120 | Satisfied |
+| INFRA-02 | Phase 120 | Satisfied |
+| INFRA-03 | Phase 120 | Satisfied |
+| INFRA-04 | Phase 120 | Satisfied |
+| INFRA-05 | Phase 120 | Satisfied |
 | INFRA-06 | Phase 121 → 123 | Pending (verification gap) |
 | INFRA-07 | Phase 121 → 123 | Pending (verification gap) |
 | INFRA-08 | Phase 121 → 123 | Pending (verification gap) |
@@ -145,10 +145,10 @@ Comprehensive audit of all email and email-sync operations against live provider
 | XCUT-03 | Phase 122 | Complete |
 
 **Coverage:**
-- v10.0 requirements: 41 total
+- v10.0 requirements: 50 total
 - Mapped to phases: 41
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-25*
-*Last updated: 2026-03-25 — traceability updated with phase mappings (112-122)*
+*Last updated: 2026-03-30 — Phase 124: SYNC-04..08, INFRA-01..05 marked satisfied; coverage corrected to 50; FOLD-03 IMAP qualifier added*
