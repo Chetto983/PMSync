@@ -30,6 +30,8 @@ gantt
     S16 Security & Sync Hardening     :s16, after s15, 3d
     section Phase 7 - Production Validation
     S17 Production Validation Suite   :s17, after s16, 4d
+    section Phase 8 - Final Hardening
+    S18 External Alerts & 10/10       :s18, after s17, 3d
 ```
 
 ## Sprint Breakdown
@@ -53,7 +55,8 @@ gantt
 | S15 | Worker & Queue Hardening | 6 | 13 | IF-C1, IF-C2, IF-C6, IF-H4, IF-H5, IF-H6 |
 | S16 | Security & Sync Hardening | 6 | 12 | IF-C3, IF-C4, IF-C5, IF-H1, IF-H2, IF-H3 |
 | S17 | Production Validation Suite | 7 | 13 | All — validation layer |
-| **Total** | | | **195** | |
+| S18 | External Alerts & 10/10 Scorecard | 8 | 8 | Monitoring gap, G-H6 hardening, IM-H2 tests |
+| **Total** | | | **203** | |
 
 ## Audit Scores (Pre-Fix Baseline)
 
