@@ -21,6 +21,10 @@ describe('MicrosoftCalendarSyncService', () => {
     );
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('hydrates sparse Microsoft delta events with direct event lookups', async () => {
     const detailedEvent = {
       id: 'evt-1',
@@ -70,6 +74,8 @@ describe('MicrosoftCalendarSyncService', () => {
   });
 
   it('does not add $select to Microsoft calendarView delta requests', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-30T10:15:00.000Z'));
+
     const request = {
       header: jest.fn().mockReturnThis(),
       query: jest.fn().mockReturnThis(),
@@ -93,7 +99,10 @@ describe('MicrosoftCalendarSyncService', () => {
         'https://graph.microsoft.com/v1.0/me/calendars/calendar-1/calendarView/delta?$deltatoken=abc',
     });
     expect(request.header).toHaveBeenCalledWith('Prefer', 'odata.maxpagesize=200');
-    expect(request.query).toHaveBeenCalled();
+    expect(request.query).toHaveBeenCalledWith({
+      startDateTime: '2023-03-30T00:00:00.000Z',
+      endDateTime: '2029-03-30T23:59:59.999Z',
+    });
     expect(request.select).not.toHaveBeenCalled();
   });
 

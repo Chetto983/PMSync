@@ -42,11 +42,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 - [ ] **WRITE-03**: Send new email via IMAP/SMTP delivers to recipient *(Blocked: Railway blocks SMTP ports 465/587; code exists and compiles but no live validation possible in production environment)*
 - [x] **WRITE-04**: Reply preserves thread, adds correct headers (In-Reply-To, References)
 - [x] **WRITE-05**: Forward includes original body and attachments
-- [ ] **WRITE-06**: Draft create/update/retrieve/delete lifecycle works per provider
-- [ ] **WRITE-07**: Bulk mark-read/unread updates DB and triggers sync-back
-- [ ] **WRITE-08**: Bulk move-to-folder updates DB and triggers sync-back
-- [ ] **WRITE-09**: Bulk delete (soft) updates DB and triggers sync-back
-- [ ] **WRITE-10**: Bulk label add/remove works on Gmail
+- [x] **WRITE-06**: Draft create/update/retrieve/delete lifecycle works per provider
+- [x] **WRITE-07**: Bulk mark-read/unread updates DB and triggers sync-back
+- [x] **WRITE-08**: Bulk move-to-folder updates DB and triggers sync-back
+- [x] **WRITE-09**: Bulk delete (soft) updates DB and triggers sync-back
+- [x] **WRITE-10**: Bulk label add/remove works on Gmail
 
 ### Folder Operations
 
@@ -120,11 +120,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 | WRITE-03 | Phase 117 | Blocked (Infrastructure) |
 | WRITE-04 | Phase 117 | Complete |
 | WRITE-05 | Phase 117 | Complete |
-| WRITE-06 | Phase 118 | Pending |
-| WRITE-07 | Phase 118 | Pending |
-| WRITE-08 | Phase 118 | Pending |
-| WRITE-09 | Phase 118 | Pending |
-| WRITE-10 | Phase 118 | Pending |
+| WRITE-06 | Phase 118 | Complete |
+| WRITE-07 | Phase 118 | Complete |
+| WRITE-08 | Phase 118 | Complete |
+| WRITE-09 | Phase 118 | Complete |
+| WRITE-10 | Phase 118 | Complete |
 | FOLD-01 | Phase 119 | Pending |
 | FOLD-02 | Phase 119 | Pending |
 | FOLD-03 | Phase 119 | Pending |

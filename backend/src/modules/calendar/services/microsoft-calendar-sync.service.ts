@@ -107,10 +107,7 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
       // Full sync: use calendarView/delta with time range.
       // Microsoft Graph does not support $select on calendarView delta requests,
       // so request the full event shape and let the provider drive paging.
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-      const sixtyDaysAhead = new Date();
-      sixtyDaysAhead.setDate(sixtyDaysAhead.getDate() + 60);
+      const syncWindow = this.getSyncWindow();
 
       let nextLink: string | undefined = `/me/calendars/${calendarId}/calendarView/delta`;
 
@@ -125,8 +122,8 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
         if (!nextLink.includes('@odata')) {
           request = request
             .query({
-              startDateTime: sixtyDaysAgo.toISOString(),
-              endDateTime: sixtyDaysAhead.toISOString(),
+              startDateTime: syncWindow.start.toISOString(),
+              endDateTime: syncWindow.end.toISOString(),
             });
         }
 

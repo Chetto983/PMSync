@@ -94,6 +94,8 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
       // NOTE: To get syncToken for incremental sync, we MUST NOT use:
       // - singleEvents: true (prevents syncToken from being returned)
       // - timeMin/timeMax (prevents syncToken from being returned)
+      const syncWindow = this.getSyncWindow();
+
       do {
         const eventsResponse = await calendar.events.list({
           calendarId,
@@ -105,24 +107,16 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
 
         const events = eventsResponse.data.items || [];
 
-        // Filter to time window client-side (last 60 days to next 60 days)
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-        const sixtyDaysAhead = new Date();
-        sixtyDaysAhead.setDate(sixtyDaysAhead.getDate() + 60);
-
         const filtered = events.filter((e) => {
           if (!e.id) return false;
           // Include cancelled events for deletion tracking
           if (e.status === 'cancelled') return true;
-          // Check if event falls within our time window
           const startDate = e.start?.dateTime || e.start?.date;
           if (!startDate) return false;
           const eventStart = new Date(startDate);
           const endDate = e.end?.dateTime || e.end?.date;
           const eventEnd = endDate ? new Date(endDate) : eventStart;
-          // Include if event overlaps with our window
-          return eventEnd >= sixtyDaysAgo && eventStart <= sixtyDaysAhead;
+          return this.eventOverlapsSyncWindow(eventStart, eventEnd, syncWindow);
         });
 
         allEvents.push(...filtered);

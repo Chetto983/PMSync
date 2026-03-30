@@ -236,7 +236,7 @@ Plans:
   5. Bulk label add/remove on Gmail updates local state and triggers sync-back that reflects on Gmail
 **Plans**: 2 plans
 Plans:
-- [ ] 118-01-PLAN.md -- Fix deleteDraft provider-sync bug + validation scripts (WRITE-06, WRITE-07, WRITE-08, WRITE-09, WRITE-10)
+- [x] 118-01-PLAN.md -- Fix deleteDraft provider-sync bug + validation scripts (WRITE-06, WRITE-07, WRITE-08, WRITE-09, WRITE-10)
 - [ ] 118-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (WRITE-06, WRITE-07, WRITE-08, WRITE-09, WRITE-10)
 
 ### Phase 119: Folder Operations
@@ -295,7 +295,7 @@ Plans:
 | 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
 | 117. Email Send & Reply/Forward | 3/3 | Complete   | 2026-03-27 |
-| 118. Drafts & Bulk Operations | 0/2 | Not started | - |
+| 118. Drafts & Bulk Operations | 1/2 | In Progress|  |
 | 119. Folder Operations | 0/? | Not started | - |
 | 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
 | 121. Scheduling, Signatures & Templates | 0/? | Not started | - |

@@ -34,6 +34,8 @@ export abstract class AbstractCalendarSyncService {
   protected abstract readonly logger: Logger;
   protected readonly calendarEnabled: boolean;
   protected readonly maxErrorsBeforeFullSync: number;
+  protected readonly fullSyncPastYears: number;
+  protected readonly fullSyncFutureYears: number;
   /** Lock TTL for sync operations (5 minutes) */
   protected readonly SYNC_LOCK_TTL_MS = 5 * 60 * 1000;
 
@@ -47,6 +49,8 @@ export abstract class AbstractCalendarSyncService {
     this.calendarEnabled =
       (this.configService.get<string>('CALENDAR_SYNC_ENABLED') || 'true').toLowerCase() !== 'false';
     this.maxErrorsBeforeFullSync = this.configService.get<number>('CALENDAR_SYNC_MAX_ERRORS', 3);
+    this.fullSyncPastYears = this.configService.get<number>('CALENDAR_SYNC_PAST_YEARS', 3);
+    this.fullSyncFutureYears = this.configService.get<number>('CALENDAR_SYNC_FUTURE_YEARS', 3);
   }
 
   // ============================================================================
@@ -433,10 +437,12 @@ export abstract class AbstractCalendarSyncService {
     calendarName: string,
     isFullSync: boolean,
   ): Promise<ProcessEventsResult> {
-    // Fetch ALL existing events for this calendar in ONE query
+    const syncWindow = this.getSyncWindow();
+
+    // Fetch ALL existing events for this calendar in ONE query, including archived rows.
     const existingEvents = await this.prisma.calendarEvent.findMany({
-      where: { providerId, calendarId, isDeleted: false },
-      select: { id: true, externalId: true, syncVersion: true },
+      where: { providerId, calendarId },
+      select: { id: true, externalId: true, syncVersion: true, isDeleted: true },
     });
     const existingByExternalId = new Map(existingEvents.map((e) => [e.externalId, e]));
 
@@ -462,7 +468,8 @@ export abstract class AbstractCalendarSyncService {
     // Prepare bulk operations
     const newEventsToCreate: NormalizedCalendarEvent[] = [];
     const eventsToUpdate: { externalId: string; id: string; data: NormalizedCalendarEvent }[] = [];
-    const eventsToDelete: string[] = [];
+    const cancelledEventIds: string[] = [];
+    const outOfWindowEventIds: string[] = [];
     const processedEventIds = new Set<string>();
 
     for (const event of events) {
@@ -474,12 +481,19 @@ export abstract class AbstractCalendarSyncService {
       // Handle cancelled/deleted events
       if (this.isEventCancelled(event)) {
         if (existing) {
-          eventsToDelete.push(event.id);
+          cancelledEventIds.push(event.id);
         }
         continue;
       }
 
       const eventData = this.extractEventData(event, calendarId, providerId, tenantId, calendarName);
+
+      if (!this.eventOverlapsSyncWindow(eventData.startTime, eventData.endTime, syncWindow)) {
+        if (existing) {
+          outOfWindowEventIds.push(event.id);
+        }
+        continue;
+      }
 
       if (existing) {
         eventsToUpdate.push({ externalId: event.id, id: existing.id, data: eventData });
@@ -521,15 +535,28 @@ export abstract class AbstractCalendarSyncService {
         }
 
         // Mark deleted events (from incremental sync)
-        if (eventsToDelete.length > 0) {
+        if (cancelledEventIds.length > 0) {
           await tx.calendarEvent.updateMany({
             where: {
               providerId,
               calendarId,
-              externalId: { in: eventsToDelete },
+              externalId: { in: cancelledEventIds },
               isDeleted: false,
             },
             data: { isDeleted: true, isCancelled: true },
+          });
+        }
+
+        // Archive events that moved outside the retained sync window.
+        if (outOfWindowEventIds.length > 0) {
+          await tx.calendarEvent.updateMany({
+            where: {
+              providerId,
+              calendarId,
+              externalId: { in: outOfWindowEventIds },
+              isDeleted: false,
+            },
+            data: { isDeleted: true },
           });
         }
       },
@@ -537,7 +564,7 @@ export abstract class AbstractCalendarSyncService {
     );
 
     // Handle deleted events for full sync (events not in response)
-    let deletedCount = eventsToDelete.length;
+    let deletedCount = cancelledEventIds.length + outOfWindowEventIds.length;
     if (isFullSync) {
       const deletedExternalIds = existingEvents
         .filter((e) => !processedEventIds.has(e.externalId))
@@ -730,5 +757,25 @@ export abstract class AbstractCalendarSyncService {
       syncDuration: 0,
       syncType: 'full',
     };
+  }
+
+  protected getSyncWindow(referenceDate = new Date()): { start: Date; end: Date } {
+    const start = new Date(referenceDate);
+    start.setUTCFullYear(start.getUTCFullYear() - this.fullSyncPastYears);
+    start.setUTCHours(0, 0, 0, 0);
+
+    const end = new Date(referenceDate);
+    end.setUTCFullYear(end.getUTCFullYear() + this.fullSyncFutureYears);
+    end.setUTCHours(23, 59, 59, 999);
+
+    return { start, end };
+  }
+
+  protected eventOverlapsSyncWindow(
+    startTime: Date,
+    endTime: Date,
+    syncWindow = this.getSyncWindow(),
+  ): boolean {
+    return endTime >= syncWindow.start && startTime <= syncWindow.end;
   }
 }
