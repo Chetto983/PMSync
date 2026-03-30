@@ -43,7 +43,7 @@ Phases 1-6 fix the issues. This sprint proves they're fixed in production. Cover
 
 ### T-1703: Production health monitoring [2 SP]
 
-- [ ] Extend `GET /health` endpoint with driver-specific checks:
+- [x] Extend `GET /health` endpoint with driver-specific checks: ✅ DONE
   ```json
   {
     "status": "ok",
@@ -62,9 +62,9 @@ Phases 1-6 fix the issues. This sprint proves they're fixed in production. Cover
     }
   }
   ```
-- [ ] Add queue depth alert: if any queue > 80% of limit, log warning
-- [ ] Add worker failure rate alert: if > 5% failure rate in last hour, log error
-- [ ] Files: `health.controller.ts`, `health.service.ts`
+- [x] Add queue depth alert: if any queue > 80% of limit, log warning ✅ DONE
+- [x] Add worker failure rate alert: if > 5% failure rate in last hour, log error ✅ DONE
+- [x] Files: `health.service.ts`, `queue-health.service.ts` ✅ DONE
 
 ### T-1704: Data consistency validation script [2 SP]
 

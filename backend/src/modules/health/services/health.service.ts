@@ -73,7 +73,85 @@ export class HealthService {
       health.services.emailSyncQueue = this.buildQueueServiceHealth(metrics);
     }
 
+    // T-1703: Driver-specific health summary (active accounts + last sync per provider type)
+    try {
+      const driverHealth = await this.getDriverHealth();
+      health.services.drivers = driverHealth;
+    } catch (err) {
+      this.logger.warn(`Driver health check failed: ${(err as Error)?.message}`);
+      health.services.drivers = { status: 'unavailable' };
+    }
+
+    // T-1703: Worker health summary with alerts
+    try {
+      const { BaseWorker: BW } = await import('../../../common/workers/base.worker');
+      const workers = BW.getAll();
+      const statuses = workers.map((w) => w.getStatus());
+      const anyAutoPaused = statuses.some((s) => s.autoPaused);
+      const totalErrors5m = statuses.reduce((sum, s) => sum + s.errorCount5m, 0);
+      const totalStalled5m = statuses.reduce((sum, s) => sum + s.stalledCount5m, 0);
+
+      health.services.workers = {
+        status: anyAutoPaused ? 'degraded' : 'healthy',
+        totalWorkers: statuses.length,
+        totalErrors5m,
+        totalStalled5m,
+        autoPausedCount: statuses.filter((s) => s.autoPaused).length,
+      };
+
+      // T-1703: Worker failure rate alert — log error if > 5% failure rate
+      if (this.queueService) {
+        const queueMetrics = this.queueService.getQueueMetricsSummary();
+        for (const m of queueMetrics) {
+          const total = m.completed + m.failed;
+          if (total > 0) {
+            const failureRate = m.failed / total;
+            if (failureRate > 0.05) {
+              this.logger.error(
+                `[T-1703-ALERT] Queue "${m.queue}" failure rate ${(failureRate * 100).toFixed(1)}% (${m.failed}/${total}) exceeds 5% threshold`,
+              );
+              health.status = 'degraded';
+            }
+          }
+        }
+      }
+
+      if (anyAutoPaused) {
+        health.status = 'degraded';
+      }
+    } catch (err) {
+      this.logger.warn(`Worker health check failed: ${(err as Error)?.message}`);
+    }
+
     return health;
+  }
+
+  /**
+   * T-1703: Driver-specific health — active accounts + last sync per provider type.
+   */
+  private async getDriverHealth() {
+    const providerTypes = ['google', 'microsoft', 'imap'] as const;
+    const drivers: Record<string, { status: string; activeAccounts: number; lastSync: string | null }> = {};
+
+    for (const pt of providerTypes) {
+      const activeCount = await this.prisma.providerConfig.count({
+        where: { providerType: pt, isActive: true },
+      });
+
+      const latest = await this.prisma.providerConfig.findFirst({
+        where: { providerType: pt, isActive: true, lastSyncedAt: { not: null } },
+        orderBy: { lastSyncedAt: 'desc' },
+        select: { lastSyncedAt: true },
+      });
+
+      drivers[pt] = {
+        status: activeCount > 0 ? 'ok' : 'no_accounts',
+        activeAccounts: activeCount,
+        lastSync: latest?.lastSyncedAt?.toISOString() ?? null,
+      };
+    }
+
+    return drivers;
   }
 
   private async checkMistral(): Promise<{

@@ -129,7 +129,7 @@
 - [x] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations (completed 2026-03-30)
 - [x] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection (completed 2026-03-30)
 - [x] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle (completed 2026-03-30)
-- [ ] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD
+- [x] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD (completed 2026-03-30)
 - [ ] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency
 
 ## Phase Details
@@ -282,8 +282,8 @@ Plans:
   5. Sent emails include the user's selected default signature in the message body
 **Plans**: 2 plans
 Plans:
-- [ ] 121-01-PLAN.md -- Fix scheduledAt bypass bug + validation scripts for all INFRA-06..10 (INFRA-06, INFRA-07, INFRA-08, INFRA-09, INFRA-10)
-- [ ] 121-02-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-06, INFRA-07, INFRA-08, INFRA-09, INFRA-10)
+- [x] 121-01-PLAN.md -- Fix scheduledAt bypass bug + validation scripts for all INFRA-06..10 (INFRA-06, INFRA-07, INFRA-08, INFRA-09, INFRA-10)
+- [x] 121-02-PLAN.md -- Live validation run + bug fixes + human checkpoint (INFRA-06, INFRA-07, INFRA-08, INFRA-09, INFRA-10)
 
 ### Phase 122: Cross-cutting Validation
 **Goal**: Security, observability, and API contract guarantees hold across all email operations
@@ -308,7 +308,7 @@ Plans:
 | 118. Drafts & Bulk Operations | 2/2 | Complete    | 2026-03-30 |
 | 119. Folder Operations | 2/2 | Complete    | 2026-03-30 |
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
-| 121. Scheduling, Signatures & Templates | 0/2 | Planned    |  |
+| 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
 | 122. Cross-cutting Validation | 0/? | Not started | - |
 
 ---

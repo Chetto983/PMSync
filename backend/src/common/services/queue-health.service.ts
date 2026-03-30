@@ -141,6 +141,14 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
       ) {
         summary.healthyQueues++;
       }
+
+      // T-1703: Queue depth alert — log warning at 80% capacity
+      const depthPct = queue.waiting / this.THRESHOLDS.maxWaitingPerQueue;
+      if (depthPct >= 0.8) {
+        this.logger.warn(
+          `[T-1703-ALERT] Queue "${queue.name}" at ${(depthPct * 100).toFixed(0)}% capacity (${queue.waiting}/${this.THRESHOLDS.maxWaitingPerQueue})`,
+        );
+      }
     }
 
     // Determine overall status
