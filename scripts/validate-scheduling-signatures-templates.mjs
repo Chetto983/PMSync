@@ -32,7 +32,7 @@ async function main() {
   let results = [];
 
   // INFRA-06, INFRA-07: Scheduling
-  if (checkFlag === 'all' || checkFlag === 'schedule-send' || checkFlag === 'schedule-cancel') {
+  if (checkFlag === 'all' || checkFlag === 'schedule-send' || checkFlag === 'schedule-cancel' || checkFlag === 'timed-delivery') {
     const scheduleResults = await validateScheduling(context, finalCookies, csrfToken, checkFlag);
     results.push(...scheduleResults);
   }
