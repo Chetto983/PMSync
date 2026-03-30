@@ -197,6 +197,10 @@ scripts/*
 !scripts/validate-queue-webhook-infra.mjs
 !scripts/lib/validate-queue-health.mjs
 !scripts/lib/validate-webhook-lifecycle.mjs
+!scripts/validate-scheduling-signatures-templates.mjs
+!scripts/lib/validate-scheduling.mjs
+!scripts/lib/validate-signatures.mjs
+!scripts/lib/validate-templates.mjs
 artifacts/*
 backend/scripts/screenshots/*
 backups/*
