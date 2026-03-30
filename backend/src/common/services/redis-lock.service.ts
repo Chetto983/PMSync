@@ -467,6 +467,34 @@ export class RedisLockService implements OnModuleInit {
     }
   }
 
+  // ====================================
+  // IF-H1: Simple key-value cache
+  // ====================================
+
+  /**
+   * IF-H1: Get a cached value from Redis
+   * Returns null if not found or on error (fail open).
+   */
+  async cacheGet(key: string): Promise<string | null> {
+    try {
+      return await this.redis.get(key);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * IF-H1: Set a cached value in Redis with TTL
+   * Silently fails on error (caching is non-critical).
+   */
+  async cacheSet(key: string, value: string, ttlSeconds: number): Promise<void> {
+    try {
+      await this.redis.set(key, value, 'EX', ttlSeconds);
+    } catch {
+      // Non-critical
+    }
+  }
+
   /**
    * IF-C4: Execute with auto-renewing lock for long-running scheduled jobs
    *

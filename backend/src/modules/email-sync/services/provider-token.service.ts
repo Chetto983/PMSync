@@ -36,6 +36,12 @@ export class ProviderTokenService {
   // Redis key prefix for token refresh locks
   private readonly KEY_PREFIX_LOCK = 'token-refresh:';
 
+  // IF-H1: Redis key prefix for cached access tokens
+  private readonly KEY_PREFIX_TOKEN_CACHE = 'pmsync:token-cache:';
+
+  // IF-H1: Token cache TTL — 5 minutes (well within typical 1-hour token lifetime)
+  private readonly TOKEN_CACHE_TTL_SECONDS = 300;
+
   // Lock TTL in milliseconds (30 seconds should be enough for token refresh)
   private readonly LOCK_TTL_MS = 30000;
 
@@ -85,13 +91,16 @@ export class ProviderTokenService {
   }
 
   private async getMicrosoftToken(provider: ProviderEntity): Promise<string> {
+    // IF-H1: Check Redis token cache first — avoids DB decrypt + prevents concurrent refresh storms
+    const cached = await this.redisLock.cacheGet(`${this.KEY_PREFIX_TOKEN_CACHE}${provider.id}`);
+    if (cached) return cached;
+
     if (!provider.accessToken || !provider.tokenEncryptionIv) {
       throw new BadRequestException(`Provider ${provider.id} missing access token`);
     }
 
     const now = new Date();
-    // RC-15 FIX: Proactive refresh 5 minutes BEFORE expiration
-    const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
+    const REFRESH_BUFFER_MS = 5 * 60 * 1000;
     const expiresSoon = provider.tokenExpiresAt
       ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - REFRESH_BUFFER_MS
       : true;
@@ -102,7 +111,6 @@ export class ProviderTokenService {
     const canRefresh = provider.refreshToken && provider.refreshTokenEncryptionIv;
 
     if ((!tokenLooksValid || expiresSoon) && canRefresh) {
-      // Use distributed lock to prevent race condition
       accessToken = await this.refreshMicrosoftTokenWithLock(provider);
     } else if (!tokenLooksValid && !canRefresh) {
       this.logger.error(
@@ -113,6 +121,8 @@ export class ProviderTokenService {
       );
     }
 
+    // IF-H1: Cache valid token for concurrent readers
+    await this.redisLock.cacheSet(`${this.KEY_PREFIX_TOKEN_CACHE}${provider.id}`, accessToken, this.TOKEN_CACHE_TTL_SECONDS);
     return accessToken;
   }
 
@@ -189,15 +199,16 @@ export class ProviderTokenService {
   }
 
   private async getGoogleToken(provider: ProviderEntity): Promise<string> {
+    // IF-H1: Check Redis token cache first
+    const cached = await this.redisLock.cacheGet(`${this.KEY_PREFIX_TOKEN_CACHE}${provider.id}`);
+    if (cached) return cached;
+
     if (!provider.accessToken || !provider.tokenEncryptionIv) {
       throw new BadRequestException(`Google provider ${provider.id} missing access token`);
     }
 
     const now = new Date();
-    // RC-15 FIX: Proactive refresh 5 minutes BEFORE expiration
-    // Increased from 60 seconds to provide larger window for token refresh
-    // This prevents token expiry during active API operations
-    const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
+    const REFRESH_BUFFER_MS = 5 * 60 * 1000;
     const expiresSoon = provider.tokenExpiresAt
       ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - REFRESH_BUFFER_MS
       : true;
@@ -208,7 +219,6 @@ export class ProviderTokenService {
     const canRefresh = provider.refreshToken && provider.refreshTokenEncryptionIv;
 
     if ((!tokenLooksValid || expiresSoon) && canRefresh) {
-      // Use distributed lock to prevent race condition
       accessToken = await this.refreshGoogleTokenWithLock(provider);
     } else if (!tokenLooksValid && !canRefresh) {
       this.logger.error(
@@ -219,6 +229,12 @@ export class ProviderTokenService {
       );
     }
 
+    // IF-H1: Cache valid token for concurrent readers
+    await this.redisLock.cacheSet(
+      `${this.KEY_PREFIX_TOKEN_CACHE}${provider.id}`,
+      accessToken,
+      this.TOKEN_CACHE_TTL_SECONDS,
+    );
     return accessToken;
   }
 
