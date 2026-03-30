@@ -123,7 +123,7 @@ export async function apiGet(context, path, cookieHeader) {
  * POST wrapper with Cookie + x-csrf-token headers.
  * Parses JSON and returns data. Throws on non-2xx.
  */
-export async function apiPost(context, path, body, cookieHeader, csrfToken) {
+export async function apiPost(context, path, body, cookieHeader, csrfToken, { timeout } = {}) {
   const api = context.request;
   const url = BACKEND_URL + path;
   const headers = { Cookie: cookieHeader };
@@ -134,6 +134,9 @@ export async function apiPost(context, path, body, cookieHeader, csrfToken) {
   const opts = { headers };
   if (body !== null && body !== undefined) {
     opts.data = body;
+  }
+  if (timeout) {
+    opts.timeout = timeout;
   }
 
   const response = await api.post(url, opts);

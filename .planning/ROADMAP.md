@@ -308,7 +308,7 @@ Plans:
 | 118. Drafts & Bulk Operations | 2/2 | Complete    | 2026-03-30 |
 | 119. Folder Operations | 2/2 | Complete    | 2026-03-30 |
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
-| 121. Scheduling, Signatures & Templates | 0/2 | In Progress | - |
+| 121. Scheduling, Signatures & Templates | 0/2 | Planned    |  |
 | 122. Cross-cutting Validation | 0/? | Not started | - |
 
 ---

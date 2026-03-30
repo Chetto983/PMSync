@@ -15,10 +15,10 @@
 - [x] T-1201 — Modello Prisma `ChurnSignal`: relazione a Contact/Account, churn probability (0-1), signal breakdown JSON (fattori + pesi), `computedAt`, `acknowledgedAt` nullable — [1 SP] — ✅ DONE
 - [x] T-1202 — Churn feature extraction service: email response time decay (media ultimi 30gg vs 90gg), meeting frequency drop (confronto trimestre corrente vs precedente), deal stage stagnation (giorni in stage corrente vs media storica) — [3 SP] — ✅ DONE
 - [x] T-1203 — Feature aggiuntiva: support ticket increase trend, inactivity streak (giorni senza interazione), email bounce/unsubscribe signals — [2 SP] — ✅ DONE (inactivity + bounce in T-1202; no support ticket model exists)
-- [ ] T-1204 — Logistic regression model con ml.js: training su features di churn, calibrazione probabilità, soglie configurabili (high risk > 0.7, medium 0.4-0.7, low < 0.4) — [2 SP] — 📋 TODO
-- [ ] T-1205 — API endpoint `GET /crm/churn/at-risk?threshold=0.4&sort=probability&order=desc` con paginazione e filtro per Account — [1 SP] — 📋 TODO
-- [ ] T-1206 — Pagina early warning list: tabella MUI DataGrid con colonne (contatto/account, probabilità churn, trend, ultimo contatto, azione suggerita), chip colorati per livello rischio — [2 SP] — 📋 TODO
-- [ ] T-1207 — Churn risk badge su contact detail e account detail: indicatore visivo con probabilità e breakdown fattori on hover (Tooltip MUI) — [1 SP] — 📋 TODO
+- [x] T-1204 — LLM-based churn assessment (Mistral): probability 0-1, configurable thresholds (high > 0.7, medium 0.4-0.7, low < 0.4), heuristic fallback — [2 SP] — ✅ DONE
+- [x] T-1205 — API endpoint `GET /crm/churn/at-risk?threshold=0.4&sort=probability&order=desc` con paginazione e filtro per Account — [1 SP] — ✅ DONE
+- [x] T-1206 — Pagina early warning list: tabella MUI con colonne (contatto/account, probabilità churn, livello rischio, valutazione, ultimo contatto), chip colorati per livello — [2 SP] — ✅ DONE
+- [x] T-1207 — Churn risk badge su contact detail e account detail: indicatore visivo con probabilità e breakdown fattori on hover (Tooltip MUI) — [1 SP] — ✅ DONE
 - [ ] T-1208 — Signal breakdown component: radar chart o barre orizzontali che mostrano quali fattori contribuiscono al rischio (response decay, meeting drop, stagnation, inactivity) — [2 SP] — 📋 TODO
 - [ ] T-1209 — BullMQ job `churn-recompute` settimanale: ricalcolo probabilità churn per tutti i contatti attivi, notifica se nuovi high-risk detected — [1 SP] — 📋 TODO
 - [ ] T-1210 — Type-check frontend e backend, traduzioni IT/EN, query hook `useChurnRisk` — [1 SP] — 📋 TODO

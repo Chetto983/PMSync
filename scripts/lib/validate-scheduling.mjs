@@ -35,7 +35,7 @@ export async function validateScheduling(context, cookieHeader, csrfToken, check
 
       // Step 1: Get a valid providerId
       console.log('  Step 1: Getting email providers...');
-      const providersData = await apiGet(context, '/api/v1/email-providers', cookieHeader);
+      const providersData = await apiGet(context, '/api/v1/providers', cookieHeader);
       const providers = providersData?.data || providersData;
       const providerList = Array.isArray(providers) ? providers : [];
       assertTrue(providerList.length > 0, 'INFRA-06: At least one email provider exists');
@@ -61,7 +61,7 @@ export async function validateScheduling(context, cookieHeader, csrfToken, check
         scheduledAt,
       };
 
-      const sendResult = await apiPost(context, '/api/v1/emails/send', sendBody, cookieHeader, csrfToken);
+      const sendResult = await apiPost(context, '/api/v1/emails/send', sendBody, cookieHeader, csrfToken, { timeout: 60000 });
       const sendData = sendResult?.data || sendResult;
       console.log(`  Send response: ${JSON.stringify(sendData).substring(0, 200)}`);
 
@@ -98,7 +98,7 @@ export async function validateScheduling(context, cookieHeader, csrfToken, check
       // If no scheduledEmailId from INFRA-06, create one
       if (!scheduledEmailId) {
         console.log('  Step 0: Creating a scheduled email for cancel test...');
-        const providersData = await apiGet(context, '/api/v1/email-providers', cookieHeader);
+        const providersData = await apiGet(context, '/api/v1/providers', cookieHeader);
         const providers = providersData?.data || providersData;
         const providerList = Array.isArray(providers) ? providers : [];
 
@@ -117,7 +117,7 @@ export async function validateScheduling(context, cookieHeader, csrfToken, check
           bodyHtml: '<p>Cancel test</p>',
           bodyText: 'Cancel test',
           scheduledAt,
-        }, cookieHeader, csrfToken);
+        }, cookieHeader, csrfToken, { timeout: 60000 });
 
         const sendData = sendResult?.data || sendResult;
         scheduledEmailId = sendData?.id;

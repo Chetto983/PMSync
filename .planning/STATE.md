@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Email & Sync Production Validation
-status: Executing Phase 121
-last_updated: "2026-03-30T10:11:13.086Z"
+status: Ready to execute
+last_updated: "2026-03-30T10:18:03.470Z"
 progress:
   total_phases: 11
   completed_phases: 9
@@ -23,7 +23,7 @@ See: `.planning/PROJECT.md` (updated 2026-03-25)
 ## Current Position
 
 Phase: 121 (scheduling-signatures-templates) — EXECUTING
-Plan: 1 of 2
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Plan: 1 of 2
 - [Phase 119]: No backend worker/controller changes needed -- folder operations worked correctly on first live run
 - [Phase 120]: Fixed response envelope unwrapping in queue health validation (API returns { queues: [...] }, not raw array)
 - [Phase 120]: All 48 checks PASS -- full production health confirmed for queues and webhooks
+- [Phase 121]: Signature baked into bodyHtml before scheduling -- scheduled emails include correct signature at schedule time
 
 ### Research Flags
 
@@ -76,7 +77,7 @@ Plan: 1 of 2
 
 ## Session Continuity
 
-Last session: 2026-03-30T09:39:53.354Z
+Last session: 2026-03-30T10:18:03.464Z
 Completed: Phase 120 Plan 03 (live validation -- all 48/48 checks passed, human approved)
 Next action: Plan Phase 121 (Scheduling, Signatures & Templates)
-Resume file: .planning/phases/121-scheduling-signatures-templates/121-UI-SPEC.md
+Resume file: None

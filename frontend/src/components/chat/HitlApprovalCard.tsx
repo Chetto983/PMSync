@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, X, Loader2, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import Box from '@mui/material/Box';
@@ -61,11 +61,51 @@ function generateToolSummary(toolName: string, args: Record<string, unknown>): s
 
 type HitlDisplayState = 'pending' | 'approved' | 'rejected';
 
-function getDisplayState(status: { type: string }, result: unknown): HitlDisplayState {
+type HitlDecision = { approved: boolean; reason?: string };
+
+const hitlDecisionCache = new Map<string, HitlDecision>();
+
+function inferDecisionFromResult(result: unknown): HitlDecision | null {
+  const record = result as Record<string, unknown> | undefined;
+  if (!record) return null;
+  if (record.approved === true) return { approved: true };
+  if (record.approved === false) {
+    return {
+      approved: false,
+      reason: typeof record.reason === 'string' ? record.reason : undefined,
+    };
+  }
+
+  const errorText = typeof record.error === 'string'
+    ? record.error
+    : typeof record.reason === 'string'
+      ? record.reason
+      : '';
+  if (/(denied|rejected|cancelled|not sent|not deleted|not removed)/i.test(errorText)) {
+    return { approved: false, reason: errorText };
+  }
+
+  return null;
+}
+
+function rememberDecision(toolCallId: string, decision: HitlDecision) {
+  if (!toolCallId) return;
+  hitlDecisionCache.set(toolCallId, decision);
+}
+
+function getDisplayState(
+  status: { type: string },
+  result: unknown,
+  toolCallId: string,
+): HitlDisplayState {
   if (status.type === 'requires-action') return 'pending';
-  const r = result as Record<string, unknown> | undefined;
-  if (r && r.approved === true) return 'approved';
-  if (r && r.approved === false) return 'rejected';
+  const decisionFromResult = inferDecisionFromResult(result);
+  if (decisionFromResult) {
+    rememberDecision(toolCallId, decisionFromResult);
+    return decisionFromResult.approved ? 'approved' : 'rejected';
+  }
+  const cached = hitlDecisionCache.get(toolCallId);
+  if (cached) return cached.approved ? 'approved' : 'rejected';
   // If complete but no approval data, treat as approved (tool executed normally)
   return 'approved';
 }
@@ -78,6 +118,7 @@ interface HitlApprovalWrapperProps {
   status: { type: string; reason?: string };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addResult: (result: any) => void;
+  toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
   result?: unknown;
@@ -88,6 +129,7 @@ interface HitlApprovalWrapperProps {
 export function HitlApprovalWrapper({
   status,
   addResult,
+  toolCallId,
   toolName,
   args,
   result,
@@ -98,13 +140,21 @@ export function HitlApprovalWrapper({
   // Track local user action for display when SDK path doesn't update result prop
   const [localAction, setLocalAction] = useState<'approved' | 'rejected' | null>(null);
 
+  useEffect(() => {
+    const decision = inferDecisionFromResult(result);
+    if (decision) {
+      rememberDecision(toolCallId, decision);
+    }
+  }, [result, toolCallId]);
+
   const displayState = localAction && status.type !== 'requires-action'
     ? localAction
-    : getDisplayState(status, result);
+    : getDisplayState(status, result, toolCallId);
 
   const handleApprove = () => {
     setBusy('approve');
     setLocalAction('approved');
+    rememberDecision(toolCallId, { approved: true });
     const approvalId = (interrupt?.payload as Record<string, unknown>)?.id as string | undefined;
     const approvalFn = getAddToolApprovalResponse();
     if (approvalId && approvalFn) {
@@ -117,6 +167,7 @@ export function HitlApprovalWrapper({
   const handleReject = () => {
     setBusy('reject');
     setLocalAction('rejected');
+    rememberDecision(toolCallId, { approved: false, reason: 'User rejected' });
     const approvalId = interrupt?.payload?.id;
     const approvalFn = getAddToolApprovalResponse();
     if (approvalId && approvalFn) {

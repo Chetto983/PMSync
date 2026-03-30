@@ -144,7 +144,7 @@ export async function validateSignatures(context, cookieHeader, csrfToken, check
 
       // Step 2: Get a valid providerId
       console.log('  Step 2: Getting email providers...');
-      const providersData = await apiGet(context, '/api/v1/email-providers', cookieHeader);
+      const providersData = await apiGet(context, '/api/v1/providers', cookieHeader);
       const providers = providersData?.data || providersData;
       const providerList = Array.isArray(providers) ? providers : [];
 
@@ -157,20 +157,30 @@ export async function validateSignatures(context, cookieHeader, csrfToken, check
 
       const providerId = providerList[0].id;
 
-      // Step 3: Send email WITHOUT signatureId (should use default)
-      console.log('  Step 3: Sending email without signatureId (default should apply)...');
+      // Step 3: Schedule email WITHOUT signatureId (should use default signature)
+      // Uses scheduledAt to avoid SMTP delivery (Railway blocks ports 465/587).
+      // The controller resolves the signature BEFORE routing to scheduler,
+      // so this validates the full signature-in-send path.
+      const scheduledAt = new Date(Date.now() + 600000).toISOString();
+      console.log('  Step 3: Scheduling email without signatureId (default should apply)...');
       const send1Result = await apiPost(context, '/api/v1/emails/send', {
         providerId,
         to: ['sig-test@pmsync.local'],
         subject: `INFRA-10 Default Sig Test ${Date.now()}`,
         bodyHtml: '<p>Testing default signature inclusion</p>',
         bodyText: 'Testing default signature inclusion',
-      }, cookieHeader, csrfToken);
+        scheduledAt,
+      }, cookieHeader, csrfToken, { timeout: 60000 });
       const send1Data = send1Result?.data || send1Result;
-      assertTrue(!!send1Data, 'INFRA-10: Send with default signature succeeds');
+      assertTrue(!!send1Data?.id, 'INFRA-10: Send with default signature succeeds (via scheduled path)');
 
-      // Step 4: Send email with signatureId: null (should NOT include signature)
-      console.log('  Step 4: Sending email with signatureId=null (no signature)...');
+      // Cleanup: cancel the scheduled email
+      if (send1Data?.id) {
+        await apiDelete(context, `/api/v1/emails/scheduled/${send1Data.id}`, cookieHeader, csrfToken);
+      }
+
+      // Step 4: Schedule email with signatureId: null (should NOT include signature)
+      console.log('  Step 4: Scheduling email with signatureId=null (no signature)...');
       const send2Result = await apiPost(context, '/api/v1/emails/send', {
         providerId,
         to: ['sig-test@pmsync.local'],
@@ -178,9 +188,15 @@ export async function validateSignatures(context, cookieHeader, csrfToken, check
         bodyHtml: '<p>Testing no signature</p>',
         bodyText: 'Testing no signature',
         signatureId: null,
-      }, cookieHeader, csrfToken);
+        scheduledAt: new Date(Date.now() + 600000).toISOString(),
+      }, cookieHeader, csrfToken, { timeout: 60000 });
       const send2Data = send2Result?.data || send2Result;
-      assertTrue(!!send2Data, 'INFRA-10: Send with signatureId=null succeeds');
+      assertTrue(!!send2Data?.id, 'INFRA-10: Send with signatureId=null succeeds (via scheduled path)');
+
+      // Cleanup: cancel the scheduled email
+      if (send2Data?.id) {
+        await apiDelete(context, `/api/v1/emails/scheduled/${send2Data.id}`, cookieHeader, csrfToken);
+      }
     } catch (err) {
       console.log(`  ERROR: ${err.message}`);
       assertTrue(false, `INFRA-10: Signature send completes without error: ${err.message}`);

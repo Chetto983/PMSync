@@ -24,6 +24,7 @@ export function TriageRenderer({
   status,
   result,
   addResult,
+  toolCallId,
   toolName,
   args,
   interrupt,
@@ -39,6 +40,7 @@ export function TriageRenderer({
       <HitlApprovalWrapper
         status={status}
         addResult={addResult}
+        toolCallId={toolCallId}
         toolName={toolName}
         args={args}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

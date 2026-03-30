@@ -17,6 +17,7 @@ import { HitlApprovalWrapper, HIGH_RISK_TOOLS } from '../HitlApprovalCard';
  */
 export function FallbackToolRenderer({
   status,
+  toolCallId,
   toolName,
   args,
   result,
@@ -29,6 +30,7 @@ export function FallbackToolRenderer({
       <HitlApprovalWrapper
         status={status}
         addResult={addResult}
+        toolCallId={toolCallId}
         toolName={toolName}
         args={(args ?? {}) as Record<string, unknown>}
         result={result}
@@ -44,6 +46,7 @@ export function FallbackToolRenderer({
       <HitlApprovalWrapper
         status={status}
         addResult={addResult}
+        toolCallId={toolCallId}
         toolName={toolName}
         args={(args ?? {}) as Record<string, unknown>}
         result={result}
