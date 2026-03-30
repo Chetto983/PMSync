@@ -71,9 +71,9 @@ Comprehensive audit of all email and email-sync operations against live provider
 
 ### Cross-cutting
 
-- [ ] **XCUT-01**: All email operations enforce tenantId isolation
-- [ ] **XCUT-02**: Rate limiting applies correctly per tier on email endpoints
-- [ ] **XCUT-03**: Error responses follow standard envelope format with correlation IDs
+- [x] **XCUT-01**: All email operations enforce tenantId isolation
+- [x] **XCUT-02**: Rate limiting applies correctly per tier on email endpoints
+- [x] **XCUT-03**: Error responses follow standard envelope format with correlation IDs
 
 ## Future Requirements
 
@@ -140,9 +140,9 @@ Comprehensive audit of all email and email-sync operations against live provider
 | INFRA-08 | Phase 121 | Complete |
 | INFRA-09 | Phase 121 | Complete |
 | INFRA-10 | Phase 121 | Complete |
-| XCUT-01 | Phase 122 | Pending |
-| XCUT-02 | Phase 122 | Pending |
-| XCUT-03 | Phase 122 | Pending |
+| XCUT-01 | Phase 122 | Complete |
+| XCUT-02 | Phase 122 | Complete |
+| XCUT-03 | Phase 122 | Complete |
 
 **Coverage:**
 - v10.0 requirements: 41 total

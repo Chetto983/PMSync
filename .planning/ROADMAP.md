@@ -295,7 +295,7 @@ Plans:
   3. All error responses follow the standard envelope format with a correlation ID present in every response
 **Plans**: 2 plans
 Plans:
-- [ ] 122-01-PLAN.md -- Validation scripts + rate tier fix (XCUT-01, XCUT-02, XCUT-03)
+- [x] 122-01-PLAN.md -- Validation scripts + rate tier fix (XCUT-01, XCUT-02, XCUT-03)
 - [ ] 122-02-PLAN.md -- Live validation run + bug fixes + human checkpoint (XCUT-01, XCUT-02, XCUT-03)
 
 ## Progress
@@ -312,7 +312,7 @@ Plans:
 | 119. Folder Operations | 2/2 | Complete    | 2026-03-30 |
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
-| 122. Cross-cutting Validation | 0/2 | Not started | - |
+| 122. Cross-cutting Validation | 1/2 | In Progress|  |
 
 ---
 *Roadmap created: 2026-02-09*

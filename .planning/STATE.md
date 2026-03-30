@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Email & Sync Production Validation
-status: Ready to plan
-last_updated: "2026-03-30T10:34:26.490Z"
+status: Ready to execute
+last_updated: "2026-03-30T12:42:14.555Z"
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 22
-  completed_plans: 22
+  total_plans: 24
+  completed_plans: 23
 ---
 
 # Project State
@@ -18,12 +18,12 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-25)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 121 — scheduling-signatures-templates
+**Current focus:** Phase 122 — cross-cutting-validation
 
 ## Current Position
 
-Phase: 122
-Plan: Not started
+Phase: 122 (cross-cutting-validation) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -65,6 +65,8 @@ Plan: Not started
 - [Phase 120]: Fixed response envelope unwrapping in queue health validation (API returns { queues: [...] }, not raw array)
 - [Phase 120]: All 48 checks PASS -- full production health confirmed for queues and webhooks
 - [Phase 121]: Signature baked into bodyHtml before scheduling -- scheduled emails include correct signature at schedule time
+- [Phase 122]: fs.readFileSync over execSync cat for cross-platform audit test compat
+- [Phase 122]: Window-based decorator search (+/-5 lines) since decorator order varies across controllers
 
 ### Research Flags
 
@@ -77,7 +79,7 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-30T10:18:03.464Z
+Last session: 2026-03-30T12:42:14.551Z
 Completed: Phase 120 Plan 03 (live validation -- all 48/48 checks passed, human approved)
 Next action: Plan Phase 121 (Scheduling, Signatures & Templates)
 Resume file: None
