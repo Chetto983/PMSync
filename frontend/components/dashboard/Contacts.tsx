@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -10,8 +10,9 @@ import {
   DialogContentText,
   DialogActions,
   Button,
+  Tooltip,
 } from '@mui/material';
-import { Search, Menu, Download, Upload } from 'lucide-react';
+import { Search, Menu, Download, Upload, ArrowUpDown } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   ContactLayout,
@@ -97,6 +98,26 @@ export function Contacts() {
   const [exportingContacts, setExportingContacts] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
 
+  // Lead score sorting: null = off, 'desc' = high to low, 'asc' = low to high
+  const [scoreSort, setScoreSort] = useState<'asc' | 'desc' | null>(null);
+
+  const scoreSortedContacts = useMemo(() => {
+    if (!scoreSort) return filteredContacts;
+    return [...filteredContacts].sort((a, b) => {
+      const sa = leadScoreMap.get(a.id)?.score ?? -1;
+      const sb = leadScoreMap.get(b.id)?.score ?? -1;
+      return scoreSort === 'desc' ? sb - sa : sa - sb;
+    });
+  }, [filteredContacts, scoreSort, leadScoreMap]);
+
+  const handleToggleScoreSort = useCallback(() => {
+    setScoreSort((prev) => {
+      if (prev === null) return 'desc';
+      if (prev === 'desc') return 'asc';
+      return null;
+    });
+  }, []);
+
   const handleBulkDeleteRequest = useCallback(async () => {
     setBulkDeleteDialogOpen(true);
   }, []);
@@ -168,6 +189,21 @@ export function Contacts() {
             },
           }}
         />
+        <Tooltip title={
+          scoreSort === 'desc'
+            ? (translations.leadScore?.list?.sortDesc ?? 'Score: high to low')
+            : scoreSort === 'asc'
+              ? (translations.leadScore?.list?.sortAsc ?? 'Score: low to high')
+              : (translations.leadScore?.list?.column ?? 'Sort by lead score')
+        }>
+          <IconButton
+            size="small"
+            onClick={handleToggleScoreSort}
+            color={scoreSort ? 'primary' : 'default'}
+          >
+            <ArrowUpDown size={18} />
+          </IconButton>
+        </Tooltip>
         <IconButton
           size="small"
           onClick={() => setImportDialogOpen(true)}
@@ -195,7 +231,7 @@ export function Contacts() {
       {selectedIds.size > 0 && (
         <ContactBulkActionBar
           selectedCount={selectedIds.size}
-          totalCount={filteredContacts.length}
+          totalCount={scoreSortedContacts.length}
           onSelectAll={handleSelectAll}
           onClearSelection={clearSelection}
           onDelete={handleBulkDeleteRequest}
@@ -204,7 +240,7 @@ export function Contacts() {
 
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         <ContactList
-          contacts={filteredContacts}
+          contacts={scoreSortedContacts}
           selectedId={selectedContact?.id}
           selectedIds={selectedIds}
           isLoading={loading}
@@ -213,14 +249,14 @@ export function Contacts() {
           onContactClick={handleContactClick}
           onToggleSelect={toggleSelection}
           onEdit={(id) => {
-            const contact = filteredContacts.find((c) => c.id === id);
+            const contact = scoreSortedContacts.find((c) => c.id === id);
             if (contact) {
               data.setSelectedContact(contact);
               openEditContactDialog();
             }
           }}
           onDelete={(id) => {
-            const contact = filteredContacts.find((c) => c.id === id);
+            const contact = scoreSortedContacts.find((c) => c.id === id);
             if (contact) openDeleteDialog(contact);
           }}
           onEmail={handleEmail}

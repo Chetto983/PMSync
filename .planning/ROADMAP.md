@@ -126,7 +126,7 @@
 - [ ] **Phase 115: Email List & Thread Reading** - Verify list filtering, pagination, thread grouping, and single email retrieval
 - [x] **Phase 116: Attachments & Search** - Verify attachment download (S3 + on-demand), folder stats, and full-text search (completed 2026-03-26)
 - [x] **Phase 117: Email Send & Reply/Forward** - Verify send/reply/forward lifecycle across all three providers (completed 2026-03-27)
-- [ ] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations
+- [x] **Phase 118: Drafts & Bulk Operations** - Verify draft CRUD and bulk mark/move/delete/label operations (completed 2026-03-30)
 - [ ] **Phase 119: Folder Operations** - Verify folder CRUD, external change sync, and system folder protection
 - [ ] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle
 - [ ] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD
@@ -237,7 +237,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 118-01-PLAN.md -- Fix deleteDraft provider-sync bug + validation scripts (WRITE-06, WRITE-07, WRITE-08, WRITE-09, WRITE-10)
-- [ ] 118-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (WRITE-06, WRITE-07, WRITE-08, WRITE-09, WRITE-10)
+- [x] 118-02-PLAN.md -- Live provider validation run + bug fixes + human checkpoint (WRITE-06, WRITE-07, WRITE-08, WRITE-09, WRITE-10)
 
 ### Phase 119: Folder Operations
 **Goal**: Users can create, rename, and delete folders with changes reflected on the provider and vice versa
@@ -295,7 +295,7 @@ Plans:
 | 115. Email List & Thread Reading | 2/2 | Complete    | 2026-03-26 |
 | 116. Attachments & Search | 2/2 | Complete    | 2026-03-26 |
 | 117. Email Send & Reply/Forward | 3/3 | Complete   | 2026-03-27 |
-| 118. Drafts & Bulk Operations | 1/2 | In Progress|  |
+| 118. Drafts & Bulk Operations | 2/2 | Complete   | 2026-03-30 |
 | 119. Folder Operations | 0/? | Not started | - |
 | 120. Queue & Webhook Infrastructure | 0/? | Not started | - |
 | 121. Scheduling, Signatures & Templates | 0/? | Not started | - |

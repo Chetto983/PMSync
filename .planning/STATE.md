@@ -22,8 +22,8 @@ See: `.planning/PROJECT.md` (updated 2026-03-25)
 
 ## Current Position
 
-Phase: 118 (drafts-bulk-operations) — EXECUTING
-Plan: 2 of 2
+Phase: 118 (drafts-bulk-operations) — COMPLETE
+Plan: 2 of 2 (done)
 
 ## Performance Metrics
 
@@ -37,9 +37,9 @@ Plan: 2 of 2
 
 **v10.0 (current):**
 
-- Phases: 0/11 completed
-- Requirements: 0/41 satisfied
-- Bugs found & fixed: 0
+- Phases: 7/11 completed
+- Requirements: 25/41 satisfied
+- Bugs found & fixed: 3
 
 ## Accumulated Context
 
@@ -58,6 +58,7 @@ Plan: 2 of 2
 - [Phase 117]: Separate externalId/rfcMessageId in saveSentEmail; post-send getMessage for Microsoft to resolve RFC 822 internetMessageId
 - [Phase 117]: WRITE-03 marked Blocked (Infrastructure) -- Railway blocks SMTP ports 465/587, code compiles but cannot be live-validated
 - [Phase 118]: Provider delete is fire-and-forget in deleteDraft; local cleanup always proceeds
+- [Phase 118]: Labels API returns flat array, not paginated envelope; per-email verification needed after bulk label ops
 
 ### Research Flags
 
@@ -70,7 +71,7 @@ Plan: 2 of 2
 
 ## Session Continuity
 
-Last session: 2026-03-30T06:56:33.850Z
-Completed: Phase 117 Plan 03 (gap closure -- Outlook messageId fix, WRITE-03 correction)
-Next action: Execute Phase 118 (Drafts & Bulk Operations)
+Last session: 2026-03-30T07:15:00Z
+Completed: Phase 118 Plan 02 (live validation -- all 40/40 checks passed, human approved)
+Next action: Execute Phase 119 (Folder Operations)
 Resume file: None
