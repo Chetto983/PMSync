@@ -68,17 +68,17 @@ Phases 1-6 fix the issues. This sprint proves they're fixed in production. Cover
 
 ### T-1704: Data consistency validation script [2 SP]
 
-- [ ] Create `backend/scripts/validate-production-data.ts` (runnable via `npx ts-node`)
-- [ ] Checks:
+- [x] Create `backend/scripts/validate-production-data.ts` (runnable via `npx ts-node`) ✅ DONE
+- [x] Checks: ✅ DONE
   - All emails have valid `folder` matching `determineFolderFromLabels(labels)`
   - No orphan embeddings (embedding exists but email deleted)
   - No cross-tenant data (email.tenantId matches provider.tenantId)
   - All active webhook subscriptions are valid (not expired)
   - Folder cache entries match actual folders
   - No stale sync tokens (historyId/deltaLink)
-- [ ] Output: JSON report with `{ check, status, count, details }`
-- [ ] Exit code: 0 if all pass, 1 if any fail
-- [ ] Files: new `backend/scripts/validate-production-data.ts`
+- [x] Output: JSON report with `{ check, status, count, details }` ✅ DONE
+- [x] Exit code: 0 if all pass, 1 if any fail ✅ DONE
+- [x] Files: `backend/scripts/validate-production-data.ts` ✅ DONE
 
 ### T-1705: Production scorecard [2 SP]
 
