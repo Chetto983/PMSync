@@ -71,6 +71,7 @@ model Tenant {
   modelEvaluations         ModelEvaluation[]
   forecastSnapshots        ForecastSnapshot[]
   churnSignals             ChurnSignal[]
+  nbaActions               NBAAction[]
 
   @@map("tenants")
 }
@@ -883,6 +884,7 @@ model Contact {
   leadScoreHistory    LeadScoreHistory[]
   leadFeatures        LeadFeatureStore[]
   churnSignals        ChurnSignal[]
+  nbaActions          NBAAction[]
 
   @@id([id, tenantId])
   @@index([tenantId, displayName])
@@ -1788,6 +1790,7 @@ model CrmDeal {
   activities        CrmActivity[]
   dealProducts      DealProduct[]
   dealContacts      DealContact[]
+  nbaActions        NBAAction[]
 
   @@index([tenantId])
   @@index([tenantId, pipelineId])
@@ -2130,4 +2133,37 @@ model GraphEdge {
   @@index([tenantId, edgeType])
   @@index([sourceId, edgeType])
   @@map("graph_edges")
+}
+
+/// ========================================================================
+/// CRM — Next Best Action (Sprint 13)
+/// Contextual action recommendations for deals based on engagement,
+/// churn risk, lead score, and deal stage signals.
+/// ========================================================================
+
+model NBAAction {
+  id             String   @id @default(cuid())
+  tenantId       String
+  dealId         String
+  contactId      String?
+  actionType     String   // EMAIL, CALL, MEETING, DISCOUNT, ESCALATE, FOLLOW_UP
+  title          String
+  reasoning      String
+  expectedImpact Int      // 0-100
+  confidence     Float    @default(0.5) // 0.0-1.0
+  status         String   @default("SUGGESTED") // SUGGESTED, ACCEPTED, DISMISSED, EXECUTED
+  executedAt     DateTime?
+  dismissedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deal           CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact        Contact? @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, dealId])
+  @@index([tenantId, dealId, status])
+  @@index([tenantId, actionType])
+  @@map("nba_actions")
 }
