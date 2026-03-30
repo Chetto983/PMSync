@@ -301,6 +301,8 @@ export interface AppTranslations {
     crmAccounts: string;
     crmPipelines: string;
     crmDeals: string;
+    crmForecast: string;
+    crmChurn: string;
     crmGovernance: string;
     settings: string;
     profile: string;

@@ -33,6 +33,8 @@ export const it: AppTranslations = {
     crmAccounts: 'Account',
     crmPipelines: 'Pipeline',
     crmDeals: 'Trattative',
+    crmForecast: 'Previsioni',
+    crmChurn: 'Allerta Abbandono',
     crmGovernance: 'Governance AI',
     settings: 'Impostazioni',
     profile: 'Profilo',

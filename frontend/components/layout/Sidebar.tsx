@@ -25,6 +25,8 @@ import {
   Building2,
   GitBranch,
   Handshake,
+  TrendingUp,
+  AlertTriangle,
   ShieldCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -69,6 +71,8 @@ export function Sidebar({
     { label: t.nav.crmAccounts, icon: <Building2 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/accounts', section: 'crm' },
     { label: t.nav.crmPipelines, icon: <GitBranch size={24} strokeWidth={1.7} />, href: '/dashboard/crm/pipelines', section: 'crm' },
     { label: t.nav.crmDeals, icon: <Handshake size={24} strokeWidth={1.7} />, href: '/dashboard/crm/deals', section: 'crm' },
+    { label: t.nav.crmForecast, icon: <TrendingUp size={24} strokeWidth={1.7} />, href: '/dashboard/crm/forecast', section: 'crm' },
+    { label: t.nav.crmChurn, icon: <AlertTriangle size={24} strokeWidth={1.7} />, href: '/dashboard/crm/churn', section: 'crm' },
     { label: t.nav.crmGovernance, icon: <ShieldCheck size={24} strokeWidth={1.7} />, href: '/dashboard/crm/ai-governance', section: 'crm' },
     { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={24} strokeWidth={1.7} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
     { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={24} strokeWidth={1.7} />, href: '/dashboard/reminders', section: 'ai' },
