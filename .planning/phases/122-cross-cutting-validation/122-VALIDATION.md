@@ -2,8 +2,8 @@
 phase: 122
 slug: cross-cutting-validation
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-30
 ---
 
@@ -38,9 +38,9 @@ created: 2026-03-30
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 122-01-01 | 01 | 1 | XCUT-02 | unit+static | `cd backend && npx jest --testPathPattern="rate-tier-audit" --no-coverage` | ✅ | ⬜ pending |
-| 122-01-02 | 01 | 1 | XCUT-01,02,03 | integration | `node scripts/validate-cross-cutting.mjs --check=all` | ❌ W0 | ⬜ pending |
-| 122-01-03 | 01 | 1 | (sign-off) | meta | `node -e "..."` (VALIDATION.md flag check) | ✅ | ⬜ pending |
+| 122-01-01 | 01 | 1 | XCUT-02 | unit+static | `node scripts/validate-cross-cutting.mjs --check=tenant` | ✅ | ⬜ pending |
+| 122-01-02 | 01 | 1 | XCUT-01,02,03 | integration | `node scripts/validate-cross-cutting.mjs --check=all` | ✅ | ⬜ pending |
+| 122-01-03 | 01 | 1 | (sign-off) | meta | `node scripts/validate-cross-cutting.mjs --check=envelope` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,10 +48,10 @@ created: 2026-03-30
 
 ## Wave 0 Requirements
 
-- [ ] `scripts/lib/validate-tenant-isolation.mjs` — cross-tenant request checks for XCUT-01
-- [ ] `scripts/lib/validate-rate-tiers.mjs` — per-endpoint tier verification for XCUT-02
-- [ ] `scripts/lib/validate-response-envelope.mjs` — envelope format + correlation ID checks for XCUT-03
-- [ ] `scripts/validate-cross-cutting.mjs` — orchestrator running all three checks
+- [x] `scripts/lib/validate-tenant-isolation.mjs` — cross-tenant request checks for XCUT-01
+- [x] `scripts/lib/validate-rate-tiers.mjs` — per-endpoint tier verification for XCUT-02
+- [x] `scripts/lib/validate-response-envelope.mjs` — envelope format + correlation ID checks for XCUT-03
+- [x] `scripts/validate-cross-cutting.mjs` — orchestrator running all three checks
 
 *Existing `rate-tier-audit.spec.ts` covers XCUT-02 static analysis.*
 
@@ -69,11 +69,11 @@ created: 2026-03-30
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved
