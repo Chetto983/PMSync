@@ -46,10 +46,10 @@ export async function validateTenantIsolation(context, cookieHeader, csrfToken) 
   await checkCrossTenantReject('/api/v1/folders', 'XCUT-01b: GET /folders rejects cross-tenant header');
 
   // XCUT-01c: signatures rejects cross-tenant header
-  await checkCrossTenantReject('/api/v1/signatures', 'XCUT-01c: GET /signatures rejects cross-tenant header');
+  await checkCrossTenantReject('/api/v1/emails/signatures', 'XCUT-01c: GET /signatures rejects cross-tenant header');
 
   // XCUT-01d: templates rejects cross-tenant header
-  await checkCrossTenantReject('/api/v1/templates', 'XCUT-01d: GET /templates rejects cross-tenant header');
+  await checkCrossTenantReject('/api/v1/emails/templates', 'XCUT-01d: GET /templates rejects cross-tenant header');
 
   // XCUT-01e: Normal request returns only authenticated tenant data
   try {
