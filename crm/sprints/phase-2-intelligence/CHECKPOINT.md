@@ -67,3 +67,10 @@
 - Circular deps: ✅ zero
 - Prisma generate: ✅ done
 - DB push: ✅ schema synced to Railway
+
+## Production Validation (2026-03-30)
+
+- Railway `/health`: ✅ 200 — DB, Redis, Mistral up
+- `GET /crm/nba/test-deal-id`: ✅ 401 (route registered, auth guard active)
+- `GET /crm/nba/effectiveness/stats`: ✅ 401 (route registered, auth guard active)
+- Vercel `/dashboard/crm/deals`: ✅ 307 (auth redirect, page exists)
