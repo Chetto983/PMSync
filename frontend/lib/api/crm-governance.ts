@@ -36,6 +36,15 @@ export interface MonthlyCostTrend {
   callCount: number;
 }
 
+export interface DriftResult {
+  feature: string;
+  psi: number;
+  status: 'stable' | 'warning' | 'critical';
+  baselineN: number;
+  currentN: number;
+  checkedAt: string;
+}
+
 export type TimeRange = '7d' | '30d' | '90d';
 
 // ---- API ----
@@ -54,4 +63,10 @@ export const crmGovernanceApi = {
 
   getMonthlyCostTrend: () =>
     apiClient.get<MonthlyCostTrend[]>(`${BASE}/costs/trend`),
+
+  getDriftResults: () =>
+    apiClient.get<DriftResult[]>(`${BASE}/drift`),
+
+  runDriftCheck: () =>
+    apiClient.post<DriftResult[]>(`${BASE}/drift/check`),
 };

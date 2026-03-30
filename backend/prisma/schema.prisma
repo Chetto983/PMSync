@@ -69,6 +69,7 @@ model Tenant {
   leadScoreHistory         LeadScoreHistory[]
   leadFeatureStores        LeadFeatureStore[]
   modelEvaluations         ModelEvaluation[]
+  driftChecks              DriftCheck[]
   forecastSnapshots        ForecastSnapshot[]
   churnSignals             ChurnSignal[]
   nbaActions               NBAAction[]
@@ -2021,6 +2022,23 @@ model LeadFeatureStore {
   @@index([tenantId, contactId])
   @@index([tenantId, computedAt])
   @@map("crm_lead_feature_store")
+}
+
+model DriftCheck {
+  id         String   @id @default(cuid())
+  tenantId   String
+  modelType  String   // 'lead_scoring', 'churn_prediction', etc.
+  feature    String   // feature name (e.g. 'engagement.emailReplies')
+  psi        Float    // Population Stability Index
+  status     String   // 'stable', 'warning', 'critical'
+  baselineN  Int      // number of records in baseline sample
+  currentN   Int      // number of records in current sample
+  checkedAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, modelType, checkedAt(sort: Desc)])
+  @@map("crm_drift_checks")
 }
 
 model ModelEvaluation {

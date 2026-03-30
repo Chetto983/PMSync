@@ -1,4 +1,4 @@
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import {
   crmGovernanceApi,
   type TimeRange,
@@ -63,4 +63,28 @@ export function useGovernanceCosts(range: TimeRange = '30d') {
 
 export function useGovernanceCostTrend() {
   return useQuery(crmGovernanceCostTrendOptions());
+}
+
+export function crmGovernanceDriftOptions() {
+  return queryOptions({
+    queryKey: crmGovernanceKeys.drift(),
+    queryFn: () => crmGovernanceApi.getDriftResults().then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function useGovernanceDrift() {
+  return useQuery(crmGovernanceDriftOptions());
+}
+
+export function useRunDriftCheck() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => crmGovernanceApi.runDriftCheck().then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: crmGovernanceKeys.drift() });
+    },
+  });
 }
