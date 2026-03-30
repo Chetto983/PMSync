@@ -292,17 +292,34 @@ export abstract class AbstractCalendarSyncService {
         currentSyncToken,
       );
     } catch (error: any) {
-      // Handle sync token invalidation (410 Gone for Google, 404 for Microsoft)
-      const status = error?.code || error?.response?.status;
-      if (status === 410 || status === 404) {
-        this.logger.warn(`Sync token expired for calendar ${calendarId}, falling back to full sync`);
+      // Handle sync token invalidation:
+      // - Google Calendar API: GaxiosError with response.status = 410
+      // - Microsoft Graph API: GraphError with statusCode = 410, code = 'syncStateNotFound'
+      // - Legacy delta link: custom Error with code = 410
+      const httpStatus =
+        error?.response?.status ?? // GaxiosError (Google), AxiosError
+        error?.statusCode ??       // GraphError (Microsoft)
+        (typeof error?.code === 'number' ? error.code : undefined); // custom errors
+
+      // Also match MS Graph error codes that indicate stale sync state
+      const errorCode = typeof error?.code === 'string' ? error.code : '';
+      const isSyncTokenExpired =
+        httpStatus === 410 ||
+        httpStatus === 404 ||
+        errorCode === 'syncStateNotFound' ||
+        errorCode === 'resyncRequired';
+
+      if (isSyncTokenExpired) {
+        this.logger.warn(
+          `Sync token expired for calendar ${calendarId} (status=${httpStatus}, code=${errorCode}), falling back to full sync`,
+        );
         // Invalidate the sync token
         await this.prisma.calendarSyncState.update({
           where: { tenantId_providerId_calendarId: { tenantId, providerId, calendarId } },
           data: {
             [this.syncTokenField]: null,
             fullSyncRequired: true,
-            lastError: `Sync token expired (${status})`,
+            lastError: `Sync token expired (status=${httpStatus}, code=${errorCode})`,
             lastErrorAt: new Date(),
           },
         });

@@ -312,9 +312,9 @@ Plans:
   4. INFRA-09: Template CRUD verified on live production with API response confirmation
   5. INFRA-10: Sent email body contains the selected signature content (verified from API response)
   6. VERIFICATION.md created for Phase 121 with pass/fail per requirement
-**Plans**: 1 plan
+**Plans**: 0 plans
 Plans:
-- [x] 124-01-PLAN.md -- Fix stale checkboxes, coverage count, FOLD-03 qualifier, and progress entries
+(none yet — phase not started)
 
 ### Phase 124: Documentation & Traceability Cleanup
 **Goal**: Fix all documentation inconsistencies found by milestone audit — stale checkboxes, wrong counts, stale roadmap entries, missing qualifiers
@@ -330,7 +330,7 @@ Plans:
   6. FOLD-03 gets IMAP infrastructure qualifier (consistent with WRITE-03 pattern)
 **Plans**: 1 plan
 Plans:
-- [ ] 124-01-PLAN.md -- Fix stale checkboxes, coverage count, FOLD-03 qualifier, and progress entries
+- [x] 124-01-PLAN.md -- Fix stale checkboxes, coverage count, FOLD-03 qualifier, and progress entries
 
 ## Progress
 
@@ -348,7 +348,7 @@ Plans:
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
 | 122. Cross-cutting Validation | 2/2 | Complete    | 2026-03-30 |
 | 123. Phase 121 Verification Gap Closure | 0/0 | Not Started | — |
-| 124. Documentation & Traceability Cleanup | 1/1 | Complete   | 2026-03-30 |
+| 124. Documentation & Traceability Cleanup | 1/1 | Complete    | 2026-03-30 |
 
 ---
 *Roadmap created: 2026-02-09*
