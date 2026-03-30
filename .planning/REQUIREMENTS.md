@@ -63,11 +63,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 - [ ] **INFRA-03**: Gmail Pub/Sub subscription create and renew lifecycle works
 - [ ] **INFRA-04**: Microsoft Graph subscription create and renew lifecycle works
 - [ ] **INFRA-05**: Webhook health endpoint reports accurate status
-- [x] **INFRA-06**: Scheduled email sends at correct time
-- [x] **INFRA-07**: Scheduled email cancel prevents delivery
-- [x] **INFRA-08**: Signature CRUD and default selection works
-- [x] **INFRA-09**: Template CRUD, duplicate, and default selection works
-- [x] **INFRA-10**: Sent emails include correct signature
+- [ ] **INFRA-06**: Scheduled email sends at correct time
+- [ ] **INFRA-07**: Scheduled email cancel prevents delivery
+- [ ] **INFRA-08**: Signature CRUD and default selection works
+- [ ] **INFRA-09**: Template CRUD, duplicate, and default selection works
+- [ ] **INFRA-10**: Sent emails include correct signature
 
 ### Cross-cutting
 
@@ -135,11 +135,11 @@ Comprehensive audit of all email and email-sync operations against live provider
 | INFRA-03 | Phase 120 | Pending |
 | INFRA-04 | Phase 120 | Pending |
 | INFRA-05 | Phase 120 | Pending |
-| INFRA-06 | Phase 121 | Complete |
-| INFRA-07 | Phase 121 | Complete |
-| INFRA-08 | Phase 121 | Complete |
-| INFRA-09 | Phase 121 | Complete |
-| INFRA-10 | Phase 121 | Complete |
+| INFRA-06 | Phase 121 → 123 | Pending (verification gap) |
+| INFRA-07 | Phase 121 → 123 | Pending (verification gap) |
+| INFRA-08 | Phase 121 → 123 | Pending (verification gap) |
+| INFRA-09 | Phase 121 → 123 | Pending (verification gap) |
+| INFRA-10 | Phase 121 → 123 | Pending (verification gap) |
 | XCUT-01 | Phase 122 | Complete |
 | XCUT-02 | Phase 122 | Complete |
 | XCUT-03 | Phase 122 | Complete |

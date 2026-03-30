@@ -16,7 +16,7 @@
 - ✅ **v7.0 System Audit & Hardening** — Phases 89-99 (shipped 2026-03-23)
 - ✅ **v8.0 Progressive Web App** — Phases 100-105 (shipped 2026-03-24)
 - ✅ **v9.0 AI Intelligence & Platform Hardening** — Phases 106-111 (shipped 2026-03-25)
-- [ ] **v10.0 Email & Sync Production Validation** — Phases 112-122
+- [ ] **v10.0 Email & Sync Production Validation** — Phases 112-124
 
 ## Phases
 
@@ -131,6 +131,8 @@
 - [x] **Phase 120: Queue & Webhook Infrastructure** - Verify BullMQ queue health, pause/resume, and webhook subscription lifecycle (completed 2026-03-30)
 - [x] **Phase 121: Scheduling, Signatures & Templates** - Verify scheduled send/cancel, signature CRUD, and template CRUD (completed 2026-03-30)
 - [x] **Phase 122: Cross-cutting Validation** - Verify tenant isolation, rate limiting, and error envelope consistency (completed 2026-03-30)
+- [ ] **Phase 123: Phase 121 Verification Gap Closure** - Run live verification for scheduling/signatures/templates, test timed delivery E2E, create VERIFICATION.md
+- [ ] **Phase 124: Documentation & Traceability Cleanup** - Fix 10 stale checkboxes, requirement count, ROADMAP stale entries, FOLD-03 qualifier
 
 ## Phase Details
 
@@ -298,6 +300,38 @@ Plans:
 - [x] 122-01-PLAN.md -- Validation scripts + rate tier fix (XCUT-01, XCUT-02, XCUT-03)
 - [x] 122-02-PLAN.md -- Live validation run + bug fixes + human checkpoint (XCUT-01, XCUT-02, XCUT-03)
 
+### Phase 123: Phase 121 Verification Gap Closure
+**Goal**: Close the verification gap for Phase 121 — run live verification for all INFRA-06..10 requirements and test timed delivery E2E
+**Depends on**: Phase 121
+**Requirements**: INFRA-06, INFRA-07, INFRA-08, INFRA-09, INFRA-10
+**Gap Closure:** Closes gaps from v10.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. INFRA-06: Scheduled email actually fires at the specified time via BullMQ and is delivered
+  2. INFRA-07: Cancelling a scheduled email before send time is verified to prevent delivery
+  3. INFRA-08: Signature CRUD verified on live production with API response confirmation
+  4. INFRA-09: Template CRUD verified on live production with API response confirmation
+  5. INFRA-10: Sent email body contains the selected signature content (verified from API response)
+  6. VERIFICATION.md created for Phase 121 with pass/fail per requirement
+**Plans**: 0 plans
+Plans:
+(none yet)
+
+### Phase 124: Documentation & Traceability Cleanup
+**Goal**: Fix all documentation inconsistencies found by milestone audit — stale checkboxes, wrong counts, stale roadmap entries, missing qualifiers
+**Depends on**: Phase 123
+**Requirements**: (documentation-only — no code requirements)
+**Gap Closure:** Closes documentation gaps from v10.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. SYNC-04/05/06/07/08 checkboxes updated from [ ] to [x] in REQUIREMENTS.md
+  2. INFRA-01/02/03/04/05 checkboxes updated from [ ] to [x] in REQUIREMENTS.md
+  3. REQUIREMENTS.md coverage count updated from "41 total" to "50 total"
+  4. ROADMAP.md Phase 113 progress updated from 0/2 to 2/2
+  5. ROADMAP.md Phase 115 checkbox updated to [x]
+  6. FOLD-03 gets IMAP infrastructure qualifier (consistent with WRITE-03 pattern)
+**Plans**: 0 plans
+Plans:
+(none yet)
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -313,8 +347,11 @@ Plans:
 | 120. Queue & Webhook Infrastructure | 3/3 | Complete    | 2026-03-30 |
 | 121. Scheduling, Signatures & Templates | 2/2 | Complete    | 2026-03-30 |
 | 122. Cross-cutting Validation | 2/2 | Complete    | 2026-03-30 |
+| 123. Phase 121 Verification Gap Closure | 0/0 | Not Started | — |
+| 124. Documentation & Traceability Cleanup | 0/0 | Not Started | — |
 
 ---
 *Roadmap created: 2026-02-09*
 *v9.0 completed: 2026-03-25 -- 6 phases, 14 plans, 20/20 requirements*
-*v10.0 roadmap added: 2026-03-25 -- 11 phases, 41 requirements*
+*v10.0 roadmap added: 2026-03-25 -- 11 phases, 50 requirements*
+*v10.0 gap closure phases added: 2026-03-30 -- 2 phases (123-124) from milestone audit*
