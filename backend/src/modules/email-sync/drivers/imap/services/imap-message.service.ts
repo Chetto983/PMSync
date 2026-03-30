@@ -664,6 +664,11 @@ export class ImapMessageService {
    * Parse message ID to [folder, uid]
    */
   parseMessageId(messageId: string): [string, number] {
+    // T-1405: Reject null bytes and path traversal sequences in message IDs
+    if (messageId.includes('\0') || messageId.includes('..')) {
+      throw new Error(`Invalid IMAP message ID: contains prohibited characters`);
+    }
+
     const lastColon = messageId.lastIndexOf(':');
     let folderPath: string;
     let uidStr: string;
@@ -674,6 +679,11 @@ export class ImapMessageService {
     } else {
       folderPath = messageId.substring(0, lastColon);
       uidStr = messageId.substring(lastColon + 1);
+    }
+
+    // T-1405: Validate folder path — reject backslashes, null bytes, control chars
+    if (folderPath.length === 0 || /[\x00-\x1f\\]/.test(folderPath)) {
+      throw new Error(`Invalid IMAP message ID "${messageId}": folder path contains prohibited characters`);
     }
 
     const uid = parseInt(uidStr, 10);

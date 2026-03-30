@@ -1013,13 +1013,19 @@ export class AiChatService {
     conversationId: string,
   ): ReadableStream {
     const piiService = this.piiResolutionService;
-    const PII_TOKEN = /_REDACTED:[a-f0-9]+/;
+    const PII_COMPLETE = /\[[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]/;
+    // Detects a partial token at end of string: "[" followed by uppercase/underscore
+    // that could be a PII token being streamed across multiple chunks.
+    const PII_PARTIAL_TAIL = /\[[A-Z_]*(?:_REDACTED(?::[a-f0-9]*)?)?$/;
 
     const resolveStr = (s: string) =>
       piiService.resolveText(tenantId, conversationId, s);
 
     const resolveObj = (obj: Record<string, unknown>) =>
       piiService.resolvePayload(tenantId, conversationId, obj);
+
+    // Per-type buffers for accumulating partial PII tokens across chunks
+    const buffers: Record<string, string> = {};
 
     const transform = new TransformStream({
       async transform(chunk: Record<string, unknown>, controller) {
@@ -1033,19 +1039,56 @@ export class AiChatService {
         // Resolve PII in tool-call input (tool-input-available)
         if (type === 'tool-input-available' && chunk.input) {
           const inputStr = JSON.stringify(chunk.input);
-          if (PII_TOKEN.test(inputStr)) {
+          if (PII_COMPLETE.test(inputStr)) {
             chunk = { ...chunk, input: await resolveObj(chunk.input as Record<string, unknown>) };
           }
         }
 
-        // Resolve PII in text deltas
+        // Resolve PII in text deltas — buffer across chunks to handle
+        // tokens split across streaming boundaries.
         if ((type === 'text-delta' || type === 'reasoning-delta') && typeof chunk.delta === 'string') {
-          if (PII_TOKEN.test(chunk.delta)) {
-            chunk = { ...chunk, delta: await resolveStr(chunk.delta) };
+          const bufKey = type;
+          const combined = (buffers[bufKey] || '') + chunk.delta;
+
+          if (PII_COMPLETE.test(combined)) {
+            // Full token present — resolve and emit
+            const resolved = await resolveStr(combined);
+            buffers[bufKey] = '';
+            controller.enqueue({ ...chunk, delta: resolved });
+            return;
           }
+
+          if (PII_PARTIAL_TAIL.test(combined) && combined.length < 500) {
+            // Partial token at end — buffer and wait for more chunks
+            // Cap at 500 chars to prevent runaway buffering on false positives
+            buffers[bufKey] = combined;
+            return;
+          }
+
+          // No PII tokens — flush buffer + current delta
+          if (buffers[bufKey]) {
+            controller.enqueue({ ...chunk, delta: buffers[bufKey] + chunk.delta });
+            buffers[bufKey] = '';
+            return;
+          }
+
+          controller.enqueue(chunk);
+          return;
         }
 
         controller.enqueue(chunk);
+      },
+      // Flush any remaining buffered content when stream ends
+      async flush(controller) {
+        for (const [bufKey, buffered] of Object.entries(buffers)) {
+          if (buffered) {
+            const resolved = PII_COMPLETE.test(buffered)
+              ? await resolveStr(buffered)
+              : buffered;
+            const chunkType = bufKey === 'reasoning-delta' ? 'reasoning-delta' : 'text-delta';
+            controller.enqueue({ type: chunkType, delta: resolved });
+          }
+        }
       },
     });
 

@@ -46,8 +46,18 @@ Original plan called for ml.js gradient boosting (T-0907/T-0908/T-0909).
 - Calendar meeting count uses raw SQL JSONB query (attendees is Json?, not string[])
 
 ## Validation Status
+
 - Backend tsc: ✅ passing
 - Frontend tsc: N/A (no frontend changes this sprint)
 - Circular deps: ✅ zero
 - Unit tests: ✅ 10/10 passing (vitest)
 - Prisma db push: ✅ schema synced to Railway
+
+## Production Validation (2026-03-30)
+
+- Railway `/health`: ✅ 200 — DB, Redis, Mistral up
+- `GET /crm/leads/scores`: ✅ 401 (route registered, auth guard active)
+- `GET /crm/leads/:contactId/score`: ✅ 401 (route registered)
+- `POST /crm/leads/:contactId/score`: ✅ 403 (route registered, guard active)
+- Backend tsc: ✅ clean
+- No frontend changes in Sprint 09 (Lead Scoring API backend-only)

@@ -60,3 +60,19 @@
 - CRM module wiring: ✅ all 8 submodules correctly wired
 - Railway health: ✅ 200 (DB, Redis, Mistral up)
 - Railway CRM endpoints: ✅ pipelines/deals/accounts/products/custom-fields all 401
+
+## Production Validation (2026-03-30)
+- Railway `/health`: ✅ 200 — DB, Redis, Mistral up
+- `GET /crm/pipelines`: ✅ 401 (route registered, auth guard active)
+- `GET /crm/pipelines/:id/metrics`: ✅ 401 (Sprint 08 metrics endpoint live)
+- `GET /crm/pipelines/:id/views`: ✅ 401 (Sprint 08 saved views endpoint live)
+- `GET /crm/deals`: ✅ 401 (route registered)
+- `PATCH /crm/deals/:id/stage`: ✅ 403 (route registered, guard active)
+- Vercel `/dashboard/crm/pipelines`: ✅ 307 (auth redirect, page exists)
+- Vercel `/dashboard/crm/deals`: ✅ 307 (auth redirect, page exists)
+- Browser (Edge CDP): ✅ Pipeline list renders with 2 pipelines (Sales, Partner)
+- Browser (Edge CDP): ✅ Pipeline Dashboard renders with Recharts charts (conversion funnel, deals by stage donut, win rate gauge)
+- Browser (Edge CDP): ✅ Deals list renders ("Trattative") with 11 deals, stage chips, pipeline filter
+- Browser (Edge CDP): ✅ Accounts page renders with 6 accounts, industry chips, search, export
+- Mobile (375x812): ✅ All pages stack correctly, no horizontal overflow
+- Screenshots: `scripts/screenshots/sprint08_*.png`

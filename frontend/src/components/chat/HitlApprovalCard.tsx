@@ -95,11 +95,16 @@ export function HitlApprovalWrapper({
 }: HitlApprovalWrapperProps) {
   const t = useTranslations();
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+  // Track local user action for display when SDK path doesn't update result prop
+  const [localAction, setLocalAction] = useState<'approved' | 'rejected' | null>(null);
 
-  const displayState = getDisplayState(status, result);
+  const displayState = localAction && status.type !== 'requires-action'
+    ? localAction
+    : getDisplayState(status, result);
 
   const handleApprove = () => {
     setBusy('approve');
+    setLocalAction('approved');
     const approvalId = (interrupt?.payload as Record<string, unknown>)?.id as string | undefined;
     const approvalFn = getAddToolApprovalResponse();
     if (approvalId && approvalFn) {
@@ -111,6 +116,7 @@ export function HitlApprovalWrapper({
 
   const handleReject = () => {
     setBusy('reject');
+    setLocalAction('rejected');
     const approvalId = interrupt?.payload?.id;
     const approvalFn = getAddToolApprovalResponse();
     if (approvalId && approvalFn) {
