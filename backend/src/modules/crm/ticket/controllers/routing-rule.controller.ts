@@ -11,14 +11,14 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
 import { RoutingRuleService } from '../services/routing-rule.service';
 import { CreateRoutingRuleDto, UpdateRoutingRuleDto } from '../dto/routing-rule.dto';
 
 @ApiTags('CRM - Routing Rules')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/routing-rules')
 @UseGuards(TenantGuard, RolesGuard)
 export class RoutingRuleController {
