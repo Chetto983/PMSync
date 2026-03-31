@@ -240,7 +240,9 @@ Plans:
   2. User can initiate a plan upgrade from the pricing page and complete checkout via Autumn/Stripe
   3. Usage dashboard shows current plan limits and consumption (AI calls, storage, etc.)
   4. Billing portal redirect opens Stripe customer portal for invoice history and payment method management
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 131-01-PLAN.md — UI-SPEC compliance polish (typography weights, spacing, error copywriting)
 **UI hint**: yes
 
 ### Phase 132: Billing Backend Hardening
@@ -277,8 +279,8 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 127. Transport & Connection Hardening | v11.0 | 1/1 | Complete    | 2026-03-31 |
 | 128. State Externalization | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 129. Replica Activation | v11.0 | 1/2 | Complete    | 2026-03-31 |
-| 130. Frontend Performance | v11.0 | 2/2 | Complete   | 2026-03-31 |
-| 131. Billing Frontend | v11.0 | 0/TBD | Not started | - |
+| 130. Frontend Performance | v11.0 | 2/2 | Complete    | 2026-03-31 |
+| 131. Billing Frontend | v11.0 | 0/1 | In progress | - |
 | 132. Billing Backend Hardening | v11.0 | 0/TBD | Not started | - |
 | 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
 
