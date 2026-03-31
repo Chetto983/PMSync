@@ -198,28 +198,56 @@ export class GoogleOAuthService {
         expiresAt,
       };
     } catch (error) {
+      // Re-throw our own exceptions (from the !access_token check above)
+      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorCode = (error as any)?.code || (error as any)?.response?.data?.error;
+      const errorDescription = (error as any)?.response?.data?.error_description || '';
 
       this.logger.error(`Failed to refresh Google access token: ${errorMessage}`, {
         errorCode,
+        errorDescription,
         errorType: (error as any)?.constructor?.name,
       });
 
-      // Differentiate error types for better handling
-      if (errorMessage.includes('insufficient_scope') || errorMessage.includes('access_denied')) {
-        throw new ForbiddenException('Permission denied by Google. Please reconnect with required permissions.');
+      // T-0501: Structured error classification for token refresh failures
+      // token_revoked: user revoked access in Google account settings
+      if (
+        errorCode === 'invalid_grant' &&
+        (errorDescription.includes('revoked') || errorDescription.includes('Token has been expired or revoked'))
+      ) {
+        throw new UnauthorizedException(
+          'Google access revoked. User has revoked this app\'s access in Google account settings. Please reconnect.',
+        );
       }
 
+      // token_expired: refresh token expired (rare, happens after 6 months of inactivity for non-published apps)
       if (errorMessage.includes('invalid_grant') || errorCode === 'invalid_grant') {
-        throw new UnauthorizedException('Re-authentication required. Google refresh token has been revoked or expired.');
+        throw new UnauthorizedException(
+          'Re-authentication required. Google refresh token has expired or been invalidated.',
+        );
       }
 
+      // insufficient_scope: user didn't grant required permissions
+      if (errorMessage.includes('insufficient_scope') || errorMessage.includes('access_denied')) {
+        throw new ForbiddenException(
+          'Permission denied by Google. Please reconnect with required permissions.',
+        );
+      }
+
+      // rate_limit: Google API quota exceeded (retryable)
       if (errorMessage.includes('rate') || errorCode === 429 || errorMessage.includes('quota')) {
-        throw new UnauthorizedException('Google API rate limit exceeded. Please try again later.');
+        throw new UnauthorizedException(
+          'Google API rate limit exceeded. Please try again later.',
+        );
       }
 
-      throw new UnauthorizedException('Failed to refresh Google access token. Please reconnect this account.');
+      throw new UnauthorizedException(
+        'Failed to refresh Google access token. Please reconnect this account.',
+      );
     }
   }
 
@@ -321,6 +349,11 @@ export class GoogleOAuthService {
 
         this.logger.log(`✅ Google token refreshed (blocking) for provider ${provider.id}`);
       } catch (error) {
+        // T-0501: Re-throw auth errors (revoked/expired) — callers must handle re-auth.
+        // Only swallow transient errors (network, rate limit) where stale token may still work.
+        if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
+          throw error;
+        }
         this.logger.warn(
           `Failed to refresh Google access token for provider ${provider.id}: ${error instanceof Error ? error.message : error}`,
         );

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   UnauthorizedException,
+  ForbiddenException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -12,6 +13,7 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { ProviderConfig as ProviderEntity } from '@prisma/client';
 
 type ProviderWithToken = {
@@ -58,6 +60,7 @@ export class ProviderTokenService {
     private readonly googleOAuth: GoogleOAuthService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly config: ConfigService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   async getProviderWithToken(providerId: string, tenantId?: string): Promise<ProviderWithToken> {
@@ -190,8 +193,33 @@ export class ProviderTokenService {
         data: updateData,
       });
 
+      // Cache refreshed token for concurrent readers
+      await this.redisLock.cacheSet(
+        `${this.KEY_PREFIX_TOKEN_CACHE}${provider.id}`,
+        accessToken,
+        this.TOKEN_CACHE_TTL_SECONDS,
+      );
+
       this.logger.log(`Microsoft token refreshed for ${provider.email}`);
       return accessToken;
+    } catch (error) {
+      // T-0501: Notify user via WebSocket when token refresh fails
+      const isAuthError =
+        error instanceof UnauthorizedException || error instanceof ForbiddenException;
+
+      if (isAuthError && provider.tenantId) {
+        this.realtimeEvents.emitSyncStatus(provider.tenantId, {
+          providerId: provider.id,
+          status: 'failed',
+          error: `Microsoft account ${provider.email} requires re-authentication`,
+        });
+
+        this.logger.warn(
+          `Microsoft token refresh auth failure for ${provider.email} (${provider.id}): ${(error as Error).message}`,
+        );
+      }
+
+      throw error;
     } finally {
       // RC-A4 FIX: Safe release with ownership verification via Lua script
       await this.redisLock.releaseLock(lockKey, lockId);
@@ -296,8 +324,38 @@ export class ProviderTokenService {
         },
       });
 
+      // Invalidate cached token so next read gets the fresh one
+      await this.redisLock.cacheSet(
+        `${this.KEY_PREFIX_TOKEN_CACHE}${provider.id}`,
+        accessToken,
+        this.TOKEN_CACHE_TTL_SECONDS,
+      );
+
       this.logger.log(`Google token refreshed successfully for ${provider.email}`);
       return accessToken;
+    } catch (error) {
+      // T-0501: Notify user via WebSocket when token refresh fails (revoked/expired/scope)
+      const isAuthError =
+        error instanceof UnauthorizedException || error instanceof ForbiddenException;
+
+      if (isAuthError && provider.tenantId) {
+        const errorMessage =
+          error instanceof ForbiddenException
+            ? `Google account ${provider.email} needs permission re-grant`
+            : `Google account ${provider.email} requires re-authentication`;
+
+        this.realtimeEvents.emitSyncStatus(provider.tenantId, {
+          providerId: provider.id,
+          status: 'failed',
+          error: errorMessage,
+        });
+
+        this.logger.warn(
+          `Google token refresh auth failure for ${provider.email} (${provider.id}): ${error.message}`,
+        );
+      }
+
+      throw error;
     } finally {
       // RC-A4 FIX: Safe release with ownership verification via Lua script
       await this.redisLock.releaseLock(lockKey, lockId);

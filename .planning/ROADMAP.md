@@ -155,7 +155,11 @@
   3. voltAgentApi and multiAgentApi aliases are confirmed absent from all frontend source files
   4. tailwindcss, postcss, and tailwind.config are fully removed from the project; all CSS variables previously injected via @tailwind base work identically via plain CSS
   5. Frontend builds and renders correctly with no missing styles or broken layouts after Tailwind removal
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 125-01-PLAN.md — Replace @ApiBearerAuth with @ApiCookieAuth across 38 controllers + clean Swagger config, dead scripts, guard comments, and JWT_SECRET
+- [ ] 125-02-PLAN.md — Verify deprecated API aliases removed + remove Tailwind CSS pipeline
+- [ ] 125-03-PLAN.md — End-to-end validation and visual verification checkpoint
 
 ### Phase 126: Cron-to-BullMQ Migration
 **Goal**: All scheduled jobs run exactly once across any number of backend instances
@@ -252,7 +256,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 125. Dead Code Removal | v11.0 | 0/TBD | Not started | - |
+| 125. Dead Code Removal | v11.0 | 0/3 | Planning complete | - |
 | 126. Cron-to-BullMQ Migration | v11.0 | 0/TBD | Not started | - |
 | 127. Transport & Connection Hardening | v11.0 | 0/TBD | Not started | - |
 | 128. State Externalization | v11.0 | 0/TBD | Not started | - |
