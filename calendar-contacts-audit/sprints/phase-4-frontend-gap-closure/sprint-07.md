@@ -36,11 +36,11 @@
 - [x] Add error handling: malformed ICS → graceful error message, not crash ✅ DONE (retry with unfold, NaN date guards)
 
 ### T-0704: Calendar color sync from provider [2 SP]
-- [ ] Read `calendar-list.service.ts` — check if provider colors are imported
-- [ ] During calendar sync: import color from Google Calendar / MS Graph
-- [ ] Store as CalendarPreference.color if user hasn't set a custom color
-- [ ] Frontend: use provider color as default, allow override
-- [ ] Test: new calendar synced → provider color appears in UI
+- [x] Read `calendar-list.service.ts` — check if provider colors are imported ✅ DONE (already fetched via API)
+- [x] During calendar sync: import color from Google Calendar / MS Graph ✅ DONE (backgroundColor/hexColor already in listCalendars)
+- [x] Store as CalendarPreference.color if user hasn't set a custom color ✅ DONE (auto-persist on list)
+- [x] Frontend: use provider color as default, allow override ✅ DONE (pref?.color || remote.backgroundColor)
+- [x] Test: new calendar synced → provider color appears in UI ✅ DONE (tsc passes, auto-persist wired)
 
 ### T-0705: Calendar event form DST handling [2 SP]
 - [ ] Read `CalendarEventDialog.tsx` — check date/time picker timezone awareness

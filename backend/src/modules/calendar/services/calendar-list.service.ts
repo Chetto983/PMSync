@@ -254,6 +254,33 @@ export class CalendarListService {
       }
     }
 
+    // Auto-persist provider colors as CalendarPreference defaults (non-blocking)
+    const colorUpserts: Promise<unknown>[] = [];
+    for (const [key, cal] of calendarsMap) {
+      if (cal.backgroundColor && !prefMap.has(key)) {
+        colorUpserts.push(
+          (this.prisma as any).calendarPreference.create({
+            data: {
+              tenantId,
+              providerId: cal.providerId,
+              calendarId: cal.calendarId,
+              color: cal.backgroundColor,
+              displayName: cal.calendarName !== cal.calendarId ? cal.calendarName : null,
+              isVisible: true,
+            },
+          }).catch((err: Error) => {
+            // Ignore unique constraint violations (concurrent requests)
+            if (!err.message?.includes('P2002')) {
+              this.logger.warn(`Failed to persist provider color for ${key}: ${err.message}`);
+            }
+          }),
+        );
+      }
+    }
+    if (colorUpserts.length > 0) {
+      void Promise.all(colorUpserts);
+    }
+
     const calendars = Array.from(calendarsMap.values()).map((cal) => ({
       id: `${cal.providerId}:${cal.calendarId}`,
       ...cal,
