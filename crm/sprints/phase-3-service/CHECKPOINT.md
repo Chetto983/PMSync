@@ -1,61 +1,64 @@
-# Sprint 15 — Checkpoint
+# Sprint 16 — Checkpoint
 
 ## Stato
-- **Sprint:** 15 — Ticket Model & Email-to-Ticket
-- **Last Task Completed:** T-1510 — TanStack Query hooks
+- **Sprint:** 16 — Routing, SLA & Agent Dashboard
+- **Last Task Completed:** T-1610 — Type-check and lint validation
 - **Next Task:** Sprint complete — all tasks done
 - **Tasks Done:** 10/10
 - **SP Completed:** 20/20
-- **Last Updated:** 2026-03-31 09:27
+- **Last Updated:** 2026-03-31 11:45
 
 ## Last Modified Files
-- backend/prisma/schema.prisma (Ticket + TicketComment models, reverse relations)
-- backend/src/modules/crm/ticket/ticket.module.ts (new)
-- backend/src/modules/crm/ticket/controllers/ticket.controller.ts (new)
-- backend/src/modules/crm/ticket/services/ticket.service.ts (new)
-- backend/src/modules/crm/ticket/services/email-to-ticket.handler.ts (new)
-- backend/src/modules/crm/ticket/dto/ticket.dto.ts (new)
-- backend/src/modules/crm/crm.module.ts (TicketModule wired)
-- frontend/lib/api/crm-tickets.ts (new)
-- frontend/hooks/queries/crm-tickets-keys.ts (new)
-- frontend/hooks/queries/use-crm-tickets.ts (new)
-- frontend/hooks/queries/index.ts (exports added)
-- frontend/components/dashboard/crm-tickets/TicketsList.tsx (new)
-- frontend/components/dashboard/crm-tickets/TicketDetail.tsx (new)
-- frontend/components/dashboard/crm-tickets/CreateTicketDialog.tsx (new)
-- frontend/pages/dashboard/crm/tickets.tsx (new)
-- frontend/pages/dashboard/crm/tickets/[id].tsx (new)
-- frontend/components/layout/Sidebar.tsx (Ticket nav item)
-- frontend/locales/en.ts (crmTickets section)
-- frontend/locales/it.ts (crmTickets section)
-- frontend/locales/index.ts (crmTickets types)
+- backend/prisma/schema.prisma (SlaPolicy + RoutingRule models, Ticket.slaPolicyId)
+- backend/prisma/seed.ts (4 default SLA policies)
+- backend/src/modules/crm/ticket/ticket.module.ts (SlaTimerService, RoutingRuleService, RoutingRuleController, RealtimeModule)
+- backend/src/modules/crm/ticket/services/sla-timer.service.ts (new)
+- backend/src/modules/crm/ticket/services/routing-rule.service.ts (new + CRUD)
+- backend/src/modules/crm/ticket/services/ticket.service.ts (SLA, routing, assign, realtime events)
+- backend/src/modules/crm/ticket/services/email-to-ticket.handler.ts (senderEmail pass-through)
+- backend/src/modules/crm/ticket/controllers/routing-rule.controller.ts (new)
+- backend/src/modules/crm/ticket/controllers/ticket.controller.ts (assign endpoint, includeInternal query)
+- backend/src/modules/crm/ticket/dto/ticket.dto.ts (AssignTicketDto, senderEmail field)
+- backend/src/modules/crm/ticket/dto/routing-rule.dto.ts (new)
+- backend/src/modules/realtime/types/realtime.types.ts (CrmTicketEventPayload + 3 events)
+- backend/src/modules/realtime/services/realtime-events.service.ts (ticket emit methods)
+- frontend/components/common/SlaBadge.tsx (new)
+- frontend/components/common/index.ts (SlaBadge export)
+- frontend/pages/dashboard/agent.tsx (new)
+- frontend/components/layout/Sidebar.tsx (agent dashboard nav)
+- frontend/lib/api/crm-tickets.ts (assign method)
+- frontend/lib/websocket-client.ts (ticket event types + handlers)
+- frontend/hooks/queries/use-crm-tickets.ts (useAssignTicket hook)
+- frontend/hooks/use-ticket-realtime.ts (new)
+- frontend/locales/en.ts (agentDashboard section)
+- frontend/locales/it.ts (agentDashboard section)
+- frontend/locales/index.ts (agentDashboard types)
 
 ## Key Decisions Made
-- T-1501: Ticket uses simple @id (not composite PK like Contact/Email) — follows CrmAccount pattern
-- T-1501: Email FK uses composite key (emailId + emailTenant) to match Email's @@id([id, tenantId])
-- T-1506: State machine in DTO file, not separate service — keeps it simple and co-located
-- T-1507: Email-to-Ticket via @OnEvent(EmailIndexedEvent) — event-driven, not direct coupling
-- T-1507: [SUPPORT] prefix detection is case-insensitive, prefix stripped from ticket subject
-- T-1507: Contact lookup by parsing sender email from "Name <email>" format
-- T-1508: Used MUI Table (not DataGrid) for consistency with AccountsList pattern
-- T-1509: Status transitions shown as buttons, not dropdown — more visible and intentional
+- T-1601: SlaPolicy uses @@unique([tenantId, priority]) — one policy per priority per tenant
+- T-1602: SLA timer uses direct BullMQ Queue+Worker, not BaseQueueService — simpler for delayed jobs
+- T-1602: Escalation chain: low→medium→high→urgent, re-schedules at new priority level
+- T-1603: Routing rules evaluate in priority DESC order, first match wins
+- T-1603: Three condition types: subject_keyword, sender_domain, priority
+- T-1605: SLA badge uses absolute thresholds (<2h red, 2-8h yellow, >8h green) not percentage
+- T-1606: Assignment creates AuditLog entry tracking previous→new assignee
+- T-1608: Agent dashboard uses client-side filtering (3 columns from single API call)
+- T-1609: Ticket events emitted via RealtimeEventsService, frontend invalidates TanStack Query cache
 
 ## Patterns Established
-- CRM Ticket API module: `frontend/lib/api/crm-tickets.ts`
-- CRM Ticket query hooks: `frontend/hooks/queries/use-crm-tickets.ts`
-- CRM Ticket query keys: `frontend/hooks/queries/crm-tickets-keys.ts`
-- TicketModule under `backend/src/modules/crm/ticket/`
-- Email-to-Ticket handler listens for domain events (EmailIndexedEvent)
+- SLA timer service: `backend/src/modules/crm/ticket/services/sla-timer.service.ts`
+- Routing rule service + CRUD: `backend/src/modules/crm/ticket/services/routing-rule.service.ts`
+- Routing rule DTOs: `backend/src/modules/crm/ticket/dto/routing-rule.dto.ts`
+- SlaBadge reusable component: `frontend/components/common/SlaBadge.tsx`
+- Agent dashboard page: `frontend/pages/dashboard/agent.tsx`
+- Ticket realtime hook: `frontend/hooks/use-ticket-realtime.ts`
 
 ## Blockers / Notes
-- Note: Frontend T-1508..T-1510 files got bundled into a worktree merge commit (4df5ef3e) — code is in repo but under wrong commit message
-- Email-to-Ticket handler deduplicates on emailId to prevent duplicate tickets
-- Contact lookup iterates all contacts — could be slow with many contacts. Consider adding email index later.
+- Some T-1604/T-1608 files got bundled into worktree merge commits from parallel calendar sprint
+- Pre-existing lint errors in telegram/providers modules — not from Sprint 16
 
 ## Validation Status
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Circular deps: ✅ zero
-- Railway health: ✅ 200 (DB, Redis, Mistral up)
-- Railway GET /crm/tickets: ✅ 401 (route registered, auth guard active)
-- Vercel /dashboard/crm/tickets: ✅ 307 (auth redirect, page exists)
+- Circular deps: ✅ zero (ticket module verified)
+- Lint: ✅ no new errors (17 pre-existing in unrelated modules)

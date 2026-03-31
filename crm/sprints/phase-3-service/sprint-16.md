@@ -20,7 +20,7 @@
 - [x] T-1607 — Ticket internal notes: filtrare TicketComment per isInternal. Gli utenti staff vedono tutti i commenti, i commenti interni sono esclusi dalle API portal. UI con toggle "Nota interna" nel form commento — [1 SP] — ✅ DONE
 - [x] T-1608 — Agent dashboard page (`/dashboard/agent`): tre colonne Kanban-style — "I miei ticket" (assignee=me), "Non assegnati" (assignee=null), "SLA a rischio" (slaDeadline entro 2 ore). MUI Card per ogni ticket con subject, priority chip, SLA badge — [3 SP] — ✅ DONE
 - [x] T-1609 — Real-time ticket updates via Socket.IO: emettere eventi `ticket:created`, `ticket:updated`, `ticket:assigned` sul canale tenant. Dashboard agente si aggiorna in tempo reale senza polling. Riutilizzare gateway Socket.IO esistente — [2 SP] — ✅ DONE
-- [ ] T-1610 — Type-check e lint su backend e frontend. Fix eventuali regressioni — [1 SP] — 📋 TODO
+- [x] T-1610 — Type-check e lint su backend e frontend. Fix eventuali regressioni — [1 SP] — ✅ DONE
 
 **Totale: 20 SP** _(buffer -2 SP per complessità BullMQ = 18 SP effettivi)_
 
