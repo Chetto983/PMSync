@@ -11,16 +11,16 @@
 
 ## Sprint Backlog
 
-- [ ] T-1501 — Prisma model `Ticket` (id, tenantId, subject, description, status enum `[open, in_progress, waiting, resolved, closed]`, priority enum `[low, medium, high, urgent]`, assigneeId, contactId, accountId, emailThreadId, slaDeadline, createdAt, updatedAt) con indici su tenantId+status e tenantId+assigneeId — [2 SP] — 📋 TODO
-- [ ] T-1502 — Prisma model `TicketComment` (id, ticketId, authorId, body, isInternal boolean, createdAt) con FK verso Ticket e User — [1 SP] — 📋 TODO
-- [ ] T-1503 — Migrazione Prisma e generazione client. Verificare che i modelli esistenti (Email, Contact, Account) non abbiano conflitti con le nuove relazioni — [1 SP] — 📋 TODO
-- [ ] T-1504 — NestJS `TicketModule` con controller, service e DTOs (CreateTicketDto, UpdateTicketDto, TicketFilterDto con paginazione). Registrare nel root module — [3 SP] — 📋 TODO
-- [ ] T-1505 — Ticket CRUD API: `POST /tickets`, `GET /tickets` (con filtri status/priority/assignee + paginazione cursor-based), `GET /tickets/:id`, `PATCH /tickets/:id`, `DELETE /tickets/:id`. Ogni query filtrata per tenantId — [3 SP] — 📋 TODO
-- [ ] T-1506 — Ticket status state machine: definire transizioni valide (open→in_progress, in_progress→waiting, waiting→in_progress, in_progress→resolved, resolved→closed, qualsiasi→closed). Rifiutare transizioni non valide con 422 — [2 SP] — 📋 TODO
-- [ ] T-1507 — Email-to-Ticket service: riutilizzare il parser email esistente di PMSync per convertire email in arrivo da inbox/folder dedicata in ticket. Creare ticket con subject dall'email, body come description, linkare emailThreadId. Gestire deduplicazione su messageId — [3 SP] — 📋 TODO
-- [ ] T-1508 — Pagina ticket list (`/tickets`): MUI DataGrid con colonne subject, status (chip colorato), priority, assignee, createdAt. Filtri per status e priority nella toolbar. Paginazione server-side — [2 SP] — 📋 TODO
-- [ ] T-1509 — Pagina ticket detail (`/tickets/:id`): visualizzazione dati ticket, thread conversazione dalle email linkate (riutilizzare componenti email esistenti), sezione commenti — [2 SP] — 📋 TODO
-- [ ] T-1510 — TanStack Query hooks: `useTickets(filters)`, `useTicket(id)`, `useCreateTicket()`, `useUpdateTicket()`. queryOptions con staleTime 5min, gcTime 30min, retry 1. Export da `frontend/hooks/queries/index.ts` — [1 SP] — 📋 TODO
+- [x] T-1501 — Prisma model `Ticket` — [2 SP] — ✅ DONE
+- [x] T-1502 — Prisma model `TicketComment` — [1 SP] — ✅ DONE
+- [x] T-1503 — Migrazione Prisma e generazione client — [1 SP] — ✅ DONE
+- [x] T-1504 — NestJS `TicketModule` (controller, service, DTOs) — [3 SP] — ✅ DONE
+- [x] T-1505 — Ticket CRUD API — [3 SP] — ✅ DONE
+- [x] T-1506 — Ticket status state machine — [2 SP] — ✅ DONE
+- [x] T-1507 — Email-to-Ticket service — [3 SP] — ✅ DONE
+- [x] T-1508 — Pagina ticket list — [2 SP] — ✅ DONE
+- [x] T-1509 — Pagina ticket detail — [2 SP] — ✅ DONE
+- [x] T-1510 — TanStack Query hooks — [1 SP] — ✅ DONE
 
 **Totale: 20 SP** _(buffer -2 SP per imprevisti migrazione = 18 SP effettivi)_
 
