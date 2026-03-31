@@ -79,7 +79,7 @@ export class KBService {
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
 
     try {
-      return await this.prisma.kBCategory.update({ where: { id }, data });
+      return await this.prisma.kBCategory.update({ where: { id, tenantId }, data });
     } catch (error: any) {
       if (error.code === 'P2002') {
         throw new ConflictException(`Category slug already exists`);
@@ -94,7 +94,7 @@ export class KBService {
     });
     if (!category) throw new NotFoundException(`Category ${id} not found`);
 
-    await this.prisma.kBCategory.delete({ where: { id } });
+    await this.prisma.kBCategory.delete({ where: { id, tenantId } });
     return { deleted: true };
   }
 
@@ -200,7 +200,7 @@ export class KBService {
 
     try {
       return await this.prisma.kBArticle.update({
-        where: { id },
+        where: { id, tenantId },
         data,
         include: {
           category: { select: { id: true, name: true, slug: true } },
@@ -217,7 +217,7 @@ export class KBService {
 
   async deleteArticle(tenantId: string, id: string) {
     await this.findArticleById(tenantId, id);
-    await this.prisma.kBArticle.delete({ where: { id } });
+    await this.prisma.kBArticle.delete({ where: { id, tenantId } });
     return { deleted: true };
   }
 

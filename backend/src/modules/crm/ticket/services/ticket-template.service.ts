@@ -45,7 +45,7 @@ export class TicketTemplateService {
     if (!existing) throw new NotFoundException('Template not found');
 
     return this.prisma.ticketTemplate.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.body !== undefined ? { body: dto.body } : {}),
@@ -60,7 +60,7 @@ export class TicketTemplateService {
     });
     if (!existing) throw new NotFoundException('Template not found');
 
-    await this.prisma.ticketTemplate.delete({ where: { id } });
+    await this.prisma.ticketTemplate.delete({ where: { id, tenantId } });
     return { deleted: true };
   }
 }

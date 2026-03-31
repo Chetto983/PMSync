@@ -8,10 +8,13 @@ import {
   Param,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery, ApiCookieAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, MaxLength } from 'class-validator';
 import { Request } from 'express';
+import { TenantGuard } from '../../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../../common/auth/roles.guard';
 import { TicketTemplateService } from '../services/ticket-template.service';
 
 class CreateTicketTemplateDto {
@@ -47,7 +50,9 @@ class UpdateTicketTemplateDto {
 }
 
 @ApiTags('CRM - Ticket Templates')
+@ApiCookieAuth()
 @Controller('crm/ticket-templates')
+@UseGuards(TenantGuard, RolesGuard)
 export class TicketTemplateController {
   constructor(private readonly templateService: TicketTemplateService) {}
 

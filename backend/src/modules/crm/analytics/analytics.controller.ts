@@ -1,10 +1,14 @@
-import { Controller, Get, Query, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery, ApiCookieAuth } from '@nestjs/swagger';
 import { Request } from 'express';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
 import { AnalyticsService } from './analytics.service';
 
 @ApiTags('CRM - Analytics')
+@ApiCookieAuth()
 @Controller('crm/analytics')
+@UseGuards(TenantGuard, RolesGuard)
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 

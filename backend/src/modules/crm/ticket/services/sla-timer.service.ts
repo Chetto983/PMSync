@@ -188,7 +188,7 @@ export class SlaTimerService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.prisma.ticket.update({
-      where: { id: ticketId },
+      where: { id: ticketId, tenantId },
       data: { priority: newPriority },
     });
 

@@ -213,7 +213,7 @@ export class TicketService {
     }
 
     return this.prisma.ticket.update({
-      where: { id },
+      where: { id, tenantId },
       data,
       include: {
         assignee: { select: { id: true, name: true, email: true } },
@@ -225,7 +225,7 @@ export class TicketService {
 
   async delete(tenantId: string, id: string) {
     await this.ensureExists(tenantId, id);
-    await this.prisma.ticket.delete({ where: { id } });
+    await this.prisma.ticket.delete({ where: { id, tenantId } });
     return { deleted: true };
   }
 
@@ -262,7 +262,7 @@ export class TicketService {
     }
 
     const updated = await this.prisma.ticket.update({
-      where: { id },
+      where: { id, tenantId },
       data,
       include: {
         assignee: { select: { id: true, name: true, email: true } },
