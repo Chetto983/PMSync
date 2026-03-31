@@ -200,6 +200,11 @@ type StreamConsumerCallbacks = {
 
 const AI_CHAT_ENDPOINT = `${API_BASE_URL}/api/v1/ai/chat`;
 
+/** Total timeout for an SSE stream (ms). No data at all after this = abort. */
+export const SSE_TIMEOUT_MS = 120_000;
+/** Keepalive interval (ms). If no data chunk arrives within this window, abort. */
+export const SSE_KEEPALIVE_MS = 30_000;
+
 function extractSsePayload(frame: string): string | null {
   const lines = frame
     .split(/\r?\n/)
@@ -236,104 +241,142 @@ async function consumeChatStream(
   callbacks: StreamConsumerCallbacks = {},
   signal?: AbortSignal,
 ): Promise<ChatResult> {
-  const response = await createChatStreamResponse(payload, signal);
+  // --- Timeout / keepalive abort controller ---
+  const internal = new AbortController();
+  let keepaliveTimer: ReturnType<typeof setTimeout> | undefined;
+  let totalTimer: ReturnType<typeof setTimeout> | undefined;
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error('No response body');
-  }
-
-  const decoder = new TextDecoder();
-  const state: ChatResult = {
-    text: '',
-    conversationId: payload.conversationId,
+  const cleanup = () => {
+    if (keepaliveTimer) clearTimeout(keepaliveTimer);
+    if (totalTimer) clearTimeout(totalTimer);
   };
 
-  let buffer = '';
-  let didNotifyDone = false;
+  // If the caller already aborted, propagate immediately
+  if (signal?.aborted) {
+    internal.abort(signal.reason);
+  } else {
+    signal?.addEventListener('abort', () => internal.abort(signal.reason), { once: true });
+  }
 
-  const notifyDone = () => {
-    if (didNotifyDone) {
-      return;
-    }
-    didNotifyDone = true;
-    callbacks.onDone?.();
+  // Total stream timeout
+  totalTimer = setTimeout(() => {
+    internal.abort(new DOMException('SSE stream timeout', 'TimeoutError'));
+  }, SSE_TIMEOUT_MS);
+
+  // Keepalive — reset on every data chunk
+  const resetKeepalive = () => {
+    if (keepaliveTimer) clearTimeout(keepaliveTimer);
+    keepaliveTimer = setTimeout(() => {
+      internal.abort(new DOMException('SSE keepalive timeout — no data received', 'TimeoutError'));
+    }, SSE_KEEPALIVE_MS);
   };
+  resetKeepalive();
 
-  const handleFrame = (frame: string) => {
-    const rawPayload = extractSsePayload(frame);
-    if (!rawPayload) {
-      return;
+  try {
+    const response = await createChatStreamResponse(payload, internal.signal);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    if (rawPayload === '[DONE]') {
-      notifyDone();
-      return;
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body');
     }
 
-    let event: StreamEvent;
-    try {
-      event = JSON.parse(rawPayload) as StreamEvent;
-    } catch {
-      return;
-    }
+    const decoder = new TextDecoder();
+    const state: ChatResult = {
+      text: '',
+      conversationId: payload.conversationId,
+    };
 
-    switch (event.type) {
-      case 'metadata':
-        state.conversationId = event.conversationId;
-        callbacks.onConversationId?.(event.conversationId);
-        break;
-      case 'chunk':
-        state.text += event.content;
-        callbacks.onChunk?.(event.content);
-        break;
-      case 'text-delta':
-        state.text += event.delta;
-        callbacks.onChunk?.(event.delta);
-        break;
-      case 'done':
-        if (event.conversationId) {
+    let buffer = '';
+    let didNotifyDone = false;
+
+    const notifyDone = () => {
+      if (didNotifyDone) {
+        return;
+      }
+      didNotifyDone = true;
+      callbacks.onDone?.();
+    };
+
+    const handleFrame = (frame: string) => {
+      const rawPayload = extractSsePayload(frame);
+      if (!rawPayload) {
+        return;
+      }
+
+      if (rawPayload === '[DONE]') {
+        notifyDone();
+        return;
+      }
+
+      let event: StreamEvent;
+      try {
+        event = JSON.parse(rawPayload) as StreamEvent;
+      } catch {
+        return;
+      }
+
+      switch (event.type) {
+        case 'metadata':
           state.conversationId = event.conversationId;
           callbacks.onConversationId?.(event.conversationId);
-        }
-        notifyDone();
-        break;
-      case 'finish':
-        notifyDone();
-        break;
-      case 'error':
-        throw new Error(event.message);
-      default:
-        break;
-    }
-  };
+          break;
+        case 'chunk':
+          state.text += event.content;
+          callbacks.onChunk?.(event.content);
+          break;
+        case 'text-delta':
+          state.text += event.delta;
+          callbacks.onChunk?.(event.delta);
+          break;
+        case 'done':
+          if (event.conversationId) {
+            state.conversationId = event.conversationId;
+            callbacks.onConversationId?.(event.conversationId);
+          }
+          notifyDone();
+          break;
+        case 'finish':
+          notifyDone();
+          break;
+        case 'error':
+          throw new Error(event.message);
+        default:
+          break;
+      }
+    };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      // Data received — reset keepalive timer
+      resetKeepalive();
+
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split(/\r?\n\r?\n/);
+      buffer = frames.pop() || '';
+
+      for (const frame of frames) {
+        handleFrame(frame);
+      }
     }
 
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split(/\r?\n\r?\n/);
-    buffer = frames.pop() || '';
-
-    for (const frame of frames) {
-      handleFrame(frame);
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      handleFrame(buffer);
     }
+
+    notifyDone();
+    return state;
+  } finally {
+    cleanup();
   }
-
-  buffer += decoder.decode();
-  if (buffer.trim()) {
-    handleFrame(buffer);
-  }
-
-  notifyDone();
-  return state;
 }
 
 // ============ Email Intelligence Types ============
@@ -378,6 +421,20 @@ export interface DraftStats {
   rejectRate: number;
   avgEditDistance: number;
 }
+
+type FollowUpMutationResult = {
+  success: boolean;
+  error?: string;
+};
+
+type ReplyDraftPayload = {
+  success: boolean;
+  draftId: string;
+  body: string;
+  subject: string;
+  meta?: AiOperationMeta;
+  error?: string;
+};
 
 // ============ Email Intelligence API ============
 
@@ -563,21 +620,21 @@ export const aiChatApi = {
   },
 
   updateFollowUpStatus(id: string, status: string) {
-    return apiClient.patch<{ success: boolean; updated?: number }>(
+    return apiClient.patch<FollowUpMutationResult & { updated?: number }>(
       `/ai/follow-ups/${id}/status`,
       { status },
     );
   },
 
   snoozeFollowUp(id: string, dueDate: string) {
-    return apiClient.patch<{ success: boolean; dueDate?: string }>(
+    return apiClient.patch<FollowUpMutationResult & { dueDate?: string }>(
       `/ai/follow-ups/${id}/snooze`,
       { dueDate },
     );
   },
 
   deleteFollowUp(id: string) {
-    return apiClient.delete<{ success: boolean }>(
+    return apiClient.delete<FollowUpMutationResult>(
       `/ai/follow-ups/${id}`,
     );
   },
@@ -606,10 +663,31 @@ export const aiChatApi = {
     instructions?: string;
     locale?: string;
   }) {
-    return apiClient.post<{ success: boolean; draft: { draftId: string; body: string; subject: string }; meta?: AiOperationMeta; error?: string }>(
-      '/ai/drafts/generate',
-      params,
-    );
+    const payload = {
+      emailId: params.emailId,
+      ...(params.tone ? { tone: params.tone } : {}),
+      ...(params.locale ? { locale: params.locale } : {}),
+      instruction: params.instructions?.trim() || 'Draft an appropriate professional reply to this email.',
+    };
+
+    return apiClient
+      .post<{
+        success: boolean;
+        draft: { draftId: string; body: string; subject: string };
+        meta?: AiOperationMeta;
+        error?: string;
+      }>('/ai/drafts/generate', payload)
+      .then((response) => ({
+        ...response,
+        data: {
+          success: response.data.success,
+          draftId: response.data.draft.draftId,
+          body: response.data.draft.body,
+          subject: response.data.draft.subject,
+          ...(response.data.meta ? { meta: response.data.meta } : {}),
+          ...(response.data.error ? { error: response.data.error } : {}),
+        } satisfies ReplyDraftPayload,
+      }));
   },
 
   recordDraftFeedback(params: {
