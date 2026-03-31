@@ -8,14 +8,18 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Response } from 'express';
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
+import { Roles } from '../../../../common/auth/roles.decorator';
 import { AccountService } from '../services/account.service';
+import { ExcelExportService } from '../../import-export/services/excel-export.service';
 import {
   CreateAccountDto,
   UpdateAccountDto,
@@ -30,7 +34,10 @@ import {
 @Controller('crm/accounts')
 @UseGuards(TenantGuard, RolesGuard)
 export class AccountController {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(
+    private readonly accountService: AccountService,
+    private readonly excelExportService: ExcelExportService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List accounts' })
@@ -38,6 +45,27 @@ export class AccountController {
   async list(@Req() req: any, @Query() query: ListAccountsQueryDto) {
     const tenantId = req.user.tenantId;
     return this.accountService.list(tenantId, query);
+  }
+
+  @Get('export')
+  @Roles('admin', 'super-admin')
+  @ApiOperation({ summary: 'Export accounts to XLSX' })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'industry', required: false })
+  @ApiResponse({ status: 200, description: 'XLSX file download' })
+  async exportAccounts(
+    @Req() req: any,
+    @Res() res: Response,
+    @Query('search') search?: string,
+    @Query('industry') industry?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const buffer = await this.excelExportService.exportAccounts(tenantId, { search, industry });
+
+    const filename = `accounts_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 
   @Get('by-contact/:contactId')

@@ -6,7 +6,7 @@
  * - POST /crm/contacts/import/preview — Preview mapped rows
  * - POST /crm/contacts/import — Start async import job
  * - GET /crm/contacts/export — Export contacts to XLSX
- * - GET /crm/accounts/export — Export accounts to XLSX
+ * - GET /crm/accounts/export — (moved to AccountController)
  */
 
 import {
@@ -161,24 +161,5 @@ export class ImportExportController {
     res.send(buffer);
   }
 
-  @Get('accounts/export')
-  @Roles('admin', 'super-admin')
-  @ApiOperation({ summary: 'Export accounts to XLSX' })
-  @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'industry', required: false })
-  @ApiResponse({ status: 200, description: 'XLSX file download' })
-  async exportAccounts(
-    @Req() req: any,
-    @Res() res: Response,
-    @Query('search') search?: string,
-    @Query('industry') industry?: string,
-  ) {
-    const tenantId = req.user.tenantId;
-    const buffer = await this.excelExportService.exportAccounts(tenantId, { search, industry });
-
-    const filename = `accounts_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
-  }
+  // accounts/export moved to AccountController to avoid :id param shadowing
 }
