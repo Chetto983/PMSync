@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Inject, Param, Query, Optional } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, Optional } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { Public } from '../../../common/auth/public.decorator';
 import { HealthService } from '../services/health.service';
@@ -151,24 +151,4 @@ export class HealthController {
     return this.labelConsistencyService.getReport();
   }
 
-  /**
-   * Prometheus-compatible metrics
-   * @deprecated Use /metrics endpoint (prom-client) instead. Phase 46.
-   * This hand-rolled Prometheus text endpoint will be removed in Phase 47 cleanup.
-   */
-  @Get('metrics')
-  @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
-  @ApiOperation({ summary: 'Prometheus metrics', description: 'Returns Prometheus-compatible metrics' })
-  @ApiResponse({ status: 200, description: 'Metrics returned in Prometheus format' })
-  async getPrometheusMetrics() {
-    // Combine email-sync metrics with all-queues metrics
-    const emailSyncMetrics = await this.healthService.getPrometheusMetrics();
-
-    if (this.queueHealthService) {
-      const allQueuesMetrics = await this.queueHealthService.exportPrometheusText();
-      return `${emailSyncMetrics}\n# All Queues Metrics\n${allQueuesMetrics}`;
-    }
-
-    return emailSyncMetrics;
-  }
 }

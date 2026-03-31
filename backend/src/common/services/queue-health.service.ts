@@ -74,9 +74,6 @@ export interface QueueMetrics {
  * ```typescript
  * // Get health status
  * const health = await queueHealthService.getHealthStatus();
- *
- * // Get Prometheus metrics
- * const metrics = await queueHealthService.getPrometheusMetrics();
  * ```
  */
 @Injectable()
@@ -306,63 +303,6 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  /**
-   * Export metrics in Prometheus text format
-   */
-  /**
-   * @deprecated Use /metrics endpoint (prom-client) instead. Phase 46.
-   * This hand-rolled Prometheus text generation will be removed in Phase 47 cleanup.
-   */
-  async exportPrometheusText(): Promise<string> {
-    const metrics = await this.getPrometheusMetrics();
-    const lines: string[] = [];
-
-    // Queue metrics
-    lines.push('# HELP queue_jobs_waiting Number of jobs waiting in queue');
-    lines.push('# TYPE queue_jobs_waiting gauge');
-    for (const m of metrics.queue_jobs_waiting) {
-      lines.push(`queue_jobs_waiting{queue="${m.queue}"} ${m.value}`);
-    }
-
-    lines.push('# HELP queue_jobs_active Number of jobs currently being processed');
-    lines.push('# TYPE queue_jobs_active gauge');
-    for (const m of metrics.queue_jobs_active) {
-      lines.push(`queue_jobs_active{queue="${m.queue}"} ${m.value}`);
-    }
-
-    lines.push('# HELP queue_jobs_completed Total number of completed jobs');
-    lines.push('# TYPE queue_jobs_completed counter');
-    for (const m of metrics.queue_jobs_completed) {
-      lines.push(`queue_jobs_completed{queue="${m.queue}"} ${m.value}`);
-    }
-
-    lines.push('# HELP queue_jobs_failed Total number of failed jobs');
-    lines.push('# TYPE queue_jobs_failed counter');
-    for (const m of metrics.queue_jobs_failed) {
-      lines.push(`queue_jobs_failed{queue="${m.queue}"} ${m.value}`);
-    }
-
-    lines.push('# HELP queue_jobs_delayed Number of delayed jobs');
-    lines.push('# TYPE queue_jobs_delayed gauge');
-    for (const m of metrics.queue_jobs_delayed) {
-      lines.push(`queue_jobs_delayed{queue="${m.queue}"} ${m.value}`);
-    }
-
-    // Redis metrics
-    lines.push('# HELP redis_memory_used_bytes Redis memory usage in bytes');
-    lines.push('# TYPE redis_memory_used_bytes gauge');
-    lines.push(`redis_memory_used_bytes ${metrics.redis_memory_used_bytes}`);
-
-    lines.push('# HELP redis_connected_clients Number of connected Redis clients');
-    lines.push('# TYPE redis_connected_clients gauge');
-    lines.push(`redis_connected_clients ${metrics.redis_connected_clients}`);
-
-    lines.push('# HELP redis_latency_ms Redis ping latency in milliseconds');
-    lines.push('# TYPE redis_latency_ms gauge');
-    lines.push(`redis_latency_ms ${metrics.redis_latency_ms}`);
-
-    return lines.join('\n');
-  }
 
   /**
    * Simple health check for load balancer probes
