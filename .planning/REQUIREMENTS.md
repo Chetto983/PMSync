@@ -25,8 +25,8 @@ Requirements for Legacy Cleanup, Scalability & Billing Hardening. Each maps to r
 
 - [ ] **PERF-01**: Bundle analysis run and heavy dependencies dynamically imported (TipTap, chart libs, FullCalendar, @xyflow/react)
 - [ ] **PERF-02**: Cache-Control headers added to read-heavy GET endpoints (folders, labels, pricing table)
-- [ ] **PERF-03**: Graceful shutdown verified — HTTP connection draining, WebSocket disconnect, BullMQ worker stop on SIGTERM
-- [ ] **PERF-04**: Prometheus metrics include per-replica instance labels for Grafana differentiation
+- [x] **PERF-03**: Graceful shutdown verified — HTTP connection draining, WebSocket disconnect, BullMQ worker stop on SIGTERM
+- [x] **PERF-04**: Prometheus metrics include per-replica instance labels for Grafana differentiation
 
 ### Billing Hardening
 
@@ -75,8 +75,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCAL-04 | Phase 128 | Complete |
 | PERF-01 | Phase 130 | Pending |
 | PERF-02 | Phase 130 | Pending |
-| PERF-03 | Phase 129 | Pending |
-| PERF-04 | Phase 129 | Pending |
+| PERF-03 | Phase 129 | Complete |
+| PERF-04 | Phase 129 | Complete |
 | BILL-01 | Phase 131 | Pending |
 | BILL-02 | Phase 132 | Pending |
 | BILL-03 | Phase 133 | Pending |
