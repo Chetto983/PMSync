@@ -15,3 +15,4 @@ export {
   isValidHexColor,
   type ColorOption,
 } from './ColorPicker';
+export { SlaBadge } from './SlaBadge';
