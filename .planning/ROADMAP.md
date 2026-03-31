@@ -228,7 +228,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [ ] 130-01-PLAN.md — Dynamic import Calendar page component (FullCalendar code-split)
-- [ ] 130-02-PLAN.md — Add Cache-Control headers to labels, folders, and pricing GET endpoints
+- [x] 130-02-PLAN.md — Add Cache-Control headers to labels, folders, and pricing GET endpoints
 **UI hint**: yes
 
 ### Phase 131: Billing Frontend
@@ -277,7 +277,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 127. Transport & Connection Hardening | v11.0 | 1/1 | Complete    | 2026-03-31 |
 | 128. State Externalization | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 129. Replica Activation | v11.0 | 1/2 | Complete    | 2026-03-31 |
-| 130. Frontend Performance | v11.0 | 0/2 | Not started | - |
+| 130. Frontend Performance | v11.0 | 1/2 | In Progress|  |
 | 131. Billing Frontend | v11.0 | 0/TBD | Not started | - |
 | 132. Billing Backend Hardening | v11.0 | 0/TBD | Not started | - |
 | 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
