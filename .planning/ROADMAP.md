@@ -199,7 +199,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 128-01-PLAN.md — Externalize TriageLearningService signal buffer to Redis lists and remove scoreCache
-- [ ] 128-02-PLAN.md — Replace EmailTriageService in-memory semaphore with Redis distributed semaphore + document CircuitBreaker per-instance design
+- [x] 128-02-PLAN.md — Replace EmailTriageService in-memory semaphore with Redis distributed semaphore + document CircuitBreaker per-instance design
 
 ### Phase 129: Replica Activation
 **Goal**: Production runs on 2+ Railway replicas with tuned workers and per-replica observability

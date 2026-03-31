@@ -13,11 +13,13 @@
  * (thread-summary.service.ts) to maintain Single Responsibility Principle.
  */
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
 import { TriageActionService } from './triage-action.service';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 50;
@@ -67,65 +69,79 @@ interface BatchTriageResult {
 }
 
 @Injectable()
-export class EmailTriageService {
+export class EmailTriageService implements OnModuleInit {
   private readonly logger = new Logger(EmailTriageService.name);
 
-  // SCALE PROTECTION: In-memory semaphore for global concurrency control
-  // For multi-instance deployments, use Redis-based locking instead
-  private static currentOperations = 0;
-  private static waitQueue: Array<() => void> = [];
+  // SCALE PROTECTION: Redis-based distributed counting semaphore
+  // Enforces global MAX_CONCURRENT_TRIAGE_OPERATIONS across all replicas
+  private redis!: Redis;
+
+  private readonly SEMAPHORE_KEY = 'pmsync:triage-semaphore:count';
+  private readonly SEMAPHORE_MAX = MAX_CONCURRENT_TRIAGE_OPERATIONS; // 5
+  private readonly SEMAPHORE_TTL = 120; // 2 min safety TTL
+
+  /** Lua: atomic check-and-increment with TTL refresh */
+  private readonly ACQUIRE_SCRIPT = `
+    local current = tonumber(redis.call("GET", KEYS[1]) or "0")
+    if current < tonumber(ARGV[1]) then
+      redis.call("INCR", KEYS[1])
+      redis.call("EXPIRE", KEYS[1], ARGV[2])
+      return 1
+    else
+      return 0
+    end
+  `;
+
+  /** Lua: atomic check-and-decrement (floor at 0) */
+  private readonly RELEASE_SCRIPT = `
+    local current = tonumber(redis.call("GET", KEYS[1]) or "0")
+    if current > 0 then
+      redis.call("DECR", KEYS[1])
+    end
+    return current - 1
+  `;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly redisConnection: RedisConnectionService,
     @Optional() private readonly triageActionService?: TriageActionService,
   ) {}
 
-  /**
-   * SCALE PROTECTION: Acquire semaphore slot before processing
-   * Returns false if queue is full (>50 waiting), true when slot acquired
-   */
-  private async acquireSemaphore(): Promise<boolean> {
-    // If we have capacity, acquire immediately
-    if (EmailTriageService.currentOperations < MAX_CONCURRENT_TRIAGE_OPERATIONS) {
-      EmailTriageService.currentOperations++;
-      return true;
-    }
-
-    // Don't queue if too many already waiting (prevents memory issues)
-    if (EmailTriageService.waitQueue.length >= 50) {
-      this.logger.warn('Triage semaphore queue full, skipping operation');
-      return false;
-    }
-
-    // Wait for a slot
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        // Remove from queue if still there
-        const idx = EmailTriageService.waitQueue.indexOf(release);
-        if (idx >= 0) EmailTriageService.waitQueue.splice(idx, 1);
-        resolve(false); // Timeout
-      }, 30000); // 30s max wait
-
-      const release = () => {
-        clearTimeout(timeout);
-        EmailTriageService.currentOperations++;
-        resolve(true);
-      };
-
-      EmailTriageService.waitQueue.push(release);
-    });
+  onModuleInit() {
+    this.redis = this.redisConnection.client;
   }
 
   /**
-   * SCALE PROTECTION: Release semaphore slot after processing
+   * SCALE PROTECTION: Acquire distributed semaphore slot via Redis Lua
+   * Returns true if acquired (below limit), false if at capacity or Redis error.
+   * Fails closed: if Redis is down, triage is blocked (no LLM call storm).
+   */
+  private async acquireSemaphore(): Promise<boolean> {
+    try {
+      const result = await this.redis.eval(
+        this.ACQUIRE_SCRIPT, 1,
+        this.SEMAPHORE_KEY, this.SEMAPHORE_MAX, this.SEMAPHORE_TTL,
+      );
+      return result === 1;
+    } catch (error) {
+      this.logger.error(`Semaphore acquire failed: ${error instanceof Error ? error.message : String(error)}`);
+      return false; // Fail closed - don't allow triage if Redis is down
+    }
+  }
+
+  /**
+   * SCALE PROTECTION: Release distributed semaphore slot via Redis Lua
+   * Fire-and-forget: errors are logged but swallowed.
    */
   private releaseSemaphore(): void {
-    EmailTriageService.currentOperations--;
-    // Wake next waiter if any
-    const next = EmailTriageService.waitQueue.shift();
-    if (next) next();
+    this.redis.eval(
+      this.RELEASE_SCRIPT, 1,
+      this.SEMAPHORE_KEY,
+    ).catch((err: unknown) => {
+      this.logger.error(`Semaphore release failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 
   /**

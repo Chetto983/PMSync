@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
 status: verifying
-stopped_at: Completed 127-01-PLAN.md
+stopped_at: Completed 128-02-PLAN.md
 last_updated: "2026-03-31T09:41:24.051Z"
 last_activity: 2026-03-31
 progress:
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 128
-Plan: 01 of 01 complete
-Status: Plan 128-01 complete
+Plan: 02 of 02 complete
+Status: Plans 128-01 and 128-02 complete
 Last activity: 2026-03-31
 
 Progress: [██████░░░░] 66%
@@ -62,6 +62,8 @@ Progress: [██████░░░░] 66%
 - [Phase 126]: Manual package.json edit for @nestjs/schedule removal (worktree has no node_modules)
 - [Phase 127]: Pool default max=20 (conservative for 2-4 replicas with max_connections=100)
 - [Phase 127]: Strip connection_limit/pool_timeout from URL proactively to prevent developer confusion
+- [Phase 128]: Redis Lua semaphore for triage concurrency (fail-closed, 120s TTL safety net)
+- [Phase 128]: CircuitBreaker stays per-instance by design (industry standard, convergence within 90s)
 
 ### Blockers/Concerns
 
@@ -76,5 +78,5 @@ Progress: [██████░░░░] 66%
 ## Session Continuity
 
 Last session: 2026-03-31T10:16:19Z
-Stopped at: Completed 128-01-PLAN.md
+Stopped at: Completed 128-01-PLAN.md and 128-02-PLAN.md
 Resume file: None
