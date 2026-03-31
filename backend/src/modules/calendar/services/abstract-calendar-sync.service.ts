@@ -26,6 +26,8 @@ import {
   CalendarProviderType,
   SYNC_TOKEN_FIELD,
 } from '../interfaces/calendar-sync.interface';
+import { MicrosoftSyncError, isMicrosoftProviderError } from '../../providers/errors';
+import { GoogleSyncError, isGoogleProviderError } from '../../providers/errors';
 
 /**
  * Abstract base class for calendar sync services
@@ -292,7 +294,29 @@ export abstract class AbstractCalendarSyncService {
         currentSyncToken,
       );
     } catch (error: any) {
-      // Handle sync token invalidation:
+      // T-0602: Handle typed provider sync errors first
+      const isTypedSyncError =
+        (isMicrosoftProviderError(error) && error instanceof MicrosoftSyncError) ||
+        (isGoogleProviderError(error) && error instanceof GoogleSyncError);
+
+      if (isTypedSyncError && error.recovery === 'full_resync') {
+        this.logger.warn(
+          `Typed sync error for calendar ${calendarId}: ${error.errorType}`,
+          error.toStructuredLog(),
+        );
+        await this.prisma.calendarSyncState.update({
+          where: { tenantId_providerId_calendarId: { tenantId, providerId, calendarId } },
+          data: {
+            [this.syncTokenField]: null,
+            fullSyncRequired: true,
+            lastError: `${error.errorType}: ${error.message}`,
+            lastErrorAt: new Date(),
+          },
+        });
+        return this.runFullSync(accessToken, calendarId, providerId, tenantId, calendarName);
+      }
+
+      // Handle sync token invalidation (legacy untyped errors):
       // - Google Calendar API: GaxiosError with response.status = 410
       // - Microsoft Graph API: GraphError with statusCode = 410, code = 'syncStateNotFound'
       // - Legacy delta link: custom Error with code = 410

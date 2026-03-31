@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CreateRoutingRuleDto, UpdateRoutingRuleDto } from '../dto/routing-rule.dto';
 
 /** A single condition in a routing rule */
 interface RuleCondition {
@@ -145,5 +146,55 @@ export class RoutingRuleService {
       return ticketPriority !== condValue;
     }
     return false;
+  }
+
+  // ---- CRUD ----
+
+  async list(tenantId: string) {
+    return this.prisma.routingRule.findMany({
+      where: { tenantId },
+      orderBy: { priority: 'desc' },
+    });
+  }
+
+  async findById(tenantId: string, id: string) {
+    const rule = await this.prisma.routingRule.findFirst({
+      where: { id, tenantId },
+    });
+    if (!rule) throw new NotFoundException(`Routing rule ${id} not found`);
+    return rule;
+  }
+
+  async create(tenantId: string, dto: CreateRoutingRuleDto) {
+    return this.prisma.routingRule.create({
+      data: {
+        tenantId,
+        name: dto.name,
+        conditions: dto.conditions as any,
+        action: dto.action as any,
+        priority: dto.priority ?? 0,
+        active: dto.active ?? true,
+      },
+    });
+  }
+
+  async update(tenantId: string, id: string, dto: UpdateRoutingRuleDto) {
+    await this.findById(tenantId, id);
+    return this.prisma.routingRule.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.conditions !== undefined && { conditions: dto.conditions as any }),
+        ...(dto.action !== undefined && { action: dto.action as any }),
+        ...(dto.priority !== undefined && { priority: dto.priority }),
+        ...(dto.active !== undefined && { active: dto.active }),
+      },
+    });
+  }
+
+  async remove(tenantId: string, id: string) {
+    await this.findById(tenantId, id);
+    await this.prisma.routingRule.delete({ where: { id } });
+    return { deleted: true };
   }
 }

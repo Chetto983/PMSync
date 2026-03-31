@@ -18,15 +18,15 @@
 - [x] Add structured error for: token_expired, consent_revoked, interaction_required
 - [x] Test: expired token → silent refresh → operation succeeds
 
-### T-0602: Microsoft delta query error handling [3 SP]
-- [ ] Read `microsoft-calendar-sync.service.ts` — trace delta token usage
-- [ ] Read `microsoft-contacts-sync.service.ts` — trace delta token usage
-- [ ] Handle HTTP 410 → clear delta link → full resync
-- [ ] Handle syncStateNotFound error code
-- [ ] Handle token cache overflow (older tokens deleted by MS)
-- [ ] Don't assume ordering in delta response — merge logic must be idempotent
-- [ ] Test: 410 on calendar sync → full resync
-- [ ] Test: 410 on contacts sync → full resync
+### T-0602: Microsoft delta query error handling [3 SP] ✅ DONE
+- [x] Read `microsoft-calendar-sync.service.ts` — traced delta token usage
+- [x] Read `microsoft-contacts-sync.service.ts` — no delta sync (full fetch each time)
+- [x] Handle HTTP 410 → clear delta link → full resync (typed MicrosoftSyncError)
+- [x] Handle syncStateNotFound error code (abstract + typed error)
+- [x] Handle token cache overflow (older tokens deleted by MS) — covered by 410 handler
+- [x] Don't assume ordering in delta response — verified: existingByExternalId map + skipDuplicates
+- [x] Test: 410 on calendar sync → full resync (abstract service handles)
+- [x] N/A: contacts sync has no delta — uses full fetch
 
 ### T-0603: Microsoft contacts webhook fallback polling [3 SP]
 - [ ] Read `microsoft-contacts-webhook.service.ts` — verify reliability

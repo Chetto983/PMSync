@@ -21,6 +21,7 @@ import {
   FetchEventsResult,
 } from '../interfaces/calendar-sync.interface';
 import { parseDateTimeInTimeZone } from '../utils/calendar-timezone.util';
+import { MicrosoftSyncError, MicrosoftApiError, isMicrosoftProviderError } from '../../providers/errors';
 
 // Re-export for backward compatibility
 export type { CalendarSyncResult as MicrosoftCalendarSyncResult } from '../interfaces/calendar-sync.interface';
@@ -155,22 +156,39 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
       // Incremental sync: use deltaLink directly
       let currentLink: string | undefined = deltaLink;
 
-      while (currentLink) {
-        // For delta links, we need to use the full URL
-        const response: MicrosoftDeltaResponse = await client
-          .api(currentLink)
-          .header('Prefer', 'odata.maxpagesize=200')
-          .get();
+      try {
+        while (currentLink) {
+          // For delta links, we need to use the full URL
+          const response: MicrosoftDeltaResponse = await client
+            .api(currentLink)
+            .header('Prefer', 'odata.maxpagesize=200')
+            .get();
 
-        const events = response.value || [];
-        allEvents.push(...events);
+          const events = response.value || [];
+          allEvents.push(...events);
 
-        if (response['@odata.nextLink']) {
-          currentLink = response['@odata.nextLink'];
-        } else {
-          currentLink = undefined;
-          nextDeltaLink = response['@odata.deltaLink'];
+          if (response['@odata.nextLink']) {
+            currentLink = response['@odata.nextLink'];
+          } else {
+            currentLink = undefined;
+            nextDeltaLink = response['@odata.deltaLink'];
+          }
         }
+      } catch (error: any) {
+        // T-0602: Classify delta query errors into typed MicrosoftSyncError
+        const statusCode = error?.statusCode ?? error?.response?.status;
+        const errorCode = typeof error?.code === 'string' ? error.code : '';
+
+        if (statusCode === 410 || errorCode === 'syncStateNotFound' || errorCode === 'resyncRequired') {
+          throw new MicrosoftSyncError(
+            'delta_link_expired',
+            `Microsoft delta link expired (status=${statusCode}, code=${errorCode}). Full resync required.`,
+            error instanceof Error ? error : undefined,
+          );
+        }
+
+        // Re-throw other errors as-is (abstract service handles classification)
+        throw error;
       }
     }
 
