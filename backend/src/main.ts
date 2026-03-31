@@ -594,7 +594,7 @@ async function bootstrap() {
         .setTitle('PMSync API')
         .setDescription('AI-powered multi-tenant email assistant API')
         .setVersion('1.0')
-        .addBearerAuth()
+        .addCookieAuth('better-auth.session_token')
         .addServer(config.api.url, 'Current server')
         .build();
       const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -15,7 +15,7 @@ import { ROLES_KEY } from './roles.decorator';
  * Prevents unauthorized access to admin/super-admin endpoints.
  *
  * Phase 52: Verified compatible with BetterAuthGuard -- reads request.user.role
- * which BetterAuthGuard sets identically to the former JWT payload. No changes needed.
+ * which BetterAuthGuard sets from the session.
  *
  * Usage:
  * @UseGuards(TenantGuard, RolesGuard)

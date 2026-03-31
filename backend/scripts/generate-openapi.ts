@@ -22,7 +22,7 @@ async function generateSpec() {
     .setTitle('PMSync API')
     .setDescription('AI-powered multi-tenant email assistant API')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addCookieAuth('better-auth.session_token')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
