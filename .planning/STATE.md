@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
 status: verifying
-stopped_at: Phase 131 UI-SPEC approved
+stopped_at: Phase 131 plan 01 complete
 last_updated: "2026-03-31T14:52:31.173Z"
 last_activity: 2026-03-31
 progress:
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 
 ## Current Position
 
-Phase: 131
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-03-31
+Phase: 131 (billing-frontend) — COMPLETE
+Plan: 1 of 1 (complete)
+Status: Phase 131 complete
+Last activity: 2026-03-31 -- Phase 131 plan 01 executed
 
 Progress: [██████░░░░] 66%
 
@@ -70,6 +70,7 @@ Progress: [██████░░░░] 66%
 - [Phase 129]: PrismaService uses OnModuleDestroy lifecycle instead of manual signal handlers
 - [Phase 130]: Cache-Control: labels 60s, folders 30s, pricing 300s/120s (public/private); stale-while-revalidate on all
 - [Phase 130]: Followed analytics.tsx dynamic import pattern for Calendar page consistency
+- [Phase 131]: UsageCard fontWeight={500} fixed to 400 (not in plan line items but required by UI-SPEC must_haves)
 
 ### Blockers/Concerns
 
@@ -83,6 +84,6 @@ Progress: [██████░░░░] 66%
 
 ## Session Continuity
 
-Last session: 2026-03-31T14:52:31.167Z
-Stopped at: Phase 131 UI-SPEC approved
-Resume file: .planning/phases/131-billing-frontend/131-UI-SPEC.md
+Last session: 2026-03-31T15:35:02Z
+Stopped at: Phase 131 plan 01 complete
+Resume file: .planning/phases/131-billing-frontend/131-01-SUMMARY.md

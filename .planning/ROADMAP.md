@@ -141,7 +141,7 @@
  (completed 2026-03-31)
 - [x] **Phase 129: Replica Activation** - Enable multi-replica deployment with tuned workers and per-replica observability (completed 2026-03-31)
 - [x] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints (completed 2026-03-31)
-- [ ] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect
+- [x] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect (completed 2026-03-31)
 - [ ] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening
 - [ ] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel
 
@@ -242,7 +242,7 @@ Plans:
   4. Billing portal redirect opens Stripe customer portal for invoice history and payment method management
 **Plans**: 1 plan
 Plans:
-- [ ] 131-01-PLAN.md — UI-SPEC compliance polish (typography weights, spacing, error copywriting)
+- [x] 131-01-PLAN.md — UI-SPEC compliance polish (typography weights, spacing, error copywriting)
 **UI hint**: yes
 
 ### Phase 132: Billing Backend Hardening
@@ -280,7 +280,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 128. State Externalization | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 129. Replica Activation | v11.0 | 1/2 | Complete    | 2026-03-31 |
 | 130. Frontend Performance | v11.0 | 2/2 | Complete    | 2026-03-31 |
-| 131. Billing Frontend | v11.0 | 0/1 | In progress | - |
+| 131. Billing Frontend | v11.0 | 1/1 | Complete   | 2026-03-31 |
 | 132. Billing Backend Hardening | v11.0 | 0/TBD | Not started | - |
 | 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
 
