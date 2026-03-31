@@ -104,8 +104,8 @@ export function KBBrowsePage() {
       </Breadcrumbs>
 
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <BookOpen size={28} />
             <Typography variant="h5" fontWeight={600}>
@@ -121,19 +121,20 @@ export function KBBrowsePage() {
           startIcon={<Plus size={18} />}
           component={NextLink}
           href="/dashboard/crm/kb/articles/new"
+          sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
         >
           {tk?.newArticle ?? 'New Article'}
         </Button>
       </Box>
 
       {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
           placeholder={tk?.search ?? 'Search articles...'}
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
-          sx={{ flex: 1, minWidth: 200 }}
+          sx={{ flex: 1, minWidth: { xs: '100%', sm: 200 } }}
           slotProps={{
             input: {
               startAdornment: (

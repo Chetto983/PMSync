@@ -14,6 +14,7 @@ import { Search, BookOpen } from 'lucide-react';
 import NextLink from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface PortalArticle {
   id: string;
@@ -37,6 +38,8 @@ interface PortalKBBrowseProps {
 }
 
 export function PortalKBBrowse({ tenantSlug }: PortalKBBrowseProps) {
+  const t = useTranslations();
+  const tk = t.kb;
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -80,18 +83,18 @@ export function PortalKBBrowse({ tenantSlug }: PortalKBBrowseProps) {
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 1 }}>
           <BookOpen size={32} />
           <Typography variant="h4" fontWeight={700}>
-            Knowledge Base
+            {tk?.title ?? 'Knowledge Base'}
           </Typography>
         </Box>
         <Typography variant="body1" color="text.secondary">
-          Find answers to common questions
+          {tk?.subtitle ?? 'Find answers to common questions'}
         </Typography>
       </Box>
 
       {/* Search */}
       <TextField
         fullWidth
-        placeholder="Search articles..."
+        placeholder={tk?.search ?? 'Search articles...'}
         value={search}
         onChange={(e) => handleSearchChange(e.target.value)}
         sx={{ mb: 4, maxWidth: 600, mx: 'auto', display: 'block' }}
@@ -115,7 +118,7 @@ export function PortalKBBrowse({ tenantSlug }: PortalKBBrowseProps) {
             ))
           ) : !searchResults?.length ? (
             <Typography color="text.secondary" textAlign="center">
-              No results found
+              {tk?.noResults ?? 'No results found'}
             </Typography>
           ) : (
             searchResults.map((result) => (
@@ -158,7 +161,7 @@ export function PortalKBBrowse({ tenantSlug }: PortalKBBrowseProps) {
             ))
           ) : !categories?.length ? (
             <Typography color="text.secondary" sx={{ gridColumn: '1 / -1', textAlign: 'center' }}>
-              No categories yet
+              {tk?.noArticles ?? 'No categories yet'}
             </Typography>
           ) : (
             categories.map((cat) => (

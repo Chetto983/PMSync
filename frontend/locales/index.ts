@@ -651,22 +651,6 @@ export interface AppTranslations {
         retry: string;
         showDetails: string;
       };
-      insights: {
-        title: string;
-        subtitle: string;
-        urgentEmails: string;
-        urgentEmailsDesc: string;
-        overdueDeadlines: string;
-        overdueDeadlinesDesc: string;
-        todayDeadlines: string;
-        todayDeadlinesDesc: string;
-        overdueFollowUps: string;
-        overdueFollowUpsDesc: string;
-        staleContacts: string;
-        staleContactsDesc: string;
-        allClear: string;
-        allClearDesc: string;
-      };
       categories: {
         all: string;
         email: string;
@@ -5041,6 +5025,34 @@ export interface AppTranslations {
       publishedOn?: string;
       by?: string;
     };
+  };
+  portal?: {
+    submitTicket?: string;
+    submitTicketDesc?: string;
+    name?: string;
+    email?: string;
+    subject?: string;
+    description?: string;
+    priority?: string;
+    priorityLow?: string;
+    priorityMedium?: string;
+    priorityHigh?: string;
+    submit?: string;
+    submitting?: string;
+    ticketSubmitted?: string;
+    ticketSubmittedDesc?: string;
+    trackingToken?: string;
+    trackMyTicket?: string;
+    ticketNotFound?: string;
+    submitted?: string;
+    lastUpdated?: string;
+    resolved?: string;
+    updates?: string;
+    noUpdates?: string;
+    statusOpen?: string;
+    statusInProgress?: string;
+    statusResolved?: string;
+    statusClosed?: string;
   };
 }
 

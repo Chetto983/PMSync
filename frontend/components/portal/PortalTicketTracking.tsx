@@ -15,6 +15,7 @@ import {
 import { Ticket, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface TicketComment {
   id: string;
@@ -47,13 +48,13 @@ function getStatusStep(status: string): number {
   return idx >= 0 ? idx : 0;
 }
 
-function statusLabel(status: string): string {
+function getStatusLabel(status: string, portal?: Record<string, string | undefined>): string {
   switch (status) {
-    case 'open': return 'Open';
-    case 'in_progress': return 'In Progress';
+    case 'open': return portal?.statusOpen ?? 'Open';
+    case 'in_progress': return portal?.statusInProgress ?? 'In Progress';
     case 'waiting': return 'Waiting';
-    case 'resolved': return 'Resolved';
-    case 'closed': return 'Closed';
+    case 'resolved': return portal?.statusResolved ?? 'Resolved';
+    case 'closed': return portal?.statusClosed ?? 'Closed';
     default: return status;
   }
 }
@@ -72,6 +73,8 @@ function formatDate(dateStr: string): string {
 }
 
 export function PortalTicketTracking({ tenantSlug, token }: PortalTicketTrackingProps) {
+  const t = useTranslations();
+  const tp = t.portal;
   const { data: ticket, isLoading, error } = useQuery({
     queryKey: ['portal', tenantSlug, 'ticket', token],
     queryFn: () =>
@@ -98,7 +101,7 @@ export function PortalTicketTracking({ tenantSlug, token }: PortalTicketTracking
     return (
       <Box sx={{ maxWidth: 700, mx: 'auto' }}>
         <Alert severity="error">
-          Ticket not found. Please check your tracking token.
+          {tp?.ticketNotFound ?? 'Ticket not found. Please check your tracking token.'}
         </Alert>
       </Box>
     );
@@ -118,7 +121,7 @@ export function PortalTicketTracking({ tenantSlug, token }: PortalTicketTracking
 
       <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
         <Chip
-          label={statusLabel(ticket.status)}
+          label={getStatusLabel(ticket.status, tp)}
           color={ticket.status === 'resolved' || ticket.status === 'closed' ? 'success' : 'info'}
           size="small"
         />
@@ -135,7 +138,7 @@ export function PortalTicketTracking({ tenantSlug, token }: PortalTicketTracking
         <Stepper activeStep={activeStep} alternativeLabel>
           {STATUS_STEPS.map((step) => (
             <Step key={step} completed={STATUS_STEPS.indexOf(step) <= activeStep}>
-              <StepLabel>{statusLabel(step)}</StepLabel>
+              <StepLabel>{getStatusLabel(step, tp)}</StepLabel>
             </Step>
           ))}
         </Stepper>
@@ -146,17 +149,17 @@ export function PortalTicketTracking({ tenantSlug, token }: PortalTicketTracking
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <Clock size={16} />
           <Typography variant="body2">
-            Submitted: {formatDate(ticket.createdAt)}
+            {tp?.submitted ?? 'Submitted'}: {formatDate(ticket.createdAt)}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ ml: 3 }}>
-          Last updated: {formatDate(ticket.updatedAt)}
+          {tp?.lastUpdated ?? 'Last updated'}: {formatDate(ticket.updatedAt)}
         </Typography>
         {ticket.resolvedAt && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             <CheckCircle size={16} color="green" />
             <Typography variant="body2">
-              Resolved: {formatDate(ticket.resolvedAt)}
+              {tp?.resolved ?? 'Resolved'}: {formatDate(ticket.resolvedAt)}
             </Typography>
           </Box>
         )}
@@ -164,14 +167,14 @@ export function PortalTicketTracking({ tenantSlug, token }: PortalTicketTracking
 
       {/* Timeline — only non-internal comments */}
       <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-        Updates
+        {tp?.updates ?? 'Updates'}
       </Typography>
 
       {ticket.comments.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
           <AlertCircle size={24} />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
-            No updates yet. We&apos;ll respond as soon as possible.
+            {tp?.noUpdates ?? "No updates yet. We'll respond as soon as possible."}
           </Typography>
         </Paper>
       ) : (

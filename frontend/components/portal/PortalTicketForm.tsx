@@ -14,6 +14,7 @@ import { Send, CheckCircle } from 'lucide-react';
 import NextLink from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface PortalTicketFormProps {
   tenantSlug: string;
@@ -25,6 +26,8 @@ interface SubmitResult {
 }
 
 export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
+  const t = useTranslations();
+  const tp = t.portal;
   const loadTimestamp = useRef(Date.now().toString());
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -68,14 +71,14 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
       <Box sx={{ maxWidth: 600, mx: 'auto', textAlign: 'center', py: 6 }}>
         <CheckCircle size={48} color="green" />
         <Typography variant="h5" fontWeight={600} sx={{ mt: 2 }}>
-          Ticket Submitted
+          {tp?.ticketSubmitted ?? 'Ticket Submitted'}
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-          Your request has been received. Use the link below to track its status.
+          {tp?.ticketSubmittedDesc ?? 'Your request has been received. Use the link below to track its status.'}
         </Typography>
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Tracking Token
+            {tp?.trackingToken ?? 'Tracking Token'}
           </Typography>
           <Typography variant="h6" fontFamily="monospace" sx={{ mt: 0.5 }}>
             {token}
@@ -86,7 +89,7 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
           component={NextLink}
           href={trackUrl}
         >
-          Track My Ticket
+          {tp?.trackMyTicket ?? 'Track My Ticket'}
         </Button>
       </Box>
     );
@@ -95,10 +98,10 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto' }}>
       <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
-        Submit a Ticket
+        {tp?.submitTicket ?? 'Submit a Ticket'}
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Describe your issue and we&apos;ll get back to you as soon as possible.
+        {tp?.submitTicketDesc ?? "Describe your issue and we'll get back to you as soon as possible."}
       </Typography>
 
       {submitMutation.isError && (
@@ -112,7 +115,7 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
           <TextField
             fullWidth
             size="small"
-            label="Name"
+            label={tp?.name ?? 'Name'}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -122,7 +125,7 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
           <TextField
             fullWidth
             size="small"
-            label="Email"
+            label={tp?.email ?? 'Email'}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -133,7 +136,7 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
           <TextField
             fullWidth
             size="small"
-            label="Subject"
+            label={tp?.subject ?? 'Subject'}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             required
@@ -143,7 +146,7 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
           <TextField
             fullWidth
             size="small"
-            label="Description"
+            label={tp?.description ?? 'Description'}
             multiline
             rows={5}
             value={description}
@@ -155,14 +158,14 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
             select
             fullWidth
             size="small"
-            label="Priority"
+            label={tp?.priority ?? 'Priority'}
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
             sx={{ mb: 3 }}
           >
-            <MenuItem value="low">Low</MenuItem>
-            <MenuItem value="medium">Medium</MenuItem>
-            <MenuItem value="high">High</MenuItem>
+            <MenuItem value="low">{tp?.priorityLow ?? 'Low'}</MenuItem>
+            <MenuItem value="medium">{tp?.priorityMedium ?? 'Medium'}</MenuItem>
+            <MenuItem value="high">{tp?.priorityHigh ?? 'High'}</MenuItem>
           </TextField>
 
           {/* Honeypot — invisible to real users */}
@@ -182,7 +185,7 @@ export function PortalTicketForm({ tenantSlug }: PortalTicketFormProps) {
             startIcon={<Send size={16} />}
             disabled={submitMutation.isPending || !name || !email || !subject}
           >
-            {submitMutation.isPending ? 'Submitting...' : 'Submit Ticket'}
+            {submitMutation.isPending ? (tp?.submitting ?? 'Submitting...') : (tp?.submit ?? 'Submit Ticket')}
           </Button>
         </form>
       </Paper>
