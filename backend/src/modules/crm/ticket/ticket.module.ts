@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TicketController } from './controllers/ticket.controller';
 import { RoutingRuleController } from './controllers/routing-rule.controller';
+import { PortalTicketController } from './controllers/portal-ticket.controller';
 import { TicketService } from './services/ticket.service';
 import { EmailToTicketHandler } from './services/email-to-ticket.handler';
 import { SlaTimerService } from './services/sla-timer.service';
@@ -10,7 +11,7 @@ import { RealtimeModule } from '../../realtime/realtime.module';
 
 @Module({
   imports: [PrismaModule, RealtimeModule],
-  controllers: [TicketController, RoutingRuleController],
+  controllers: [TicketController, RoutingRuleController, PortalTicketController],
   providers: [TicketService, EmailToTicketHandler, SlaTimerService, RoutingRuleService],
   exports: [TicketService, SlaTimerService, RoutingRuleService],
 })

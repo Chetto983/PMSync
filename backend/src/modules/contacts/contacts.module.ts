@@ -8,6 +8,7 @@ import { ContactProviderOpsService } from './services/contact-provider-ops.servi
 import { ContactSyncService } from './services/contact-sync.service';
 import { ContactsCacheService } from './services/contacts-cache.service';
 import { ContactsImportService } from './services/contacts-import.service';
+import { ContactDedupService } from './services/contact-dedup.service';
 import { GoogleContactsSyncService } from './services/google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './services/microsoft-contacts-sync.service';
 import { GoogleContactsWebhookService } from './services/google-contacts-webhook.service';
@@ -57,6 +58,7 @@ import { ContactsProviderEventHandlerService } from './services/provider-event-h
     ContactsService, // Facade - delegates to sub-services above
     ContactsCacheService, // Redis caching and distributed locking
     ContactsImportService, // vCard and email extraction
+    ContactDedupService, // Duplicate detection and contact merging (S09)
     GoogleContactsSyncService,
     MicrosoftContactsSyncService,
     GoogleContactsWebhookService,
@@ -75,6 +77,7 @@ import { ContactsProviderEventHandlerService } from './services/provider-event-h
     ContactsService,
     ContactsCacheService,
     ContactsImportService,
+    ContactDedupService,
     GoogleContactsSyncService,
     MicrosoftContactsSyncService,
     GoogleContactsWebhookService,

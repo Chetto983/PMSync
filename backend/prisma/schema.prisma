@@ -2225,6 +2225,9 @@ model Ticket {
   emailThreadId String?
   slaPolicyId   String?
   slaDeadline   DateTime?
+  portalToken   String?         @unique // nanoid for public ticket tracking
+  senderName    String?         // portal submission: submitter name
+  senderEmail   String?         // portal submission: submitter email
   resolvedAt    DateTime?
   closedAt      DateTime?
   createdAt     DateTime        @default(now())
