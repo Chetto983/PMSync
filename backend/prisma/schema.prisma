@@ -73,6 +73,7 @@ model Tenant {
   forecastSnapshots        ForecastSnapshot[]
   churnSignals             ChurnSignal[]
   nbaActions               NBAAction[]
+  tickets                  Ticket[]
 
   @@map("tenants")
 }
@@ -125,6 +126,8 @@ model User {
   telegramSettings    TelegramSettings?
   telegramLogs        TelegramLog[]
   pushSubscriptions   PushSubscription[]
+  assignedTickets     Ticket[]
+  ticketComments      TicketComment[]
 
   /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
   @@unique([tenantId, email])
@@ -533,6 +536,7 @@ model Email {
   provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   embeddings           Embedding[]
+  tickets              Ticket[]
 
   @@id([id, tenantId])
   @@unique([tenantId, messageId, folder])
@@ -886,6 +890,7 @@ model Contact {
   leadFeatures        LeadFeatureStore[]
   churnSignals        ChurnSignal[]
   nbaActions          NBAAction[]
+  tickets             Ticket[]
 
   @@id([id, tenantId])
   @@index([tenantId, displayName])
@@ -1724,6 +1729,7 @@ model CrmAccount {
   deals       CrmDeal[]
   activities  CrmActivity[]
   churnSignals ChurnSignal[]
+  tickets      Ticket[]
 
   @@index([tenantId])
   @@index([tenantId, name])
@@ -2196,4 +2202,57 @@ model NBAAction {
   @@index([tenantId, dealId, status])
   @@index([tenantId, actionType])
   @@map("nba_actions")
+}
+
+model Ticket {
+  id            String          @id @default(cuid())
+  tenantId      String
+  subject       String
+  description   String?
+  status        String          @default("open") // open, in_progress, waiting, resolved, closed
+  priority      String          @default("medium") // low, medium, high, urgent
+  assigneeId    String?
+  contactId     String?
+  contactTenant String?
+  accountId     String?
+  emailId       String?
+  emailTenant   String?
+  emailThreadId String?
+  slaDeadline   DateTime?
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignee      User?           @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  contact       Contact?        @relation(fields: [contactId, contactTenant], references: [id, tenantId], onDelete: SetNull)
+  account       CrmAccount?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  email         Email?          @relation(fields: [emailId, emailTenant], references: [id, tenantId], onDelete: SetNull)
+  comments      TicketComment[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, assigneeId])
+  @@index([tenantId, priority])
+  @@index([tenantId, contactId])
+  @@index([tenantId, accountId])
+  @@index([tenantId, emailThreadId])
+  @@index([tenantId, createdAt])
+  @@map("tickets")
+}
+
+model TicketComment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorId   String
+  body       String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([ticketId, createdAt])
+  @@map("ticket_comments")
 }
