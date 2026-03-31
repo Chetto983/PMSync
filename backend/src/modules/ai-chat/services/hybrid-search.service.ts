@@ -76,12 +76,14 @@ export class HybridSearchService {
    * @param query - Natural language query
    * @param sources - Sources to search: 'emails', 'contacts', 'calendar'
    * @param limit - Max results per source (default 10)
+   * @param options - Optional flags: skipReranking bypasses heuristic reranking
    */
   async search(
     tenantId: string,
     query: string,
     sources: string[],
     limit: number = 10,
+    options?: { skipReranking?: boolean },
   ): Promise<UnifiedSearchResult[]> {
     const effectiveSources =
       sources.length > 0 ? sources : ['emails', 'contacts', 'calendar'];
@@ -89,7 +91,7 @@ export class HybridSearchService {
     const promises: Promise<UnifiedSearchResult[]>[] = [];
 
     if (effectiveSources.includes('emails')) {
-      promises.push(this.searchEmails(tenantId, query, limit));
+      promises.push(this.searchEmails(tenantId, query, limit, options));
     }
     if (effectiveSources.includes('contacts')) {
       promises.push(this.searchContacts(tenantId, query, limit));
@@ -114,6 +116,7 @@ export class HybridSearchService {
     tenantId: string,
     query: string,
     limit: number = 10,
+    options?: { skipReranking?: boolean },
   ): Promise<EmailSearchResult[]> {
     try {
       const embeddingVector = await this.generateEmbedding(query, tenantId);
@@ -148,7 +151,8 @@ export class HybridSearchService {
       }));
 
       // Graph RAG Step 2: Heuristic reranking (recency + thread + priority + keyword match)
-      return this.rerankingService.rerank(mapped, query);
+      // CHAT-M2: bypass reranking for simple keyword queries
+      return this.rerankingService.rerank(mapped, query, options);
     } catch (error) {
       this.logger.warn(
         `Hybrid email search failed, returning empty: ${

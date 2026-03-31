@@ -43,14 +43,35 @@ export class RerankingService {
   private static readonly KEYWORD_MATCH_BONUS = 0.20;
 
   /**
+   * CHAT-M2: Check if a query is simple enough to skip reranking.
+   * A query is "simple" if it has fewer than 5 tokens and no complex operators.
+   */
+  shouldSkipReranking(query: string | undefined): boolean {
+    if (!query) return true;
+    const tokens = query.trim().split(/\s+/).filter(Boolean);
+    return tokens.length < 5 && !/["()AND|OR]/.test(query);
+  }
+
+  /**
    * Rerank email results with heuristic scoring adjustments.
    *
    * @param results - Email results with RRF scores from hybrid search
    * @param query - Original search query (for keyword match boosting)
+   * @param options - Optional flags: skipReranking bypasses all adjustments
    * @returns Reranked results sorted by adjusted score
    */
-  rerank(results: RerankableEmailResult[], query?: string): RerankableEmailResult[] {
+  rerank(
+    results: RerankableEmailResult[],
+    query?: string,
+    options?: { skipReranking?: boolean },
+  ): RerankableEmailResult[] {
     if (results.length <= 1) return results;
+
+    // CHAT-M2: Explicit bypass or heuristic bypass for simple queries
+    if (options?.skipReranking || this.shouldSkipReranking(query)) {
+      this.logger.debug(`Reranking bypassed for query: "${query?.slice(0, 40)}"`);
+      return results;
+    }
 
     // ── Phase 0: Min-max normalize RRF scores to [0, 1] ────────
     const scores = results.map((r) => r.rrfScore);
