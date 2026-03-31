@@ -106,6 +106,16 @@ export class EmailAiDto {
   tone?: string;
 }
 
+export class BriefingRequestDto {
+  @ApiPropertyOptional({
+    description: 'Locale for briefing language',
+    example: 'it',
+  })
+  @IsOptional()
+  @IsString()
+  locale?: string;
+}
+
 /**
  * DTO for AI-assisted email composition
  */

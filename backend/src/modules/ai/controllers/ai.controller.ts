@@ -46,6 +46,7 @@ import { DraftGenerationService } from '../services/draft-generation.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
 import {
   EmailAiDto,
+  BriefingRequestDto,
   SummaryResponseDto,
   SmartReplyResponseDto,
   CategorizeResponseDto,
@@ -472,12 +473,20 @@ export class AiController {
   @RequiresQuota('ai')
   @ApiOperation({ summary: 'Get daily briefing', description: 'Comprehensive daily briefing' })
   @ApiResponse({ status: 200, description: 'Briefing generated' })
-  async getBriefing(@Request() req: AuthenticatedRequest) {
+  @ApiQuery({ name: 'locale', required: false, description: 'Optional locale override for briefing language' })
+  async getBriefing(
+    @Request() req: AuthenticatedRequest,
+    @Query() dto?: BriefingRequestDto,
+  ) {
     const prefs = await this.prisma.userPreferences.findFirst({
       where: { tenantId: req.user.tenantId, userId: req.user.userId },
       select: { timezone: true, language: true },
     });
-    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined, prefs?.language || undefined);
+    const result = await this.briefingService.generateBriefing(
+      req.user.tenantId,
+      prefs?.timezone || undefined,
+      dto?.locale || prefs?.language || undefined,
+    );
     return { success: true, briefing: result.data, meta: result.meta, ...(result.error ? { error: result.error } : {}) };
   }
 
@@ -488,12 +497,19 @@ export class AiController {
   @RequiresQuota('ai')
   @ApiOperation({ summary: 'Refresh daily briefing', description: 'Force regenerate briefing' })
   @ApiResponse({ status: 200, description: 'Briefing refreshed' })
-  async refreshBriefing(@Request() req: AuthenticatedRequest) {
+  async refreshBriefing(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto?: BriefingRequestDto,
+  ) {
     const prefs = await this.prisma.userPreferences.findFirst({
       where: { tenantId: req.user.tenantId, userId: req.user.userId },
       select: { timezone: true, language: true },
     });
-    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined, prefs?.language || undefined);
+    const result = await this.briefingService.generateBriefing(
+      req.user.tenantId,
+      prefs?.timezone || undefined,
+      dto?.locale || prefs?.language || undefined,
+    );
     return { success: true, briefing: result.data, meta: result.meta, ...(result.error ? { error: result.error } : {}) };
   }
 

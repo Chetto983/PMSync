@@ -586,15 +586,17 @@ export const aiChatApi = {
   },
 
   // Daily Briefing
-  getBriefing() {
+  getBriefing(locale?: string) {
     return apiClient.get<{ success: boolean; briefing: Record<string, unknown>; meta?: AiOperationMeta; error?: string }>(
       '/ai/briefing',
+      locale ? { params: { locale } } : undefined,
     );
   },
 
-  refreshBriefing() {
+  refreshBriefing(locale?: string) {
     return apiClient.post<{ success: boolean; briefing: Record<string, unknown>; meta?: AiOperationMeta; error?: string }>(
       '/ai/briefing/refresh',
+      locale ? { locale } : undefined,
     );
   },
 

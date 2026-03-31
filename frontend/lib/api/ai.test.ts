@@ -333,7 +333,17 @@ describe('aiChatApi (AI Chat)', () => {
 
       const result = await aiChatApi.getBriefing();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/ai/briefing');
+      expect(apiClient.get).toHaveBeenCalledWith('/ai/briefing', undefined);
+      expect(result.data.success).toBe(true);
+    });
+
+    it('should pass locale as query param when provided', async () => {
+      const mockResponse = { data: { success: true, briefing: { summary: 'Oggi...' } } };
+      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
+
+      const result = await aiChatApi.getBriefing('it');
+
+      expect(apiClient.get).toHaveBeenCalledWith('/ai/briefing', { params: { locale: 'it' } });
       expect(result.data.success).toBe(true);
     });
   });
@@ -351,8 +361,23 @@ describe('aiChatApi (AI Chat)', () => {
 
       const result = await aiChatApi.refreshBriefing();
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/briefing/refresh');
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/briefing/refresh', undefined);
       expect(result.data.briefing).toEqual({ summary: 'Today...' });
+    });
+
+    it('should pass locale in refresh body when provided', async () => {
+      const mockResponse = {
+        data: {
+          success: true,
+          briefing: { summary: 'Oggi...' },
+        },
+      };
+      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
+
+      const result = await aiChatApi.refreshBriefing('it');
+
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/briefing/refresh', { locale: 'it' });
+      expect(result.data.briefing).toEqual({ summary: 'Oggi...' });
     });
   });
 

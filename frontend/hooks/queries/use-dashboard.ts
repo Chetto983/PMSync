@@ -92,11 +92,11 @@ export interface StaleContact {
  * Query options for daily briefing
  * Uses aiChatApi.getBriefing()
  */
-export function briefingOptions(enabled = true) {
+export function briefingOptions(locale?: string, enabled = true) {
   return queryOptions({
-    queryKey: dashboardKeys.briefing(),
+    queryKey: dashboardKeys.briefing(locale),
     queryFn: async (): Promise<BriefingData> => {
-      const response = await aiChatApi.getBriefing();
+      const response = await aiChatApi.getBriefing(locale);
       const briefing = response.data?.briefing || {};
       const b = briefing as Record<string, unknown>;
       const priorityEmails = Array.isArray(b.priorityEmails) ? b.priorityEmails : [];
@@ -483,7 +483,8 @@ export function useSaveDashboardLayout() {
  * Hook for daily briefing
  */
 export function useBriefing(enabled = true) {
-  return useQuery(briefingOptions(enabled));
+  const { locale } = useLocale();
+  return useQuery(briefingOptions(locale, enabled));
 }
 
 /**
