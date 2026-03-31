@@ -106,6 +106,20 @@ export function useChangeTicketStatus() {
   });
 }
 
+export function useAssignTicket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, assigneeId }: { id: string; assigneeId: string | null }) =>
+      crmTicketsApi.assign(id, assigneeId).then((r) => r.data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: crmTicketsKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: crmTicketsKeys.detail(variables.id),
+      });
+    },
+  });
+}
+
 export function useAddTicketComment(ticketId: string) {
   const queryClient = useQueryClient();
   return useMutation({

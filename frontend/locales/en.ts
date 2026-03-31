@@ -5153,4 +5153,14 @@ export const en: AppTranslations = {
       confirmDelete: 'Are you sure you want to delete this ticket?',
     },
   },
+  agentDashboard: {
+    title: 'Agent Dashboard',
+    subtitle: 'Your tickets and queue overview',
+    myTickets: 'My Tickets',
+    unassigned: 'Unassigned',
+    slaAtRisk: 'SLA at Risk',
+    noTickets: 'No tickets',
+    viewTicket: 'View',
+    assignToMe: 'Assign to me',
+  },
 };

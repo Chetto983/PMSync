@@ -113,6 +113,10 @@ export const crmTicketsApi = {
     return apiClient.patch<Ticket>(`/crm/tickets/${id}/status`, { status });
   },
 
+  assign(id: string, assigneeId: string | null) {
+    return apiClient.patch<Ticket>(`/crm/tickets/${id}/assign`, { assigneeId });
+  },
+
   listComments(ticketId: string) {
     return apiClient.get<TicketComment[]>(`/crm/tickets/${ticketId}/comments`);
   },

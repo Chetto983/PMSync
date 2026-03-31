@@ -4950,6 +4950,16 @@ export interface AppTranslations {
       loadError?: string;
     };
   };
+  agentDashboard?: {
+    title?: string;
+    subtitle?: string;
+    myTickets?: string;
+    unassigned?: string;
+    slaAtRisk?: string;
+    noTickets?: string;
+    viewTicket?: string;
+    assignToMe?: string;
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;

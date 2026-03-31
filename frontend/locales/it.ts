@@ -5130,4 +5130,14 @@ export const it: AppTranslations = {
       confirmDelete: 'Sei sicuro di voler eliminare questo ticket?',
     },
   },
+  agentDashboard: {
+    title: 'Dashboard Agente',
+    subtitle: 'I tuoi ticket e panoramica coda',
+    myTickets: 'I Miei Ticket',
+    unassigned: 'Non Assegnati',
+    slaAtRisk: 'SLA a Rischio',
+    noTickets: 'Nessun ticket',
+    viewTicket: 'Visualizza',
+    assignToMe: 'Assegna a me',
+  },
 };
