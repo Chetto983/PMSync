@@ -221,6 +221,37 @@ async function main() {
   });
 
   console.log(`Created test user: ${regularUser.email}`);
+
+  // Seed default SLA policies
+  const slaPolicies = [
+    { priority: 'urgent', name: 'Urgent SLA', responseTimeMinutes: 30, resolutionTimeMinutes: 240, businessHoursOnly: false },
+    { priority: 'high', name: 'High SLA', responseTimeMinutes: 60, resolutionTimeMinutes: 480, businessHoursOnly: true },
+    { priority: 'medium', name: 'Medium SLA', responseTimeMinutes: 240, resolutionTimeMinutes: 1440, businessHoursOnly: true },
+    { priority: 'low', name: 'Low SLA', responseTimeMinutes: 480, resolutionTimeMinutes: 2880, businessHoursOnly: true },
+  ];
+
+  for (const policy of slaPolicies) {
+    await prisma.slaPolicy.upsert({
+      where: {
+        tenantId_priority: {
+          tenantId: defaultTenant.id,
+          priority: policy.priority,
+        },
+      },
+      update: {
+        name: policy.name,
+        responseTimeMinutes: policy.responseTimeMinutes,
+        resolutionTimeMinutes: policy.resolutionTimeMinutes,
+        businessHoursOnly: policy.businessHoursOnly,
+      },
+      create: {
+        tenantId: defaultTenant.id,
+        ...policy,
+      },
+    });
+  }
+
+  console.log(`Created ${slaPolicies.length} default SLA policies`);
   console.log('');
   console.log('Database seeding completed successfully.');
   console.log('');

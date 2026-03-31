@@ -74,6 +74,7 @@ model Tenant {
   churnSignals             ChurnSignal[]
   nbaActions               NBAAction[]
   tickets                  Ticket[]
+  slaPolicies              SlaPolicy[]
 
   @@map("tenants")
 }
@@ -2218,6 +2219,7 @@ model Ticket {
   emailId       String?
   emailTenant   String?
   emailThreadId String?
+  slaPolicyId   String?
   slaDeadline   DateTime?
   resolvedAt    DateTime?
   closedAt      DateTime?
@@ -2229,6 +2231,7 @@ model Ticket {
   contact       Contact?        @relation(fields: [contactId, contactTenant], references: [id, tenantId], onDelete: SetNull)
   account       CrmAccount?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
   email         Email?          @relation(fields: [emailId, emailTenant], references: [id, tenantId], onDelete: SetNull)
+  slaPolicy     SlaPolicy?      @relation(fields: [slaPolicyId], references: [id], onDelete: SetNull)
   comments      TicketComment[]
 
   @@index([tenantId, status])
@@ -2255,4 +2258,23 @@ model TicketComment {
   @@index([ticketId])
   @@index([ticketId, createdAt])
   @@map("ticket_comments")
+}
+
+model SlaPolicy {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  name                  String
+  priority              String   // low, medium, high, urgent
+  responseTimeMinutes   Int
+  resolutionTimeMinutes Int
+  businessHoursOnly     Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tickets               Ticket[]
+
+  @@unique([tenantId, priority])
+  @@index([tenantId])
+  @@map("sla_policies")
 }
