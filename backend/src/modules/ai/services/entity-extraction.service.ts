@@ -10,7 +10,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -220,17 +220,18 @@ export class EntityExtractionService {
   private async callLlmExtraction(
     params: EmailExtractionParams,
   ): Promise<ExtractionResult | null> {
-    try {
-      const emailContext = [
-        `From: ${params.from ?? 'unknown'}`,
-        `To: ${params.to ?? 'unknown'}`,
-        params.cc ? `CC: ${params.cc}` : null,
-        `Subject: ${params.subject}`,
-        `Body: ${params.bodySnippet.slice(0, 500)}`,
-      ]
-        .filter(Boolean)
-        .join('\n');
+    const emailContext = [
+      `From: ${params.from ?? 'unknown'}`,
+      `To: ${params.to ?? 'unknown'}`,
+      params.cc ? `CC: ${params.cc}` : null,
+      `Subject: ${params.subject}`,
+      `Body: ${params.bodySnippet.slice(0, 500)}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
 
+    // Try generateObject (structured output) first
+    try {
       const result = await generateObject({
         model: this.modelProvider.getChatModel(this.modelId),
         schema: extractionResultSchema,
@@ -245,7 +246,31 @@ export class EntityExtractionService {
       return result.object;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`LLM entity extraction failed: ${msg}`);
+      if (!msg.includes('structured output')) {
+        this.logger.warn(`LLM entity extraction failed: ${msg}`);
+        return null;
+      }
+      this.logger.debug(
+        `Structured output rejected, falling back to generateText: ${msg}`,
+      );
+    }
+
+    // Fallback: generateText with JSON instruction + manual parse
+    try {
+      const { text } = await generateText({
+        model: this.modelProvider.getChatModel(this.modelId),
+        system: `${EXTRACTION_PROMPT}\n\nRespond with ONLY a JSON object, no markdown fences.`,
+        prompt: emailContext,
+        temperature: 0.1,
+        maxOutputTokens: 800,
+        abortSignal: AbortSignal.timeout(30_000),
+      });
+
+      const cleaned = text.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+      return extractionResultSchema.parse(JSON.parse(cleaned));
+    } catch (fallbackError) {
+      const msg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      this.logger.warn(`LLM entity extraction failed (both modes): ${msg}`);
       return null;
     }
   }
