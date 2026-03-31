@@ -19,6 +19,7 @@ import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
+import { EmbeddingsService } from '../services/embeddings.service';
 import { getErrorTranslations } from '../locales';
 import {
   BackfillEmailsDto,
@@ -39,7 +40,10 @@ import {
   }),
 )
 export class KnowledgeBaseController {
-  constructor(private readonly knowledgeBaseService: KnowledgeBaseService) {}
+  constructor(
+    private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly embeddingsService: EmbeddingsService,
+  ) {}
 
   @Post('emails/backfill')
   @HttpCode(HttpStatus.OK)
@@ -164,6 +168,39 @@ export class KnowledgeBaseController {
     return {
       success: true,
       ...result,
+    };
+  }
+
+  @Post('migrate-embeddings')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'KB-H1: Delete stale embeddings (wrong model version) so backfill re-embeds them',
+  })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        success: { type: 'boolean' },
+        deleted: { type: 'number' },
+        staleRemaining: { type: 'number' },
+        currentModel: { type: 'string' },
+      },
+    },
+  })
+  async migrateEmbeddings(
+    @Request() req: AuthenticatedRequest,
+    @Query() query: TenantScopedQueryDto,
+  ) {
+    this.ensureAdmin(req.user.role);
+    const targetTenantId = this.resolveTenantId(req, query.tenantId);
+
+    const deleted = await this.embeddingsService.deleteStaleEmbeddings(targetTenantId);
+    const staleRemaining = await this.embeddingsService.countStaleEmbeddings(targetTenantId);
+
+    return {
+      success: true,
+      deleted,
+      staleRemaining,
+      currentModel: this.embeddingsService.currentModelVersion,
     };
   }
 

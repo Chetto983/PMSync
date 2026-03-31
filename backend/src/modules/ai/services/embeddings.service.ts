@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -25,7 +26,15 @@ interface SaveEmbeddingOptions {
 export class EmbeddingsService {
   private readonly logger = new Logger(EmbeddingsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  /** KB-H1: Current embedding model version — search excludes stale vectors from other models */
+  readonly currentModelVersion: string;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    this.currentModelVersion = this.configService.get<string>('AI_EMBEDDING_MODEL', 'mistral-embed');
+  }
 
   /**
    * Persist an embedding vector into the knowledge base.
@@ -185,6 +194,8 @@ export class EmbeddingsService {
        * Default: no threshold (returns all results up to limit)
        */
       maxDistance?: number;
+      /** KB-H1: If true, skip model version filter (e.g. for migration/admin queries) */
+      includeAllVersions?: boolean;
     },
   ): Promise<T[]> {
     // SECURITY: Validate embedding vector before using in raw SQL
@@ -210,6 +221,12 @@ export class EmbeddingsService {
       // This ensures tenant isolation and prevents scanning vectors from other tenants
       const maxDistance = options?.maxDistance;
 
+      // KB-H1: Filter to current model version by default (exclude stale vectors from old models)
+      const includeAllVersions = options?.includeAllVersions ?? false;
+      const versionFilter = includeAllVersions
+        ? Prisma.sql``
+        : Prisma.sql`AND "embeddingModel" = ${this.currentModelVersion}`;
+
       // GDPR-compliant: No content column - just vector + entity IDs
       // FIX H2: Include emailId and contactId for proper entity lookup (not embedding ID)
       const results = maxDistance !== undefined
@@ -218,7 +235,7 @@ export class EmbeddingsService {
               WITH tenant_embeddings AS (
                 SELECT "id", "documentName", "metadata", "vector", "emailId", "contactId"
                 FROM "embeddings"
-                WHERE "tenantId" = ${tenantId}
+                WHERE "tenantId" = ${tenantId} ${versionFilter}
               )
               SELECT "id", "documentName", "metadata", "emailId", "contactId", ("vector" <-> ${vectorLiteral}) AS "distance"
               FROM tenant_embeddings
@@ -232,7 +249,7 @@ export class EmbeddingsService {
               WITH tenant_embeddings AS (
                 SELECT "id", "documentName", "metadata", "vector", "emailId", "contactId"
                 FROM "embeddings"
-                WHERE "tenantId" = ${tenantId}
+                WHERE "tenantId" = ${tenantId} ${versionFilter}
               )
               SELECT "id", "documentName", "metadata", "emailId", "contactId", ("vector" <-> ${vectorLiteral}) AS "distance"
               FROM tenant_embeddings
@@ -274,6 +291,40 @@ export class EmbeddingsService {
     });
 
     return count > 0;
+  }
+
+  /**
+   * KB-H1: Count embeddings with a stale model version (not matching current).
+   * Used by migration endpoint to show progress.
+   */
+  async countStaleEmbeddings(tenantId?: string): Promise<number> {
+    const where: Prisma.EmbeddingWhereInput = {
+      embeddingModel: { not: this.currentModelVersion },
+    };
+    if (tenantId) where.tenantId = tenantId;
+    return this.prisma.embedding.count({ where });
+  }
+
+  /**
+   * KB-H1: Delete stale embeddings (wrong model version) in batches.
+   * After deletion, the backfill scheduler will re-embed with the current model.
+   * @returns Number of embeddings deleted
+   */
+  async deleteStaleEmbeddings(tenantId: string, batchSize = 500): Promise<number> {
+    const stale = await this.prisma.embedding.findMany({
+      where: {
+        tenantId,
+        embeddingModel: { not: this.currentModelVersion },
+      },
+      select: { id: true },
+      take: batchSize,
+    });
+    if (!stale.length) return 0;
+
+    const { count } = await this.prisma.embedding.deleteMany({
+      where: { id: { in: stale.map((s) => s.id) } },
+    });
+    return count;
   }
 
   /**
