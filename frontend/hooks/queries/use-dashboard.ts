@@ -254,12 +254,6 @@ export function staleContactsOptions(params?: { limit?: number }) {
 // Additional Query Options
 // ============================================================================
 
-/**
- * @deprecated Removed — email counts now come from useUnifiedEmailCounts() (folder-based).
- * Calendar events and contacts have their own dedicated hooks (useTodayEvents, useRecentContacts).
- * This function was never consumed by any component.
- */
-
 export interface Email {
   id: string;
   subject: string;
@@ -295,10 +289,6 @@ export function importantEmailsOptions(params?: { limit?: number }) {
   });
 }
 
-/**
- * @deprecated Use importantEmailsOptions instead
- */
-export const starredEmailsOptions = importantEmailsOptions;
 
 /**
  * Query options for recent unread emails (for briefing highlights)
@@ -518,21 +508,12 @@ export function useStaleContacts(params?: { limit?: number }) {
 }
 
 /**
- * @deprecated Removed — use useUnifiedEmailCounts() for email counts,
- * useTodayEvents() for calendar, useRecentContacts() for contacts.
- */
-
-/**
  * Hook for important emails (starred OR flagged)
  */
 export function useImportantEmails(params?: { limit?: number }, enabled = true) {
   return useQuery({ ...importantEmailsOptions(params), enabled });
 }
 
-/**
- * @deprecated Use useImportantEmails instead
- */
-export const useStarredEmails = useImportantEmails;
 
 /**
  * Hook for today's events
