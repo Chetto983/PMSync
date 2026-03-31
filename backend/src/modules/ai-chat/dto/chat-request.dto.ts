@@ -99,6 +99,14 @@ export class ChatRequestDto {
   @IsOptional()
   @IsString()
   locale?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'IANA timezone from the client (e.g. "Europe/Rome"). Overrides DB preference when present.',
+  })
+  @IsOptional()
+  @IsString()
+  timezone?: string;
 }
 
 // ========== Extraction helpers (used by controller) ==========

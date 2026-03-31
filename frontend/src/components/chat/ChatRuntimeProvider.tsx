@@ -20,6 +20,18 @@ import {
 // Module-scoped CSRF token cache.
 let csrfCache = '';
 
+// Module-scoped locale and timezone caches injected into every chat request.
+let localeCache =
+  typeof window !== 'undefined'
+    ? (localStorage.getItem('pmsync:locale') ||
+        navigator.language?.slice(0, 2) ||
+        'en')
+    : 'en';
+let timezoneCache =
+  typeof window !== 'undefined'
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+    : 'UTC';
+
 function getHeaders(): Record<string, string> {
   return { 'X-CSRF-Token': csrfCache };
 }
@@ -47,9 +59,15 @@ const transport = new AssistantChatTransport({
   api: `${API_BASE_URL}/api/v1/ai/chat`,
   credentials: 'include',
   headers: getHeaders,
-  prepareSendMessagesRequest() {
-    // Preserve the transport's default request body so initialize() resolves
-    // the active thread's remoteId immediately before each send.
+  prepareSendMessagesRequest(options) {
+    // Inject locale/timezone into the request body so the LLM gets the
+    // correct language and time context. Returning body: undefined lets the
+    // transport fill in id/messages/trigger from its own resolved state,
+    // while our extra fields survive via the spread of options.body.
+    Object.assign(options.body ?? {}, {
+      locale: localeCache,
+      timezone: timezoneCache,
+    });
     return { body: null } as never;
   },
 });
@@ -94,12 +112,17 @@ export function ChatRuntimeProvider({
 }) {
   const restoredInitialThreadRef = useRef(false);
 
-  // Warm CSRF cache eagerly.
+  // Warm CSRF cache and refresh locale/timezone caches eagerly.
   useEffect(() => {
     resetManualNewThreadRequested();
     getCsrfToken().then((t) => {
       csrfCache = t;
     });
+    localeCache =
+      localStorage.getItem('pmsync:locale') ||
+      navigator.language?.slice(0, 2) ||
+      'en';
+    timezoneCache = Intl.DateTimeFormat().resolvedOptions().timeZone;
   }, []);
 
   // Singleton adapter survives re-renders but not page reloads.

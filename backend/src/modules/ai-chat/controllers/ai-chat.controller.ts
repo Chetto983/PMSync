@@ -135,6 +135,7 @@ export class AiChatController {
       conversationId: resolvedConversationId,
       model: dto.model,
       locale: dto.locale,
+      timezone: dto.timezone,
       abortSignal: abortController.signal,
       clientMessages: isApproval ? dto.messages : undefined,
     });

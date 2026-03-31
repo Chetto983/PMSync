@@ -43,6 +43,7 @@ export class ChatEnrichmentService {
     tenantId: string,
     userId: string,
     requestedLocale?: string,
+    requestedTimezone?: string,
   ): Promise<{
     timezone?: string;
     providerType?: string;
@@ -57,6 +58,7 @@ export class ChatEnrichmentService {
     if (!this.prisma) {
       return {
         locale: requestedLocale,
+        timezone: requestedTimezone,
       };
     }
 
@@ -116,7 +118,7 @@ export class ChatEnrichmentService {
     }));
 
     return {
-      timezone: preferences?.timezone ?? undefined,
+      timezone: requestedTimezone ?? preferences?.timezone ?? undefined,
       providerType: (provider ?? [])[0]?.providerType ?? undefined,
       locale: requestedLocale ?? preferences?.language ?? undefined,
       displayName,

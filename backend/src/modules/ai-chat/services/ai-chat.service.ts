@@ -75,6 +75,7 @@ export interface StreamChatParams {
   conversationId?: string;
   model?: string;
   locale?: string;
+  timezone?: string;
   abortSignal?: AbortSignal;
   /** Full client UIMessages for HITL approval re-submits */
   clientMessages?: Array<Record<string, unknown>>;
@@ -160,7 +161,7 @@ export class AiChatService {
    * Returns everything needed for both stream and generate paths.
    */
   private async prepareChatAgent(params: StreamChatParams) {
-    const { tenantId, userId, message, conversationId, model, locale } = params;
+    const { tenantId, userId, message, conversationId, model, locale, timezone } = params;
 
     // 1. Rate limit check (per-user, 30 req/min)
     const rateLimitResult = await this.rateLimiterService.checkRateLimit(
@@ -301,6 +302,7 @@ export class AiChatService {
             tenantId,
             userId,
             locale,
+            timezone,
           ),
           this.memoryService.getRelevantMemories(
             tenantId,
