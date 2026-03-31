@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
 status: executing
-stopped_at: Wave 1 complete (125-01 + 125-02)
-last_updated: "2026-03-31T08:22:25.717Z"
-last_activity: 2026-03-31 -- Phase 125 execution started
+stopped_at: Completed 125-03-PLAN.md
+last_updated: "2026-03-31T08:37:14.763Z"
+last_activity: 2026-03-31
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 66
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 125 (dead-code-removal) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 125
-Last activity: 2026-03-31 -- Phase 125 execution started
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-03-31
 
 Progress: [██████░░░░] 66%
 
@@ -56,6 +56,8 @@ Progress: [██████░░░░] 66%
 - v11.0 roadmap: Billing E2E (133) last — depends on frontend UI + backend webhook
 - [Phase 125]: Included ticket.controller.ts (39th file) in ApiBearerAuth cleanup -- added after research
 - 125-02: Tailwind fully removed; MUI CssBaseline provides CSS reset, native @layer base for custom properties
+- [Phase 125]: Swagger visual check via source inspection (production disables Swagger UI)
+- [Phase 125]: Frontend visual verification via Playwright CDP against Railway/Vercel production
 
 ### Blockers/Concerns
 
@@ -65,6 +67,6 @@ Progress: [██████░░░░] 66%
 
 ## Session Continuity
 
-Last session: 2026-03-31
-Stopped at: Wave 1 complete (125-01 + 125-02)
+Last session: 2026-03-31T08:37:14.757Z
+Stopped at: Completed 125-03-PLAN.md
 Resume file: None
