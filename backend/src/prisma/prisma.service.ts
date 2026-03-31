@@ -1,4 +1,4 @@
-import { Inject, INestApplication, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from './prisma-client.factory';
 import { TenantKeyService } from '../common/services/tenant-key.service';
@@ -6,7 +6,7 @@ import { createFieldEncryptionExtension } from './encryption/field-encryption.ex
 import { createTenantScopingExtension } from './tenant-scoping/tenant-scoping.extension';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(PrismaService.name);
 
   constructor(
@@ -39,16 +39,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     this.logger.log('Prisma connected to database');
   }
 
-  async enableShutdownHooks(app: INestApplication) {
-    // Use process event instead of Prisma's $on for type safety
-    process.on('SIGINT', async () => {
-      await this.$disconnect();
-      await app.close();
-    });
-
-    process.on('SIGTERM', async () => {
-      await this.$disconnect();
-      await app.close();
-    });
+  async onModuleDestroy() {
+    await this.$disconnect();
+    this.logger.log('Prisma disconnected from database');
   }
 }
