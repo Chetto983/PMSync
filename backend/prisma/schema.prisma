@@ -78,6 +78,8 @@ model Tenant {
   routingRules             RoutingRule[]
   kbCategories             KBCategory[]
   kbArticles               KBArticle[]
+  csatSurveys              CSATSurvey[]
+  ticketTemplates          TicketTemplate[]
 
   @@map("tenants")
 }
@@ -2240,6 +2242,7 @@ model Ticket {
   email         Email?          @relation(fields: [emailId, emailTenant], references: [id, tenantId], onDelete: SetNull)
   slaPolicy     SlaPolicy?      @relation(fields: [slaPolicyId], references: [id], onDelete: SetNull)
   comments      TicketComment[]
+  csatSurvey    CSATSurvey?
 
   @@index([tenantId, status])
   @@index([tenantId, assigneeId])
@@ -2348,4 +2351,38 @@ model KBArticle {
   @@index([tenantId, authorId])
   @@index([tenantId, createdAt])
   @@map("kb_articles")
+}
+
+model CSATSurvey {
+  id          String    @id @default(cuid())
+  tenantId    String
+  ticketId    String    @unique
+  rating      Int?      // 1-5, null until responded
+  comment     String?
+  token       String    @unique // nanoid for public survey access
+  respondedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket      Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@map("csat_surveys")
+}
+
+model TicketTemplate {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  body       String
+  category   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@map("ticket_templates")
 }
