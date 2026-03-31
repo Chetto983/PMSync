@@ -11,48 +11,44 @@
 ## Sprint Backlog
 
 ### T-0901: Backend duplicate detection service [4 SP]
-- [ ] Create `contact-dedup.service.ts` in `backend/src/modules/contacts/services/`
-- [ ] Duplicate detection algorithm:
-  1. Exact email match (primary key for dedup)
-  2. Fuzzy name match using PostgreSQL `similarity()` with threshold 0.6
-  3. Phone number normalization + exact match
-- [ ] Method: `findDuplicates(tenantId, contact) → DuplicateCandidate[]`
-- [ ] Method: `mergeContacts(tenantId, primaryId, secondaryId, fieldSelections) → Contact`
-- [ ] Merge transfers: provider links, email-label associations, deal/account links
-- [ ] Soft-delete secondary contact after merge
+- [x] Create `contact-dedup.service.ts` in `backend/src/modules/contacts/services/` ✅ DONE
+- [x] Duplicate detection algorithm: email exact + name fuzzy (similarity >= 0.6) + phone normalized ✅ DONE
+- [x] Method: `findDuplicates(tenantId, contact) → DuplicateCandidate[]` ✅ DONE
+- [x] Method: `mergeContacts(tenantId, primaryId, secondaryId, fieldSelections) → Contact` ✅ DONE
+- [x] Merge transfers: provider links, deal/account associations, embeddings ✅ DONE
+- [x] Soft-delete secondary contact after merge with mergedInto metadata ✅ DONE
 - [ ] Test: exact email duplicate found, fuzzy name match found, merge preserves relations
 
 ### T-0902: Fix extract-from-emails deduplication [2 SP]
-- [ ] Read `contacts-import.service.ts` — find extract-from-emails flow
-- [ ] Before creating contact: check if email already exists in tenant
-- [ ] Use `findDuplicates()` from T-0901
-- [ ] If exact match: skip (or update interaction count)
-- [ ] If fuzzy match: flag for review, don't auto-create
+- [x] Read `contacts-import.service.ts` — find extract-from-emails flow ✅ DONE
+- [x] Before creating contact: check if email already exists in tenant ✅ (was already done)
+- [x] Batch fuzzy name check via pg_trgm similarity >= 0.6 ✅ DONE
+- [x] If exact match: skip ✅ (was already done)
+- [x] If fuzzy match: flag for review, don't auto-create ✅ DONE
 - [ ] Test: extract from emails with known contacts → no duplicates created
 
 ### T-0903: Trigger relationship score recalculation on email sync [2 SP]
-- [ ] Read `relationship-score.service.ts` — find recalculation trigger
-- [ ] After email sync completes: emit event to recalculate scores for affected contacts
-- [ ] Use BullMQ job (not inline) to avoid slowing sync
-- [ ] Recalculate: recency (40%), frequency (30%), reciprocity (20%), trend (10%)
-- [ ] Update Contact.relationshipScore and Contact.lastInteractedAt
+- [x] Read `relationship-score.service.ts` — find recalculation trigger ✅ DONE
+- [x] After email sync completes: listen to EmailSyncedEvent ✅ DONE
+- [x] Use BullMQ job (RELATIONSHIP_SCORE queue) with hourly dedup ✅ DONE
+- [x] Recalculate: recency (40%), frequency (30%), reciprocity (20%), trend (10%) ✅ DONE
+- [x] Update Contact.relationshipScore and Contact.lastInteractedAt via recalculateAndPersist() ✅ DONE
 - [ ] Test: new email synced → contact score updated within 5 minutes
 
 ### T-0904: Data hygiene validation script [2 SP]
-- [ ] Create `scripts/audit/validate-calendar-contacts.mjs`
-- [ ] Check 1: Contacts with duplicate emails within same tenant
-- [ ] Check 2: Contacts without any provider link (orphan local contacts)
-- [ ] Check 3: Calendar events with missing or invalid timezone
-- [ ] Check 4: CalendarSyncState with expired sync tokens
-- [ ] Check 5: Contacts with stale relationship scores (>30 days old)
-- [ ] Output: summary table with counts and sample IDs
+- [x] Create `scripts/audit/validate-calendar-contacts.mjs` ✅ DONE
+- [x] Check 1: Contacts with duplicate emails within same tenant ✅ DONE
+- [x] Check 2: Contacts without any provider link (orphan local contacts) ✅ DONE
+- [x] Check 3: Calendar events with missing or invalid timezone ✅ DONE
+- [x] Check 4: CalendarSyncState with expired sync tokens ✅ DONE
+- [x] Check 5: Contacts with stale relationship scores (>30 days old) ✅ DONE
+- [x] Output: summary table with counts and sample IDs ✅ DONE
 
 ### T-0905: Bulk delete soft-delete with undo window [2 SP]
-- [ ] Read `contacts.controller.ts` — find DELETE /contacts/bulk
-- [ ] Change bulk delete to soft-delete (set isDeleted=true, deletedAt=now)
-- [ ] Add undo endpoint: POST /contacts/bulk/restore
-- [ ] Auto-purge soft-deleted contacts after 30 days (BullMQ cron)
-- [ ] Frontend: show "Undo" toast for 10 seconds after bulk delete
+- [x] Read `contacts.controller.ts` — bulk delete already uses soft-delete ✅
+- [x] Add undo endpoint: POST /contacts/bulk/restore ✅ DONE
+- [x] Auto-purge soft-deleted contacts after 30 days (CONTACT_PURGE cron, daily 4 AM) ✅ DONE
+- [x] Frontend: Undo Snackbar for 10 seconds after bulk delete ✅ DONE
 - [ ] Test: bulk delete → undo within 10s → contacts restored
 
 ## Dependencies
