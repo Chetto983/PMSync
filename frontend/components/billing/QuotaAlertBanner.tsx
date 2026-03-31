@@ -106,7 +106,7 @@ export function QuotaAlertBanner({ onUpgradeClick }: QuotaAlertBannerProps) {
         }
         sx={{
           borderRadius: 0,
-          py: 0.5,
+          py: 1,
           '& .MuiAlert-message': {
             display: 'flex',
             alignItems: 'center',
