@@ -3,7 +3,6 @@ import {
   Logger,
   Inject,
   OnModuleInit,
-  Optional,
 } from "@nestjs/common";
 import { tool } from "ai";
 import { Prisma } from "@prisma/client";
@@ -11,7 +10,6 @@ import { z } from "zod";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { MistralEmbeddingService } from "../../ai/services/mistral-embedding.service";
 import { HybridSearchService } from "../services/hybrid-search.service";
-import { GraphExpansionService } from "../services/graph-expansion.service";
 import { EntityGraphService } from "../services/entity-graph.service";
 import { ContextAssemblyService } from "../services/context-assembly.service";
 import { truncateToolResult } from "../utils/tool-result-truncator";
@@ -137,9 +135,8 @@ export class RagToolsService implements OnModuleInit {
     private readonly mistralEmbeddingService: MistralEmbeddingService,
     private readonly prisma: PrismaService,
     private readonly hybridSearchService: HybridSearchService,
-    private readonly graphExpansionService: GraphExpansionService,
-    @Optional() private readonly entityGraphService: EntityGraphService,
-    @Optional() private readonly contextAssemblyService: ContextAssemblyService,
+    private readonly entityGraphService: EntityGraphService,
+    private readonly contextAssemblyService: ContextAssemblyService,
     @Inject(TOOL_REGISTRY_SERVICE)
     private readonly toolRegistry: IToolRegistryService,
   ) {}
@@ -256,104 +253,52 @@ export class RagToolsService implements OnModuleInit {
         const limit = resolved.limit ?? 5;
         const hops = resolved.hops ?? 2;
 
-        // Use EntityGraphService if available, otherwise fall back to legacy
-        if (this.entityGraphService && this.contextAssemblyService) {
-          // Step 1: Find seed nodes via entity graph
-          const seedIds = await this.entityGraphService.findSeedNodes(
-            tenantId,
-            resolved.query,
-            limit,
-          );
-
-          if (seedIds.length === 0) {
-            // Fallback: try hybrid search for seed emails
-            const seedResults = await this.hybridSearchService.searchEmails(
-              tenantId,
-              resolved.query,
-              limit,
-            );
-            if (seedResults.length === 0) {
-              return truncateToolResult({
-                context: "",
-                summary: "No matching results found.",
-              });
-            }
-            return truncateToolResult({
-              context: seedResults
-                .map((r) => `${r.subject} (from: ${r.from})`)
-                .join("\n"),
-              summary: `Found ${seedResults.length} matching emails via keyword search.`,
-            });
-          }
-
-          // Step 2: Multi-hop traversal
-          const traversalResults = await this.entityGraphService.traverse(
-            tenantId,
-            seedIds,
-            { maxHops: hops },
-          );
-
-          // Step 3: Assemble structured context
-          const assembled = this.contextAssemblyService.assemble(
-            traversalResults,
-            [],
-            [],
-          );
-
-          return truncateToolResult({
-            context: assembled.graphContext,
-            summary: `Graph traversal found ${traversalResults.length} related entities across ${hops} hops.`,
-            tokenCount: assembled.assembledTokenCount,
-          });
-        }
-
-        // Legacy fallback: use GraphExpansionService
-        const seedResults = await this.hybridSearchService.searchEmails(
+        // Step 1: Find seed nodes via entity graph
+        const seedIds = await this.entityGraphService.findSeedNodes(
           tenantId,
           resolved.query,
           limit,
         );
 
-        if (seedResults.length === 0) {
+        if (seedIds.length === 0) {
+          // Fallback: try hybrid search for seed emails
+          const seedResults = await this.hybridSearchService.searchEmails(
+            tenantId,
+            resolved.query,
+            limit,
+          );
+          if (seedResults.length === 0) {
+            return truncateToolResult({
+              context: "",
+              summary: "No matching results found.",
+            });
+          }
           return truncateToolResult({
-            seeds: [],
-            expansion: {
-              threadSiblings: [],
-              contactMatches: [],
-              calendarMatches: [],
-            },
-            summary: "No matching emails found.",
+            context: seedResults
+              .map((r) => `${r.subject} (from: ${r.from})`)
+              .join("\n"),
+            summary: `Found ${seedResults.length} matching emails via keyword search.`,
           });
         }
 
-        const seedEmailIds = seedResults.map((r) => r.emailId);
-        const seedThreadIds = seedResults.map(
-          (r) => (r as any).threadId ?? null,
-        );
-        const seedSenders = seedResults.map((r) => r.from);
-
-        const expansion = await this.graphExpansionService.expand(
+        // Step 2: Multi-hop traversal
+        const traversalResults = await this.entityGraphService.traverse(
           tenantId,
-          seedEmailIds,
-          seedThreadIds,
-          seedSenders,
+          seedIds,
+          { maxHops: hops },
+        );
+
+        // Step 3: Assemble structured context
+        const assembled = this.contextAssemblyService.assemble(
+          traversalResults,
+          [],
+          [],
         );
 
         return truncateToolResult({
-          seeds: seedResults.map((r) => ({
-            emailId: r.emailId,
-            subject: r.subject,
-            from: r.from,
-            snippet: r.snippet,
-            receivedAt: r.receivedAt,
-            score: r.rrfScore,
-          })),
-          expansion: {
-            threadSiblings: expansion.threadSiblings,
-            contactMatches: expansion.contactMatches,
-            calendarMatches: expansion.calendarMatches,
-          },
-          summary: `Found ${seedResults.length} seed emails, expanded to ${expansion.threadSiblings.length} thread siblings, ${expansion.contactMatches.length} contacts, ${expansion.calendarMatches.length} calendar events.`,
+          context: assembled.graphContext,
+          summary: `Graph traversal found ${traversalResults.length} related entities across ${hops} hops.`,
+          tokenCount: assembled.assembledTokenCount,
         });
       },
     });
