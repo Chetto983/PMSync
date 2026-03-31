@@ -10,9 +10,9 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ## Current State
 
-**Version:** v10.0 shipped (2026-03-30)
-**Status:** All 13 phases complete, 49/50 requirements satisfied. Full email pipeline validated on Railway/Vercel production across Gmail, Outlook, and IMAP.
-**Previous:** v9.0 AI Intelligence & Platform Hardening (shipped 2026-03-25, 20/20 requirements)
+**Version:** v11.0 in progress (started 2026-03-31)
+**Status:** Phase 126 complete — all @Cron decorators migrated to BullMQ repeatable jobs, @nestjs/schedule removed. LEGC-04 satisfied.
+**Previous:** v10.0 shipped (2026-03-30, 13 phases, 49/50 requirements)
 **Known gap:** WRITE-03 (IMAP/SMTP send) — Railway blocks SMTP ports 465/587; code exists and compiles but cannot be live-validated
 
 **v9.0 delivered:** AI intelligence upgrade — 4-tier rate limiting (read/safe-write/destructive-write/send), full push notification delivery via BullMQ with thread grouping and per-category preferences, HITL approval routing with per-user sensitivity control and GDPR audit logging, graph RAG pipeline with entity extraction, recursive CTE traversal, token-budgeted context assembly (60/20/20 split), dynamic few-shot injection, and entity-anchored memory retrieval wired into live AI chat pipeline.
@@ -325,4 +325,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after v11.0 milestone started*
+*Last updated: 2026-03-31 after phase 126 (cron-to-bullmq-migration) complete*
