@@ -48,6 +48,10 @@ export class EmailToTicketHandler {
         .replace(/\[SUPPORT\]/gi, '')
         .trim() || event.subject;
 
+      // Extract sender email for routing rule evaluation
+      const emailMatch = event.from.match(/<([^>]+)>/);
+      const senderEmail = emailMatch ? emailMatch[1] : event.from.trim();
+
       const ticket = await this.ticketService.create(event.tenantId, {
         subject: cleanSubject,
         description: event.bodyText || event.snippet || undefined,
@@ -55,6 +59,7 @@ export class EmailToTicketHandler {
         contactId: contact?.id,
         accountId: contact?.accountId,
         emailId: event.emailId,
+        senderEmail,
       });
 
       this.logger.log(

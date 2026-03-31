@@ -61,7 +61,7 @@ export class RoutingRuleService {
         this.logger.log(
           `Routing rule "${rule.name}" matched for ticket [${ticket.subject}]`,
         );
-        return rule.action as RuleAction;
+        return rule.action as unknown as RuleAction;
       }
     }
 

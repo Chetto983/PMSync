@@ -75,6 +75,7 @@ model Tenant {
   nbaActions               NBAAction[]
   tickets                  Ticket[]
   slaPolicies              SlaPolicy[]
+  routingRules             RoutingRule[]
 
   @@map("tenants")
 }
@@ -2277,4 +2278,21 @@ model SlaPolicy {
   @@unique([tenantId, priority])
   @@index([tenantId])
   @@map("sla_policies")
+}
+
+model RoutingRule {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  conditions Json     // [{field, operator, value}]
+  action     Json     // {assignTo?, setPriority?}
+  priority   Int      @default(0) // evaluation order (higher = first)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, active])
+  @@map("routing_rules")
 }

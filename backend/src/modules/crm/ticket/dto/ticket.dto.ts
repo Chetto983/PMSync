@@ -76,6 +76,10 @@ export class CreateTicketDto {
   @IsOptional()
   @IsDateString()
   slaDeadline?: string;
+
+  @IsOptional()
+  @IsString()
+  senderEmail?: string;
 }
 
 export class UpdateTicketDto {

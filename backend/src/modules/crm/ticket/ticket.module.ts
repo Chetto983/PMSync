@@ -3,12 +3,13 @@ import { TicketController } from './controllers/ticket.controller';
 import { TicketService } from './services/ticket.service';
 import { EmailToTicketHandler } from './services/email-to-ticket.handler';
 import { SlaTimerService } from './services/sla-timer.service';
+import { RoutingRuleService } from './services/routing-rule.service';
 import { PrismaModule } from '../../../prisma/prisma.module';
 
 @Module({
   imports: [PrismaModule],
   controllers: [TicketController],
-  providers: [TicketService, EmailToTicketHandler, SlaTimerService],
-  exports: [TicketService, SlaTimerService],
+  providers: [TicketService, EmailToTicketHandler, SlaTimerService, RoutingRuleService],
+  exports: [TicketService, SlaTimerService, RoutingRuleService],
 })
 export class TicketModule {}

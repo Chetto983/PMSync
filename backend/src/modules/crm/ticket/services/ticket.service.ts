@@ -16,6 +16,7 @@ import {
   TicketStatus,
 } from '../dto/ticket.dto';
 import { SlaTimerService } from './sla-timer.service';
+import { RoutingRuleService } from './routing-rule.service';
 
 @Injectable()
 export class TicketService {
@@ -24,6 +25,7 @@ export class TicketService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly slaTimer: SlaTimerService,
+    private readonly routingRules: RoutingRuleService,
   ) {}
 
   // ---- CRUD ----
@@ -116,6 +118,21 @@ export class TicketService {
       };
     }
 
+    // Evaluate routing rules before creation to apply assignee/priority
+    const routingAction = await this.routingRules.evaluate(tenantId, {
+      subject: dto.subject,
+      priority: data.priority as string,
+      senderEmail: dto.senderEmail,
+    });
+    if (routingAction) {
+      if (routingAction.assignTo && !dto.assigneeId) {
+        data.assignee = { connect: { id: routingAction.assignTo } };
+      }
+      if (routingAction.setPriority) {
+        data.priority = routingAction.setPriority;
+      }
+    }
+
     let ticket = await this.prisma.ticket.create({
       data,
       include: {
@@ -125,7 +142,7 @@ export class TicketService {
       },
     });
 
-    // Schedule SLA timer based on priority
+    // Schedule SLA timer based on (potentially routing-modified) priority
     const slaResult = await this.slaTimer.scheduleForTicket(
       ticket.id,
       tenantId,
