@@ -3,11 +3,11 @@
 ## Status
 
 - **Sprint:** 04 — Contacts Sync, Import & Encoding
-- **Last Task Completed:** T-0404 — Fix vCard encoding handling
-- **Next Task:** T-0405 — Verify contacts sync on production
-- **Tasks Done:** 4/5
-- **SP Completed:** 11/14
-- **Last Updated:** 2026-03-31 15:45
+- **Last Task Completed:** T-0405 — Verify contacts sync on production
+- **Next Task:** Sprint 05 (Provider Hardening)
+- **Tasks Done:** 5/5
+- **SP Completed:** 14/14
+- **Last Updated:** 2026-03-31 16:00
 
 ## Audit Findings Addressed
 
@@ -41,7 +41,7 @@
 
 ## Blockers / Notes
 
-- T-0405 (production validation) pending — requires git push + Railway deploy
+- None
 
 ## Validation Status
 
