@@ -372,9 +372,7 @@ export class AiChatService {
           );
           const graphResults =
             seedIds.length > 0
-              ? await this.entityGraphService.traverse(tenantId, seedIds, {
-                  maxHops: 2,
-                })
+              ? await this.entityGraphService.traverse(tenantId, seedIds)
               : [];
 
           // Phase 110: Extract entity IDs from graph traversal for anchored memory lookup

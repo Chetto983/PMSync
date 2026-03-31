@@ -28,6 +28,16 @@ export interface TraverseOptions {
   limit?: number;
 }
 
+/**
+ * CHAT-M3: Configurable default graph traversal depth.
+ * Controls how many hops the recursive CTE walks by default.
+ * Hard-capped at 3 to prevent runaway CTE queries.
+ */
+const DEFAULT_GRAPH_MAX_DEPTH = Math.min(
+  parseInt(process.env.AI_GRAPH_MAX_DEPTH ?? '2', 10) || 2,
+  3,
+);
+
 @Injectable()
 export class EntityGraphService {
   private readonly logger = new Logger(EntityGraphService.name);
@@ -75,7 +85,7 @@ export class EntityGraphService {
   ): Promise<GraphTraversalResult[]> {
     if (seedNodeIds.length === 0) return [];
 
-    const maxHops = Math.min(options?.maxHops ?? 2, 3);
+    const maxHops = Math.min(options?.maxHops ?? DEFAULT_GRAPH_MAX_DEPTH, 3);
     const limit = options?.limit ?? 20;
 
     try {
