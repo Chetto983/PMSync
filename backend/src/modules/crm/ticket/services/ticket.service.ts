@@ -17,6 +17,8 @@ import {
 } from '../dto/ticket.dto';
 import { SlaTimerService } from './sla-timer.service';
 import { RoutingRuleService } from './routing-rule.service';
+import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
+import type { CrmTicketEventPayload } from '../../../realtime/types/realtime.types';
 
 @Injectable()
 export class TicketService {
@@ -26,7 +28,19 @@ export class TicketService {
     private readonly prisma: PrismaService,
     private readonly slaTimer: SlaTimerService,
     private readonly routingRules: RoutingRuleService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
+
+  private buildTicketPayload(ticket: { id: string; subject: string; status: string; priority: string; assigneeId: string | null; slaDeadline: Date | string | null }): CrmTicketEventPayload {
+    return {
+      ticketId: ticket.id,
+      subject: ticket.subject,
+      status: ticket.status,
+      priority: ticket.priority,
+      assigneeId: ticket.assigneeId,
+      slaDeadline: ticket.slaDeadline ? new Date(ticket.slaDeadline).toISOString() : null,
+    };
+  }
 
   // ---- CRUD ----
 
@@ -164,6 +178,7 @@ export class TicketService {
     }
 
     this.logger.log(`Ticket created: ${ticket.id} [${ticket.subject}]`);
+    this.realtimeEvents.emitTicketCreated(tenantId, this.buildTicketPayload(ticket));
     return ticket;
   }
 
@@ -244,13 +259,16 @@ export class TicketService {
       await this.slaTimer.cancelForTicket(id);
     }
 
-    return this.prisma.ticket.update({
+    const updated = await this.prisma.ticket.update({
       where: { id },
       data,
       include: {
         assignee: { select: { id: true, name: true, email: true } },
       },
     });
+
+    this.realtimeEvents.emitTicketUpdated(tenantId, this.buildTicketPayload(updated));
+    return updated;
   }
 
   // ---- Assignment ----
@@ -295,6 +313,7 @@ export class TicketService {
       },
     });
 
+    this.realtimeEvents.emitTicketAssigned(tenantId, this.buildTicketPayload(updated));
     return updated;
   }
 

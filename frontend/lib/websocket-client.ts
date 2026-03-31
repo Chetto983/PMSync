@@ -213,6 +213,16 @@ export interface RealtimeCrmDealStageChangedEvent {
   timestamp?: string;
 }
 
+export interface RealtimeCrmTicketEvent {
+  ticketId: string;
+  subject: string;
+  status: string;
+  priority: string;
+  assigneeId: string | null;
+  slaDeadline: string | null;
+  timestamp?: string;
+}
+
 export type EventHandler<T> = (data: T) => void;
 
 interface RealtimeAuthTokenResponse {
@@ -792,6 +802,22 @@ class WebSocketClient {
 
   onCrmDealStageChanged(handler: EventHandler<RealtimeCrmDealStageChangedEvent>): () => void {
     return this.registerHandler('crm:deal:stage-changed', handler as (...args: unknown[]) => void);
+  }
+
+  /**
+   * CRM TICKET EVENTS
+   */
+
+  onTicketCreated(handler: EventHandler<RealtimeCrmTicketEvent>): () => void {
+    return this.registerHandler('crm:ticket:created', handler as (...args: unknown[]) => void);
+  }
+
+  onTicketUpdated(handler: EventHandler<RealtimeCrmTicketEvent>): () => void {
+    return this.registerHandler('crm:ticket:updated', handler as (...args: unknown[]) => void);
+  }
+
+  onTicketAssigned(handler: EventHandler<RealtimeCrmTicketEvent>): () => void {
+    return this.registerHandler('crm:ticket:assigned', handler as (...args: unknown[]) => void);
   }
 
 }

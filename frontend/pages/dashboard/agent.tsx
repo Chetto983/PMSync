@@ -17,6 +17,7 @@ import { Headset, UserCheck, AlertTriangle } from 'lucide-react';
 import NextLink from 'next/link';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useTickets, useAssignTicket } from '@/hooks/queries/use-crm-tickets';
+import { useTicketRealtime } from '@/hooks/use-ticket-realtime';
 import { SlaBadge } from '@/components/common';
 import { authClient } from '@/lib/auth-client';
 import type { Ticket } from '@/lib/api/crm-tickets';
@@ -102,9 +103,10 @@ export default function AgentDashboardPage() {
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
 
-  // Fetch all open/in_progress tickets
+  // Fetch all open/in_progress tickets + realtime updates
   const { data: allTickets, isLoading } = useTickets({ limit: 200 });
   const assignMutation = useAssignTicket();
+  useTicketRealtime();
 
   const { myTickets, unassigned, slaAtRisk } = useMemo(() => {
     const tickets = allTickets?.data ?? [];

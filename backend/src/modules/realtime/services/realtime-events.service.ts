@@ -15,6 +15,7 @@ import {
   CrmDealStageChangedPayload,
   CrmAutomationNotifyPayload,
   CrmImportProgressPayload,
+  CrmTicketEventPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -34,6 +35,7 @@ export type {
   CrmDealStageChangedPayload,
   CrmAutomationNotifyPayload,
   CrmImportProgressPayload,
+  CrmTicketEventPayload,
 } from '../types/realtime.types';
 
 /**
@@ -606,6 +608,22 @@ export class RealtimeEventsService implements OnModuleDestroy {
 
   emitCrmImportProgress(tenantId: string, payload: CrmImportProgressPayload): void {
     void this.emitToTenant(tenantId, 'crm:import:progress', payload);
+  }
+
+  /**
+   * CRM TICKET EVENTS
+   */
+
+  emitTicketCreated(tenantId: string, payload: CrmTicketEventPayload): void {
+    void this.emitToTenant(tenantId, 'crm:ticket:created', payload);
+  }
+
+  emitTicketUpdated(tenantId: string, payload: CrmTicketEventPayload): void {
+    void this.emitToTenant(tenantId, 'crm:ticket:updated', payload);
+  }
+
+  emitTicketAssigned(tenantId: string, payload: CrmTicketEventPayload): void {
+    void this.emitToTenant(tenantId, 'crm:ticket:assigned', payload);
   }
 
   /**

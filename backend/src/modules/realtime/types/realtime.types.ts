@@ -194,6 +194,16 @@ export interface CrmImportProgressPayload {
   timestamp: string;
 }
 
+export interface CrmTicketEventPayload {
+  ticketId: string;
+  subject: string;
+  status: string;
+  priority: string;
+  assigneeId: string | null;
+  slaDeadline: string | null;
+  timestamp?: string;
+}
+
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
   'email:update': EmailEventPayload;
@@ -275,6 +285,10 @@ export interface RealtimeEventPayloads {
   'crm:deal:stage-changed': CrmDealStageChangedPayload;
   'crm:automation:notify': CrmAutomationNotifyPayload;
   'crm:import:progress': CrmImportProgressPayload;
+  // CRM Ticket Events
+  'crm:ticket:created': CrmTicketEventPayload;
+  'crm:ticket:updated': CrmTicketEventPayload;
+  'crm:ticket:assigned': CrmTicketEventPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

@@ -6,9 +6,10 @@ import { EmailToTicketHandler } from './services/email-to-ticket.handler';
 import { SlaTimerService } from './services/sla-timer.service';
 import { RoutingRuleService } from './services/routing-rule.service';
 import { PrismaModule } from '../../../prisma/prisma.module';
+import { RealtimeModule } from '../../realtime/realtime.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, RealtimeModule],
   controllers: [TicketController, RoutingRuleController],
   providers: [TicketService, EmailToTicketHandler, SlaTimerService, RoutingRuleService],
   exports: [TicketService, SlaTimerService, RoutingRuleService],
