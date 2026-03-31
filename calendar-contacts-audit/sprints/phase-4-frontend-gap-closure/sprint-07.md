@@ -59,10 +59,10 @@
 - Mitigation: Test with sample invites from each provider before deploying
 
 ## Definition of Done
-- [ ] RSVP buttons work E2E: click → API → ICS reply → email
-- [ ] Recurring event conflicts detected and displayed
-- [ ] ICS parser handles Apple, Google, Outlook invites
-- [ ] Provider calendar colors imported as defaults
-- [ ] Event form handles DST correctly
-- [ ] `npx tsc --noEmit` passes in frontend
-- [ ] Translations added for all new strings
+- [x] RSVP buttons work E2E: click → API → ICS reply → email ✅
+- [x] Recurring event conflicts detected and displayed ✅
+- [x] ICS parser handles Apple, Google, Outlook invites ✅
+- [x] Provider calendar colors imported as defaults ✅
+- [x] Event form handles DST correctly ✅
+- [x] `npx tsc --noEmit` passes in frontend ✅
+- [x] Translations added for all new strings ✅
