@@ -24,6 +24,8 @@ export {
   getQueueOptions,
   getWorkerOptions,
   getRedisConnectionOptions,
+  getReplicaCount,
+  scaleForReplicas,
   getSharedRedisConnection,
   releaseSharedRedisConnection,
   forceCloseSharedRedisConnection,

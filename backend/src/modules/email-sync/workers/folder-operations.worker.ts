@@ -13,7 +13,7 @@ import { ProviderTokenService } from '../services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { SyncAuthService } from '../services/sync-auth.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
-import { QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES, scaleForReplicas } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { isSystemFolder } from '../drivers/interfaces/canonical.types';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
@@ -60,7 +60,7 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
   protected getWorkerConfig(): BaseWorkerConfig {
     return {
       queueName: QUEUE_NAMES.FOLDER_OPERATIONS,
-      concurrency: 5, // Process 5 folder operations simultaneously
+      concurrency: scaleForReplicas(5), // 5 base, scaled for replicas
       lockDuration: 600000, // 10 minute lock for operations on large folders
       stalledInterval: 120000, // Check for stalled jobs every 2 min
     };

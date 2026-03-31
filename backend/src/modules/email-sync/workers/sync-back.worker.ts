@@ -27,7 +27,7 @@ import {
 import { ProviderTokenService } from '../services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
-import { QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES, scaleForReplicas } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { parseImapExternalId as parseImapExternalIdShared } from '../../../common/utils/imap-utils';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
@@ -54,7 +54,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
   protected getWorkerConfig(): BaseWorkerConfig {
     return {
       queueName: QUEUE_NAMES.PROVIDER_SYNC_BACK,
-      concurrency: 5,
+      concurrency: scaleForReplicas(5),
       lockDuration: 600000, // 10 minutes for bulk operations
       stalledInterval: 180000, // 3 min stalled interval
       limiter: {

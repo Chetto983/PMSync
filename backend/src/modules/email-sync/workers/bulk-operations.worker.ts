@@ -27,7 +27,7 @@ import {
 import { ProviderSyncBackQueueService } from '../services/provider-sync-back-queue.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
-import { QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES, scaleForReplicas } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
@@ -55,7 +55,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
   protected getWorkerConfig(): BaseWorkerConfig {
     return {
       queueName: QUEUE_NAMES.BULK_OPERATIONS,
-      concurrency: 2, // Lower concurrency for bulk ops
+      concurrency: scaleForReplicas(2), // Lower concurrency for bulk ops, scaled for replicas
       lockDuration: 600000, // 10 minutes for large bulk operations
       stalledInterval: 120000,
       limiter: {
