@@ -1,3 +1,4 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FollowUpStatus } from '@prisma/client';
 
@@ -73,7 +74,7 @@ describe('AiController - Follow-Up CRUD', () => {
     it('should update status to RESOLVED with resolvedAt', async () => {
       mockPrisma.emailFollowUp.updateMany.mockResolvedValue({ count: 1 });
 
-      const result = await controller.updateFollowUpStatus(req, 'fu-1', 'RESOLVED');
+      const result = await controller.updateFollowUpStatus(req, 'fu-1', { status: 'RESOLVED' });
 
       expect(result.success).toBe(true);
       expect(result.updated).toBe(1);
@@ -87,25 +88,23 @@ describe('AiController - Follow-Up CRUD', () => {
     });
 
     it('should reject invalid status', async () => {
-      const result = await controller.updateFollowUpStatus(req, 'fu-1', 'INVALID');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Invalid status');
+      await expect(
+        controller.updateFollowUpStatus(req, 'fu-1', { status: 'INVALID' } as any),
+      ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.emailFollowUp.updateMany).not.toHaveBeenCalled();
     });
 
     it('should return error when not found', async () => {
       mockPrisma.emailFollowUp.updateMany.mockResolvedValue({ count: 0 });
-
-      const result = await controller.updateFollowUpStatus(req, 'non-existent', 'RESOLVED');
-
-      expect(result.success).toBe(false);
+      await expect(
+        controller.updateFollowUpStatus(req, 'non-existent', { status: 'RESOLVED' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should not set resolvedAt for non-RESOLVED status', async () => {
       mockPrisma.emailFollowUp.updateMany.mockResolvedValue({ count: 1 });
 
-      await controller.updateFollowUpStatus(req, 'fu-1', 'PENDING');
+      await controller.updateFollowUpStatus(req, 'fu-1', { status: 'PENDING' });
 
       const callData = mockPrisma.emailFollowUp.updateMany.mock.calls[0][0].data;
       expect(callData.resolvedAt).toBeUndefined();
@@ -117,7 +116,7 @@ describe('AiController - Follow-Up CRUD', () => {
       mockPrisma.emailFollowUp.updateMany.mockResolvedValue({ count: 1 });
       const futureDate = new Date(Date.now() + 86400000).toISOString();
 
-      const result = await controller.snoozeFollowUp(req, 'fu-1', futureDate);
+      const result = await controller.snoozeFollowUp(req, 'fu-1', { dueDate: futureDate });
 
       expect(result.success).toBe(true);
       expect(result.dueDate).toBeDefined();
@@ -134,25 +133,23 @@ describe('AiController - Follow-Up CRUD', () => {
     });
 
     it('should reject past date', async () => {
-      const result = await controller.snoozeFollowUp(req, 'fu-1', '2020-01-01T00:00:00Z');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('future date');
+      await expect(
+        controller.snoozeFollowUp(req, 'fu-1', { dueDate: '2020-01-01T00:00:00Z' }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject invalid date string', async () => {
-      const result = await controller.snoozeFollowUp(req, 'fu-1', 'not-a-date');
-
-      expect(result.success).toBe(false);
+      await expect(
+        controller.snoozeFollowUp(req, 'fu-1', { dueDate: 'not-a-date' } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should return error when follow-up not found or resolved', async () => {
       mockPrisma.emailFollowUp.updateMany.mockResolvedValue({ count: 0 });
       const futureDate = new Date(Date.now() + 86400000).toISOString();
-
-      const result = await controller.snoozeFollowUp(req, 'fu-1', futureDate);
-
-      expect(result.success).toBe(false);
+      await expect(
+        controller.snoozeFollowUp(req, 'fu-1', { dueDate: futureDate }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -172,9 +169,9 @@ describe('AiController - Follow-Up CRUD', () => {
     it('should return error when not found', async () => {
       mockPrisma.emailFollowUp.updateMany.mockResolvedValue({ count: 0 });
 
-      const result = await controller.deleteFollowUp(req, 'non-existent');
-
-      expect(result.success).toBe(false);
+      await expect(controller.deleteFollowUp(req, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should enforce tenant isolation', async () => {

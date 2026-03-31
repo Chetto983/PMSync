@@ -340,13 +340,19 @@ describe('aiChatApi (AI Chat)', () => {
 
   describe('refreshBriefing', () => {
     it('should call correct endpoint', async () => {
-      const mockResponse = { data: { success: true, jobId: 'job-1', message: 'Queued' } };
+      const mockResponse = {
+        data: {
+          success: true,
+          briefing: { summary: 'Today...' },
+          meta: { operation: 'briefing', version: 'briefing-v1', source: 'live', status: 'ok', generatedAt: '2026-03-31T10:00:00.000Z' },
+        },
+      };
       (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
 
       const result = await aiChatApi.refreshBriefing();
 
       expect(apiClient.post).toHaveBeenCalledWith('/ai/briefing/refresh');
-      expect(result.data.jobId).toBe('job-1');
+      expect(result.data.briefing).toEqual({ summary: 'Today...' });
     });
   });
 

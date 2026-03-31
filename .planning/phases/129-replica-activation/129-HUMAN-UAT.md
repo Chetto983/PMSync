@@ -3,26 +3,26 @@ status: resolved
 phase: 129-replica-activation
 source: [129-VERIFICATION.md]
 started: 2026-03-31T14:05:00Z
-updated: 2026-03-31T14:00:00Z
+updated: 2026-03-31T14:08:00Z
 ---
 
 ## Current Test
 
-[all tests validated]
+[all tests validated on Railway production]
 
 ## Tests
 
 ### 1. Multi-Replica Railway Deployment
 expected: Both replicas start healthy; BullMQ jobs processed exactly once; WebSocket connections distribute correctly
-result: PASSED — Two "Starting Nest application" at 13:55:26.925Z and 13:55:32.376Z. Both "application bootstrap completed". 6/6 health checks return 200. `scheduled-email-process` fires once per minute (13:56:00, 13:57:00) — no duplicates. Both replicas register all workers (email-sync, calendar-sync, contacts-sync, folder-ops, bulk-ops, push, stage-automation, email-send, sync-back).
+result: PASSED — Two replicas confirmed (14:05:00.859Z and 14:05:12.370Z). Both bootstrap completed. Health 200 on all checks. `scheduled-email-process` fires once/min (14:07:00, 14:08:00) — no duplicates. `WORKER_REPLICA_COUNT=2` set and validated: concurrency halved on both replicas (email-sync-high: 17→8, email-sync-normal: 10→5, email-sync-low: 7→3, email-send: 10→5, folder-ops: 5→2, sync-back: 5→2, bulk-ops: 2→1). Both replicas show identical values.
 
 ### 2. SIGTERM Graceful Drain
 expected: Clean shutdown within 25s; no timeout forcing; process exits 0
-result: PARTIAL — Railway does not retain logs from terminated instances. `railway restart` triggered clean replacement (old replicas removed, new ones started successfully). Code structure verified: main.ts has SHUTDOWN_TIMEOUT_MS=25000, redisIoAdapter.close() before app.close(), forceExit.unref(). No crash logs or abnormal termination observed.
+result: PARTIAL — Railway does not retain logs from terminated instances. `railway restart` triggered clean replacement (old replicas removed, new ones started). Code structure verified: main.ts has SHUTDOWN_TIMEOUT_MS=25000, redisIoAdapter.close() before app.close(), forceExit.unref(). No crash logs or abnormal termination observed. Cannot observe actual drain timing due to Railway log retention limitation.
 
 ### 3. Per-Replica Prometheus Labels
 expected: Each replica's /metrics shows distinct RAILWAY_REPLICA_ID instance label
-result: PASSED — PrometheusController registered on both replicas (13:59:02.511Z and 13:59:06.234Z). `defaultLabels: { instance: process.env.RAILWAY_REPLICA_ID || 'local' }` confirmed in code. RAILWAY_REPLICA_ID is injected by Railway platform per-instance. /metrics endpoint is auth-protected (correct for production; Prometheus would use internal network).
+result: PASSED — PrometheusController registered on both replicas. `defaultLabels: { instance: process.env.RAILWAY_REPLICA_ID || 'local' }` confirmed in code and route logs. RAILWAY_REPLICA_ID injected by Railway per-instance. /metrics endpoint auth-protected (correct for production).
 
 ## Summary
 
@@ -32,6 +32,6 @@ issues: 0
 pending: 0
 skipped: 0
 blocked: 0
-partial: 1 (SIGTERM drain — Railway log retention limitation, no crash evidence)
+partial: 1 (SIGTERM drain — Railway log retention limitation, not a code issue)
 
 ## Gaps

@@ -11,8 +11,8 @@
 
 ## Sprint Backlog
 
-- [ ] T-1801 — Prisma model `CSATSurvey` (id, tenantId, ticketId FK unique, rating int 1-5, comment text nullable, respondedAt nullable, token string unique per accesso pubblico, createdAt). Prisma model `TicketTemplate` (id, tenantId, name, body text, category string nullable, createdAt) per canned responses — [2 SP] — 📋 TODO
-- [ ] T-1802 — CSAT email trigger: BullMQ job che si attiva quando ticket passa a status `resolved`. Inviare email al contatto del ticket con link alla survey (`/portal/survey/:token`). Riutilizzare infrastruttura email PMSync (SendGrid HTTP API). Delay configurabile (default 1 ora post-risoluzione) — [3 SP] — 📋 TODO
+- [x] T-1801 — Prisma model `CSATSurvey` (id, tenantId, ticketId FK unique, rating int 1-5, comment text nullable, respondedAt nullable, token string unique per accesso pubblico, createdAt). Prisma model `TicketTemplate` (id, tenantId, name, body text, category string nullable, createdAt) per canned responses — [2 SP] — ✅ DONE
+- [x] T-1802 — CSAT email trigger: BullMQ job che si attiva quando ticket passa a status `resolved`. Inviare email al contatto del ticket con link alla survey (`/portal/survey/:token`). Riutilizzare infrastruttura email PMSync (SendGrid HTTP API). Delay configurabile (default 1 ora post-risoluzione) — [3 SP] — ✅ DONE
 - [ ] T-1803 — CSAT response page (`/portal/survey/:token`): pagina pubblica con 5 stelle cliccabili (MUI Rating component), campo commento opzionale, submit button. Mostrare subject del ticket per contesto. Dopo submit, mostrare messaggio di ringraziamento. Impedire doppio submit — [2 SP] — 📋 TODO
 - [ ] T-1804 — CSAT aggregation API: `GET /analytics/csat` con filtri dateRange, assigneeId. Restituire: media voto, conteggio risposte, distribuzione per stella, trend mensile (ultimi 6 mesi). Query aggregate Prisma, filtrate per tenantId — [2 SP] — 📋 TODO
 - [ ] T-1805 — Service analytics page (`/analytics/service`): dashboard con 4 card KPI (first response time medio, resolution time medio, SLA compliance rate %, CSAT medio). Grafico trend CSAT con MUI/Recharts. Tabella top 10 ticket per tempo di risoluzione. Filtro periodo — [3 SP] — 📋 TODO

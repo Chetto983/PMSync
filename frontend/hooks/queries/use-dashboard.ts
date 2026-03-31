@@ -622,6 +622,7 @@ export interface TriagedEmail {
   from: string | { name?: string; email?: string };
   aiPriority: number;
   aiPriorityReason?: string;
+  aiSentiment?: string | null;
   aiLabels?: string[];
   isRead: boolean;
   receivedAt: string;
@@ -652,6 +653,7 @@ export function triagedEmailsOptions(params?: { limit?: number; priority?: numbe
         from: e.from as string | { name?: string; email?: string },
         aiPriority: (e.aiPriority as number) || 3,
         aiPriorityReason: e.aiPriorityReason as string | undefined,
+        aiSentiment: (e.aiSentiment as string | null | undefined) ?? null,
         aiLabels: (e.aiLabels as string[]) || [],
         isRead: (e.isRead as boolean) || false,
         receivedAt: (e.receivedAt as string) || '',

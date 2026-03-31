@@ -5075,6 +5075,19 @@ export interface AppTranslations {
     statusInProgress?: string;
     statusResolved?: string;
     statusClosed?: string;
+    surveyTitle?: string;
+    surveyDesc?: string;
+    surveyTicketLabel?: string;
+    surveyRatingLabel?: string;
+    surveyCommentLabel?: string;
+    surveyCommentPlaceholder?: string;
+    surveySubmit?: string;
+    surveySubmitting?: string;
+    surveyThankYou?: string;
+    surveyThankYouDesc?: string;
+    surveyAlreadySubmitted?: string;
+    surveyNotFound?: string;
+    surveyYourRating?: string;
   };
 }
 

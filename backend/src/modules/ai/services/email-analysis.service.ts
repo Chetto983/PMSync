@@ -11,6 +11,7 @@ import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/
 import { getLocale, getToolTranslations, type SupportedLocale } from '../locales';
 import { PiiDetectionService } from '../guards';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
+import { buildAiResponseMeta } from '../utils/ai-response-meta';
 
 type LocaleKey = 'en' | 'it';
 
@@ -22,6 +23,7 @@ interface EmailRecord {
 @Injectable()
 export class EmailAnalysisService {
   private readonly logger = new Logger(EmailAnalysisService.name);
+  private readonly analysisVersion = 'unified-email-v1';
   private readonly defaultLabels: Array<{ name: string; aiPrompt: string | null }> = [
     { name: 'Important', aiPrompt: null },
     { name: 'Follow-up', aiPrompt: null },
@@ -52,7 +54,16 @@ export class EmailAnalysisService {
     const cachedLocale = (cached?.suggestedActions as Record<string, unknown>)?.locale as string | undefined;
     if (cached?.summary && cachedLocale === lang) {
       this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId} (locale: ${lang})`);
-      return this.mapEmailAnalysisToUnified(cached);
+      return {
+        ...this.mapEmailAnalysisToUnified(cached),
+        meta: buildAiResponseMeta({
+          operation: 'email-unified-analysis',
+          version: this.analysisVersion,
+          source: 'cache',
+          generatedAt: cached.processedAt,
+          locale: lang,
+        }),
+      };
     }
     if (cached?.summary && cachedLocale !== lang) {
       this.logger.debug(`Cache miss - locale mismatch: cached=${cachedLocale}, requested=${lang}`);
@@ -94,6 +105,14 @@ export class EmailAnalysisService {
         confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.7)),
         reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
       };
+      const processedAt = new Date();
+      result.meta = buildAiResponseMeta({
+        operation: 'email-unified-analysis',
+        version: this.analysisVersion,
+        source: 'live',
+        generatedAt: processedAt,
+        locale: lang,
+      });
 
       const analysisData = {
         priority: this.mapPriorityToEnum(result.priority),
@@ -107,7 +126,7 @@ export class EmailAnalysisService {
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,
           followUpReason: result.followUpReason,
         },
-        processedAt: new Date(), latencyMs,
+        processedAt, latencyMs,
       };
 
       await this.prisma.emailAnalysis.upsert({

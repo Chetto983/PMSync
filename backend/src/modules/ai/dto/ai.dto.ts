@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
+  IsISO8601,
   IsOptional,
   IsString,
   MaxLength,
@@ -181,6 +183,9 @@ export class ComposeEmailResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
+  @ApiPropertyOptional({ type: () => AiResponseMetaDto })
+  meta?: AiResponseMetaDto;
+
   @ApiProperty({ description: 'Composed email body' })
   body: string;
 
@@ -244,6 +249,9 @@ export class SummaryResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
+  @ApiPropertyOptional({ type: () => AiResponseMetaDto })
+  meta?: AiResponseMetaDto;
+
   @ApiProperty({
     description: 'AI-generated summary of the email',
     example: 'This email discusses the Q4 budget proposal and requests approval by Friday.',
@@ -255,6 +263,9 @@ export class SmartReplyResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
+  @ApiPropertyOptional({ type: () => AiResponseMetaDto })
+  meta?: AiResponseMetaDto;
+
   @ApiProperty({
     description: 'Array of suggested reply options',
     example: ['Thanks for the update!', 'I\'ll review and get back to you.', 'Could you provide more details?'],
@@ -265,6 +276,9 @@ export class SmartReplyResponseDto {
 export class CategorizeResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
+
+  @ApiPropertyOptional({ type: () => AiResponseMetaDto })
+  meta?: AiResponseMetaDto;
 
   @ApiProperty({
     description: 'Suggested labels for the email',
@@ -285,6 +299,9 @@ export class CategorizeResponseDto {
 export class SentimentResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
+
+  @ApiPropertyOptional({ type: () => AiResponseMetaDto })
+  meta?: AiResponseMetaDto;
 
   @ApiProperty({
     description: 'Overall sentiment polarity',
@@ -345,6 +362,9 @@ export class PriorityResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
+  @ApiPropertyOptional({ type: () => AiResponseMetaDto })
+  meta?: AiResponseMetaDto;
+
   @ApiProperty({
     description: 'Priority score (1-10)',
     example: 8,
@@ -379,6 +399,9 @@ export class PriorityResponseDto {
 export class AnalyzeEmailResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
+
+  @ApiPropertyOptional({ type: () => AiResponseMetaDto })
+  meta?: AiResponseMetaDto;
 
   @ApiProperty({
     description: 'Sentiment',
@@ -456,4 +479,50 @@ export class PriorityRequestDto {
   @IsOptional()
   @IsString()
   locale?: string;
+}
+
+export class AiResponseMetaDto {
+  @ApiProperty({ example: 'email-unified-analysis' })
+  operation: string;
+
+  @ApiProperty({ example: 'unified-email-v1' })
+  version: string;
+
+  @ApiProperty({ enum: ['live', 'cache', 'fallback'], example: 'cache' })
+  source: 'live' | 'cache' | 'fallback';
+
+  @ApiProperty({ enum: ['ok', 'degraded'], example: 'ok' })
+  status: 'ok' | 'degraded';
+
+  @ApiProperty({ example: '2026-03-31T12:34:56.000Z' })
+  generatedAt: string;
+
+  @ApiPropertyOptional({ example: 'it' })
+  locale?: string;
+
+  @ApiPropertyOptional({ example: 'mistralai/mistral-small-3.1-24b-instruct' })
+  model?: string;
+
+  @ApiPropertyOptional({ type: [String], example: ['structured_output_unavailable'] })
+  warnings?: string[];
+}
+
+export class UpdateFollowUpStatusDto {
+  @ApiProperty({
+    enum: ['PENDING', 'RESOLVED', 'EXPIRED'],
+    example: 'RESOLVED',
+  })
+  @IsString()
+  @IsIn(['PENDING', 'RESOLVED', 'EXPIRED'])
+  status: 'PENDING' | 'RESOLVED' | 'EXPIRED';
+}
+
+export class SnoozeFollowUpDto {
+  @ApiProperty({
+    example: '2026-04-02T09:00:00.000Z',
+    description: 'New due date as an ISO-8601 future timestamp',
+  })
+  @IsString()
+  @IsISO8601()
+  dueDate: string;
 }

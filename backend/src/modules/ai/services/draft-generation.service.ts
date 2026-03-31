@@ -18,6 +18,7 @@ import { UsageTrackingService } from '../../subscription/services/usage-tracking
 import { AiRunLedgerService } from './ai-run-ledger.service';
 import { parseJsonOutput } from '../utils/parse-json-output';
 import { promptHash } from '../utils/prompt-hash';
+import { buildAiResponseMeta, type AiServiceResult } from '../utils/ai-response-meta';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -80,6 +81,7 @@ export interface GenerateDraftParams {
 @Injectable()
 export class DraftGenerationService {
   private readonly logger = new Logger(DraftGenerationService.name);
+  private readonly draftVersion = 'draft-generation-v1';
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
@@ -96,7 +98,7 @@ export class DraftGenerationService {
   async generateDraft(
     tenantId: string,
     params: GenerateDraftParams,
-  ): Promise<{ data: DraftGenerationOutput; error?: string }> {
+  ): Promise<AiServiceResult<DraftGenerationOutput>> {
     // 1. Load the original email
     const email = await this.prisma.email.findFirst({
       where: { id: params.emailId, tenantId },
@@ -114,7 +116,18 @@ export class DraftGenerationService {
 
     if (!email) {
       this.logger.warn(`Email ${params.emailId} not found for tenant ${tenantId}`);
-      return { data: SAFE_FALLBACK, error: 'Email not found' };
+      return {
+        data: SAFE_FALLBACK,
+        meta: buildAiResponseMeta({
+          operation: 'draft-generation',
+          version: this.draftVersion,
+          source: 'fallback',
+          model: this.mistralProvider.getChatModelName(),
+          degraded: true,
+          warnings: ['email_not_found'],
+        }),
+        error: 'Email not found',
+      };
     }
 
     // 2. Load thread context if available (up to 5 most recent messages)
@@ -157,25 +170,53 @@ export class DraftGenerationService {
   private async generateWithFallback(
     replyContext: string,
     tenantId = 'system',
-  ): Promise<{ data: DraftGenerationOutput; error?: string }> {
+  ): Promise<AiServiceResult<DraftGenerationOutput>> {
     const modelName = this.mistralProvider.getChatModelName();
 
     // Attempt 1: generateObject (structured output)
     const attempt1 = await this.tryGenerateObject(replyContext, modelName, tenantId);
     if (attempt1) {
       await this.trackUsage();
-      return { data: attempt1 };
+      return {
+        data: attempt1,
+        meta: buildAiResponseMeta({
+          operation: 'draft-generation',
+          version: this.draftVersion,
+          source: 'live',
+          model: modelName,
+        }),
+      };
     }
 
     // Attempt 2: generateText + manual JSON extraction (fallback)
     const attempt2 = await this.tryGenerateText(replyContext, modelName, tenantId);
     if (attempt2) {
       await this.trackUsage();
-      return { data: attempt2 };
+      return {
+        data: attempt2,
+        meta: buildAiResponseMeta({
+          operation: 'draft-generation',
+          version: this.draftVersion,
+          source: 'live',
+          model: modelName,
+          warnings: ['structured_output_unavailable'],
+        }),
+      };
     }
 
     this.logger.error('Draft generation failed on all attempts');
-    return { data: SAFE_FALLBACK, error: 'Draft generation failed' };
+    return {
+      data: SAFE_FALLBACK,
+      meta: buildAiResponseMeta({
+        operation: 'draft-generation',
+        version: this.draftVersion,
+        source: 'fallback',
+        model: modelName,
+        degraded: true,
+        warnings: ['draft_generation_failed'],
+      }),
+      error: 'Draft generation failed',
+    };
   }
 
   private async tryGenerateObject(

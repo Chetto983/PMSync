@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   Get,
@@ -15,6 +16,7 @@ import {
   Logger,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -53,6 +55,8 @@ import {
   PriorityResponseDto,
   PriorityRequestDto,
   AnalyzeEmailResponseDto,
+  UpdateFollowUpStatusDto,
+  SnoozeFollowUpDto,
 } from '../dto/ai.dto';
 
 /**
@@ -134,7 +138,7 @@ export class AiController {
       dto?.locale,
     );
 
-    return { success: true, summary: analysis.summary };
+    return { success: true, summary: analysis.summary, meta: analysis.meta };
   }
 
   /** Generate smart reply suggestions */
@@ -189,7 +193,7 @@ export class AiController {
       dto?.locale,
     );
 
-    return { success: true, labels: analysis.labels };
+    return { success: true, labels: analysis.labels, meta: analysis.meta };
   }
 
   /** Search knowledge base using semantic similarity (RAG) */
@@ -254,6 +258,7 @@ export class AiController {
 
     return {
       success: true,
+      meta: analysis.meta,
       sentiment: analysis.sentiment,
       tone: analysis.tone,
       emotion: analysis.sentiment, // Map sentiment as primary emotion
@@ -300,6 +305,7 @@ export class AiController {
 
     return {
       success: true,
+      meta: analysis.meta,
       score: Math.max(1, Math.min(10, score)),
       urgency: analysis.urgency,
       recommendation: recommendationMap[analysis.urgency] || 'handle_this_week',
@@ -341,6 +347,7 @@ export class AiController {
 
     return {
       success: true,
+      meta: analysis.meta,
       sentiment: analysis.sentiment,
       tone: analysis.tone,
       urgency: analysis.urgency,
@@ -471,7 +478,7 @@ export class AiController {
       select: { timezone: true, language: true },
     });
     const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined, prefs?.language || undefined);
-    return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
+    return { success: true, briefing: result.data, meta: result.meta, ...(result.error ? { error: result.error } : {}) };
   }
 
   @Post('briefing/refresh')
@@ -487,7 +494,7 @@ export class AiController {
       select: { timezone: true, language: true },
     });
     const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined, prefs?.language || undefined);
-    return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
+    return { success: true, briefing: result.data, meta: result.meta, ...(result.error ? { error: result.error } : {}) };
   }
 
   // Phase 77: actions/pending endpoint removed -- ActionQueue replaced by AI SDK native HITL
@@ -653,12 +660,20 @@ export class AiController {
   async updateFollowUpStatus(
     @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body('status') status: string,
+    @Body() dto: UpdateFollowUpStatusDto,
   ) {
-    const validStatuses: string[] = [FollowUpStatus.RESOLVED, FollowUpStatus.EXPIRED, FollowUpStatus.PENDING];
-    if (!validStatuses.includes(status)) {
-      return { success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` };
+    const validStatuses: FollowUpStatus[] = [
+      FollowUpStatus.RESOLVED,
+      FollowUpStatus.EXPIRED,
+      FollowUpStatus.PENDING,
+    ];
+    if (!validStatuses.includes(dto.status as FollowUpStatus)) {
+      throw new BadRequestException(
+        `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      );
     }
+
+    const status = dto.status as FollowUpStatus;
 
     const followUp = await this.prisma.emailFollowUp.updateMany({
       where: { id, tenantId: req.user.tenantId, userId: req.user.userId },
@@ -669,7 +684,7 @@ export class AiController {
     });
 
     if (followUp.count === 0) {
-      return { success: false, error: 'Follow-up not found' };
+      throw new NotFoundException('Follow-up not found');
     }
 
     return { success: true, updated: followUp.count };
@@ -683,11 +698,11 @@ export class AiController {
   async snoozeFollowUp(
     @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body('dueDate') dueDateStr: string,
+    @Body() dto: SnoozeFollowUpDto,
   ) {
-    const dueDate = new Date(dueDateStr);
+    const dueDate = new Date(dto.dueDate);
     if (isNaN(dueDate.getTime()) || dueDate.getTime() <= Date.now()) {
-      return { success: false, error: 'dueDate must be a valid future date' };
+      throw new BadRequestException('dueDate must be a valid future date');
     }
 
     const followUp = await this.prisma.emailFollowUp.updateMany({
@@ -701,7 +716,7 @@ export class AiController {
     });
 
     if (followUp.count === 0) {
-      return { success: false, error: 'Follow-up not found or already resolved' };
+      throw new NotFoundException('Follow-up not found or already resolved');
     }
 
     return { success: true, dueDate: dueDate.toISOString() };
@@ -722,7 +737,7 @@ export class AiController {
     });
 
     if (followUp.count === 0) {
-      return { success: false, error: 'Follow-up not found' };
+      throw new NotFoundException('Follow-up not found');
     }
 
     return { success: true };
@@ -884,7 +899,7 @@ export class AiController {
     @Body() dto?: { locale?: string },
   ) {
     const result = await this.followUpDetectionService.detectFollowUps(req.user.tenantId, 24, dto?.locale);
-    return { success: true, ...result.data, ...(result.error ? { error: result.error } : {}) };
+    return { success: true, ...result.data, meta: result.meta, ...(result.error ? { error: result.error } : {}) };
   }
 
   @Post('drafts/generate')
@@ -899,7 +914,7 @@ export class AiController {
     @Body() dto: { emailId: string; instruction: string; tone?: string },
   ) {
     const result = await this.draftGenerationService.generateDraft(req.user.tenantId, dto);
-    return { success: true, draft: result.data, ...(result.error ? { error: result.error } : {}) };
+    return { success: true, draft: result.data, meta: result.meta, ...(result.error ? { error: result.error } : {}) };
   }
 
   // ==========================================

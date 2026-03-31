@@ -1,3 +1,5 @@
+import type { AiResponseMeta } from '../utils/ai-response-meta';
+
 /**
  * Shared types for email insights.
  * Extracted to break circular dependency between email-insights.service.ts and email-analysis.service.ts.
@@ -21,4 +23,5 @@ export interface UnifiedEmailAnalysis {
   smartReplies?: string[];
   confidence: number;
   reasoning: string;
+  meta?: AiResponseMeta;
 }

@@ -66,6 +66,17 @@ export type ChatResult = {
   conversationId?: string;
 };
 
+export type AiOperationMeta = {
+  operation: string;
+  version: string;
+  source: 'live' | 'cache' | 'fallback';
+  status: 'ok' | 'degraded';
+  generatedAt: string;
+  locale?: string;
+  model?: string;
+  warnings?: string[];
+};
+
 export type MemorySearchItem = {
   id: string;
   subject: string | null;
@@ -336,6 +347,7 @@ export type SentimentResult = {
   aspects?: Record<string, string>;
   confidence: number;
   reasoning?: string;
+  meta?: AiOperationMeta;
 };
 
 export type PriorityResult = {
@@ -343,6 +355,7 @@ export type PriorityResult = {
   urgency: 'high' | 'medium' | 'low';
   recommendation: 'handle_now' | 'handle_today' | 'handle_this_week' | 'can_wait' | 'archive';
   factors: string[];
+  meta?: AiOperationMeta;
 };
 
 export type EmailAnalysisResult = {
@@ -355,6 +368,7 @@ export type EmailAnalysisResult = {
   keyTopics: string[];
   suggestedResponse: string;
   confidence: number;
+  meta?: AiOperationMeta;
 };
 
 export interface DraftStats {
@@ -369,7 +383,7 @@ export interface DraftStats {
 
 export const aiApi = {
   summarizeEmail(emailId: string, locale?: string) {
-    return apiClient.post<{ success: boolean; summary: string }>(
+    return apiClient.post<{ success: boolean; summary: string; meta?: AiOperationMeta }>(
       `/ai/summarize/${emailId}`,
       locale ? { locale } : undefined,
     );
@@ -379,14 +393,14 @@ export const aiApi = {
     const body: { locale?: string; tone?: string } = {};
     if (locale) body.locale = locale;
     if (tone) body.tone = tone;
-    return apiClient.post<{ success: boolean; suggestions: string[] }>(
+    return apiClient.post<{ success: boolean; suggestions: string[]; meta?: AiOperationMeta }>(
       `/ai/smart-reply/${emailId}`,
       Object.keys(body).length > 0 ? body : undefined,
     );
   },
 
   categorizeEmail(emailId: string, locale?: string) {
-    return apiClient.post<{ success: boolean; labels: string[] }>(
+    return apiClient.post<{ success: boolean; labels: string[]; meta?: AiOperationMeta }>(
       `/ai/categorize/${emailId}`,
       locale ? { locale } : undefined,
     );
@@ -409,7 +423,7 @@ export const aiApi = {
     signature?: string;
     threadContext?: Array<{ subject?: string; body?: string }>;
   }) {
-    return apiClient.post<{ success: boolean; body: string; subject?: string }>(
+    return apiClient.post<{ success: boolean; body: string; subject?: string; meta?: AiOperationMeta }>(
       '/ai/compose',
       payload,
     );
@@ -489,13 +503,13 @@ export const aiChatApi = {
 
   // Daily Briefing
   getBriefing() {
-    return apiClient.get<{ success: boolean; briefing: Record<string, unknown> }>(
+    return apiClient.get<{ success: boolean; briefing: Record<string, unknown>; meta?: AiOperationMeta; error?: string }>(
       '/ai/briefing',
     );
   },
 
   refreshBriefing() {
-    return apiClient.post<{ success: boolean; jobId: string; message: string }>(
+    return apiClient.post<{ success: boolean; briefing: Record<string, unknown>; meta?: AiOperationMeta; error?: string }>(
       '/ai/briefing/refresh',
     );
   },
@@ -549,21 +563,21 @@ export const aiChatApi = {
   },
 
   updateFollowUpStatus(id: string, status: string) {
-    return apiClient.patch<{ success: boolean; updated?: number; error?: string }>(
+    return apiClient.patch<{ success: boolean; updated?: number }>(
       `/ai/follow-ups/${id}/status`,
       { status },
     );
   },
 
   snoozeFollowUp(id: string, dueDate: string) {
-    return apiClient.patch<{ success: boolean; dueDate?: string; error?: string }>(
+    return apiClient.patch<{ success: boolean; dueDate?: string }>(
       `/ai/follow-ups/${id}/snooze`,
       { dueDate },
     );
   },
 
   deleteFollowUp(id: string) {
-    return apiClient.delete<{ success: boolean; error?: string }>(
+    return apiClient.delete<{ success: boolean }>(
       `/ai/follow-ups/${id}`,
     );
   },
@@ -592,7 +606,7 @@ export const aiChatApi = {
     instructions?: string;
     locale?: string;
   }) {
-    return apiClient.post<{ draftId: string; body: string; subject: string }>(
+    return apiClient.post<{ success: boolean; draft: { draftId: string; body: string; subject: string }; meta?: AiOperationMeta; error?: string }>(
       '/ai/drafts/generate',
       params,
     );

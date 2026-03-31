@@ -37,6 +37,13 @@ const PRIORITY_CONFIG: Record<number, { color: 'error' | 'warning' | 'info' | 's
   5: { color: 'default' },
 };
 
+const SENTIMENT_CONFIG: Record<string, { color: 'success' | 'error' | 'warning' | 'default' }> = {
+  positive: { color: 'success' },
+  negative: { color: 'error' },
+  mixed: { color: 'warning' },
+  neutral: { color: 'default' },
+};
+
 export function AiTriageWidget() {
   const t = useTranslations();
   const router = useRouter();
@@ -62,9 +69,19 @@ export function AiTriageWidget() {
     return PRIORITY_CONFIG[priority] || PRIORITY_CONFIG[3];
   };
 
+  const getSentimentConfig = (sentiment?: string | null) => {
+    if (!sentiment) return null;
+    return SENTIMENT_CONFIG[sentiment] || SENTIMENT_CONFIG.neutral;
+  };
+
   const getFromDisplay = (from: string | { name?: string; email?: string }): string => {
     if (typeof from === 'string') return from;
     return from?.name || from?.email || 'Unknown';
+  };
+
+  const getSentimentLabel = (sentiment?: string | null) => {
+    if (!sentiment) return null;
+    return t.threadMessage?.ai?.[sentiment as 'positive' | 'negative' | 'neutral' | 'mixed'] || sentiment;
   };
 
   const handleRefresh = () => {
@@ -111,6 +128,8 @@ export function AiTriageWidget() {
               <List dense disablePadding sx={{ mb: 1 }}>
                 {triageData.emails.map((email) => {
                   const priorityConfig = getPriorityConfig(email.aiPriority);
+                  const sentimentConfig = getSentimentConfig(email.aiSentiment);
+                  const sentimentLabel = getSentimentLabel(email.aiSentiment);
                   return (
                     <ListItem
                       key={email.id}
@@ -145,9 +164,38 @@ export function AiTriageWidget() {
                           </Box>
                         }
                         secondary={
-                          <Typography variant="caption" noWrap color="text.secondary">
-                            {getFromDisplay(email.from)}
-                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.25 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                              <Typography variant="caption" noWrap color="text.secondary" sx={{ minWidth: 0 }}>
+                                {getFromDisplay(email.from)}
+                              </Typography>
+                              {email.aiSentiment && sentimentConfig && sentimentLabel && (
+                                <Chip
+                                  label={sentimentLabel}
+                                  size="small"
+                                  color={sentimentConfig.color}
+                                  variant="outlined"
+                                  sx={{ height: 18, fontSize: '0.6rem' }}
+                                />
+                              )}
+                            </Box>
+                            {email.aiPriorityReason && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                title={email.aiPriorityReason}
+                                sx={{
+                                  lineHeight: 1.35,
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                {email.aiPriorityReason}
+                              </Typography>
+                            )}
+                          </Box>
                         }
                       />
                     </ListItem>

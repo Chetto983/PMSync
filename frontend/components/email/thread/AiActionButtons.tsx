@@ -8,10 +8,8 @@
  *
  * Part of Phase 8: AI Integration
  */
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Box, Button, Tooltip, CircularProgress, Divider } from '@mui/material';
-
-
 import { FileText as SummarizeIcon, AlertTriangle as PriorityHighIcon, Smile as SentimentSatisfiedAltIcon } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
@@ -38,6 +36,8 @@ interface AiActionButtonsProps {
   existingSentiment?: string | null;
 }
 
+type PriorityUrgency = 'high' | 'medium' | 'low';
+
 // Helper to get priority color
 const getPriorityColor = (urgency?: string) => {
   switch (urgency) {
@@ -46,6 +46,59 @@ const getPriorityColor = (urgency?: string) => {
     case 'low': return 'success.main';
     default: return 'text.secondary';
   }
+};
+
+const mapPriorityToUrgency = (priority: number): PriorityUrgency => {
+  if (priority <= 2) return 'high';
+  if (priority <= 3) return 'medium';
+  return 'low';
+};
+
+const mapUrgencyToRecommendation = (
+  urgency: PriorityUrgency,
+): PriorityResult['recommendation'] => {
+  switch (urgency) {
+    case 'high':
+      return 'handle_now';
+    case 'medium':
+      return 'handle_today';
+    default:
+      return 'can_wait';
+  }
+};
+
+const buildPriorityState = (
+  existingPriority?: number | null,
+  existingPriorityReason?: string | null,
+): PriorityResult | null => {
+  if (existingPriority == null) {
+    return null;
+  }
+
+  const urgency = mapPriorityToUrgency(existingPriority);
+  return {
+    score: existingPriority,
+    urgency,
+    recommendation: mapUrgencyToRecommendation(urgency),
+    factors: existingPriorityReason ? [existingPriorityReason] : [],
+  };
+};
+
+const buildSentimentState = (
+  existingSentiment?: string | null,
+): SentimentResult | null => {
+  if (!existingSentiment) {
+    return null;
+  }
+
+  return {
+    sentiment: existingSentiment as 'positive' | 'negative' | 'neutral' | 'mixed',
+    tone: existingSentiment,
+    emotion: '',
+    emotionalIntensity: 0.5,
+    churnRisk: false,
+    confidence: 0.8,
+  };
 };
 
 // Helper to get sentiment color
@@ -78,44 +131,26 @@ export const AiActionButtons = memo(function AiActionButtons({
     return t.threadMessage?.ai?.error || 'Failed to analyze';
   };
 
-  // Map numeric priority (1-5) to urgency string
-  const mapPriorityToUrgency = (p: number): 'high' | 'medium' | 'low' => {
-    if (p <= 2) return 'high';
-    if (p <= 3) return 'medium';
-    return 'low';
-  };
-
   // Priority & Sentiment state - initialize from existing data if available
-  const [priority, setPriority] = useState<PriorityResult | null>(() => {
-    if (existingPriority != null) {
-      const urgency = mapPriorityToUrgency(existingPriority);
-      return {
-        score: existingPriority,
-        urgency,
-        recommendation: 'handle_today',
-        factors: existingPriorityReason ? [existingPriorityReason] : [],
-      };
-    }
-    return null;
-  });
-  const [sentiment, setSentiment] = useState<SentimentResult | null>(() => {
-    if (existingSentiment) {
-      return {
-        sentiment: existingSentiment as 'positive' | 'negative' | 'neutral' | 'mixed',
-        tone: existingSentiment,
-        emotion: '',
-        emotionalIntensity: 0.5,
-        churnRisk: false,
-        confidence: 0.8,
-      };
-    }
-    return null;
-  });
+  const [priority, setPriority] = useState<PriorityResult | null>(() =>
+    buildPriorityState(existingPriority, existingPriorityReason),
+  );
+  const [sentiment, setSentiment] = useState<SentimentResult | null>(() =>
+    buildSentimentState(existingSentiment),
+  );
   const [isAnalyzingPriority, setIsAnalyzingPriority] = useState(false);
   const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
 
   // AI Mutations
   const summarizeMutation = useEmailSummarizeMutation();
+
+  useEffect(() => {
+    setPriority(buildPriorityState(existingPriority, existingPriorityReason));
+  }, [emailId, existingPriority, existingPriorityReason]);
+
+  useEffect(() => {
+    setSentiment(buildSentimentState(existingSentiment));
+  }, [emailId, existingSentiment]);
 
   const handleSummarize = async () => {
     if (hasSummary) {
@@ -167,6 +202,16 @@ export const AiActionButtons = memo(function AiActionButtons({
     return t.threadMessage?.ai?.[key] || priority.urgency;
   };
 
+  const priorityReason = priority?.factors.find((factor) => factor.trim().length > 0);
+  const priorityTooltip = priority
+    ? [getPriorityLabel(), priorityReason].filter(Boolean).join(' - ')
+    : t.threadMessage?.ai?.priority || 'Priority';
+  const sentimentTooltip = sentiment
+    ? [t.threadMessage?.ai?.[sentiment.sentiment] || sentiment.sentiment, sentiment.emotion || sentiment.tone]
+        .filter(Boolean)
+        .join(' - ')
+    : t.threadMessage?.ai?.sentiment || 'Sentiment';
+
   return (
     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
@@ -193,13 +238,7 @@ export const AiActionButtons = memo(function AiActionButtons({
           : t.threadMessage?.ai?.summarize || 'Summarize'}
       </Button>
 
-      <Tooltip
-        title={
-          priority
-            ? `${getPriorityLabel()} - ${priority.recommendation?.replace(/_/g, ' ')}`
-            : t.threadMessage?.ai?.priority || 'Priority'
-        }
-      >
+      <Tooltip title={priorityTooltip}>
         <Button
           size="small"
           variant="text"
@@ -222,13 +261,7 @@ export const AiActionButtons = memo(function AiActionButtons({
         </Button>
       </Tooltip>
 
-      <Tooltip
-        title={
-          sentiment
-            ? `${sentiment.tone || sentiment.sentiment} - ${sentiment.emotion || ''}`
-            : t.threadMessage?.ai?.sentiment || 'Sentiment'
-        }
-      >
+      <Tooltip title={sentimentTooltip}>
         <Button
           size="small"
           variant="text"

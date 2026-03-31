@@ -602,6 +602,9 @@ export const ExpandedMessage = memo(function ExpandedMessage({
       <AiInsightsPanel
         showSummary={showSummary}
         summary={summary}
+        priority={message.aiPriority}
+        priorityReason={message.aiPriorityReason}
+        sentiment={message.aiSentiment}
       />
 
       {/* User Labels */}

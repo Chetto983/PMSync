@@ -19,6 +19,7 @@ import { AiRunLedgerService } from './ai-run-ledger.service';
 import { getLocale } from '../locales';
 import { parseJsonOutput } from '../utils/parse-json-output';
 import { promptHash } from '../utils/prompt-hash';
+import { buildAiResponseMeta, type AiServiceResult } from '../utils/ai-response-meta';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -98,6 +99,7 @@ function buildSystemPrompt(locale?: string): string {
 @Injectable()
 export class FollowUpDetectionService {
   private readonly logger = new Logger(FollowUpDetectionService.name);
+  private readonly detectionVersion = 'follow-up-detection-v1';
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
@@ -115,7 +117,7 @@ export class FollowUpDetectionService {
     tenantId: string,
     hoursWindow = 24,
     locale?: string,
-  ): Promise<{ data: FollowUpDetectionOutput; error?: string }> {
+  ): Promise<AiServiceResult<FollowUpDetectionOutput>> {
     const cutoffDate = new Date(Date.now() - hoursWindow * 60 * 60 * 1000);
 
     // 1. Fetch recent emails — skip already-triaged (they get follow-ups from TriageActionService)
@@ -144,6 +146,13 @@ export class FollowUpDetectionService {
           detectedFollowUps: [],
           batchSummary: { totalAnalyzed: 0, totalDetected: 0, highUrgencyCount: 0 },
         },
+        meta: buildAiResponseMeta({
+          operation: 'follow-up-detection',
+          version: this.detectionVersion,
+          source: 'live',
+          locale,
+          model: this.mistralProvider.getChatModelName(),
+        }),
       };
     }
 
@@ -172,7 +181,7 @@ export class FollowUpDetectionService {
     totalAnalyzed: number,
     tenantId = 'system',
     locale?: string,
-  ): Promise<{ data: FollowUpDetectionOutput; error?: string }> {
+  ): Promise<AiServiceResult<FollowUpDetectionOutput>> {
     const systemPrompt = buildSystemPrompt(locale);
     const modelName = this.mistralProvider.getChatModelName();
 
@@ -181,7 +190,16 @@ export class FollowUpDetectionService {
     if (attempt1) {
       await this.trackUsage();
       await this.persistDetectedFollowUps(attempt1, tenantId);
-      return { data: attempt1 };
+      return {
+        data: attempt1,
+        meta: buildAiResponseMeta({
+          operation: 'follow-up-detection',
+          version: this.detectionVersion,
+          source: 'live',
+          locale,
+          model: modelName,
+        }),
+      };
     }
 
     // Attempt 2: generateText + manual JSON extraction (fallback)
@@ -189,7 +207,17 @@ export class FollowUpDetectionService {
     if (attempt2) {
       await this.trackUsage();
       await this.persistDetectedFollowUps(attempt2, tenantId);
-      return { data: attempt2 };
+      return {
+        data: attempt2,
+        meta: buildAiResponseMeta({
+          operation: 'follow-up-detection',
+          version: this.detectionVersion,
+          source: 'live',
+          locale,
+          model: modelName,
+          warnings: ['structured_output_unavailable'],
+        }),
+      };
     }
 
     this.logger.error('Follow-up detection failed on all attempts');
@@ -198,6 +226,15 @@ export class FollowUpDetectionService {
         detectedFollowUps: [],
         batchSummary: { totalAnalyzed, totalDetected: 0, highUrgencyCount: 0 },
       },
+      meta: buildAiResponseMeta({
+        operation: 'follow-up-detection',
+        version: this.detectionVersion,
+        source: 'fallback',
+        locale,
+        model: modelName,
+        degraded: true,
+        warnings: ['follow_up_detection_failed'],
+      }),
       error: 'Follow-up detection failed',
     };
   }

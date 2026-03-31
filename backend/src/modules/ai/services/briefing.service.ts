@@ -19,6 +19,7 @@ import { UsageTrackingService } from '../../subscription/services/usage-tracking
 import { AiRunLedgerService } from './ai-run-ledger.service';
 import { parseJsonOutput } from '../utils/parse-json-output';
 import { promptHash } from '../utils/prompt-hash';
+import { buildAiResponseMeta, type AiServiceResult } from '../utils/ai-response-meta';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -147,6 +148,7 @@ function buildBriefingSystemPrompt(locale?: string): string {
 export class BriefingService {
   private readonly logger = new Logger(BriefingService.name);
   private readonly briefingModelId: string;
+  private readonly briefingVersion = 'briefing-v1';
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
@@ -163,7 +165,11 @@ export class BriefingService {
    * Generate a comprehensive daily briefing for a tenant.
    * Pre-fetches all data in parallel, then makes a single LLM call.
    */
-  async generateBriefing(tenantId: string, timezone?: string, locale?: string): Promise<{ data: BriefingOutput; error?: string }> {
+  async generateBriefing(
+    tenantId: string,
+    timezone?: string,
+    locale?: string,
+  ): Promise<AiServiceResult<BriefingOutput>> {
     const now = new Date();
     // Calculate "today" boundaries in user's timezone
     const tz = timezone || 'UTC';
@@ -289,25 +295,56 @@ export class BriefingService {
     dataContext: string,
     tenantId = 'system',
     locale?: string,
-  ): Promise<{ data: BriefingOutput; error?: string }> {
+  ): Promise<AiServiceResult<BriefingOutput>> {
     const systemPrompt = buildBriefingSystemPrompt(locale);
 
     // Attempt 1: generateObject (structured output)
     const attempt1 = await this.tryGenerateObject(dataContext, tenantId, systemPrompt);
     if (attempt1) {
       await this.trackUsage();
-      return { data: attempt1 };
+      return {
+        data: attempt1,
+        meta: buildAiResponseMeta({
+          operation: 'briefing',
+          version: this.briefingVersion,
+          source: 'live',
+          locale,
+          model: this.briefingModelId,
+        }),
+      };
     }
 
     // Attempt 2: generateText + manual JSON extraction (fallback)
     const attempt2 = await this.tryGenerateText(dataContext, tenantId, systemPrompt);
     if (attempt2) {
       await this.trackUsage();
-      return { data: attempt2 };
+      return {
+        data: attempt2,
+        meta: buildAiResponseMeta({
+          operation: 'briefing',
+          version: this.briefingVersion,
+          source: 'live',
+          locale,
+          model: this.briefingModelId,
+          warnings: ['structured_output_unavailable'],
+        }),
+      };
     }
 
     this.logger.error('Briefing generation failed on all attempts');
-    return { data: SAFE_FALLBACK, error: 'Briefing generation failed' };
+    return {
+      data: SAFE_FALLBACK,
+      meta: buildAiResponseMeta({
+        operation: 'briefing',
+        version: this.briefingVersion,
+        source: 'fallback',
+        locale,
+        model: this.briefingModelId,
+        degraded: true,
+        warnings: ['briefing_generation_failed'],
+      }),
+      error: 'Briefing generation failed',
+    };
   }
 
   private async tryGenerateObject(
