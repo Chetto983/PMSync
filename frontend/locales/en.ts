@@ -1667,6 +1667,8 @@ export const en: AppTranslations = {
       tentative: 'Maybe',
       respondToInvite: 'Respond to invitation',
       changeResponse: 'Change your response',
+      responseSent: 'Response sent successfully',
+      failedToRespond: 'Failed to send response. Please try again.',
     },
     // Attendees picker
     attendeesPicker: {

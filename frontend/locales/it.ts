@@ -1656,6 +1656,8 @@ export const it: AppTranslations = {
       tentative: 'Forse',
       respondToInvite: 'Rispondi all\'invito',
       changeResponse: 'Modifica la tua risposta',
+      responseSent: 'Risposta inviata con successo',
+      failedToRespond: 'Invio risposta fallito. Riprova.',
     },
     // Attendees picker
     attendeesPicker: {

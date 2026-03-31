@@ -1551,6 +1551,8 @@ export interface AppTranslations {
       tentative: string;
       respondToInvite: string;
       changeResponse: string;
+      responseSent: string;
+      failedToRespond: string;
     };
     attendeesPicker: {
       label: string;

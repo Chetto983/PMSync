@@ -52,6 +52,10 @@ interface CalendarCopy {
     calendarRequired?: string;
     endAfterStart: string;
   };
+  rsvp?: {
+    responseSent?: string;
+    failedToRespond?: string;
+  };
 }
 
 export function useCalendarHandlers(
@@ -455,13 +459,15 @@ export function useCalendarHandlers(
   }, []);
 
   // RSVP response handler
+  const rsvpResponseSentMessage = calendarCopy.rsvp?.responseSent || 'Response sent successfully';
+  const rsvpFailedToRespondMessage = calendarCopy.rsvp?.failedToRespond || 'Failed to send response';
   const handleRSVPRespond = useCallback(
     async (eventId: string, response: RSVPResponse) => {
       try {
         await respondToEventMutation.mutateAsync({ eventId, response });
         setSnackbar({
           open: true,
-          message: eventUpdatedMessage,
+          message: rsvpResponseSentMessage,
           severity: 'success',
         });
         // Refresh event details to show updated attendee status
@@ -473,12 +479,12 @@ export function useCalendarHandlers(
         logger.error('Failed to respond to calendar event', { error });
         setSnackbar({
           open: true,
-          message: failedToUpdateEventMessage,
+          message: rsvpFailedToRespondMessage,
           severity: 'error',
         });
       }
     },
-    [respondToEventMutation, eventUpdatedMessage, failedToUpdateEventMessage, queryClient, selectedEvent, setSnackbar],
+    [respondToEventMutation, rsvpResponseSentMessage, rsvpFailedToRespondMessage, queryClient, selectedEvent, setSnackbar],
   );
 
   return {

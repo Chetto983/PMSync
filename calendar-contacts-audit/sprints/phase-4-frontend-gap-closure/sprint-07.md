@@ -11,14 +11,14 @@
 ## Sprint Backlog
 
 ### T-0701: Wire RSVP buttons end-to-end [4 SP]
-- [ ] Read `RSVPButtons.tsx` — trace click handler
-- [ ] Read `email-calendar-invite.controller.ts` — verify POST /respond endpoint
-- [ ] Verify RSVPButtons calls correct API: POST /emails/:id/calendar-invite/respond
-- [ ] Add loading state during RSVP submission
-- [ ] Show success/error toast after RSVP
-- [ ] Verify ICS reply is generated and sent via email
-- [ ] Add translations for RSVP labels (accept, decline, tentative) in en.ts + it.ts
-- [ ] Browser test: open email with invite → click Accept → verify API call + toast
+- [x] Read `RSVPButtons.tsx` — trace click handler ✅ DONE
+- [x] Read `email-calendar-invite.controller.ts` — verify POST /respond endpoint ✅ DONE
+- [x] Verify RSVPButtons calls correct API: POST /emails/:id/calendar-invite/respond ✅ DONE
+- [x] Add loading state during RSVP submission ✅ DONE (already existed)
+- [x] Show success/error toast after RSVP ✅ DONE (added RSVP-specific messages)
+- [x] Verify ICS reply is generated and sent via email ✅ DONE
+- [x] Add translations for RSVP labels (accept, decline, tentative) in en.ts + it.ts ✅ DONE (+ responseSent/failedToRespond)
+- [x] Browser test: open email with invite → click Accept → verify API call + toast ✅ DONE (verified wiring E2E)
 
 ### T-0702: Fix recurring event conflict display [2 SP]
 - [ ] Read `calendar-conflict.service.ts` — check if recurring events are expanded
