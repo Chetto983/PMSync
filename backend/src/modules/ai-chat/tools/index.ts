@@ -20,3 +20,4 @@ export { EmailProductivityToolsService } from './email-productivity-tools.servic
 export { FollowUpToolsService } from './follow-up-tools.service';
 export { ReminderToolsService } from './reminder-tools.service';
 export { CrmToolsService } from './crm-tools.service';
+export { CrmIntelligenceToolsService } from './crm-intelligence-tools.service';

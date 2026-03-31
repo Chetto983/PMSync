@@ -122,6 +122,7 @@ describe('AiChatService ledger wiring', () => {
       mockFollowUpTools as any,
       mockReminderTools as any,
       { getTools: () => ({}) } as any, // CrmToolsService
+      { getTools: () => ({}) } as any, // CrmIntelligenceToolsService
       mockMemoryService as any,
       mockChatEnrichmentService as any,
       { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService

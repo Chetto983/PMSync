@@ -9,6 +9,8 @@ import { ContactsModule } from '../contacts/contacts.module';
 import { AiModule } from '../ai/ai.module';
 import { ReminderModule } from '../reminder/reminder.module';
 import { NBAModule } from '../crm/nba/nba.module';
+import { ForecastingModule } from '../crm/forecasting/forecasting.module';
+import { GovernanceModule } from '../crm/governance/governance.module';
 import { AiChatController } from './controllers/ai-chat.controller';
 import { AiChatService } from './services/ai-chat.service';
 import { ConversationService } from './services/conversation.service';
@@ -27,6 +29,7 @@ import {
   FollowUpToolsService,
   ReminderToolsService,
   CrmToolsService,
+  CrmIntelligenceToolsService,
 } from './tools/index';
 import { ChatEnrichmentService } from './services/chat-enrichment.service';
 import { SandboxService } from './services/sandbox.service';
@@ -63,6 +66,8 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     AiModule, // EmbeddingsService, KnowledgeBaseService
     ReminderModule, // ReminderService (for AI reminder tools)
     NBAModule, // Sprint 13: NBAService for AI chat tool
+    ForecastingModule, // Sprint 14.1: ForecastService for AI forecast tool
+    GovernanceModule, // Sprint 14.1: GovernanceService + ModelRetrainService for AI tools
   ],
   controllers: [AiChatController],
   providers: [
@@ -88,6 +93,8 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     ReminderToolsService,
     // Sprint 10: CRM deal tools (getDealsByPipeline, moveDealStage, getDealTimeline)
     CrmToolsService,
+    // Sprint 14.1: CRM intelligence tools (lead scoring, forecast, churn, governance)
+    CrmIntelligenceToolsService,
     // Phase 87: Extracted enrichment service (title, summary, runtime context)
     ChatEnrichmentService,
     SandboxService,

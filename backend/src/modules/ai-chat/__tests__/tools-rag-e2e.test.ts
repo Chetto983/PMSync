@@ -191,6 +191,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       toolsServiceStub, // FollowUpToolsService
       toolsServiceStub, // ReminderToolsService
       { getTools: () => ({}) } as any, // CrmToolsService
+      { getTools: () => ({}) } as any, // CrmIntelligenceToolsService
       memoryService, // REAL -- will be spied on
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
       { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
