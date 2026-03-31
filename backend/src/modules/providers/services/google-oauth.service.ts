@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import { getConfiguration } from '../../../config/configuration';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { GoogleAuthError, GoogleRateLimitError } from '../errors';
 
 /**
  * PKCE options for enhanced OAuth security
@@ -206,43 +207,45 @@ export class GoogleOAuthService {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorCode = (error as any)?.code || (error as any)?.response?.data?.error;
       const errorDescription = (error as any)?.response?.data?.error_description || '';
+      const causeError = error instanceof Error ? error : undefined;
 
+      // T-0505: Structured error classification with typed GoogleProviderError hierarchy
+      // Log structured fields for observability
       this.logger.error(`Failed to refresh Google access token: ${errorMessage}`, {
         errorCode,
         errorDescription,
         errorType: (error as any)?.constructor?.name,
       });
 
-      // T-0501: Structured error classification for token refresh failures
       // token_revoked: user revoked access in Google account settings
       if (
         errorCode === 'invalid_grant' &&
         (errorDescription.includes('revoked') || errorDescription.includes('Token has been expired or revoked'))
       ) {
-        throw new UnauthorizedException(
-          'Google access revoked. User has revoked this app\'s access in Google account settings. Please reconnect.',
-        );
+        const typed = new GoogleAuthError('token_revoked', undefined, causeError);
+        this.logger.warn('Google token refresh classified', typed.toStructuredLog());
+        throw typed;
       }
 
-      // token_expired: refresh token expired (rare, happens after 6 months of inactivity for non-published apps)
+      // token_expired: refresh token expired (rare, 6 months inactivity for non-published apps)
       if (errorMessage.includes('invalid_grant') || errorCode === 'invalid_grant') {
-        throw new UnauthorizedException(
-          'Re-authentication required. Google refresh token has expired or been invalidated.',
-        );
+        const typed = new GoogleAuthError('token_expired', undefined, causeError);
+        this.logger.warn('Google token refresh classified', typed.toStructuredLog());
+        throw typed;
       }
 
       // insufficient_scope: user didn't grant required permissions
       if (errorMessage.includes('insufficient_scope') || errorMessage.includes('access_denied')) {
-        throw new ForbiddenException(
-          'Permission denied by Google. Please reconnect with required permissions.',
-        );
+        const typed = new GoogleAuthError('insufficient_scope', undefined, causeError);
+        this.logger.warn('Google token refresh classified', typed.toStructuredLog());
+        throw typed;
       }
 
       // rate_limit: Google API quota exceeded (retryable)
       if (errorMessage.includes('rate') || errorCode === 429 || errorMessage.includes('quota')) {
-        throw new UnauthorizedException(
-          'Google API rate limit exceeded. Please try again later.',
-        );
+        const typed = new GoogleRateLimitError(60000, undefined, causeError);
+        this.logger.warn('Google token refresh classified', typed.toStructuredLog());
+        throw typed;
       }
 
       throw new UnauthorizedException(
@@ -349,9 +352,13 @@ export class GoogleOAuthService {
 
         this.logger.log(`✅ Google token refreshed (blocking) for provider ${provider.id}`);
       } catch (error) {
-        // T-0501: Re-throw auth errors (revoked/expired) — callers must handle re-auth.
+        // T-0505: Re-throw auth errors (revoked/expired) — callers must handle re-auth.
         // Only swallow transient errors (network, rate limit) where stale token may still work.
-        if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
+        if (
+          error instanceof UnauthorizedException ||
+          error instanceof ForbiddenException ||
+          error instanceof GoogleAuthError
+        ) {
           throw error;
         }
         this.logger.warn(

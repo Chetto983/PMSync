@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { calendar_v3, google } from 'googleapis';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { GoogleRateLimitError } from '../../providers/errors';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -281,7 +282,7 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
         const status = error?.response?.status ?? error?.code;
 
         if (status === 429 && attempt < this.MAX_RETRIES) {
-          // Parse Retry-After header (seconds) or use exponential backoff
+          // T-0505: Parse Retry-After header and create typed rate limit error
           const retryAfterHeader = error?.response?.headers?.['retry-after'];
           const retryAfterMs = retryAfterHeader
             ? parseInt(retryAfterHeader, 10) * 1000
@@ -292,7 +293,7 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
           );
 
           await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
-          lastError = error;
+          lastError = new GoogleRateLimitError(retryAfterMs, undefined, error instanceof Error ? error : undefined);
           continue;
         }
 

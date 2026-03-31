@@ -14,6 +14,7 @@ import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { GoogleProviderError, isGoogleProviderError } from '../../providers/errors';
 import type { ProviderConfig as ProviderEntity } from '@prisma/client';
 
 type ProviderWithToken = {
@@ -334,13 +335,15 @@ export class ProviderTokenService {
       this.logger.log(`Google token refreshed successfully for ${provider.email}`);
       return accessToken;
     } catch (error) {
-      // T-0501: Notify user via WebSocket when token refresh fails (revoked/expired/scope)
-      const isAuthError =
+      // T-0505: Handle typed GoogleProviderError hierarchy + legacy NestJS exceptions
+      const isTypedGoogleError = isGoogleProviderError(error);
+      const isLegacyAuthError =
         error instanceof UnauthorizedException || error instanceof ForbiddenException;
 
-      if (isAuthError && provider.tenantId) {
-        const errorMessage =
-          error instanceof ForbiddenException
+      if ((isTypedGoogleError || isLegacyAuthError) && provider.tenantId) {
+        const errorMessage = isTypedGoogleError
+          ? `Google account ${provider.email}: ${(error as GoogleProviderError).errorType}`
+          : error instanceof ForbiddenException
             ? `Google account ${provider.email} needs permission re-grant`
             : `Google account ${provider.email} requires re-authentication`;
 
@@ -350,9 +353,16 @@ export class ProviderTokenService {
           error: errorMessage,
         });
 
-        this.logger.warn(
-          `Google token refresh auth failure for ${provider.email} (${provider.id}): ${error.message}`,
-        );
+        if (isTypedGoogleError) {
+          this.logger.warn(
+            'Google token refresh classified error',
+            (error as GoogleProviderError).toStructuredLog(),
+          );
+        } else {
+          this.logger.warn(
+            `Google token refresh auth failure for ${provider.email} (${provider.id}): ${(error as Error).message}`,
+          );
+        }
       }
 
       throw error;
