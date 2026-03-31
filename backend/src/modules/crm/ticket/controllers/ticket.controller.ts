@@ -111,10 +111,15 @@ export class TicketController {
   // ---- Comments ----
 
   @Get(':id/comments')
-  @ApiOperation({ summary: 'List ticket comments' })
+  @ApiOperation({ summary: 'List ticket comments (set includeInternal=false to hide internal notes)' })
   @ApiResponse({ status: 200, description: 'Comments returned' })
-  async listComments(@Req() req: any, @Param('id') id: string) {
-    return this.ticketService.listComments(req.user.tenantId, id);
+  async listComments(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query('includeInternal') includeInternal?: string,
+  ) {
+    const showInternal = includeInternal !== 'false';
+    return this.ticketService.listComments(req.user.tenantId, id, showInternal);
   }
 
   @Post(':id/comments')

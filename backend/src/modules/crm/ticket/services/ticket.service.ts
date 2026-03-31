@@ -316,11 +316,16 @@ export class TicketService {
     });
   }
 
-  async listComments(tenantId: string, ticketId: string) {
+  async listComments(tenantId: string, ticketId: string, includeInternal = true) {
     await this.ensureExists(tenantId, ticketId);
 
+    const where: Prisma.TicketCommentWhereInput = { ticketId };
+    if (!includeInternal) {
+      where.isInternal = false;
+    }
+
     return this.prisma.ticketComment.findMany({
-      where: { ticketId },
+      where,
       include: {
         author: { select: { id: true, name: true, email: true } },
       },
