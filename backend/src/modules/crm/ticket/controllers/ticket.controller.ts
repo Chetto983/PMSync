@@ -22,6 +22,7 @@ import {
   ListTicketsQueryDto,
   ChangeTicketStatusDto,
   CreateTicketCommentDto,
+  AssignTicketDto,
 } from '../dto/ticket.dto';
 
 @ApiTags('CRM - Tickets')
@@ -86,6 +87,25 @@ export class TicketController {
     @Body() dto: ChangeTicketStatusDto,
   ) {
     return this.ticketService.changeStatus(req.user.tenantId, id, dto);
+  }
+
+  // ---- Assignment ----
+
+  @Patch(':id/assign')
+  @ApiOperation({ summary: 'Assign or reassign ticket' })
+  @ApiResponse({ status: 200, description: 'Ticket assigned' })
+  @ApiResponse({ status: 404, description: 'Ticket not found' })
+  async assign(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: AssignTicketDto,
+  ) {
+    return this.ticketService.assign(
+      req.user.tenantId,
+      id,
+      dto.assigneeId,
+      req.user.id,
+    );
   }
 
   // ---- Comments ----

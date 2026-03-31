@@ -161,6 +161,12 @@ export class ListTicketsQueryDto {
   offset?: number = 0;
 }
 
+export class AssignTicketDto {
+  @IsOptional()
+  @IsString()
+  assigneeId?: string | null;
+}
+
 export class CreateTicketCommentDto {
   @IsString()
   @MaxLength(10000)

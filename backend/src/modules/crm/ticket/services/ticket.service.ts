@@ -253,6 +253,51 @@ export class TicketService {
     });
   }
 
+  // ---- Assignment ----
+
+  async assign(
+    tenantId: string,
+    ticketId: string,
+    assigneeId: string | null | undefined,
+    assignedByUserId: string,
+  ) {
+    const ticket = await this.ensureExists(tenantId, ticketId);
+    const previousAssignee = ticket.assigneeId;
+
+    const data: Prisma.TicketUpdateInput = assigneeId
+      ? { assignee: { connect: { id: assigneeId } } }
+      : { assignee: { disconnect: true } };
+
+    const updated = await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data,
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    this.logger.log(
+      `Ticket ${ticketId} assigned: ${previousAssignee ?? 'none'} → ${assigneeId ?? 'unassigned'}`,
+    );
+
+    // Create audit log for assignment change
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId,
+        userId: assignedByUserId,
+        action: 'ticket.assign',
+        entity: 'Ticket',
+        entityId: ticketId,
+        changes: {
+          previousAssignee,
+          newAssignee: assigneeId ?? null,
+        },
+      },
+    });
+
+    return updated;
+  }
+
   // ---- Comments ----
 
   async addComment(tenantId: string, ticketId: string, userId: string, dto: CreateTicketCommentDto) {
