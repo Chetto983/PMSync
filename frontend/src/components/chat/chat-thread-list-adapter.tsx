@@ -46,6 +46,7 @@ interface DbConversationMessage {
 
 const TITLE_FETCH_RETRIES = 8;
 const TITLE_FETCH_RETRY_MS = 2000;
+const THREAD_HISTORY_MESSAGE_LIMIT = 50;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -265,7 +266,9 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
             `/ai/chat/conversations/${remoteId}`,
           );
           const conv = data?.conversation ?? data?.data?.conversation;
-          const dbMessages = conv?.messages ?? [];
+          const dbMessages = (conv?.messages ?? []).slice(
+            -THREAD_HISTORY_MESSAGE_LIMIT,
+          );
           const threadMessages =
             convertDbMessagesToThreadMessageLike(dbMessages);
           return ExportedMessageRepository.fromArray(threadMessages);
@@ -285,7 +288,9 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
                 `/ai/chat/conversations/${remoteId}`,
               );
               const conv = data?.conversation ?? data?.data?.conversation;
-              const dbMessages = conv?.messages ?? [];
+              const dbMessages = (conv?.messages ?? []).slice(
+                -THREAD_HISTORY_MESSAGE_LIMIT,
+              );
               return convertDbMessagesToMessageFormatRepository(
                 dbMessages,
               ) as MessageFormatRepository<TMessage>;

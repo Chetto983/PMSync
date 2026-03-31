@@ -43,6 +43,8 @@ import {
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
+const CONVERSATION_HISTORY_MESSAGE_LIMIT = 50;
+
 /**
  * AiChatController -- Streaming chat endpoint + conversation management.
  *
@@ -117,7 +119,25 @@ export class AiChatController {
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true })) dto: ChatRequestDto,
   ): Promise<void> {
     const abortController = new AbortController();
-    req.on('close', () => abortController.abort());
+    const abortOnDisconnect = () => {
+      if (abortController.signal.aborted || res.writableEnded) {
+        return;
+      }
+
+      this.logger.warn(
+        `AI chat stream disconnected before completion for user ${req.user.userId}`,
+      );
+      abortController.abort();
+    };
+    const cleanupAbortHandlers = () => {
+      req.off('aborted', abortOnDisconnect);
+      res.off('close', abortOnDisconnect);
+      res.off('finish', cleanupAbortHandlers);
+    };
+
+    req.on('aborted', abortOnDisconnect);
+    res.on('close', abortOnDisconnect);
+    res.on('finish', cleanupAbortHandlers);
 
     const isApproval = hasApprovalResponses(dto);
     const message = extractUserMessageFromDto(dto);
@@ -259,7 +279,7 @@ export class AiChatController {
 
     const rawMessages = await this.conversationService.getRecentMessages(
       conversationId,
-      200,
+      CONVERSATION_HISTORY_MESSAGE_LIMIT,
       req.user.tenantId,
     );
     const messages = await Promise.all(

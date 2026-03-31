@@ -328,4 +328,83 @@ describe('createPmSyncThreadListAdapter', () => {
       },
     ]);
   });
+
+  it('loads only the last 50 messages from conversation history', async () => {
+    const messages = Array.from({ length: 60 }, (_, index) => ({
+      id: `message-${index + 1}`,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: {
+        type: 'text',
+        text: `message ${index + 1}`,
+      },
+      createdAt: `2026-03-19T10:${String(index).padStart(2, '0')}:00.000Z`,
+    }));
+
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        conversation: {
+          id: 'conv-1',
+          messages,
+        },
+      },
+    });
+
+    const adapter = createPmSyncThreadListAdapter();
+    const Provider = adapter.unstable_Provider;
+
+    render(
+      createElement(
+        Provider,
+        null,
+        createElement('div', null, 'child'),
+      ),
+    );
+
+    const providerProps = runtimeAdapterProviderMock.mock.calls.at(-1)?.[0] as
+      | {
+          adapters?: {
+            history?: {
+              withFormat?: (format: {
+                format: string;
+                encode: (value: unknown) => unknown;
+                decode: (value: unknown) => unknown;
+                getId: (message: { id: string }) => string;
+              }) => {
+                load: () => Promise<{
+                  headId?: string | null;
+                  messages: Array<{
+                    parentId: string | null;
+                    message: {
+                      id: string;
+                      role: string;
+                      parts: Array<Record<string, unknown>>;
+                    };
+                  }>;
+                }>;
+              };
+            };
+          };
+        }
+      | undefined;
+
+    const repo = await providerProps!.adapters!.history!.withFormat!({
+      format: 'ai-sdk/v6',
+      encode: (value) => value,
+      decode: (value) => value,
+      getId: (message) => message.id,
+    }).load();
+
+    expect(repo.messages).toHaveLength(50);
+    expect(repo.messages[0]).toMatchObject({
+      parentId: null,
+      message: {
+        id: 'message-11',
+      },
+    });
+    expect(repo.messages.at(-1)).toMatchObject({
+      message: {
+        id: 'message-60',
+      },
+    });
+  });
 });
