@@ -1,52 +1,51 @@
-# Sprint 07 — Checkpoint
+# Sprint 08 — Checkpoint
 
 ## Status
 
-- **Sprint:** 07 — Calendar Frontend Polish & RSVP Wiring
-- **Last Task Completed:** T-0705 — Calendar event form DST handling
-- **Next Task:** Sprint 08 (Contacts Frontend Gap Closure)
+- **Sprint:** 08 — Contacts Frontend: vCard UI, History, Dedup
+- **Last Task Completed:** T-0805 — Persist contact sidebar filters
+- **Next Task:** Sprint 09 (Data Quality & Dedup)
 - **Tasks Done:** 5/5
-- **SP Completed:** 12/12
-- **Last Updated:** 2026-03-31 16:00
+- **SP Completed:** 15/15
+- **Last Updated:** 2026-03-31 17:30
 
 ## Audit Findings Addressed
 
-- CAL-H1: RSVP buttons E2E — ✅ verified wiring, added RSVP-specific toast translations
-- CAL-M1: Recurring event conflict detection — ✅ RRULE expansion in conflict service
-- CAL-M2: ICS parser VTIMEZONE variants — ✅ Windows tz normalization, Apple/Outlook hardening
-- CAL-L1: Provider calendar color sync — ✅ auto-persist from Google/Microsoft APIs
-- CAL-H3: DST/timezone in event form — ✅ parseDateTimeLocalInTz + userTimezone wiring
+- CON-H1: No vCard import UI — ✅ VCardImportDialog with drag-drop, preview, progress
+- CON-H2: Contact history stub — ✅ Already wired (S03 T-0302 backend + existing frontend hook)
+- CON-H3: No duplicate detection on import — ✅ lookupByEmails check in preview, duplicate rows highlighted
+- CON-L1: No contact merge UI — ✅ ContactMergeDialog with side-by-side field selection
+- CON-L2: Extract-from-emails dedup — ✅ Server-side skipping via lookupByEmails
+- CON-L3: Filter state not persisted — ✅ URL search params (?provider=xxx&filter=hasEmail)
 
 ## Last Modified Files
 
-- backend/src/modules/calendar/services/calendar-conflict.service.ts (RRULE expansion)
-- backend/src/modules/calendar/services/ics-parser.service.ts (edge case hardening)
-- backend/src/modules/calendar/services/calendar-list.service.ts (color auto-persist)
-- frontend/components/calendar/CalendarEventDialog.tsx (conflict warning Alert)
-- frontend/components/calendar/RSVPButtons.tsx (verified, no changes needed)
-- frontend/components/dashboard/Calendar.tsx (userTimezone wiring)
-- frontend/components/dashboard/calendar/useCalendarHandlers.ts (tz-aware create/update, RSVP toast)
-- frontend/hooks/queries/use-calendar.ts (useCalendarConflicts hook)
-- frontend/hooks/queries/calendar-keys.ts (conflict query keys)
-- frontend/lib/api/calendar.ts (getConflicts API method)
-- frontend/lib/utils/format-date-tz.ts (parseDateTimeLocalInTz utility)
-- frontend/locales/en.ts (RSVP + conflict translations)
-- frontend/locales/it.ts (RSVP + conflict translations)
-- frontend/locales/index.ts (translation types)
+- frontend/components/contacts/VCardImportDialog.tsx (new — drag-drop import)
+- frontend/components/contacts/ContactMergeDialog.tsx (new — side-by-side merge)
+- frontend/components/contacts/ContactBulkActionBar.tsx (merge button for 2 selected)
+- frontend/components/contacts/ContactSidebar.tsx (import vCard button)
+- frontend/components/contacts/index.ts (exports)
+- frontend/components/dashboard/Contacts.tsx (wired dialogs)
+- frontend/components/dashboard/contacts-page/useContactsPageData.ts (URL param filters)
+- frontend/locales/en.ts (importVCard + merge translations)
+- frontend/locales/it.ts (importVCard + merge translations)
+- frontend/locales/index.ts (type definitions)
 
 ## Key Decisions Made
 
-- RSVP flow was already fully wired from Phase 91; only needed RSVP-specific toast messages
-- Lightweight RRULE expansion in conflict service (no rrule npm dependency) — supports DAILY/WEEKLY/MONTHLY/YEARLY with INTERVAL, COUNT, UNTIL, BYDAY
-- ICS parser retry with manual line-unfolding on initial parse failure (Apple quirk)
-- Provider colors auto-persisted to CalendarPreference on first listCalendars call (fire-and-forget with P2002 conflict handling)
-- parseDateTimeLocalInTz uses Intl.DateTimeFormat offset calculation for DST-correct wall-clock-to-UTC conversion
+- T-0802 was already fully implemented — backend returns real history, frontend hook + component wired
+- Duplicate detection uses existing lookupByEmails endpoint (email-exact match only, no fuzzy)
+- Merge strategy: PATCH the "keep" contact with selected fields + DELETE the duplicate
+- Array fields (emails, phones, tags) are always union-merged with deduplication
+- Merge accessible from bulk action bar (select exactly 2 contacts → merge icon)
+- URL param filter uses shallow routing (no page reload)
 
 ## Blockers / Notes
 
-- None
+- Pre-existing tsc error in portal pages (pages/portal/[tenant]/index.tsx) — unrelated to sprint work
+- Some commits got absorbed into concurrent CRM worktree commits (T-0801 into e3e8d290, T-0805 into 4acdf7ae)
 
 ## Validation Status
 
 - Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing
+- Frontend tsc: ✅ passing (pre-existing portal error excluded)

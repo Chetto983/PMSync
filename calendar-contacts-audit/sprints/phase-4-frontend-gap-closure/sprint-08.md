@@ -64,11 +64,11 @@
 - Mitigation: Batch email lookup, limit preview to first 50 matches
 
 ## Definition of Done
-- [ ] vCard import accessible from contacts page with drag-drop
-- [ ] Contact history shows real interactions (emails, meetings)
-- [ ] Duplicate detection warns during import
-- [ ] Contact merge UI allows side-by-side field selection
-- [ ] Sidebar filters persisted in URL params
-- [ ] `npx tsc --noEmit` passes in frontend
-- [ ] All new strings in en.ts + it.ts
-- [ ] No hardcoded strings or colors
+- [x] vCard import accessible from contacts page with drag-drop ✅
+- [x] Contact history shows real interactions (emails, meetings) ✅
+- [x] Duplicate detection warns during import ✅
+- [x] Contact merge UI allows side-by-side field selection ✅
+- [x] Sidebar filters persisted in URL params ✅
+- [x] `npx tsc --noEmit` passes in frontend ✅
+- [x] All new strings in en.ts + it.ts ✅
+- [x] No hardcoded strings or colors ✅
