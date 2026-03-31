@@ -65,6 +65,7 @@ import {
   suppressDuplicateSingleCallToolEntries,
   filterResponseMessagesBySuppressedToolCallIds,
 } from "../utils/single-call-tools";
+import { wrapToolsWithErrorBoundary } from "../utils/tool-error-boundary";
 
 /**
  * Parameters for streamChat method.
@@ -1440,7 +1441,9 @@ export class AiChatService {
         payload,
       );
 
-    const toolSets = {
+    // T-0205: Wrap all tools with error boundaries so unhandled throws
+    // return { error: message } instead of crashing the ToolLoopAgent step.
+    const toolSets = wrapToolsWithErrorBoundary({
       ...this.emailToolsService.getTools(tenantId, piiResolve, sensitivity),
       ...this.calendarToolsService.getTools(tenantId, piiResolve, sensitivity),
       ...this.contactToolsService.getTools(tenantId, piiResolve, sensitivity),
@@ -1453,7 +1456,7 @@ export class AiChatService {
       ...this.sandboxToolsService.getTools(tenantId),
       ...this.crmToolsService.getTools(tenantId, piiResolve),
       ...this.crmIntelligenceToolsService.getTools(tenantId),
-    };
+    });
 
     // Runtime duplicate check
     const toolNames = Object.keys(toolSets);
