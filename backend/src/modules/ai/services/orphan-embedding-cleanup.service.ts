@@ -4,14 +4,14 @@
  * Cleans up embeddings with null emailId AND null contactId.
  * These are orphans from deleted content that were not properly cleaned up.
  *
- * Schedule: Daily at 2 AM (via BullMQ repeatable job) — E4 FIX: was weekly
+ * Schedule: Every 6 hours (via BullMQ repeatable job) — KB-H2: was daily
  * Batch size: 500 embeddings per batch
  * Safety limit: 50 batches per run (25k embeddings max) — E4 FIX: was 20/10k
  *
  * @see PERF-03 in v2.0 roadmap
  */
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -19,6 +19,7 @@ import {
   ScheduledJobsQueueService,
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
+import { AiRunLedgerService } from './ai-run-ledger.service';
 
 @Injectable()
 export class OrphanEmbeddingCleanupService implements OnModuleInit {
@@ -31,6 +32,7 @@ export class OrphanEmbeddingCleanupService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly scheduledJobsQueue: ScheduledJobsQueueService,
+    @Optional() private readonly ledgerService?: AiRunLedgerService,
   ) {
     this.jobsEnabled =
       (this.configService.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !==
@@ -119,6 +121,21 @@ export class OrphanEmbeddingCleanupService implements OnModuleInit {
     this.logger.log(
       `Orphan embedding cleanup complete: ${totalDeleted} deleted in ${batches} batches`,
     );
+
+    // KB-H2: Log cleanup result to AiRunLedger for observability
+    if (totalDeleted > 0) {
+      this.ledgerService?.recordRun({
+        tenantId: 'system',
+        userId: 'system',
+        runType: 'maintenance',
+        model: 'orphan-embedding-cleanup',
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: totalDeleted, // Repurpose: count of deleted embeddings
+        latencyMs: 0,
+      }).catch((err) => this.logger.warn(`Ledger: ${err instanceof Error ? err.message : String(err)}`));
+    }
+
     return { deleted: totalDeleted, batches };
   }
 }
