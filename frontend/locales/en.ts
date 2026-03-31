@@ -4030,8 +4030,8 @@ export const en: AppTranslations = {
       redirecting: 'Redirecting to checkout...',
     },
     errors: {
-      loadFailed: 'Failed to load subscription details',
-      updateFailed: 'Failed to update subscription',
+      loadFailed: 'Failed to load subscription details. Please refresh the page.',
+      updateFailed: 'Failed to update subscription. Please try again or contact support.',
       cancelFailed: 'Failed to cancel subscription',
       quotaExceeded: 'Quota exceeded for this feature',
       featureNotAvailable: 'This feature is not available on your plan',

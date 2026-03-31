@@ -114,7 +114,7 @@ export function SubscriptionCard({
             {planIcons[subscription.plan]}
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: planColor }}>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: planColor }}>
               {planInfo?.name || subscription.plan}
             </Typography>
             <Typography variant="body2" color="text.secondary">
