@@ -627,6 +627,9 @@ export interface AppTranslations {
           low: string;
           minimal: string;
         };
+        aiTriagedSection: string;
+        userPinnedSection: string;
+        noStarredEmails: string;
       };
       todayEvents: {
         title: string;

@@ -94,30 +94,17 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     tags: ['inbox', 'messages'],
   },
 
-  'priority': {
-    id: 'priority',
-    name: 'Priority Inbox',
-    description: 'Starred and flagged important emails',
-    category: 'email',
-    icon: 'Star',
-    defaultSize: 'medium',
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 4, h: 4 },
-    component: placeholder,
-    tags: ['important', 'starred'],
-  },
-
   'triage': {
     id: 'triage',
-    name: 'AI Triage',
-    description: 'AI-prioritized email inbox with smart labels',
+    name: 'Email Priority',
+    description: 'AI-triaged priority inbox with starred emails',
     category: 'email',
     icon: 'Shield',
     defaultSize: 'large',
     minSize: { w: 3, h: 2 },
     maxSize: { w: 6, h: 4 },
     component: placeholder,
-    tags: ['ai', 'priority', 'labels'],
+    tags: ['ai', 'priority', 'labels', 'starred'],
     isNew: true,
   },
 

@@ -60,8 +60,7 @@ export const LAYOUT_PRESETS: Record<string, DashboardLayout> = {
       { i: 'emails-1', widgetId: 'emails', x: 0, y: 0, w: 4, h: 4 },
       { i: 'followups-1', widgetId: 'followups', x: 4, y: 0, w: 4, h: 4 },
       { i: 'contacts-1', widgetId: 'contacts', x: 8, y: 0, w: 4, h: 4 },
-      { i: 'priority-1', widgetId: 'priority', x: 0, y: 4, w: 6, h: 2 },
-      { i: 'triage-1', widgetId: 'triage', x: 6, y: 4, w: 6, h: 2 },
+      { i: 'triage-1', widgetId: 'triage', x: 0, y: 4, w: 6, h: 2 },
     ],
   },
 

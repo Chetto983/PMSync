@@ -681,7 +681,7 @@ export const it: AppTranslations = {
         important: 'Importante',
       },
       aiTriage: {
-        title: 'AI Triage',
+        title: 'Priorità Email',
         subtitle: '{count} email analizzate',
         noSubject: '(Nessun oggetto)',
         empty: 'Nessuna email analizzata',
@@ -694,6 +694,9 @@ export const it: AppTranslations = {
           low: 'Bassa',
           minimal: 'Minima',
         },
+        aiTriagedSection: 'Priorità AI',
+        userPinnedSection: 'Preferiti',
+        noStarredEmails: 'Nessuna email preferita',
       },
       todayEvents: {
         title: 'Eventi di Oggi',

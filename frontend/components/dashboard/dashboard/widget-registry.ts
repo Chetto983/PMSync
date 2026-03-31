@@ -9,7 +9,6 @@ import {
   Mail,
   Clock,
   Bell,
-  Star,
   TrendingUp,
   Users,
   Shield,
@@ -35,9 +34,6 @@ const TodayEventsWidget = lazy(() =>
 const PredictiveInsightsWidget = lazy(() =>
   import('../widgets/PredictiveInsightsWidget').then((m) => ({ default: m.PredictiveInsightsWidget }))
 );
-const PriorityInboxWidget = lazy(() =>
-  import('../widgets/PriorityInboxWidget').then((m) => ({ default: m.PriorityInboxWidget }))
-);
 const TrendChartsWidget = lazy(() =>
   import('../widgets/TrendChartsWidget').then((m) => ({ default: m.TrendChartsWidget }))
 );
@@ -48,7 +44,7 @@ const AiTriageWidget = lazy(() =>
   import('../widgets/AiTriageWidget').then((m) => ({ default: m.AiTriageWidget }))
 );
 
-export type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'priority' | 'trends' | 'contacts' | 'triage';
+export type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'trends' | 'contacts' | 'triage';
 
 export interface WidgetConfig {
   id: WidgetId;
@@ -90,11 +86,6 @@ export const WIDGETS: WidgetConfig[] = [
     component: FollowUpWidget,
   },
   {
-    id: 'priority',
-    icon: React.createElement(Star, { size: 20 }),
-    component: PriorityInboxWidget,
-  },
-  {
     id: 'trends',
     icon: React.createElement(TrendingUp, { size: 20 }),
     component: TrendChartsWidget,
@@ -119,7 +110,6 @@ export function getWidgetName(id: WidgetId, t: ReturnType<typeof useTranslations
     emails: t.email?.title || 'Unread Emails',
     deadlines: t.dashboard?.widgets?.deadlines?.title || 'Deadlines',
     followups: t.dashboard?.widgets?.followUps?.title || 'Follow-ups',
-    priority: t.dashboard?.widgets?.priorityInbox?.title || 'Priority Inbox',
     trends: t.dashboard?.widgets?.trendCharts?.title || 'Email Activity',
     contacts: t.dashboard?.widgets?.crm?.title || 'Stale Contacts',
     triage: t.dashboard?.widgets?.aiTriage?.title || 'AI Triage',
@@ -135,7 +125,6 @@ export function getWidgetDescription(id: WidgetId): string {
     emails: 'Your unread email count',
     deadlines: 'Upcoming deadlines',
     followups: 'Pending follow-ups',
-    priority: 'Starred and important emails',
     trends: 'Email activity trends',
     contacts: 'Contacts needing reconnection',
     triage: 'AI-prioritized email inbox',

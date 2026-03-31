@@ -1,13 +1,16 @@
 /**
- * AiTriageWidget - Shows AI-triaged emails sorted by priority
+ * AiTriageWidget - Single priority view for email
  *
- * Displays emails that have been automatically analyzed by AI for priority
- * and labeling. Shows priority level (1-5 scale) and AI-suggested labels.
+ * Replaces both the old PriorityInboxWidget and the standalone AiTriageWidget.
+ * Section 1: AI-triaged emails by priority (1-5 scale) — source of truth
+ * Section 2: User-pinned (starred/flagged) — manual override, shown separately
+ *
+ * Addresses: DASH-C1, DASH-H3
  */
 
 'use client';
 
-import { useTriagedEmails } from '@/hooks/queries/use-dashboard';
+import { useTriagedEmails, useImportantEmails } from '@/hooks/queries/use-dashboard';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import {
@@ -19,23 +22,29 @@ import {
   Box,
   Chip,
   Button,
+  Divider,
 } from '@mui/material';
-import { Zap, Inbox, AlertTriangle, AlertCircle, MinusCircle, CheckCircle2 } from 'lucide-react';
+import { Zap, Inbox, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 // Priority to color mapping (1 = highest, 5 = lowest)
-const PRIORITY_CONFIG: Record<number, { color: 'error' | 'warning' | 'info' | 'success' | 'default'; icon: React.ReactNode; label: string }> = {
-  1: { color: 'error', icon: <AlertTriangle size={14} />, label: 'Critical' },
-  2: { color: 'warning', icon: <AlertCircle size={14} />, label: 'High' },
-  3: { color: 'info', icon: <MinusCircle size={14} />, label: 'Medium' },
-  4: { color: 'success', icon: <CheckCircle2 size={14} />, label: 'Low' },
-  5: { color: 'default', icon: <CheckCircle2 size={14} />, label: 'Minimal' },
+const PRIORITY_CONFIG: Record<number, { color: 'error' | 'warning' | 'info' | 'success' | 'default' }> = {
+  1: { color: 'error' },
+  2: { color: 'warning' },
+  3: { color: 'info' },
+  4: { color: 'success' },
+  5: { color: 'default' },
 };
 
 export function AiTriageWidget() {
   const t = useTranslations();
   const router = useRouter();
-  const { data, isLoading, error, refetch } = useTriagedEmails({ limit: 5 });
+  const { data: triageData, isLoading: triageLoading, error: triageError, refetch: refetchTriage } = useTriagedEmails({ limit: 5 });
+  const { data: starredData, isLoading: starredLoading, error: starredError, refetch: refetchStarred } = useImportantEmails({ limit: 3 });
+
+  const isLoading = triageLoading || starredLoading;
+  const error = triageError || starredError;
+  const totalBadge = (triageData?.total || 0) + (starredData?.total || 0);
 
   const handleViewAll = () => {
     router.push('/dashboard/email?filter=triaged');
@@ -54,100 +63,135 @@ export function AiTriageWidget() {
     return from?.name || from?.email || 'Unknown';
   };
 
+  const handleRefresh = () => {
+    refetchTriage();
+    refetchStarred();
+  };
+
+  const hasTriaged = triageData && triageData.emails.length > 0;
+  const hasStarred = starredData && starredData.emails.length > 0;
+  const hasAny = hasTriaged || hasStarred;
+
   return (
     <BaseWidget
       id="ai-triage"
-      title={t.dashboard.widgets.aiTriage?.title || 'AI Triage'}
+      title={t.dashboard.widgets.aiTriage?.title || 'Email Priority'}
       loading={isLoading}
       error={error?.message}
       rawError={error}
-      onRefresh={() => refetch()}
+      onRefresh={handleRefresh}
       icon={<Zap size={18} />}
-      badge={data?.total || undefined}
+      badge={totalBadge || undefined}
       actions={
-        data && data.emails.length > 0 ? (
+        hasAny ? (
           <Button size="small" onClick={handleViewAll}>
             {t.dashboard.widgets.aiTriage?.viewAll || 'View All'}
           </Button>
         ) : undefined
       }
     >
-      {data && data.emails.length > 0 ? (
-        <List dense disablePadding>
-          {data.emails.map((email) => {
-            const priorityConfig = getPriorityConfig(email.aiPriority);
-            return (
-              <ListItem
-                key={email.id}
-                disablePadding
-                sx={{
-                  mb: 1,
-                  cursor: 'pointer',
-                  borderRadius: 1,
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                  px: 1,
-                  py: 0.5,
-                }}
-                onClick={() => handleEmailClick(email.id)}
-              >
-                <ListItemIcon sx={{ minWidth: 32 }}>
-                  <Chip
-                    size="small"
-                    label={email.aiPriority}
-                    color={priorityConfig.color}
-                    sx={{ width: 24, height: 24, fontSize: '0.7rem', fontWeight: 600 }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="body2"
-                        noWrap
-                        sx={{
-                          fontWeight: email.isRead ? 400 : 600,
-                          flex: 1,
-                        }}
-                      >
-                        {email.subject}
-                      </Typography>
-                      {email.aiLabels && email.aiLabels.length > 0 && (
+      {hasAny ? (
+        <>
+          {/* Section 1: AI-triaged by priority */}
+          {hasTriaged && (
+            <>
+              <Typography variant="caption" color="text.secondary" sx={{ px: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {t.dashboard.widgets.aiTriage?.aiTriagedSection || 'AI Priority'}
+              </Typography>
+              <List dense disablePadding sx={{ mb: 1 }}>
+                {triageData.emails.map((email) => {
+                  const priorityConfig = getPriorityConfig(email.aiPriority);
+                  return (
+                    <ListItem
+                      key={email.id}
+                      disablePadding
+                      sx={{
+                        mb: 0.5,
+                        cursor: 'pointer',
+                        borderRadius: 1,
+                        '&:hover': { bgcolor: 'action.hover' },
+                        px: 1,
+                        py: 0.5,
+                      }}
+                      onClick={() => handleEmailClick(email.id)}
+                    >
+                      <ListItemIcon sx={{ minWidth: 32 }}>
                         <Chip
-                          label={email.aiLabels[0]}
                           size="small"
-                          variant="outlined"
-                          sx={{ height: 18, fontSize: '0.6rem' }}
+                          label={email.aiPriority}
+                          color={priorityConfig.color}
+                          sx={{ width: 24, height: 24, fontSize: '0.7rem', fontWeight: 600 }}
                         />
-                      )}
-                    </Box>
-                  }
-                  secondary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="caption" noWrap color="text.secondary" sx={{ flex: 1 }}>
-                        {getFromDisplay(email.from)}
-                      </Typography>
-                      {email.aiPriorityReason && (
-                        <Typography
-                          variant="caption"
-                          color="text.disabled"
-                          noWrap
-                          sx={{ maxWidth: 120 }}
-                          title={email.aiPriorityReason}
-                        >
-                          {email.aiPriorityReason.length > 20
-                            ? email.aiPriorityReason.slice(0, 20) + '...'
-                            : email.aiPriorityReason}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" noWrap sx={{ fontWeight: email.isRead ? 400 : 600, flex: 1 }}>
+                              {email.subject || t.dashboard.widgets.aiTriage?.noSubject}
+                            </Typography>
+                            {email.aiLabels && email.aiLabels.length > 0 && (
+                              <Chip label={email.aiLabels[0]} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.6rem' }} />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <Typography variant="caption" noWrap color="text.secondary">
+                            {getFromDisplay(email.from)}
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </>
+          )}
+
+          {/* Divider between sections */}
+          {hasTriaged && hasStarred && <Divider sx={{ my: 1 }} />}
+
+          {/* Section 2: User-pinned (starred/flagged) */}
+          {hasStarred && (
+            <>
+              <Typography variant="caption" color="text.secondary" sx={{ px: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {t.dashboard.widgets.aiTriage?.userPinnedSection || 'Starred'}
+              </Typography>
+              <List dense disablePadding>
+                {starredData.emails.map((email) => (
+                  <ListItem
+                    key={email.id}
+                    disablePadding
+                    sx={{
+                      mb: 0.5,
+                      cursor: 'pointer',
+                      borderRadius: 1,
+                      '&:hover': { bgcolor: 'action.hover' },
+                      px: 1,
+                      py: 0.5,
+                    }}
+                    onClick={() => handleEmailClick(email.id)}
+                  >
+                    <ListItemIcon sx={{ minWidth: 32 }}>
+                      <Star size={16} fill="var(--mui-palette-warning-main)" color="var(--mui-palette-warning-main)" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" noWrap sx={{ fontWeight: email.isRead ? 400 : 600 }}>
+                          {email.subject || t.dashboard.widgets.aiTriage?.noSubject}
                         </Typography>
-                      )}
-                    </Box>
-                  }
-                />
-              </ListItem>
-            );
-          })}
-        </List>
+                      }
+                      secondary={
+                        <Typography variant="caption" noWrap color="text.secondary">
+                          {typeof email.from === 'object' ? email.from?.name || email.from?.email : email.from}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
+        </>
       ) : (
         <Box
           sx={{
@@ -164,7 +208,7 @@ export function AiTriageWidget() {
             {t.dashboard.widgets.aiTriage?.empty || 'No triaged emails'}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, textAlign: 'center' }}>
-            {t.dashboard.widgets.aiTriage?.emptyDescription || 'Enable Auto-Triage in AI Settings to automatically prioritize incoming emails'}
+            {t.dashboard.widgets.aiTriage?.emptyDescription || 'Enable Auto-Triage in AI Settings'}
           </Typography>
         </Box>
       )}
