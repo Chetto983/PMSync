@@ -93,6 +93,16 @@ export default function ComposeEditor({
   const aiButtonRef = useRef<HTMLButtonElement>(null);
   const rteRef = useRef<RichTextEditorRef>(null);
 
+  // Sync TipTap editor when content prop changes (e.g. AI draft population)
+  const prevContentRef = useRef(content);
+  useEffect(() => {
+    const editor = rteRef.current?.editor;
+    if (editor && content !== prevContentRef.current) {
+      prevContentRef.current = content;
+      editor.commands.setContent(content, { emitUpdate: false });
+    }
+  }, [content]);
+
   // Focus cursor at end of content when AI draft populates
   useEffect(() => {
     if (focusEnd && rteRef.current?.editor) {
