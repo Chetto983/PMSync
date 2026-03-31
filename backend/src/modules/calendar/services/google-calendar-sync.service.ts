@@ -60,7 +60,7 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
    */
   protected async fetchCalendarList(accessToken: string): Promise<ProviderCalendar[]> {
     const calendar = this.createCalendarClient(accessToken);
-    const calendarList = await calendar.calendarList.list();
+    const calendarList = await this.withGoogleRetry(() => calendar.calendarList.list());
     const calendars = calendarList.data.items || [];
 
     return calendars
@@ -97,13 +97,15 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
       const syncWindow = this.getSyncWindow();
 
       do {
-        const eventsResponse = await calendar.events.list({
-          calendarId,
-          maxResults: this.maxEventsPerRequest,
-          showDeleted: true, // Required for incremental sync to detect deletions
-          fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties,attachments)',
-          pageToken,
-        });
+        const eventsResponse = await this.withGoogleRetry(() =>
+          calendar.events.list({
+            calendarId,
+            maxResults: this.maxEventsPerRequest,
+            showDeleted: true, // Required for incremental sync to detect deletions
+            fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties,attachments)',
+            pageToken,
+          }),
+        );
 
         const events = eventsResponse.data.items || [];
 
@@ -126,14 +128,16 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
     } else {
       // Incremental sync: fetch only changed events using syncToken
       do {
-        const eventsResponse = await calendar.events.list({
-          calendarId,
-          syncToken,
-          maxResults: this.maxEventsPerRequest,
-          showDeleted: true, // Required to detect event deletions
-          fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties,attachments)',
-          pageToken,
-        });
+        const eventsResponse = await this.withGoogleRetry(() =>
+          calendar.events.list({
+            calendarId,
+            syncToken,
+            maxResults: this.maxEventsPerRequest,
+            showDeleted: true, // Required to detect event deletions
+            fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties,attachments)',
+            pageToken,
+          }),
+        );
 
         const events = eventsResponse.data.items || [];
         allEvents.push(...events.filter((e) => e.id));
@@ -257,5 +261,45 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
     oauth2Client.setCredentials({ access_token: accessToken });
 
     return google.calendar({ version: 'v3', auth: oauth2Client });
+  }
+
+  /** Max retries for 429 responses */
+  private readonly MAX_RETRIES = 3;
+
+  /**
+   * T-0502: Execute a Google API call with exponential backoff on 429
+   * Retries up to MAX_RETRIES times with exponential delay.
+   * Parses Retry-After header from Google if available.
+   */
+  private async withGoogleRetry<T>(fn: () => Promise<T>): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const status = error?.response?.status ?? error?.code;
+
+        if (status === 429 && attempt < this.MAX_RETRIES) {
+          // Parse Retry-After header (seconds) or use exponential backoff
+          const retryAfterHeader = error?.response?.headers?.['retry-after'];
+          const retryAfterMs = retryAfterHeader
+            ? parseInt(retryAfterHeader, 10) * 1000
+            : Math.min(1000 * Math.pow(2, attempt), 16000); // 1s, 2s, 4s cap 16s
+
+          this.logger.warn(
+            `Google Calendar API 429 (attempt ${attempt + 1}/${this.MAX_RETRIES}), retrying in ${retryAfterMs}ms`,
+          );
+
+          await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
+          lastError = error;
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError;
   }
 }
