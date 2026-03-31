@@ -9,6 +9,7 @@ import {
 } from '../../../common/interfaces/embedding-queue.interface';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { isRateLimitError } from '../../../common/utils/error.utils';
 import {
   getRedisConnectionOptions,
@@ -44,11 +45,16 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
   /** Maximum seenIds size before forced cleanup (prevents unbounded memory growth) */
   private readonly MAX_SEEN_IDS = 10000;
 
+  /** KB-H3: Redis key prefix for distributed dedup guard */
+  private static readonly DEDUP_PREFIX = 'pmsync:embedding:pending:';
+  private static readonly DEDUP_TTL = 3600; // 1 hour
+
   constructor(
     private readonly config: ConfigService,
     private readonly moduleRef: ModuleRef,
     private readonly dlqService: DeadLetterQueueService,
     private readonly alertingService: AlertingService,
+    private readonly redisConnection: RedisConnectionService,
   ) {
     // Bulk batching settings
     this.BULK_SIZE = this.getPositiveNumber('EMBEDDING_BULK_SIZE', 50);
@@ -129,12 +135,18 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
 
     this.worker.on('completed', (job) => {
       this.logger.verbose(`Email embedding job ${job.id} completed`);
+      this.clearEmailPending(job.data.emailId);
     });
 
     this.worker.on('failed', async (job, error) => {
       const jobId = job?.id ?? 'unknown';
       const errorMessage = error?.message ?? String(error);
       this.logger.warn(`Email embedding job ${jobId} failed: ${errorMessage}`);
+
+      // KB-H3: Clear dedup on final failure so email can be retried later
+      if (job && job.attemptsMade + 1 >= MAX_ATTEMPTS) {
+        this.clearEmailPending(job.data.emailId);
+      }
 
       // Phase 1: Add to DLQ if this is the last retry attempt
       if (job && job.attemptsMade + 1 >= MAX_ATTEMPTS) {
@@ -202,8 +214,13 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       if (job.emailId && this.seenIds.has(job.emailId)) {
         continue;
       }
+      // KB-H3: Redis-based distributed dedup (survives restarts, shared across replicas)
+      if (job.emailId && await this.isEmailPending(job.emailId)) {
+        continue;
+      }
       if (job.emailId) {
         this.seenIds.add(job.emailId);
+        await this.markEmailPending(job.emailId);
       }
       this.pending.push(job);
     }
@@ -254,6 +271,34 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
         ),
       );
     }, this.FLUSH_MS);
+  }
+
+  /** KB-H3: Check if an emailId is already pending in Redis (distributed dedup) */
+  private async isEmailPending(emailId: string): Promise<boolean> {
+    try {
+      const key = `${EmailEmbeddingQueueService.DEDUP_PREFIX}${emailId}`;
+      const exists = await this.redisConnection.client.exists(key);
+      return exists === 1;
+    } catch {
+      return false; // Fail open — worst case we re-embed
+    }
+  }
+
+  /** KB-H3: Mark emailId as pending in Redis with TTL */
+  private async markEmailPending(emailId: string): Promise<void> {
+    try {
+      const key = `${EmailEmbeddingQueueService.DEDUP_PREFIX}${emailId}`;
+      await this.redisConnection.client.set(key, '1', 'EX', EmailEmbeddingQueueService.DEDUP_TTL);
+    } catch {
+      // Non-critical — worst case we allow a duplicate
+    }
+  }
+
+  /** KB-H3: Remove emailId from Redis pending set on completion/failure */
+  private clearEmailPending(emailId: string): void {
+    if (!emailId) return;
+    const key = `${EmailEmbeddingQueueService.DEDUP_PREFIX}${emailId}`;
+    this.redisConnection.client.del(key).catch(() => {});
   }
 
   /**
