@@ -1,4 +1,5 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
+import { useRouter } from 'next/router';
 import { FileEdit, ExternalLink, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -40,6 +41,7 @@ export function DraftEmailRenderer({
   result,
   status,
 }: ToolCallMessagePartProps<DraftEmailArgs, DraftEmailResult>) {
+  const router = useRouter();
   const t = useTranslations();
   const tu = t.ai.toolUi ?? {};
   const openDraft = useEmailUIStore((s) => s.openDraft);
@@ -76,6 +78,7 @@ export function DraftEmailRenderer({
   const handleOpen = () => {
     if (result.id) {
       openDraft(result.id);
+      void router.push(`/dashboard/email/compose?draftId=${encodeURIComponent(result.id)}`);
     }
   };
 

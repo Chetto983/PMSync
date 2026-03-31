@@ -12,13 +12,13 @@
 
 ### T-1201: Remove GraphExpansionService and all fallback paths [3 SP]
 
-- [ ] Read `graph-expansion.service.ts` — confirm @deprecated
-- [ ] Read `rag-tools.service.ts:310` — find "Legacy fallback: use GraphExpansionService"
-- [ ] Remove fallback path in rag-tools.service.ts → use EntityGraphService directly
-- [ ] Delete `graph-expansion.service.ts`
-- [ ] Remove from module providers/imports
-- [ ] Grep entire codebase for `GraphExpansion` — remove all references
-- [ ] Test: `npx tsc --noEmit` passes, `npx jest --testPathPattern=ai-chat` passes
+- [x] Read `graph-expansion.service.ts` — confirm @deprecated ✅ DONE
+- [x] Read `rag-tools.service.ts:310` — find "Legacy fallback: use GraphExpansionService" ✅ DONE
+- [x] Remove fallback path in rag-tools.service.ts → use EntityGraphService directly ✅ DONE
+- [x] Delete `graph-expansion.service.ts` ✅ DONE
+- [x] Remove from module providers/imports ✅ DONE
+- [x] Grep entire codebase for `GraphExpansion` — remove all references ✅ DONE
+- [x] Test: `npx tsc --noEmit` passes, `npx jest --testPathPattern=ai-chat` passes ✅ DONE
 
 ### T-1202: Migrate ConversationMessage.content → parts [3 SP]
 
