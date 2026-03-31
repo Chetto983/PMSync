@@ -333,7 +333,7 @@ export abstract class BaseQueueService<TJobData, TJobResult>
   protected async decrementTenantCounter(jobId: string): Promise<void> {
     try {
       const job = await this.queue.getJob(jobId);
-      const tenantId = (job?.data as any)?.tenantId;
+      const tenantId = (job?.data)?.tenantId;
       if (tenantId) {
         const key = `pmsync:queue-depth:${this.getQueueName()}`;
         const val = await this.redisConnection.hincrby(key, tenantId, -1);

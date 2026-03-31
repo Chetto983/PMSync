@@ -901,7 +901,7 @@ export class AiChatService {
    * When tools have needsApproval, the SDK stops the loop and returns
    * tool-approval-request parts instead of executing the tool.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private buildGenerateChatResult(
     result: any,
     conversationId: string,
@@ -991,7 +991,7 @@ export class AiChatService {
           tenantId,
           conversationId,
           this.serializeToolResult(toolResult),
-        )) as Prisma.InputJsonValue;
+        ));
 
         return {
           content,
@@ -1143,12 +1143,12 @@ export class AiChatService {
 
       // HITL: preserve tool messages containing approval responses.
       // These have type 'tool-approval-response' with approvalId (not toolCallId).
-      const hasApprovalResponse = (msg.content as any[]).some(
+      const hasApprovalResponse = (msg.content).some(
         (p) => p?.type === "tool-approval-response",
       );
       if (hasApprovalResponse) return true;
 
-      const part = msg.content[0] as any;
+      const part = msg.content[0];
       const toolCallId = part?.toolCallId;
       if (typeof toolCallId !== "string" || !knownToolCallIds.has(toolCallId))
         return false;
@@ -1173,13 +1173,13 @@ export class AiChatService {
       (msg) =>
         msg.role === "tool" &&
         Array.isArray(msg.content) &&
-        (msg.content as any[]).some(
+        (msg.content).some(
           (p) => p?.type === "tool-approval-response",
         ),
     );
     for (const msg of filtered) {
       if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
-      const hasOrphanedToolCall = (msg.content as any[]).some(
+      const hasOrphanedToolCall = (msg.content).some(
         (p) =>
           p?.type === "tool-call" && !answeredToolCallIds.has(p.toolCallId),
       );
@@ -1187,7 +1187,7 @@ export class AiChatService {
       // If there are approval responses, keep tool-calls that have matching
       // approval-request parts (they're awaiting HITL execution, not orphaned).
       if (hasAnyApprovalResponse) continue;
-      const cleaned = (msg.content as any[]).filter(
+      const cleaned = (msg.content).filter(
         (p) => p?.type !== "tool-call" || answeredToolCallIds.has(p.toolCallId),
       );
       msg.content = cleaned.length > 0 ? cleaned : "";

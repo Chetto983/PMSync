@@ -230,7 +230,7 @@ export class CsvImportService {
         if (colIndex >= 0 && colIndex < row.length) {
           const value = String(row[colIndex]).trim();
           if (value) {
-            contact[mapping.target as keyof Omit<ParsedContactRow, 'rowIndex'>] = value;
+            contact[mapping.target] = value;
           }
         }
       }

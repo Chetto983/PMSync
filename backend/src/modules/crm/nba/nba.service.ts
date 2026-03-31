@@ -99,7 +99,7 @@ export class NBAService {
     }
 
     // Validate status transitions: DISMISSED and EXECUTED are terminal
-    const current = action.status as string;
+    const current = action.status;
     if (current === 'DISMISSED' || current === 'EXECUTED') {
       throw new BadRequestException(
         `Cannot transition from ${current} — it is a terminal status`,

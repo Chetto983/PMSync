@@ -255,7 +255,7 @@ export class TelegramWebhookService {
       const displayInput = await this.piiResolution.resolvePayload(
         tenantId,
         result.conversationId,
-        approval.input as Record<string, unknown>,
+        approval.input,
       );
       const msgId = await this.telegramBot.sendToolApproval(
         chatId,
@@ -374,10 +374,10 @@ export class TelegramWebhookService {
         { tenantId: state.tenantId, userId: state.userId },
         () =>
           this.aiChatService.generateChat({
-            tenantId: state!.tenantId,
-            userId: state!.userId,
+            tenantId: state.tenantId,
+            userId: state.userId,
             message: '',
-            conversationId: state!.conversationId,
+            conversationId: state.conversationId,
             modelMessagesOverride: messages as Array<{ role: string; content: unknown }>,
             abortSignal: AbortSignal.timeout(60_000),
           }),

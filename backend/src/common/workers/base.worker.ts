@@ -106,10 +106,10 @@ export interface BaseWorkerConfig {
  * ```
  */
 export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModuleDestroy {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private static readonly registry: BaseWorker<any, any>[] = [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   static getAll(): BaseWorker<any, any>[] {
     return [...BaseWorker.registry];
   }

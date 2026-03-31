@@ -162,7 +162,7 @@ export class LabelConsistencyService implements OnModuleInit {
         });
 
         for (const email of emails) {
-          const labels = (email.labels as string[]) || [];
+          const labels = (email.labels) || [];
           const derived = this.deriveFolderFromLabels(labels);
           if (email.folder === derived) {
             consistent++;
@@ -267,7 +267,7 @@ export class LabelConsistencyService implements OnModuleInit {
 
         for (const email of emails) {
           totalChecked++;
-          const labels = (email.labels as string[]) || [];
+          const labels = (email.labels) || [];
           const staleIds = labels.filter(
             id => !SYSTEM_LABELS.has(id) && !validExternalIds.has(id),
           );

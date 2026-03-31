@@ -191,7 +191,7 @@ export class MicrosoftSendService {
 
       // Validate batch responses and track failures
       // MS-C3 FIX: Collect 401s for targeted retry
-      const responses = (response as any).data?.responses || [];
+      const responses = (response).data?.responses || [];
       const auth401Batch: typeof batch = [];
       for (const resp of responses) {
         if (resp.status === 401) {
@@ -214,7 +214,7 @@ export class MicrosoftSendService {
         await this.onTokenRefresh();
         try {
           const retryResponse = await this.postBatch(auth401Batch, 'batchMoveMessages:401retry');
-          for (const resp of (retryResponse as any).data?.responses || []) {
+          for (const resp of (retryResponse).data?.responses || []) {
             if (resp.status >= 400) {
               const originalIdx = i + parseInt(resp.id, 10);
               failedIds.push({
@@ -262,7 +262,7 @@ export class MicrosoftSendService {
 
         // Validate batch responses and track failures
         // MS-C3 FIX: Collect 401s for targeted retry
-        const responses = (response as any).data?.responses || [];
+        const responses = (response).data?.responses || [];
         const auth401Batch: typeof batch = [];
         for (const resp of responses) {
           if (resp.status === 401) {
@@ -285,7 +285,7 @@ export class MicrosoftSendService {
           await this.onTokenRefresh();
           try {
             const retryResponse = await this.postBatch(auth401Batch, 'batchDeleteMessages:401retry');
-            for (const resp of (retryResponse as any).data?.responses || []) {
+            for (const resp of (retryResponse).data?.responses || []) {
               if (resp.status >= 400) {
                 const originalIdx = i + parseInt(resp.id, 10);
                 failedIds.push({

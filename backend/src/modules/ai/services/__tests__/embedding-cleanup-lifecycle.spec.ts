@@ -117,7 +117,7 @@ describe('T-1002: Draft deletion cancels queued embedding jobs', () => {
     expect(mockEmbeddingQueue.removeJobForEmail).toHaveBeenCalledWith(emailId);
     // Verify ordering: removeJobForEmail was called before delete
     const removeOrder = mockEmbeddingQueue.removeJobForEmail.mock.invocationCallOrder[0];
-    const deleteOrder = (mockPrisma.email.delete as jest.Mock).mock.invocationCallOrder[0];
+    const deleteOrder = (mockPrisma.email.delete).mock.invocationCallOrder[0];
     expect(removeOrder).toBeLessThan(deleteOrder);
   });
 

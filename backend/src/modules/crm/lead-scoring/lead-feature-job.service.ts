@@ -63,7 +63,7 @@ export class LeadFeatureJobService implements OnModuleInit {
     let processed = 0;
     let cursor: string | undefined;
 
-    // eslint-disable-next-line no-constant-condition
+     
     while (true) {
       const contacts = await this.prisma.contact.findMany({
         where: {

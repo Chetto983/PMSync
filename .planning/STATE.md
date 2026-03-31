@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
 status: executing
-stopped_at: Completed 125-01-PLAN.md
-last_updated: "2026-03-31T07:24:47.195Z"
-last_activity: 2026-03-31
+stopped_at: Wave 1 complete (125-01 + 125-02)
+last_updated: "2026-03-31T08:22:25.717Z"
+last_activity: 2026-03-31 -- Phase 125 execution started
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 66
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 125 (dead-code-removal) — EXECUTING
-Plan: 3 of 3 (125-01 + 125-02 complete)
-Status: Wave 1 complete, Wave 2 pending
-Last activity: 2026-03-31
+Plan: 1 of 3
+Status: Executing Phase 125
+Last activity: 2026-03-31 -- Phase 125 execution started
 
 Progress: [██████░░░░] 66%
 

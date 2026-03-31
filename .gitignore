@@ -208,3 +208,4 @@ scripts/*
 artifacts/*
 backend/scripts/screenshots/*
 backups/*
+frontend/public/sw.js

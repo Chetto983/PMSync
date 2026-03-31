@@ -413,8 +413,8 @@ export class ImapIdleService {
           folder: this.pathToCanonicalFolder(this.state.folder),
           timestamp: new Date(),
         }]);
-        if (result && typeof (result as Promise<void>).catch === 'function') {
-          (result as Promise<void>).catch((err: Error) => {
+        if (result && typeof (result).catch === 'function') {
+          (result).catch((err: Error) => {
             this.logger.error('Error in polling callback:', err);
           });
         }

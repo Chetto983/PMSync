@@ -288,7 +288,7 @@ export class PiiResolutionService {
         payload,
         store.mappings,
         stats,
-      ) as T;
+      );
 
       if (stats.resolutionCount > 0) {
         this.logger.debug(

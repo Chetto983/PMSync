@@ -212,7 +212,7 @@ export class ProviderTokenService {
 
       if ((isTypedMsError || isLegacyAuthError) && provider.tenantId) {
         const errorMessage = isTypedMsError
-          ? `Microsoft account ${provider.email}: ${(error as MicrosoftProviderError).errorType}`
+          ? `Microsoft account ${provider.email}: ${(error).errorType}`
           : error instanceof ForbiddenException
             ? `Microsoft account ${provider.email} needs permission re-grant`
             : `Microsoft account ${provider.email} requires re-authentication`;
@@ -226,7 +226,7 @@ export class ProviderTokenService {
         if (isTypedMsError) {
           this.logger.warn(
             'Microsoft token refresh classified error',
-            (error as MicrosoftProviderError).toStructuredLog(),
+            (error).toStructuredLog(),
           );
         } else {
           this.logger.warn(
@@ -357,7 +357,7 @@ export class ProviderTokenService {
 
       if ((isTypedGoogleError || isLegacyAuthError) && provider.tenantId) {
         const errorMessage = isTypedGoogleError
-          ? `Google account ${provider.email}: ${(error as GoogleProviderError).errorType}`
+          ? `Google account ${provider.email}: ${(error).errorType}`
           : error instanceof ForbiddenException
             ? `Google account ${provider.email} needs permission re-grant`
             : `Google account ${provider.email} requires re-authentication`;
@@ -371,7 +371,7 @@ export class ProviderTokenService {
         if (isTypedGoogleError) {
           this.logger.warn(
             'Google token refresh classified error',
-            (error as GoogleProviderError).toStructuredLog(),
+            (error).toStructuredLog(),
           );
         } else {
           this.logger.warn(

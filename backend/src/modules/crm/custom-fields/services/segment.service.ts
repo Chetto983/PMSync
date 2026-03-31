@@ -102,9 +102,9 @@ export class SegmentService {
 
     const conditions = group.rules.map((rule) => {
       if ('logic' in rule) {
-        return this.buildWhere(rule as SegmentGroup);
+        return this.buildWhere(rule);
       }
-      return this.buildRuleCondition(rule as SegmentRule);
+      return this.buildRuleCondition(rule);
     });
 
     if (group.logic === 'AND') {
@@ -173,7 +173,7 @@ export class SegmentService {
     }
     for (const rule of group.rules) {
       if ('logic' in rule) {
-        this.checkDepth(rule as SegmentGroup, current + 1, max);
+        this.checkDepth(rule, current + 1, max);
       }
     }
   }

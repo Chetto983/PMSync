@@ -418,6 +418,133 @@ async function main() {
   // Reset viewport
   await page.setViewportSize({ width: 1280, height: 800 });
 
+  // ---- Validate: CRM Tickets Page (Sprint 15) ----
+  const ticketsResult = await validatePage(page, '/dashboard/crm/tickets', [
+    {
+      name: 'Tickets title visible',
+      fn: async (p) => {
+        const heading = p.locator('h5, h4, h3').filter({ hasText: /ticket/i });
+        return (await heading.count()) > 0;
+      },
+    },
+    {
+      name: 'New Ticket button exists',
+      fn: async (p) => {
+        const btn = p.locator('button').filter({ hasText: /new ticket|nuovo ticket/i });
+        return (await btn.count()) > 0;
+      },
+    },
+    {
+      name: 'Search field exists',
+      fn: async (p) => {
+        const input = p.locator('input[placeholder*="earch" i], input[placeholder*="erca" i]');
+        return (await input.count()) > 0;
+      },
+    },
+    {
+      name: 'Status filter exists',
+      fn: async (p) => {
+        const select = p.locator('label').filter({ hasText: /status|stato/i });
+        return (await select.count()) > 0;
+      },
+    },
+    {
+      name: 'Priority filter exists',
+      fn: async (p) => {
+        const select = p.locator('label').filter({ hasText: /priority|priorit/i });
+        return (await select.count()) > 0;
+      },
+    },
+    {
+      name: 'Table or empty state renders',
+      fn: async (p) => {
+        const table = p.locator('table');
+        const empty = p.locator('text=/no ticket|nessun ticket/i');
+        return (await table.count()) > 0 || (await empty.count()) > 0;
+      },
+    },
+    {
+      name: 'Sidebar Tickets nav link active',
+      fn: async (p) => {
+        const link = p.locator('a[href*="/crm/tickets"], [href*="/crm/tickets"]');
+        return (await link.count()) > 0;
+      },
+    },
+  ]);
+
+  // ---- Validate: Create Ticket Dialog ----
+  log('\n◆', 'Testing Create Ticket dialog...');
+  const newTicketBtn = page.locator('button').filter({ hasText: /new ticket|nuovo ticket/i }).first();
+  if (await newTicketBtn.count() > 0) {
+    await newTicketBtn.click();
+    await page.waitForTimeout(500);
+
+    const ticketDialogChecks = [
+      {
+        name: 'Dialog opened',
+        fn: async (p) => {
+          const dialog = p.locator('[role="dialog"], .MuiDialog-root');
+          return (await dialog.count()) > 0;
+        },
+      },
+      {
+        name: 'Subject field exists',
+        fn: async (p) => {
+          const input = p.locator('[role="dialog"] input').first();
+          return (await input.count()) > 0;
+        },
+      },
+      {
+        name: 'Priority select exists',
+        fn: async (p) => {
+          const select = p.locator('[role="dialog"] label').filter({ hasText: /priority|priorit/i });
+          return (await select.count()) > 0;
+        },
+      },
+      {
+        name: 'Create button exists',
+        fn: async (p) => {
+          const btn = p.locator('[role="dialog"] button').filter({ hasText: /create|crea/i });
+          return (await btn.count()) > 0;
+        },
+      },
+    ];
+
+    for (const check of ticketDialogChecks) {
+      try {
+        const result = await check.fn(page);
+        log(result ? '✓' : '✗', `${check.name}: ${result ? 'PASS' : 'FAIL'}`);
+      } catch (err) {
+        log('✗', `${check.name}: ERROR — ${err.message}`);
+      }
+    }
+
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/crm_tickets_create_dialog.png`, fullPage: true });
+    log('📸', `Screenshot: ${SCREENSHOT_DIR}/crm_tickets_create_dialog.png`);
+
+    const cancelBtn = page.locator('[role="dialog"] button').filter({ hasText: /cancel|annulla/i }).first();
+    if (await cancelBtn.count() > 0) await cancelBtn.click();
+    await page.waitForTimeout(300);
+  } else {
+    log('✗', 'New Ticket button not found — cannot test dialog');
+  }
+
+  // ---- Mobile validation: Tickets page at 375x812 ----
+  log('\n◆', 'Mobile validation: Tickets (375x812)...');
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(`${APP_URL}/dashboard/crm/tickets`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${SCREENSHOT_DIR}/crm_tickets_mobile.png`, fullPage: true });
+  log('📸', `Mobile screenshot: ${SCREENSHOT_DIR}/crm_tickets_mobile.png`);
+
+  const ticketsMobileOverflow = await page.evaluate(() => {
+    return document.documentElement.scrollWidth > document.documentElement.clientWidth;
+  });
+  log(ticketsMobileOverflow ? '✗' : '✓', `No horizontal overflow (tickets): ${!ticketsMobileOverflow ? 'PASS' : 'FAIL'}`);
+
+  // Reset viewport
+  await page.setViewportSize({ width: 1280, height: 800 });
+
   // ---- Summary ----
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(' Validation Summary');
@@ -425,8 +552,10 @@ async function main() {
   log('📋', `Accounts page: ${accountsResult.status}`);
   log('📋', `Forecast page: ${forecastResult.status}`);
   log('📋', `Governance page: ${governanceResult.status}`);
+  log('📋', `Tickets page: ${ticketsResult.status}`);
   log('📱', `Mobile overflow (forecast): ${!hasOverflow ? 'PASS' : 'FAIL'}`);
   log('📱', `Mobile overflow (governance): ${!govMobileOverflow ? 'PASS' : 'FAIL'}`);
+  log('📱', `Mobile overflow (tickets): ${!ticketsMobileOverflow ? 'PASS' : 'FAIL'}`);
   log('🌐', `Target: ${APP_URL}`);
   log('🔧', `API: ${API_URL}`);
 

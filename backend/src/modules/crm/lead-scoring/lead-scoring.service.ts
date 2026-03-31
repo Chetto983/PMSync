@@ -118,13 +118,13 @@ export class LeadScoringService {
         contactId,
         score: result.score,
         confidence: result.confidence,
-        features: JSON.parse(JSON.stringify(features)) as any,
+        features: JSON.parse(JSON.stringify(features)),
         computedAt: now,
       },
       update: {
         score: result.score,
         confidence: result.confidence,
-        features: JSON.parse(JSON.stringify(features)) as any,
+        features: JSON.parse(JSON.stringify(features)),
         computedAt: now,
       },
     });
@@ -187,13 +187,13 @@ export class LeadScoringService {
               contactId,
               score: result.score,
               confidence: result.confidence,
-              features: JSON.parse(JSON.stringify(features)) as any,
+              features: JSON.parse(JSON.stringify(features)),
               computedAt: batchNow,
             },
             update: {
               score: result.score,
               confidence: result.confidence,
-              features: JSON.parse(JSON.stringify(features)) as any,
+              features: JSON.parse(JSON.stringify(features)),
               computedAt: batchNow,
             },
           });

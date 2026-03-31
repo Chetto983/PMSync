@@ -339,7 +339,7 @@ export class HealthService {
         });
 
         for (const email of emails) {
-          const labels = (email.labels as string[]) || [];
+          const labels = (email.labels) || [];
           const derived = this.deriveFolderFromLabels(labels);
           if (email.folder === derived) {
             consistent++;

@@ -56,7 +56,7 @@ export class FeatureStoreService {
       data: {
         tenantId,
         contactId,
-        features: JSON.parse(JSON.stringify(features)) as any,
+        features: JSON.parse(JSON.stringify(features)),
         computedAt: new Date(),
       },
     });

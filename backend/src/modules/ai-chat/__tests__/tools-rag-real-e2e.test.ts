@@ -294,7 +294,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       prisma as any,
       noopRegistry,
     );
-    folderToolsService = new FolderToolsService(prisma as any, noopRegistry);
+    folderToolsService = new FolderToolsService(prisma as any, null as any, noopRegistry);
     hybridSearchService = new HybridSearchService(prisma as any, mistralEmbeddingService, new (await import('../services/reranking.service')).RerankingService());
     ragToolsService = new RagToolsService(
       mistralEmbeddingService,
