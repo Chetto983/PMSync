@@ -4,7 +4,7 @@
  * Extracted from EmailsController (Phase 43 god-file split).
  */
 import { BadRequestException, Body, Controller, Get, Logger, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiCookieAuth } from '@nestjs/swagger';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -20,7 +20,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 interface CalendarEventMetadata { sequence?: number; [key: string]: unknown; }
 
 @ApiTags('Emails')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('emails')
 @UseGuards(TenantGuard, RolesGuard)
 export class EmailCalendarInviteController {

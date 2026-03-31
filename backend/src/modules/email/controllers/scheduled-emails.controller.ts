@@ -9,7 +9,7 @@ import {
   Request,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
@@ -19,7 +19,7 @@ import { RescheduleEmailDto, ScheduledEmailResponseDto } from '../dto/scheduled-
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Scheduled Emails')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @UseGuards(TenantGuard, RolesGuard)
 @Controller('emails/scheduled')
 export class ScheduledEmailsController {

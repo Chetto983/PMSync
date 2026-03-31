@@ -14,7 +14,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { CalendarService, ListEventsFilters } from '../services/calendar.service';
 import { CalendarConflictService } from '../services/calendar-conflict.service';
@@ -31,7 +31,7 @@ import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @ApiTags('Calendar')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('calendar')
 @UseGuards(TenantGuard)
 export class CalendarController {

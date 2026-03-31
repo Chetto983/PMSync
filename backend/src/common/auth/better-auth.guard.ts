@@ -37,7 +37,7 @@ interface BetterAuthSessionResult {
 /**
  * Global guard that validates better-auth session cookies.
  *
- * Global APP_GUARD backed by DB sessions (no JWT).
+ * Global APP_GUARD backed by DB sessions.
  * Registered as APP_GUARD in AppModule.
  *
  * Auth mutation routes (/api/auth/*) are marked @Public() and bypass

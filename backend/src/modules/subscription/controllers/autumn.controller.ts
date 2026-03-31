@@ -22,7 +22,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
@@ -65,7 +65,7 @@ export class AutumnController {
 
   @Post('customers')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @ApiOperation({ summary: 'Create Autumn customer' })
   @ApiResponse({
     status: 201,
@@ -93,7 +93,7 @@ export class AutumnController {
 
   @Post('attach')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Attach product to customer (initiate payment)' })
   @ApiResponse({
@@ -121,7 +121,7 @@ export class AutumnController {
 
   @Post('check')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Check feature access' })
   @ApiResponse({
@@ -145,7 +145,7 @@ export class AutumnController {
 
   @Post('track')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Track usage event' })
   @ApiResponse({
@@ -175,7 +175,7 @@ export class AutumnController {
 
   @Post('billing_portal')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get billing portal URL' })
   @ApiResponse({
@@ -204,7 +204,7 @@ export class AutumnController {
 
   @Post('openBillingPortal')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Open billing portal (returns to app root)' })
   @ApiResponse({
@@ -235,7 +235,7 @@ export class AutumnController {
 
   @Post('cancel')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel subscription' })
   @ApiResponse({
@@ -271,7 +271,7 @@ export class AutumnController {
 
   @Get('components/pricing_table/authenticated')
   @UseGuards(TenantGuard)
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @ApiOperation({ summary: 'Get pricing table with customer context' })
   @ApiResponse({
     status: 200,

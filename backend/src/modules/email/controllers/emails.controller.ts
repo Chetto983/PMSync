@@ -22,7 +22,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiTags,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
@@ -32,7 +32,7 @@ import { EmailFetchService } from '../services/email-fetch.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Emails')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('emails')
 @UseGuards(TenantGuard, RolesGuard)
 export class EmailsController {

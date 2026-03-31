@@ -15,7 +15,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -24,7 +24,7 @@ import { ChurnAssessmentService } from './churn-assessment.service';
 import { ListChurnSignalsQueryDto, ChurnSortField } from './dto/churn.dto';
 
 @ApiTags('CRM - Churn Prediction')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/churn')
 @UseGuards(TenantGuard, RolesGuard)
 export class ChurnController {

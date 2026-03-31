@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
@@ -18,7 +18,7 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
  * even when they haven't accepted yet.
  */
 @ApiTags('Compliance')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @SkipLegalCheck()
 @Controller('compliance/legal')
 @UseGuards(TenantGuard, RolesGuard)

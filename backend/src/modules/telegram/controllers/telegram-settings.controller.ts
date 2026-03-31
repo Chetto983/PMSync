@@ -8,7 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { IsBoolean, IsOptional, IsString, Matches } from 'class-validator';
 import { randomBytes } from 'crypto';
@@ -47,7 +47,7 @@ interface AuthenticatedRequest {
 }
 
 @ApiTags('Telegram')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @UseGuards(TenantGuard, RolesGuard)
 @Controller('telegram/settings')
 export class TelegramSettingsController {

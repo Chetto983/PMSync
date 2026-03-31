@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Param, UseGuards, Request, Logger, NotFoundException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../common/auth/tenant.guard';
 import { RolesGuard } from '../../common/auth/roles.guard';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -15,7 +15,7 @@ import { AuthenticatedRequest } from '../../common/types/request.types';
 @ApiTags('Email Sync')
 @Controller('email-sync')
 @UseGuards(TenantGuard)
-@ApiBearerAuth()
+@ApiCookieAuth()
 export class EmailSyncController {
   private readonly logger = new Logger(EmailSyncController.name);
 

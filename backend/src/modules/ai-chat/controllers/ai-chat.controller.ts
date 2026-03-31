@@ -20,7 +20,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
@@ -69,7 +69,7 @@ import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorato
  * as pro/active. For production: upgrade plan or wait for daily/monthly reset.
  */
 @ApiTags('AI Chat')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('ai')
 @UseGuards(TenantGuard, ConsentGuard, QuotaGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))

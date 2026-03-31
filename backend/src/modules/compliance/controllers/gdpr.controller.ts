@@ -1,5 +1,5 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags, ApiCookieAuth } from '@nestjs/swagger';
 import { GdprService } from '../services/gdpr.service';
 import { GdprStatusDto } from '../dto/gdpr-status.dto';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
@@ -9,7 +9,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 
 @ApiTags('Compliance')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @SkipLegalCheck()
 @Controller('compliance/gdpr')
 @UseGuards(TenantGuard, RolesGuard)

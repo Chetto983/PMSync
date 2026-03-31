@@ -14,7 +14,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
@@ -26,7 +26,7 @@ import {
 } from '../dto/lead-score.dto';
 
 @ApiTags('CRM - Lead Scoring')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/leads')
 @UseGuards(TenantGuard, RolesGuard)
 export class LeadScoreController {

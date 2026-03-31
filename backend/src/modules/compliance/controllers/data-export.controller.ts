@@ -9,7 +9,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -36,7 +36,7 @@ import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorato
  * @SkipLegalCheck: GDPR data rights must remain accessible regardless of legal acceptance.
  */
 @ApiTags('Compliance')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @SkipLegalCheck()
 @Controller('compliance/data-export')
 @UseGuards(TenantGuard)

@@ -22,7 +22,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiQuery,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
@@ -31,7 +31,7 @@ import { EmailsService, EmailListFilters } from '../services/emails.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Emails')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('emails')
 @UseGuards(TenantGuard, RolesGuard)
 export class EmailQueryController {
