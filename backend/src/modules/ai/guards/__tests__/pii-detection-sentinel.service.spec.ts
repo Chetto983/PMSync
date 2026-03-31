@@ -218,6 +218,19 @@ describe('PiiDetectionService', () => {
       const ssnMatches = result.details.filter((d) => d.type === 'SSN');
       expect(ssnMatches.length).toBe(0);
     });
+
+    it('should not detect timestamp-like run tags as phone numbers', () => {
+      const text = 'AI Tool Email 20260331095822';
+      const result = service.detect(text);
+
+      const phoneMatches = result.details.filter((d) => d.type === 'PHONE');
+      expect(phoneMatches.length).toBe(0);
+      expect(result.redactedText).toContain('20260331095822');
+    });
+
+    it('should not flag timestamp-like run tags in containsPii', () => {
+      expect(service.containsPii('AI Tool Email 20260331095822')).toBe(false);
+    });
   });
 
   describe('edge cases', () => {

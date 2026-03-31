@@ -13,7 +13,7 @@
  * @see https://github.com/sentinel-seed/sentinel/tree/main/packages/voltagent
  */
 import { Injectable, Logger } from '@nestjs/common';
-import { detectPII, hasPII, getSupportedPIITypes } from '@sentinelseed/voltagent';
+import { detectPII, getSupportedPIITypes } from '@sentinelseed/voltagent';
 
 /**
  * Extended PII types from Sentinel
@@ -111,6 +111,7 @@ export class PiiDetectionService {
     // Filter by configured types and convert to our format
     const matches: PiiMatch[] = sentinelResult.matches
       .filter((m) => this.config.detectTypes.includes(m.type as PiiType))
+      .filter((m) => !this.shouldIgnoreMatch(m.value, m.type as PiiType))
       .map((m) => ({
         type: m.type as PiiType,
         value: m.value,
@@ -154,7 +155,7 @@ export class PiiDetectionService {
    */
   containsPii(text: string): boolean {
     if (!text) return false;
-    return hasPII(text);
+    return this.detect(text).hasPii;
   }
 
   /**
@@ -227,5 +228,39 @@ export class PiiDetectionService {
       hash = hash & hash;
     }
     return Math.abs(hash).toString(16).substring(0, 8);
+  }
+
+  private shouldIgnoreMatch(value: string, type: PiiType): boolean {
+    if (type === 'PHONE' && this.looksLikeTimestampId(value)) {
+      return true;
+    }
+    return false;
+  }
+
+  private looksLikeTimestampId(value: string): boolean {
+    const trimmed = String(value || '').trim();
+    if (!/^\d{12,14}$/.test(trimmed)) {
+      return false;
+    }
+
+    const year = Number(trimmed.slice(0, 4));
+    const month = Number(trimmed.slice(4, 6));
+    const day = Number(trimmed.slice(6, 8));
+    const hour = Number(trimmed.slice(8, 10));
+    const minute = Number(trimmed.slice(10, 12));
+    const second = trimmed.length >= 14 ? Number(trimmed.slice(12, 14)) : 0;
+
+    return year >= 2000
+      && year <= 2100
+      && month >= 1
+      && month <= 12
+      && day >= 1
+      && day <= 31
+      && hour >= 0
+      && hour <= 23
+      && minute >= 0
+      && minute <= 59
+      && second >= 0
+      && second <= 59;
   }
 }

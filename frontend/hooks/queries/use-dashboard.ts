@@ -12,7 +12,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import axios from 'axios';
 import { dashboardKeys } from './dashboard-keys';
-import { aiChatApi, type CachedDeadline } from '@/lib/api/ai';
+import { aiChatApi } from '@/lib/api/ai';
 import { crmApi, type ContactRelationshipStats } from '@/lib/api/crm';
 import { contactsApi } from '@/lib/api/contacts';
 import { calendarApi } from '@/lib/api/calendar';
@@ -119,7 +119,7 @@ export function briefingOptions(enabled = true) {
 
 /**
  * Query options for deadlines
- * Uses aiChatApi.getUpcomingDeadlines()
+ * Uses calendarApi.listEvents() only — calendar events are facts, not AI guesses
  */
 export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }) {
   return queryOptions({
@@ -127,61 +127,34 @@ export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }
     queryFn: async (): Promise<{ deadlines: Deadline[]; total: number; todayCount: number; weekCount: number }> => {
       const limit = params?.limit || 5;
 
-      try {
-        const response = await aiChatApi.getUpcomingDeadlines({ days: 7 });
-        const items = response.data?.deadlines || [];
+      const weekEnd = new Date();
+      weekEnd.setDate(weekEnd.getDate() + 7);
 
-        const todayEnd = new Date();
-        todayEnd.setHours(23, 59, 59, 999);
-        const weekEnd = new Date();
-        weekEnd.setDate(weekEnd.getDate() + 7);
+      const response = await calendarApi.listEvents({
+        startTime: new Date().toISOString(),
+        endTime: weekEnd.toISOString(),
+        limit,
+      });
 
-        const deadlines: Deadline[] = items.slice(0, limit).map((d: CachedDeadline) => ({
-          id: d.id,
-          title: d.title,
-          dueDate: d.deadline,
-          source: d.sourceType as 'email' | 'calendar' | 'task',
-          sourceId: d.sourceId,
-          priority: 'medium' as const,
-        }));
+      const events = response.data?.events || [];
+      const deadlines: Deadline[] = events.map((e) => ({
+        id: e.id,
+        title: e.title,
+        dueDate: e.startTime,
+        source: 'calendar' as const,
+        sourceId: e.id,
+        priority: 'medium' as const,
+      }));
 
-        return {
-          deadlines,
-          total: response.data?.count || items.length,
-          todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
-          weekCount: deadlines.filter((d) => new Date(d.dueDate) <= weekEnd).length,
-        };
-      } catch {
-        // Fallback to calendar events -- if this also fails, TanStack Query catches it
-        const weekEnd = new Date();
-        weekEnd.setDate(weekEnd.getDate() + 7);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
 
-        const response = await calendarApi.listEvents({
-          startTime: new Date().toISOString(),
-          endTime: weekEnd.toISOString(),
-          limit,
-        });
-
-        const events = response.data?.events || [];
-        const deadlines: Deadline[] = events.map((e) => ({
-          id: e.id,
-          title: e.title,
-          dueDate: e.startTime,
-          source: 'calendar' as const,
-          sourceId: e.id,
-          priority: 'medium' as const,
-        }));
-
-        const todayEnd = new Date();
-        todayEnd.setHours(23, 59, 59, 999);
-
-        return {
-          deadlines,
-          total: events.length,
-          todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
-          weekCount: deadlines.length,
-        };
-      }
+      return {
+        deadlines,
+        total: events.length,
+        todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
+        weekCount: deadlines.length,
+      };
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000,
