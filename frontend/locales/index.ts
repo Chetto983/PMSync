@@ -1541,6 +1541,7 @@ export interface AppTranslations {
       endRequired: string;
       endAfterStart: string;
       duplicateEvent: string;
+      conflictWarning: string;
     };
     rsvp: {
       accept: string;

@@ -299,4 +299,23 @@ export const calendarApi = {
   getEventSourceEmail(eventId: string) {
     return apiClient.get<{ emailId: string | null }>(`/calendar/events/${eventId}/source-email`);
   },
+
+  // ===== Conflicts =====
+
+  /**
+   * Detect scheduling conflicts in a date range
+   * GET /calendar/conflicts
+   */
+  getConflicts(startDate: string, endDate: string) {
+    return apiClient.get<{
+      success: boolean;
+      conflicts: Array<{
+        eventA: { id: string; title: string; startTime: string; endTime: string };
+        eventB: { id: string; title: string; startTime: string; endTime: string };
+        overlapMinutes: number;
+        severity: 'hard' | 'soft';
+      }>;
+      total: number;
+    }>('/calendar/conflicts', { params: { startDate, endDate } });
+  },
 };

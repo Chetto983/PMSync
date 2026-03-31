@@ -34,6 +34,11 @@ export const calendarKeys = {
   attachment: (eventId: string, attachmentId: string) =>
     [...calendarKeys.attachments(), eventId, attachmentId] as const,
 
+  // Conflicts
+  conflicts: () => [...calendarKeys.all, 'conflicts'] as const,
+  conflictsByRange: (startDate: string, endDate: string) =>
+    [...calendarKeys.conflicts(), { startDate, endDate }] as const,
+
   // Sync status
   syncStatus: () => [...calendarKeys.all, 'sync-status'] as const,
   providerSync: (providerId: string) => [...calendarKeys.syncStatus(), providerId] as const,

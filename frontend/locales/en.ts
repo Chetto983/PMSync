@@ -1656,6 +1656,7 @@ export const en: AppTranslations = {
       endRequired: 'End date/time is required',
       endAfterStart: 'End time must be after start time',
       duplicateEvent: 'An event with this title already exists at the same time',
+      conflictWarning: 'This time conflicts with: {events}',
     },
     // RSVP buttons
     rsvp: {

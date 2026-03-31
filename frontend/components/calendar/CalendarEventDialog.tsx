@@ -27,11 +27,13 @@ import {
   Select,
   MenuItem,
   FormHelperText,
+  Alert,
   alpha,
   useTheme,
   Divider,
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useCalendarConflicts } from '@/hooks/queries/use-calendar';
 import type { CalendarPreference } from './CalendarSidebar';
 import { RecurrencePicker } from './RecurrencePicker';
 import { RemindersPicker, type RemindersData } from './RemindersPicker';
@@ -102,6 +104,28 @@ export function CalendarEventDialog({
     const date = new Date(newEvent.start);
     return isNaN(date.getTime()) ? undefined : date;
   }, [newEvent.start]);
+
+  // Check for conflicts with existing events when start/end are set
+  const conflictStartIso = useMemo(() => {
+    if (!newEvent.start) return '';
+    const d = new Date(newEvent.start);
+    return isNaN(d.getTime()) ? '' : d.toISOString();
+  }, [newEvent.start]);
+  const conflictEndIso = useMemo(() => {
+    if (!newEvent.end) return '';
+    const d = new Date(newEvent.end);
+    return isNaN(d.getTime()) ? '' : d.toISOString();
+  }, [newEvent.end]);
+  const { data: conflictData } = useCalendarConflicts(conflictStartIso, conflictEndIso);
+  const conflictingEventNames = useMemo(() => {
+    if (!conflictData?.conflicts?.length) return '';
+    const names = new Set<string>();
+    for (const c of conflictData.conflicts) {
+      names.add(c.eventA.title);
+      names.add(c.eventB.title);
+    }
+    return Array.from(names).slice(0, 3).join(', ');
+  }, [conflictData]);
 
   // Handle close with error cleanup
   const handleClose = () => {
@@ -194,6 +218,13 @@ export function CalendarEventDialog({
               },
             }}
           />
+
+          {/* Conflict Warning */}
+          {conflictingEventNames && (
+            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+              {calendarCopy.validation.conflictWarning.replace('{events}', conflictingEventNames)}
+            </Alert>
+          )}
 
           {/* Calendar Selector */}
           <FormControl fullWidth error={!!formErrors.calendar}>

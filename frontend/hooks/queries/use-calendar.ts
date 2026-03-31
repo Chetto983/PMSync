@@ -117,6 +117,22 @@ export function calendarEventAttachmentsOptions(eventId: string) {
   });
 }
 
+/**
+ * Query options for fetching calendar conflicts in a date range
+ */
+export function calendarConflictsOptions(startDate: string, endDate: string) {
+  return queryOptions({
+    queryKey: calendarKeys.conflictsByRange(startDate, endDate),
+    queryFn: async () => {
+      const response = await calendarApi.getConflicts(startDate, endDate);
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    enabled: !!startDate && !!endDate,
+  });
+}
+
 // ============================================================================
 // Query Hooks
 // ============================================================================
@@ -194,6 +210,13 @@ export function useCalendarEvent(id: string) {
  */
 export function useCalendarEventAttachments(eventId: string) {
   return useQuery(calendarEventAttachmentsOptions(eventId));
+}
+
+/**
+ * Hook for fetching calendar conflicts in a date range
+ */
+export function useCalendarConflicts(startDate: string, endDate: string) {
+  return useQuery(calendarConflictsOptions(startDate, endDate));
 }
 
 // ============================================================================

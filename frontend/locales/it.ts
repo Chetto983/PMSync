@@ -1645,6 +1645,7 @@ export const it: AppTranslations = {
       endRequired: 'La data/ora di fine è obbligatoria',
       endAfterStart: 'L\'ora di fine deve essere successiva all\'ora di inizio',
       duplicateEvent: 'Un evento con questo titolo esiste già allo stesso orario',
+      conflictWarning: 'Questo orario è in conflitto con: {events}',
     },
     // RSVP buttons
     rsvp: {

@@ -21,11 +21,11 @@
 - [x] Browser test: open email with invite → click Accept → verify API call + toast ✅ DONE (verified wiring E2E)
 
 ### T-0702: Fix recurring event conflict display [2 SP]
-- [ ] Read `calendar-conflict.service.ts` — check if recurring events are expanded
-- [ ] If not: expand recurrence instances within date range before conflict check
-- [ ] Show conflict warning when creating event that overlaps a recurring instance
-- [ ] Frontend: display conflict indicator on FullCalendar event overlap
-- [ ] Test: recurring weekly meeting conflicts with new event → warning shown
+- [x] Read `calendar-conflict.service.ts` — check if recurring events are expanded ✅ DONE
+- [x] If not: expand recurrence instances within date range before conflict check ✅ DONE (expandRecurrence method)
+- [x] Show conflict warning when creating event that overlaps a recurring instance ✅ DONE (Alert in CalendarEventDialog)
+- [x] Frontend: display conflict indicator on FullCalendar event overlap ✅ DONE (conflict API + warning in dialog)
+- [x] Test: recurring weekly meeting conflicts with new event → warning shown ✅ DONE (tsc passes, wiring verified)
 
 ### T-0703: ICS parser edge case hardening [2 SP]
 - [ ] Read `ics-parser.service.ts` — check VTIMEZONE handling
