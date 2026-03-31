@@ -1,6 +1,12 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { DataCleanupService } from './data-cleanup.service';
 
+function createMockScheduledJobsQueue() {
+  return {
+    registerHandler: vi.fn(),
+  } as any;
+}
+
 function createMockPrisma() {
   const stub = () => ({
     deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -33,7 +39,7 @@ describe('DataCleanupService AI chat retention', () => {
 
   beforeEach(() => {
     prisma = createMockPrisma();
-    service = new DataCleanupService(prisma);
+    service = new DataCleanupService(prisma, createMockScheduledJobsQueue());
   });
 
   it('deletes AI chat conversations older than 30 days during cleanup', async () => {

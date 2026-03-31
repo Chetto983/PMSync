@@ -1,11 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
 import { MistralService } from './mistral.service';
 import { getAllQueries } from '../config/search-queries.config';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
+import { ScheduledJobsQueueService, ScheduledJobType } from '../../../common/services/scheduled-jobs.queue';
 
 /**
  * Cache Pre-Warming Service
@@ -28,6 +28,7 @@ export class CachePrewarmingService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly cacheService: QueryEmbeddingCacheService,
     private readonly mistralService: MistralService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
   ) {
     this.enabled = this.config.get<string>('CACHE_PREWARMING_ENABLED', 'true') !== 'false';
   }
@@ -37,7 +38,15 @@ export class CachePrewarmingService implements OnModuleInit {
       this.logger.warn('Cache pre-warming disabled via CACHE_PREWARMING_ENABLED=false');
       return;
     }
-    this.logger.log('Cache pre-warming service initialized');
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.CACHE_PREWARM_COMMON,
+      async () => { await this.warmCommonQueries(); },
+    );
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.CACHE_PREWARM_TENANT,
+      async () => { await this.warmTenantQueries(); },
+    );
+    this.logger.log('Cache pre-warming handlers registered with BullMQ scheduler');
 
     // Initial warm-up after short delay (let other services start)
     setTimeout(() => this.warmCommonQueries(), 10000);
@@ -47,7 +56,6 @@ export class CachePrewarmingService implements OnModuleInit {
    * Warm cache with common queries for each active tenant (runs at 6 AM daily)
    * GDPR COMPLIANT: Warms common queries PER TENANT (no cross-tenant caching)
    */
-  @Cron('0 6 * * *')
   async warmCommonQueries(): Promise<{ warmed: number; skipped: number }> {
     if (!this.enabled) return { warmed: 0, skipped: 0 };
     return withoutTenantScopingAsync(async () => {
@@ -104,7 +112,6 @@ export class CachePrewarmingService implements OnModuleInit {
    * Warm cache with tenant-specific frequent queries (runs every 4 hours)
    * Analyzes recent search patterns and pre-caches popular queries
    */
-  @Cron(CronExpression.EVERY_4_HOURS)
   async warmTenantQueries(): Promise<{ warmed: number; tenants: number }> {
     if (!this.enabled) return { warmed: 0, tenants: 0 };
     return withoutTenantScopingAsync(async () => {

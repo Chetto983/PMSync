@@ -1,9 +1,9 @@
 import { Injectable, Logger, OnModuleInit, Optional, Inject } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AccountDeletionService } from '../../modules/compliance/services/account-deletion.service';
 import { DataExportService } from '../../modules/compliance/services/data-export.service';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping';
+import { ScheduledJobsQueueService, ScheduledJobType } from './scheduled-jobs.queue';
 
 /**
  * Data Cleanup Service
@@ -44,6 +44,7 @@ export class DataCleanupService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
     @Optional() @Inject(AccountDeletionService)
     private readonly accountDeletionService?: AccountDeletionService,
     @Optional() @Inject(DataExportService)
@@ -51,13 +52,28 @@ export class DataCleanupService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.logger.log('Data cleanup service initialized');
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.DATA_CLEANUP,
+      async () => { await this.cleanupExpiredData(); },
+    );
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.DATA_CLEANUP_AUDIT_LOGS,
+      async () => { await this.cleanupOldAuditLogs(); },
+    );
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.DATA_CLEANUP_ACCOUNT_DELETIONS,
+      async () => { await this.purgeExpiredAccountDeletions(); },
+    );
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.DATA_CLEANUP_DATA_EXPORTS,
+      async () => { await this.cleanupExpiredDataExports(); },
+    );
+    this.logger.log('Data cleanup handlers registered with BullMQ scheduler');
   }
 
   /**
    * Daily cleanup of expired records (runs at 3 AM)
    */
-  @Cron('0 3 * * *')
   async cleanupExpiredData(): Promise<CleanupResult> {
     return withoutTenantScopingAsync(async () => {
     this.logger.log('Starting daily data cleanup...');
@@ -176,7 +192,6 @@ export class DataCleanupService implements OnModuleInit {
    * AUDIT-03: Weekly cleanup of audit logs older than 3 years (GDPR retention).
    * Runs Sunday 4 AM (offset from daily 3 AM cleanup).
    */
-  @Cron('0 4 * * 0')
   async cleanupOldAuditLogs(): Promise<number> {
     return withoutTenantScopingAsync(async () => {
     this.logger.log('Starting audit log retention cleanup (3-year policy)...');
@@ -204,7 +219,6 @@ export class DataCleanupService implements OnModuleInit {
    * Finds users with deletedAt older than 30 days and hard-deletes them
    * via Prisma cascade (removes all user data).
    */
-  @Cron('0 2 * * *')
   async purgeExpiredAccountDeletions(): Promise<number> {
     return withoutTenantScopingAsync(async () => {
       if (!this.accountDeletionService) {
@@ -231,7 +245,6 @@ export class DataCleanupService implements OnModuleInit {
    * Deletes export ZIP files from disk and marks exports as EXPIRED
    * after the 72-hour download window.
    */
-  @Cron('30 3 * * *')
   async cleanupExpiredDataExports(): Promise<number> {
     return withoutTenantScopingAsync(async () => {
       if (!this.dataExportService) {
