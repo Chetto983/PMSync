@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
 status: verifying
-stopped_at: Completed 126-02-PLAN.md
-last_updated: "2026-03-31T09:19:03.692Z"
+stopped_at: Completed 127-01-PLAN.md
+last_updated: "2026-03-31T09:39:05.809Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 9
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
   percent: 66
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 126 — cron-to-bullmq-migration
+**Current focus:** Phase 127 — transport-connection-hardening
 
 ## Current Position
 
-Phase: 127
-Plan: Not started
+Phase: 127 (transport-connection-hardening) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-03-31
 
@@ -60,6 +60,8 @@ Progress: [██████░░░░] 66%
 - [Phase 125]: Frontend visual verification via Playwright CDP against Railway/Vercel production
 - [Phase 126]: All 8 @Cron decorators replaced with BullMQ registerHandler -- zero @Cron remains in codebase
 - [Phase 126]: Manual package.json edit for @nestjs/schedule removal (worktree has no node_modules)
+- [Phase 127]: Pool default max=20 (conservative for 2-4 replicas with max_connections=100)
+- [Phase 127]: Strip connection_limit/pool_timeout from URL proactively to prevent developer confusion
 
 ### Blockers/Concerns
 
@@ -69,6 +71,6 @@ Progress: [██████░░░░] 66%
 
 ## Session Continuity
 
-Last session: 2026-03-31T09:15:57.048Z
-Stopped at: Completed 126-02-PLAN.md
+Last session: 2026-03-31T09:39:05.802Z
+Stopped at: Completed 127-01-PLAN.md
 Resume file: None

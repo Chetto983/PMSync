@@ -136,7 +136,7 @@
 - [x] **Phase 125: Dead Code Removal** - Remove JWT dual-stack, deprecated API aliases, and Tailwind CSS package
  (completed 2026-03-31)
 - [x] **Phase 126: Cron-to-BullMQ Migration** - Migrate all @Cron decorators to BullMQ repeatable jobs for multi-instance safety (completed 2026-03-31)
-- [ ] **Phase 127: Transport & Connection Hardening** - Force WebSocket-only transport and size DB connection pool for replicas
+- [x] **Phase 127: Transport & Connection Hardening** - Force WebSocket-only transport and size DB connection pool for replicas (completed 2026-03-31)
 - [ ] **Phase 128: State Externalization** - Externalize in-memory state to Redis for multi-instance correctness
 - [ ] **Phase 129: Replica Activation** - Enable multi-replica deployment with tuned workers and per-replica observability
 - [ ] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints
@@ -186,7 +186,7 @@ Plans:
   4. Connection pool exhaustion does not occur during rolling deploys (old + new instances co-existing)
 **Plans**: 1 plan
 Plans:
-- [ ] 127-01-PLAN.md — Force WebSocket-only transport on client + fix DB pool config with env var overrides
+- [x] 127-01-PLAN.md — Force WebSocket-only transport on client + fix DB pool config with env var overrides
 
 ### Phase 128: State Externalization
 **Goal**: No in-memory state diverges across backend replicas
@@ -264,7 +264,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 |-------|-----------|----------------|--------|-----------|
 | 125. Dead Code Removal | v11.0 | 3/3 | Complete    | 2026-03-31 |
 | 126. Cron-to-BullMQ Migration | v11.0 | 2/2 | Complete    | 2026-03-31 |
-| 127. Transport & Connection Hardening | v11.0 | 0/1 | Not started | - |
+| 127. Transport & Connection Hardening | v11.0 | 1/1 | Complete   | 2026-03-31 |
 | 128. State Externalization | v11.0 | 0/TBD | Not started | - |
 | 129. Replica Activation | v11.0 | 0/TBD | Not started | - |
 | 130. Frontend Performance | v11.0 | 0/TBD | Not started | - |
