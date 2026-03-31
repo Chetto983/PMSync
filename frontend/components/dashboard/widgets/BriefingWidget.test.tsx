@@ -101,6 +101,13 @@ jest.mock('@/lib/hooks/use-translations', () => ({
   }),
 }));
 
+jest.mock('@/lib/hooks/use-locale', () => ({
+  useLocale: () => ({
+    locale: 'en',
+    changeLocale: jest.fn(),
+  }),
+}));
+
 describe('BriefingWidget', () => {
   it('uses a factual fallback summary when the AI briefing is weak', () => {
     render(
@@ -110,7 +117,6 @@ describe('BriefingWidget', () => {
     );
 
     expect(screen.getByText(/Inbox summary:/)).toBeInTheDocument();
-    expect(screen.getByText(/Contract approval needed today — follow-up due/)).toBeInTheDocument();
+    expect(screen.getByText(/Contract approval needed today - follow-up due/)).toBeInTheDocument();
   });
 });
-

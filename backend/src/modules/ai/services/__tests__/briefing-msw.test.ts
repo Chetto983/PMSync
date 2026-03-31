@@ -53,7 +53,7 @@ const mockPrisma = {
   },
   emailFollowUp: {
     findMany: vi.fn().mockResolvedValue([
-      { id: 'fu-001', emailId: 'e-003', reason: 'Promised deliverables', dueDate: new Date() },
+      { id: 'fu-001', emailId: 'e-003', reason: 'Promised deliverables', dueDate: new Date(), followUpType: 'TODO' },
     ]),
     count: vi.fn().mockResolvedValue(1),
   },
@@ -110,6 +110,14 @@ describe('BriefingService (MSW)', () => {
     expect(result.data.executiveSummary).not.toBe('Unable to generate briefing at this time.');
     expect(result.data.calendarSnapshot.length).toBeGreaterThan(0);
     expect(result.data.pendingFollowUps.length).toBeGreaterThan(0);
+  });
+
+  it('localizes the deterministic fallback when locale is Italian', async () => {
+    server.use(createGenerateHandler({ 'executive assistant': { garbage: true } }));
+    const result = await briefingService.generateBriefing('test-tenant', 'Europe/Rome', 'it');
+
+    expect(result.data.executiveSummary).toContain('Hai');
+    expect(result.data.focusTimeRecommendations[0]?.reason || '').not.toContain('Open calendar gap');
   });
 
   it('validates all required fields are present', async () => {

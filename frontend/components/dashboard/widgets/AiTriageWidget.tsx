@@ -199,6 +199,7 @@ export function AiTriageWidget() {
                       const sentimentConfig = getSentimentConfig(email.aiSentiment);
                       const sentimentLabel = getSentimentLabel(email.aiSentiment);
                       const dueLabel = formatDueLabel(followUp?.dueDate);
+                      const followUpTypeLabel = getFollowUpTypeLabel(followUp?.followUpType);
                       return (
                         <ListItem
                           key={email.id}
@@ -230,12 +231,12 @@ export function AiTriageWidget() {
                                 {email.aiLabels && email.aiLabels.length > 0 && (
                                   <Chip label={email.aiLabels[0]} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.6rem' }} />
                                 )}
-                                {getFollowUpTypeLabel(followUp?.followUpType) && (
+                                {followUpTypeLabel && (
                                   <Chip
-                                    label={getFollowUpTypeLabel(followUp?.followUpType)}
+                                    label={followUpTypeLabel}
                                     size="small"
                                     variant="outlined"
-                                    color={followUp.followUpType === 'WAITING_FOR' ? 'warning' : 'error'}
+                                    color={followUp?.followUpType === 'WAITING_FOR' ? 'warning' : 'error'}
                                     sx={{ height: 18, fontSize: '0.6rem' }}
                                   />
                                 )}

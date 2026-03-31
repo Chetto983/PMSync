@@ -63,8 +63,32 @@ describe('triage-lanes', () => {
     expect(summary).toContain('system alerts');
   });
 
+  it('builds an Italian fallback briefing summary when locale is Italian', () => {
+    const summary = buildFallbackBriefingSummary(
+      [
+        {
+          id: 'email-1',
+          subject: 'Contratto da approvare oggi',
+          aiPriority: 1,
+          aiPriorityReason: 'Il cliente aspetta una risposta.',
+        },
+      ],
+      [
+        {
+          emailId: 'email-1',
+          followUpType: 'TODO',
+        },
+      ],
+      'it',
+    );
+
+    expect(summary).toContain('Riepilogo inbox');
+    expect(summary).toContain('richiedono azione subito');
+  });
+
   it('detects weak briefing summaries', () => {
     expect(isWeakBriefingSummary('Unable to generate briefing at this time.')).toBe(true);
+    expect(isWeakBriefingSummary('Impossibile generare il briefing in questo momento.')).toBe(true);
     expect(isWeakBriefingSummary('You have 3 urgent threads today.')).toBe(false);
   });
 
@@ -80,4 +104,3 @@ describe('triage-lanes', () => {
     expect(groups[2].items).toHaveLength(1);
   });
 });
-

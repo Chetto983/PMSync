@@ -109,6 +109,13 @@ jest.mock('@/lib/hooks/use-translations', () => ({
   }),
 }));
 
+jest.mock('@/lib/hooks/use-locale', () => ({
+  useLocale: () => ({
+    locale: 'en',
+    changeLocale: jest.fn(),
+  }),
+}));
+
 describe('AiTriageWidget', () => {
   beforeEach(() => {
     mockPush.mockReset();
