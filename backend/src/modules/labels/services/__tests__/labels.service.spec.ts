@@ -16,6 +16,9 @@ const mockRealtimeEvents = {
   emitLabelDelete: jest.fn(),
   emitEmailUpdate: jest.fn(),
 };
+const mockSyncBackQueue = {
+  enqueueBulkSyncBack: jest.fn().mockResolvedValue(undefined),
+};
 
 describe('LabelsService', () => {
   let service: LabelsService;
@@ -27,11 +30,13 @@ describe('LabelsService', () => {
       prisma as any,
       mockEmailsService as any,
       mockRealtimeEvents as any,
+      mockSyncBackQueue as any,
     );
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSyncBackQueue.enqueueBulkSyncBack.mockResolvedValue(undefined);
   });
 
   afterAll(async () => {
@@ -91,12 +96,21 @@ describe('LabelsService', () => {
       expect(ids).not.toContain(archived.id);
     });
 
-    it('returns an empty array for a tenant with no labels', async () => {
+    it('seeds the default onboarding labels for a tenant with no labels', async () => {
       const tenant = await createTestTenant();
 
       const results = await service.findAllByTenant(tenant.id);
 
-      expect(results).toEqual([]);
+      expect(results.map((label) => label.name)).toEqual([
+        'Important',
+        'Follow-up',
+        'Action Items',
+        'Info',
+        'Personal',
+        'Finance',
+        'Promotions',
+        'Updates',
+      ]);
     });
   });
 
@@ -261,7 +275,7 @@ describe('LabelsService', () => {
   });
 
   describe('Tenant isolation', () => {
-    it('findAllByTenant for tenant B returns zero rows when labels were created in tenant A', async () => {
+    it('findAllByTenant for tenant B seeds only tenant B defaults when labels were created in tenant A', async () => {
       const tenantA = await createTestTenant();
       const tenantB = await createTestTenant();
 
@@ -270,7 +284,16 @@ describe('LabelsService', () => {
 
       const resultsB = await service.findAllByTenant(tenantB.id);
 
-      expect(resultsB).toHaveLength(0);
+      expect(resultsB.map((label) => label.name)).toEqual([
+        'Important',
+        'Follow-up',
+        'Action Items',
+        'Info',
+        'Personal',
+        'Finance',
+        'Promotions',
+        'Updates',
+      ]);
     });
   });
 

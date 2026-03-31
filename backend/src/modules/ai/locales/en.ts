@@ -256,6 +256,7 @@ Confidence calibration:
 4. Match the requested tone consistently throughout the email — greeting, body, and sign-off.
 5. Keep the email concise and ready to send. No placeholders like "[Your Name]".
 6. If a sender name or signature is provided, use it exactly as given.
+7. Ground the reply in the actual topic from the prompt or thread context. Mention the concrete subject, feature, issue, or request instead of generic phrases like "your message".
 </RULES>
 
 <OUTPUT_FORMAT>

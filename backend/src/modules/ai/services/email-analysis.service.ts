@@ -12,6 +12,7 @@ import { getLocale, getToolTranslations, type SupportedLocale } from '../locales
 import { PiiDetectionService } from '../guards';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 import { buildAiResponseMeta } from '../utils/ai-response-meta';
+import { DEFAULT_AI_USER_LABELS, ensureDefaultUserLabels } from '../../labels/default-user-labels';
 
 type LocaleKey = 'en' | 'it';
 
@@ -24,16 +25,6 @@ interface EmailRecord {
 export class EmailAnalysisService {
   private readonly logger = new Logger(EmailAnalysisService.name);
   private readonly analysisVersion = 'unified-email-v1';
-  private readonly defaultLabels: Array<{ name: string; aiPrompt: string | null }> = [
-    { name: 'Important', aiPrompt: null },
-    { name: 'Follow-up', aiPrompt: null },
-    { name: 'Action Items', aiPrompt: null },
-    { name: 'Info', aiPrompt: null },
-    { name: 'Personal', aiPrompt: null },
-    { name: 'Finance', aiPrompt: null },
-    { name: 'Promotions', aiPrompt: null },
-    { name: 'Updates', aiPrompt: null },
-  ];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -50,12 +41,19 @@ export class EmailAnalysisService {
 
     const cached = await this.prisma.emailAnalysis.findFirst({
       where: { emailId, tenantId, processedAt: { gt: new Date(Date.now() - CACHE_TTL_MS) } },
+      include: {
+        email: {
+          select: {
+            aiLabels: true,
+          },
+        },
+      },
     });
     const cachedLocale = (cached?.suggestedActions as Record<string, unknown>)?.locale as string | undefined;
     if (cached?.summary && cachedLocale === lang) {
       this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId} (locale: ${lang})`);
       return {
-        ...this.mapEmailAnalysisToUnified(cached),
+        ...this.mapEmailAnalysisToUnified(cached, cached.email?.aiLabels ?? []),
         meta: buildAiResponseMeta({
           operation: 'email-unified-analysis',
           version: this.analysisVersion,
@@ -86,24 +84,40 @@ export class EmailAnalysisService {
       const latencyMs = Date.now() - startTime;
       const parsed = this.parseJsonResponse(raw);
 
+      const priority = Math.min(5, Math.max(1, Number(parsed.priority) || 3)) as 1 | 2 | 3 | 4 | 5;
+      const urgency = this.validateUrgency(parsed.urgency);
+      const intent = typeof parsed.intent === 'string' ? parsed.intent : 'fyi';
+      const escalationRisk = Boolean(parsed.escalationRisk);
+      const hasDeadline = Boolean(parsed.hasDeadline);
+      const needsFollowUp = Boolean(parsed.needsFollowUp);
+      const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning : '';
+      const labels = this.resolveLabels(email, parsed, allowedLabels, {
+        priority,
+        urgency,
+        intent,
+        escalationRisk,
+        hasDeadline,
+        needsFollowUp,
+      });
+
       const result: UnifiedEmailAnalysis = {
         summary: typeof parsed.summary === 'string' ? parsed.summary : '',
         sentiment: this.validateSentiment(parsed.sentiment),
         tone: typeof parsed.tone === 'string' ? parsed.tone : 'neutral',
-        priority: Math.min(5, Math.max(1, Number(parsed.priority) || 3)) as 1 | 2 | 3 | 4 | 5,
-        urgency: this.validateUrgency(parsed.urgency),
-        labels: this.normalizeLabels(parsed.labels, allowedLabels),
+        priority,
+        urgency,
+        labels,
         keyTopics: Array.isArray(parsed.keyTopics) ? (parsed.keyTopics as string[]).slice(0, 5) : [],
-        intent: typeof parsed.intent === 'string' ? parsed.intent : 'fyi',
-        escalationRisk: Boolean(parsed.escalationRisk),
-        hasDeadline: Boolean(parsed.hasDeadline),
+        intent,
+        escalationRisk,
+        hasDeadline,
         deadlineDate: parsed.deadlineDate ? new Date(parsed.deadlineDate as string) : null,
-        needsFollowUp: Boolean(parsed.needsFollowUp),
+        needsFollowUp,
         followUpDate: parsed.followUpDate ? new Date(parsed.followUpDate as string) : null,
         followUpReason: typeof parsed.followUpReason === 'string' ? parsed.followUpReason : null,
         smartReplies: options?.includeSmartReplies && Array.isArray(parsed.smartReplies) ? (parsed.smartReplies as string[]).slice(0, 3) : undefined,
         confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.7)),
-        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+        reasoning,
       };
       const processedAt = new Date();
       result.meta = buildAiResponseMeta({
@@ -124,7 +138,7 @@ export class EmailAnalysisService {
         suggestedActions: {
           locale: lang, smartReplies: result.smartReplies, intent: result.intent, urgency: result.urgency,
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,
-          followUpReason: result.followUpReason,
+          followUpReason: result.followUpReason, labels: result.labels,
         },
         processedAt, latencyMs,
       };
@@ -155,13 +169,14 @@ export class EmailAnalysisService {
 
   private async getUserLabels(tenantId: string): Promise<Array<{ name: string; aiPrompt: string | null }>> {
     try {
+      await ensureDefaultUserLabels(this.prisma, tenantId);
       const labels = await this.prisma.userLabel.findMany({
         where: { tenantId, isArchived: false },
         select: { name: true, aiPrompt: true },
         orderBy: { orderIndex: 'asc' },
       });
-      return labels.length === 0 ? this.defaultLabels : labels;
-    } catch { return this.defaultLabels; }
+      return labels.length === 0 ? DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt }) => ({ name, aiPrompt })) : labels;
+    } catch { return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt }) => ({ name, aiPrompt })); }
   }
 
   /**
@@ -237,12 +252,30 @@ export class EmailAnalysisService {
     } catch { return {}; }
   }
 
-  private mapEmailAnalysisToUnified(analysis: { priority: string; category: string; sentiment: string; summary: string | null; keyPoints: string[]; hasDeadline: boolean; deadlineDate: Date | null; needsFollowUp: boolean; followUpDate?: Date | null; suggestedActions: unknown; }): UnifiedEmailAnalysis {
+  private mapEmailAnalysisToUnified(
+    analysis: {
+      priority: string;
+      category: string;
+      sentiment: string;
+      summary: string | null;
+      keyPoints: string[];
+      hasDeadline: boolean;
+      deadlineDate: Date | null;
+      needsFollowUp: boolean;
+      followUpDate?: Date | null;
+      suggestedActions: unknown;
+    },
+    persistedLabels: string[] = [],
+  ): UnifiedEmailAnalysis {
     const actions = (analysis.suggestedActions as Record<string, unknown>) || {};
     return {
       summary: analysis.summary || '', sentiment: this.validateSentiment(analysis.sentiment),
       tone: (actions.tone as string) || 'neutral', priority: this.mapEnumToPriority(analysis.priority),
-      urgency: this.validateUrgency(actions.urgency), labels: [], keyTopics: analysis.keyPoints || [],
+      urgency: this.validateUrgency(actions.urgency),
+      labels: Array.isArray(actions.labels)
+        ? (actions.labels as string[]).slice(0, 3)
+        : (persistedLabels || []).slice(0, 3),
+      keyTopics: analysis.keyPoints || [],
       intent: (actions.intent as string) || 'fyi', escalationRisk: Boolean(actions.escalationRisk),
       hasDeadline: analysis.hasDeadline, deadlineDate: analysis.deadlineDate, needsFollowUp: analysis.needsFollowUp,
       followUpDate: analysis.followUpDate ?? null, followUpReason: (actions.followUpReason as string) ?? null,
@@ -264,6 +297,72 @@ export class EmailAnalysisService {
   private normalizeLabels(labels: unknown, allowedLabels: string[]): string[] {
     if (!Array.isArray(labels)) return [];
     return labels.slice(0, 3).map((l) => this.normaliseLabel(String(l), allowedLabels)).filter((l) => allowedLabels.includes(l));
+  }
+
+  private resolveLabels(
+    email: EmailRecord,
+    parsed: Record<string, unknown>,
+    allowedLabels: string[],
+    signals: {
+      priority: 1 | 2 | 3 | 4 | 5;
+      urgency: 'critical' | 'high' | 'medium' | 'low';
+      intent: string;
+      escalationRisk: boolean;
+      hasDeadline: boolean;
+      needsFollowUp: boolean;
+    },
+  ): string[] {
+    const modelLabels = this.normalizeLabels(parsed.labels, allowedLabels);
+    const heuristicLabels = this.inferLabels(email, allowedLabels, signals);
+    return [...new Set([...modelLabels, ...heuristicLabels])].slice(0, 3);
+  }
+
+  private inferLabels(
+    email: EmailRecord,
+    allowedLabels: string[],
+    signals: {
+      priority: 1 | 2 | 3 | 4 | 5;
+      urgency: 'critical' | 'high' | 'medium' | 'low';
+      intent: string;
+      escalationRisk: boolean;
+      hasDeadline: boolean;
+      needsFollowUp: boolean;
+    },
+  ): string[] {
+    const sample = `${email.subject || ''}\n${email.snippet || ''}\n${email.bodyText || ''}`.toLowerCase();
+    const inferred: string[] = [];
+
+    const pushAllowed = (label: string) => {
+      const normalized = this.normaliseLabel(label, allowedLabels);
+      if (allowedLabels.includes(normalized) && !inferred.includes(normalized)) {
+        inferred.push(normalized);
+      }
+    };
+
+    if (/\b(invoice|payment|billing|receipt|subscription|refund|charge)\b/.test(sample)) {
+      pushAllowed('Finance');
+    }
+    if (/\b(newsletter|unsubscribe|promotion|promo|sale|discount|offer)\b/.test(sample)) {
+      pushAllowed('Promotions');
+    }
+    if (/\b(update|release|feature|announcement|introducing|launch|changelog|workflow|deploy|build failed|github|vercel|railway|notification)\b/.test(sample)) {
+      pushAllowed('Updates');
+    }
+    if (signals.priority <= 2 || ['critical', 'high'].includes(signals.urgency) || signals.escalationRisk) {
+      pushAllowed('Important');
+    }
+    if (signals.intent === 'follow_up' || signals.needsFollowUp) {
+      pushAllowed('Follow-up');
+    }
+    if (signals.intent === 'action_required' || signals.intent === 'question' || signals.intent === 'meeting_request' || signals.hasDeadline) {
+      pushAllowed('Action Items');
+    }
+
+    if (inferred.length === 0) {
+      pushAllowed('Info');
+    }
+
+    return inferred.slice(0, 3);
   }
 
   private normaliseLabel(label: string, allowedLabels: string[]): string {

@@ -103,6 +103,15 @@ describe('BriefingService (MSW)', () => {
     expect(result.data.executiveSummary).toBeDefined();
   });
 
+  it('builds a data-backed fallback when AI generation fails', async () => {
+    server.use(createGenerateHandler({ 'executive assistant': { garbage: true } }));
+    const result = await briefingService.generateBriefing('test-tenant');
+
+    expect(result.data.executiveSummary).not.toBe('Unable to generate briefing at this time.');
+    expect(result.data.calendarSnapshot.length).toBeGreaterThan(0);
+    expect(result.data.pendingFollowUps.length).toBeGreaterThan(0);
+  });
+
   it('validates all required fields are present', async () => {
     server.use(createGenerateHandler({ 'executive assistant': briefingFixture }));
     const result = await briefingService.generateBriefing('test-tenant');

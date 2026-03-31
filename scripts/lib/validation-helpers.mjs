@@ -14,7 +14,8 @@ export const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mail-agent-indo
  * Connect to Edge via Playwright CDP on port 9222.
  * Returns { browser, context, page }.
  */
-export async function connectCDP() {
+export async function connectCDP(options = {}) {
+  const { preferNewPage = false } = options;
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
   const contexts = browser.contexts();
   const context = contexts[0];
@@ -23,11 +24,17 @@ export async function connectCDP() {
     throw new Error('No browser context found. Is Edge running with --remote-debugging-port=9222?');
   }
 
-  // Find an app page (skip devtools, about:blank, etc.)
-  const allPages = context.pages();
-  let page = allPages.find(p => p.url().includes('mail-agent') || p.url().includes('localhost:3001'))
-    || allPages.find(p => !p.url().startsWith('devtools://') && !p.url().startsWith('about:'))
-    || await context.newPage();
+  let page;
+
+  if (preferNewPage) {
+    page = await context.newPage();
+  } else {
+    // Find an app page (skip devtools, about:blank, etc.)
+    const allPages = context.pages();
+    page = allPages.find(p => p.url().includes('mail-agent') || p.url().includes('localhost:3001'))
+      || allPages.find(p => !p.url().startsWith('devtools://') && !p.url().startsWith('about:'))
+      || await context.newPage();
+  }
 
   // If not on the app, navigate there
   if (!page.url().includes('mail-agent') && !page.url().includes('localhost:3001')) {

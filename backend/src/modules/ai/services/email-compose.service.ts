@@ -123,12 +123,17 @@ export class EmailComposeService {
       subject: item.subject ? this.redactPii(item.subject) : item.subject,
       body: item.body ? this.redactPii(item.body) : item.body,
     }));
+    const groundingTopic = redactedSubject
+      || redactedThreadContext?.find((item) => item.subject?.trim())?.subject
+      || redactedPrompt.match(/"([^"]+)"/)?.[1]
+      || '';
 
     const toLine = redactedTo.length ? `${t.insights.compose.recipients}: ${redactedTo.join(', ')}` : '';
     const subjectLine = redactedSubject ? `${t.insights.compose.subjectHint}: ${redactedSubject}` : '';
     const toneLine = `${t.insights.compose.requestedTone}: ${tone}.`;
     const senderLine = payload.senderName ? `${t.insights.compose.senderName}: ${payload.senderName}` : '';
     const signatureLine = payload.signature ? `${t.insights.compose.signatureInstruction}: ${payload.signature}` : '';
+    const groundingLine = groundingTopic ? `Specific topic to acknowledge: ${groundingTopic}` : '';
     const threadLines = redactedThreadContext?.length
       ? t.insights.compose.threadContext + '\n' + redactedThreadContext.slice(0, 3).map((item, idx) => {
         const header = `${t.insights.compose.message} #${idx + 1}`;
@@ -136,7 +141,7 @@ export class EmailComposeService {
       }).join('\n\n')
       : '';
 
-    return [t.insights.compose.draftInstruction, toneLine, senderLine, signatureLine, toLine, subjectLine, threadLines, memoryContext, styleSection, `${t.insights.compose.userPrompt}: ${redactedPrompt}`, t.insights.compose.jsonInstruction].filter(Boolean).join('\n');
+    return [t.insights.compose.draftInstruction, toneLine, senderLine, signatureLine, toLine, subjectLine, groundingLine, threadLines, memoryContext, styleSection, `${t.insights.compose.userPrompt}: ${redactedPrompt}`, t.insights.compose.jsonInstruction].filter(Boolean).join('\n');
   }
 
   private parseComposeResult(raw: string, fallbackSubject?: string): { body: string; subject?: string } {

@@ -80,6 +80,50 @@ export const briefingSchema = z.object({
 
 export type BriefingOutput = z.infer<typeof briefingSchema>;
 
+type BriefingContext = {
+  unreadEmails: Array<{
+    id: string;
+    subject: string | null;
+    from: string;
+    snippet: string | null;
+    receivedAt: Date;
+    aiPriority: number | null;
+    aiPriorityReason: string | null;
+    aiSentiment: string | null;
+  }>;
+  todayEvents: Array<{
+    id: string;
+    title: string;
+    startTime: Date;
+    endTime: Date;
+  }>;
+  pendingFollowUps: Array<{
+    id: string;
+    emailId: string;
+    reason: string | null;
+    dueDate: Date;
+    followUpType: string;
+    email?: {
+      subject: string | null;
+      from: string;
+    } | null;
+  }>;
+  staleContacts: Array<{
+    id: string;
+    displayName: string | null;
+    lastInteractedAt: Date | null;
+  }>;
+  emailVolume: {
+    todayReceived: number;
+    todaySent: number;
+    weeklyAvgReceived: number;
+    weeklyAvgSent: number;
+  };
+  upcomingDeadlines: number;
+  pendingActionItems: number;
+  currentTime: Date;
+};
+
 // ============ Safe Fallback ============
 
 const SAFE_FALLBACK: BriefingOutput = {
@@ -194,7 +238,16 @@ export class BriefingService {
           where: { tenantId, isRead: false, isDeleted: false },
           orderBy: { receivedAt: 'desc' },
           take: 20,
-          select: { id: true, subject: true, from: true, snippet: true, receivedAt: true },
+          select: {
+            id: true,
+            subject: true,
+            from: true,
+            snippet: true,
+            receivedAt: true,
+            aiPriority: true,
+            aiPriorityReason: true,
+            aiSentiment: true,
+          },
         }),
         this.prisma.calendarEvent.findMany({
           where: {
@@ -208,7 +261,19 @@ export class BriefingService {
         this.prisma.emailFollowUp.findMany({
           where: { tenantId, status: 'PENDING' },
           take: 10,
-          select: { id: true, emailId: true, reason: true, dueDate: true },
+          select: {
+            id: true,
+            emailId: true,
+            reason: true,
+            dueDate: true,
+            followUpType: true,
+            email: {
+              select: {
+                subject: true,
+                from: true,
+              },
+            },
+          },
         }),
         this.prisma.contact.findMany({
           where: {
@@ -251,48 +316,269 @@ export class BriefingService {
       ]);
 
     // 2. Build data context for LLM
-    const dataContext = JSON.stringify({
-      unreadEmails: unreadEmails.map(e => ({
-        id: e.id,
-        subject: e.subject,
-        from: e.from,
-        snippet: e.snippet?.slice(0, 200),
-        receivedAt: e.receivedAt.toISOString(),
-      })),
-      todayEvents: todayEvents.map(e => ({
-        id: e.id,
-        title: e.title,
-        startTime: e.startTime.toISOString(),
-        endTime: e.endTime.toISOString(),
-      })),
-      pendingFollowUps: followUps.map(f => ({
-        id: f.id,
-        emailId: f.emailId,
-        reason: f.reason,
-        dueDate: f.dueDate?.toISOString(),
-      })),
+    const contextData: BriefingContext = {
+      unreadEmails,
+      todayEvents,
+      pendingFollowUps: followUps,
       upcomingDeadlines: deadlineCount,
       pendingActionItems: actionItemCount,
-      staleContacts: staleContacts.map(c => ({
-        id: c.id,
-        name: c.displayName || 'Unknown',
-        lastInteractedAt: c.lastInteractedAt?.toISOString(),
-      })),
+      staleContacts,
       emailVolume: {
         todayReceived: todayReceivedCount,
         todaySent: todaySentCount,
         weeklyAvgReceived: Math.round(weeklyReceivedCount / 7),
         weeklyAvgSent: Math.round(weeklySentCount / 7),
       },
-      currentTime: now.toISOString(),
+      currentTime: now,
+    };
+
+    const deterministicFallback = this.buildDeterministicFallback(contextData);
+    const dataContext = JSON.stringify({
+      unreadEmails: contextData.unreadEmails.map(e => ({
+        id: e.id,
+        subject: e.subject,
+        from: e.from,
+        snippet: e.snippet?.slice(0, 200),
+        receivedAt: e.receivedAt.toISOString(),
+        aiPriority: e.aiPriority,
+        aiPriorityReason: e.aiPriorityReason,
+        aiSentiment: e.aiSentiment,
+      })),
+      todayEvents: contextData.todayEvents.map(e => ({
+        id: e.id,
+        title: e.title,
+        startTime: e.startTime.toISOString(),
+        endTime: e.endTime.toISOString(),
+      })),
+      pendingFollowUps: contextData.pendingFollowUps.map(f => ({
+        id: f.id,
+        emailId: f.emailId,
+        reason: f.reason,
+        dueDate: f.dueDate?.toISOString(),
+        followUpType: f.followUpType,
+        email: f.email ? { subject: f.email.subject, from: f.email.from } : null,
+      })),
+      upcomingDeadlines: contextData.upcomingDeadlines,
+      pendingActionItems: contextData.pendingActionItems,
+      staleContacts: contextData.staleContacts.map(c => ({
+        id: c.id,
+        name: c.displayName || 'Unknown',
+        lastInteractedAt: c.lastInteractedAt?.toISOString(),
+      })),
+      emailVolume: contextData.emailVolume,
+      currentTime: contextData.currentTime.toISOString(),
     }, null, 0);
 
     // 3. Generate briefing with graceful fallback
-    return this.generateWithFallback(dataContext, tenantId, locale);
+    return this.generateWithFallback(dataContext, deterministicFallback, tenantId, locale);
+  }
+
+  private buildDeterministicFallback(context: BriefingContext): BriefingOutput {
+    const rankedEmails = [...context.unreadEmails]
+      .map((email) => ({ email, score: this.scorePriorityEmail(email) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    const priorityEmails: BriefingOutput['priorityEmails'] = rankedEmails.map(({ email, score }) => ({
+      emailId: email.id,
+      subject: email.subject || 'No subject',
+      sender: this.extractSenderName(email.from),
+      urgency: this.scoreToUrgency(score),
+      reason: email.aiPriorityReason || this.buildPriorityReason(email, score),
+    }));
+
+    const calendarSnapshot: BriefingOutput['calendarSnapshot'] = context.todayEvents
+      .slice(0, 8)
+      .map((event, index, events) => ({
+        eventId: event.id,
+        title: event.title,
+        startTime: event.startTime.toISOString(),
+        endTime: event.endTime.toISOString(),
+        hasConflict: events.some((other, otherIndex) =>
+          otherIndex !== index
+          && event.startTime < other.endTime
+          && other.startTime < event.endTime),
+      }));
+
+    const pendingFollowUps: BriefingOutput['pendingFollowUps'] = context.pendingFollowUps
+      .slice(0, 8)
+      .map((followUp) => ({
+        emailId: followUp.emailId,
+        contactName: this.extractSenderName(followUp.email?.from),
+        reason: followUp.reason || `Pending ${followUp.followUpType.toLowerCase().replace('_', ' ')} item`,
+        suggestedDueDate: followUp.dueDate?.toISOString() ?? null,
+        urgency: followUp.dueDate && followUp.dueDate.getTime() < Date.now() + 24 * 60 * 60 * 1000
+          ? 'high'
+          : followUp.followUpType === 'TODO'
+            ? 'medium'
+            : 'low',
+      }));
+
+    const staleContactsAlert: BriefingOutput['staleContactsAlert'] = context.staleContacts
+      .slice(0, 5)
+      .map((contact) => ({
+        contactId: contact.id,
+        name: contact.displayName || 'Unknown',
+        daysSinceContact: contact.lastInteractedAt
+          ? Math.max(0, Math.round((Date.now() - contact.lastInteractedAt.getTime()) / 86_400_000))
+          : 0,
+        suggestedAction: `Send a short reconnect note to ${contact.displayName || 'this contact'}.`,
+      }));
+
+    const draftSuggestions: BriefingOutput['draftSuggestions'] = rankedEmails
+      .filter(({ email, score }) => score >= 3)
+      .slice(0, 3)
+      .map(({ email }) => ({
+        emailId: email.id,
+        subject: email.subject || 'No subject',
+        reason: email.aiPriorityReason || 'Unread email likely needs a response or review.',
+      }));
+
+    const focusTimeRecommendations = this.buildFocusBlocks(context.todayEvents, context.currentTime);
+    const trend = this.computeVolumeTrend(context.emailVolume.todayReceived, context.emailVolume.weeklyAvgReceived);
+
+    return {
+      priorityEmails,
+      calendarSnapshot,
+      pendingFollowUps,
+      executiveSummary: this.buildExecutiveSummary(priorityEmails, calendarSnapshot, pendingFollowUps, context),
+      staleContactsAlert,
+      draftSuggestions,
+      emailVolumeTrends: {
+        ...context.emailVolume,
+        trend,
+      },
+      focusTimeRecommendations,
+    };
+  }
+
+  private scorePriorityEmail(email: BriefingContext['unreadEmails'][number]): number {
+    const sample = `${email.subject || ''}\n${email.snippet || ''}`.toLowerCase();
+    let score = email.aiPriority ? Math.max(0, 6 - email.aiPriority) : 1;
+
+    if (/\b(failed|failure|urgent|asap|deadline|overdue|action required|incident|down|outage|error)\b/.test(sample)) {
+      score += 3;
+    }
+    if (/\b(question|can you|please|review|reply|meeting|call|tomorrow|today)\b/.test(sample)) {
+      score += 2;
+    }
+    if (/\b(github|vercel|railway|deploy|build)\b/.test(sample)) {
+      score += 2;
+    }
+    if (email.aiSentiment === 'negative') {
+      score += 1;
+    }
+
+    return score;
+  }
+
+  private scoreToUrgency(score: number): 'critical' | 'high' | 'medium' | 'low' {
+    if (score >= 6) return 'critical';
+    if (score >= 4) return 'high';
+    if (score >= 2) return 'medium';
+    return 'low';
+  }
+
+  private buildPriorityReason(email: BriefingContext['unreadEmails'][number], score: number): string {
+    const sample = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
+    if (/\b(github|vercel|railway|deploy|build)\b/.test(sample)) {
+      return 'System alert or delivery signal detected in an unread email.';
+    }
+    if (/\b(deadline|overdue|tomorrow|today|asap|urgent)\b/.test(sample)) {
+      return 'Unread email includes deadline or urgency signals that need review.';
+    }
+    if (/\b(question|please|review|reply)\b/.test(sample)) {
+      return 'Unread email appears to require a response or decision.';
+    }
+    return score >= 4
+      ? 'Unread email ranks high based on urgency and recency.'
+      : 'Unread email should be reviewed in the next work block.';
+  }
+
+  private extractSenderName(value?: string | null): string {
+    if (!value) return 'Unknown';
+    const match = value.match(/^([^<]+)/);
+    return (match?.[1] || value).trim().replace(/^"+|"+$/g, '');
+  }
+
+  private computeVolumeTrend(todayReceived: number, weeklyAvgReceived: number): 'increasing' | 'stable' | 'decreasing' {
+    if (weeklyAvgReceived <= 0) return 'stable';
+    if (todayReceived >= weeklyAvgReceived * 1.2) return 'increasing';
+    if (todayReceived <= weeklyAvgReceived * 0.8) return 'decreasing';
+    return 'stable';
+  }
+
+  private buildExecutiveSummary(
+    priorityEmails: BriefingOutput['priorityEmails'],
+    calendarSnapshot: BriefingOutput['calendarSnapshot'],
+    pendingFollowUps: BriefingOutput['pendingFollowUps'],
+    context: BriefingContext,
+  ): string {
+    const topSubject = priorityEmails[0]?.subject;
+    const parts = [
+      `You have ${priorityEmails.length} priority unread emails, ${pendingFollowUps.length} pending follow-ups, and ${calendarSnapshot.length} meetings today.`,
+    ];
+
+    if (topSubject) {
+      parts.push(`Top attention item: "${topSubject}".`);
+    }
+
+    if (context.upcomingDeadlines > 0 || context.pendingActionItems > 0) {
+      parts.push(`${context.upcomingDeadlines} deadlines and ${context.pendingActionItems} action items are approaching.`);
+    }
+
+    return parts.join(' ');
+  }
+
+  private buildFocusBlocks(
+    events: BriefingContext['todayEvents'],
+    currentTime: Date,
+  ): BriefingOutput['focusTimeRecommendations'] {
+    if (events.length === 0) return [];
+
+    const sorted = [...events].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+    const blocks: BriefingOutput['focusTimeRecommendations'] = [];
+    let pointer = new Date(currentTime);
+
+    for (const event of sorted) {
+      const gapMs = event.startTime.getTime() - pointer.getTime();
+      if (gapMs >= 60 * 60 * 1000) {
+        const end = new Date(Math.min(pointer.getTime() + 2 * 60 * 60 * 1000, event.startTime.getTime()));
+        blocks.push({
+          startTime: pointer.toISOString(),
+          endTime: end.toISOString(),
+          reason: 'Open calendar gap suitable for focused email or follow-up work.',
+        });
+      }
+      if (event.endTime > pointer) {
+        pointer = new Date(event.endTime);
+      }
+      if (blocks.length >= 2) break;
+    }
+
+    return blocks;
+  }
+
+  private shouldPreferDeterministicFallback(
+    candidate: BriefingOutput,
+    deterministicFallback: BriefingOutput,
+  ): boolean {
+    const genericSummary = /unable to generate briefing|no briefing data available/i.test(candidate.executiveSummary || '');
+    const fallbackHasSignal =
+      deterministicFallback.priorityEmails.length > 0
+      || deterministicFallback.calendarSnapshot.length > 0
+      || deterministicFallback.pendingFollowUps.length > 0;
+    const candidateHasSignal =
+      candidate.priorityEmails.length > 0
+      || candidate.calendarSnapshot.length > 0
+      || candidate.pendingFollowUps.length > 0;
+
+    return genericSummary || (fallbackHasSignal && !candidateHasSignal);
   }
 
   private async generateWithFallback(
     dataContext: string,
+    deterministicFallback: BriefingOutput,
     tenantId = 'system',
     locale?: string,
   ): Promise<AiServiceResult<BriefingOutput>> {
@@ -301,6 +587,21 @@ export class BriefingService {
     // Attempt 1: generateObject (structured output)
     const attempt1 = await this.tryGenerateObject(dataContext, tenantId, systemPrompt);
     if (attempt1) {
+      if (this.shouldPreferDeterministicFallback(attempt1, deterministicFallback)) {
+        await this.trackUsage();
+        return {
+          data: deterministicFallback,
+          meta: buildAiResponseMeta({
+            operation: 'briefing',
+            version: this.briefingVersion,
+            source: 'fallback',
+            locale,
+            model: this.briefingModelId,
+            degraded: true,
+            warnings: ['briefing_low_signal_output'],
+          }),
+        };
+      }
       await this.trackUsage();
       return {
         data: attempt1,
@@ -317,6 +618,21 @@ export class BriefingService {
     // Attempt 2: generateText + manual JSON extraction (fallback)
     const attempt2 = await this.tryGenerateText(dataContext, tenantId, systemPrompt);
     if (attempt2) {
+      if (this.shouldPreferDeterministicFallback(attempt2, deterministicFallback)) {
+        await this.trackUsage();
+        return {
+          data: deterministicFallback,
+          meta: buildAiResponseMeta({
+            operation: 'briefing',
+            version: this.briefingVersion,
+            source: 'fallback',
+            locale,
+            model: this.briefingModelId,
+            degraded: true,
+            warnings: ['briefing_low_signal_output', 'structured_output_unavailable'],
+          }),
+        };
+      }
       await this.trackUsage();
       return {
         data: attempt2,
@@ -333,7 +649,7 @@ export class BriefingService {
 
     this.logger.error('Briefing generation failed on all attempts');
     return {
-      data: SAFE_FALLBACK,
+      data: deterministicFallback,
       meta: buildAiResponseMeta({
         operation: 'briefing',
         version: this.briefingVersion,

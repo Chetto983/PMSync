@@ -17,6 +17,7 @@ import {
   ReorderLabelsDto,
   UpdateLabelDto,
 } from '../dto/labels.dto';
+import { ensureDefaultUserLabels } from '../default-user-labels';
 
 @Injectable()
 export class LabelsService {
@@ -30,6 +31,8 @@ export class LabelsService {
   ) {}
 
   async findAllByTenant(tenantId: string) {
+    await ensureDefaultUserLabels(this.prisma, tenantId);
+
     return this.prisma.userLabel.findMany({
       where: { tenantId, isArchived: false },
       include: {
