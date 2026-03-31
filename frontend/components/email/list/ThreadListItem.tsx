@@ -37,7 +37,9 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap, Sparkles } from 'lucide-react';
 import { emailThreadOptions } from '@/hooks/queries/use-emails';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { stringToColor } from '@/lib/utils/gravatar';
 
@@ -108,6 +110,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   onMouseEnter, onMouseLeave,
 }: ThreadListItemProps) {
   const t = useTranslations();
+  const { locale } = useLocale();
   const theme = useTheme();
   const queryClient = useQueryClient();
   const prefetchRef = useRef<NodeJS.Timeout | null>(null);
@@ -365,7 +368,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             {userLabels.map((label) => (
               <Chip
                 key={label.id}
-                label={label.name}
+                label={localizeAiLabel(label.name, locale)}
                 size="small"
                 sx={{
                   height: 16,
@@ -380,7 +383,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
               <Chip
                 key={`ai-${aiLabel}`}
                 icon={<Sparkles size={8} />}
-                label={aiLabel}
+                label={localizeAiLabel(aiLabel, locale)}
                 size="small"
                 variant="outlined"
                 sx={{

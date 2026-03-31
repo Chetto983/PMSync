@@ -35,6 +35,10 @@ jest.mock('@/lib/hooks/use-translations', () => ({
   }),
 }));
 
+jest.mock('@/lib/hooks/use-locale', () => ({
+  useLocale: () => ({ locale: 'it' }),
+}));
+
 jest.mock('./EmailHtmlContent', () => ({
   EmailHtmlContent: ({ html }: { html: string }) => <div data-testid="email-html">{html}</div>,
 }));

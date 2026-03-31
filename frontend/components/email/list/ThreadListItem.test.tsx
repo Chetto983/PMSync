@@ -35,6 +35,10 @@ jest.mock('@/lib/hooks/use-translations', () => ({
   }),
 }));
 
+jest.mock('@/lib/hooks/use-locale', () => ({
+  useLocale: () => ({ locale: 'it' }),
+}));
+
 // Mock emailThreadOptions
 jest.mock('@/hooks/queries/use-emails', () => ({
   emailThreadOptions: () => ({ queryKey: ['thread', 'test'], queryFn: () => null }),
@@ -104,13 +108,13 @@ describe('ThreadListItem — label display (T-0705)', () => {
   it('renders user labels as chips', () => {
     renderItem({
       labels: [
-        { id: 'lbl-1', name: 'Work', color: '#FF0000' },
-        { id: 'lbl-2', name: 'Urgent', color: '#00FF00' },
+        { id: 'lbl-1', name: 'Important', color: '#FF0000' },
+        { id: 'lbl-2', name: 'Work', color: '#00FF00' },
       ],
     });
 
+    expect(screen.getByText('Importante')).toBeInTheDocument();
     expect(screen.getByText('Work')).toBeInTheDocument();
-    expect(screen.getByText('Urgent')).toBeInTheDocument();
   });
 
   it('renders max 2 user labels (truncates overflow)', () => {
@@ -129,10 +133,10 @@ describe('ThreadListItem — label display (T-0705)', () => {
 
   it('renders AI labels as outlined chips', () => {
     renderItem({
-      aiLabels: ['Meeting Notes'],
+      aiLabels: ['Updates'],
     });
 
-    expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
+    expect(screen.getByText('Aggiornamenti')).toBeInTheDocument();
   });
 
   it('renders max 1 AI label', () => {

@@ -8,7 +8,9 @@
 import { memo } from 'react';
 import { Box, Typography, Paper, Collapse, Chip } from '@mui/material';
 import { Sparkles as AutoAwesomeIcon } from 'lucide-react';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { getAiPanelTitle, getLocalizedAiReason } from '@/lib/email-triage/ai-display';
 
 interface AiInsightsPanelProps {
   /** Show summary panel */
@@ -21,6 +23,8 @@ interface AiInsightsPanelProps {
   priorityReason?: string | null;
   /** Existing AI sentiment */
   sentiment?: string | null;
+  /** Existing AI labels */
+  labels?: string[] | null;
 }
 
 export const AiInsightsPanel = memo(function AiInsightsPanel({
@@ -29,10 +33,19 @@ export const AiInsightsPanel = memo(function AiInsightsPanel({
   priority,
   priorityReason,
   sentiment,
+  labels,
 }: AiInsightsPanelProps) {
   const t = useTranslations();
+  const { locale } = useLocale();
   const hasSummary = showSummary && !!summary;
   const hasTriageInsight = Boolean(priorityReason || sentiment || priority != null);
+  const displayReason = getLocalizedAiReason({
+    priority,
+    priorityReason,
+    sentiment,
+    labels,
+    locale,
+  });
 
   const getSentimentColor = (value?: string | null) => {
     switch (value) {
@@ -63,7 +76,7 @@ export const AiInsightsPanel = memo(function AiInsightsPanel({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <AutoAwesomeIcon size={16} style={{ color: 'var(--mui-palette-primary-main)' }} />
             <Typography variant="caption" color="primary.main" fontWeight={600}>
-              {hasTriageInsight ? 'AI Insights' : 'AI Summary'}
+              {getAiPanelTitle(hasTriageInsight, locale)}
             </Typography>
           </Box>
           {hasTriageInsight && (
@@ -87,9 +100,9 @@ export const AiInsightsPanel = memo(function AiInsightsPanel({
               )}
             </Box>
           )}
-          {priorityReason && (
+          {displayReason && (
             <Typography variant="body2" color="text.primary" sx={{ mb: hasSummary ? 1.25 : 0 }}>
-              {priorityReason}
+              {displayReason}
             </Typography>
           )}
           {hasSummary && (

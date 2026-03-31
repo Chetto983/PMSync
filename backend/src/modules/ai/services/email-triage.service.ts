@@ -325,13 +325,18 @@ export class EmailTriageService implements OnModuleInit {
       };
     }
 
+    const triageOptions = {
+      ...options,
+      locale: await this.resolveTriageLocale(options),
+    };
+
     try {
       this.logger.log(`Processing ${emailIds.length} emails for triage (tenant: ${options.tenantId})`);
 
       // Process sequentially with 500ms delay between calls (rate limit protection)
       const results: TriageResult[] = [];
       for (const emailId of emailIds) {
-        const result = await this.triageEmail(emailId, options);
+        const result = await this.triageEmail(emailId, triageOptions);
         results.push(result);
 
         // Small delay to avoid overwhelming the LLM API
@@ -393,10 +398,15 @@ export class EmailTriageService implements OnModuleInit {
 
     this.logger.log(`Triaging ${limitedIds.length} specific emails (skipped ${skippedCount} due to rate limit)`);
 
+    const triageOptions = {
+      ...options,
+      locale: await this.resolveTriageLocale(options),
+    };
+
     // Process sequentially
     const results: TriageResult[] = [];
     for (const emailId of limitedIds) {
-      const result = await this.triageEmail(emailId, options);
+      const result = await this.triageEmail(emailId, triageOptions);
       results.push(result);
 
       if (limitedIds.indexOf(emailId) < limitedIds.length - 1) {
@@ -463,5 +473,18 @@ export class EmailTriageService implements OnModuleInit {
       lastTriagedAt: lastEmail?.autoTriagedAt ?? null,
       pendingCount,
     };
+  }
+
+  private async resolveTriageLocale(options: TriageOptions): Promise<string | undefined> {
+    if (options.locale) {
+      return options.locale;
+    }
+
+    const prefs = await this.prisma.userPreferences.findUnique({
+      where: { userId: options.userId },
+      select: { language: true },
+    });
+
+    return prefs?.language || undefined;
   }
 }

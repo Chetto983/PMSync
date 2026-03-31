@@ -42,6 +42,8 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { localizeAiLabel } from '@/lib/email-triage/ai-display';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { EmailHtmlContent } from './EmailHtmlContent';
 import { AttachmentCard } from './AttachmentCard';
 import { AiInsightsPanel } from './AiInsightsPanel';
@@ -197,6 +199,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
   const t = useTranslations();
+  const { locale } = useLocale();
   const [showAllRecipients, setShowAllRecipients] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -605,6 +608,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         priority={message.aiPriority}
         priorityReason={message.aiPriorityReason}
         sentiment={message.aiSentiment}
+        labels={message.aiLabels}
       />
 
       {/* User Labels */}
@@ -622,7 +626,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           {message.labels.map((label) => (
             <Chip
               key={label.id}
-              label={label.name}
+              label={localizeAiLabel(label.name, locale)}
               size="small"
               deleteIcon={
                 onRemoveLabel ? (
@@ -669,7 +673,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           {message.aiLabels.map((aiLabel) => (
             <Chip
               key={aiLabel}
-              label={aiLabel}
+              label={localizeAiLabel(aiLabel, locale)}
               size="small"
               variant="outlined"
               deleteIcon={

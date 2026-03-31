@@ -15,17 +15,18 @@ import { aiApi, SentimentResult, PriorityResult } from '@/lib/api/ai';
 
 export const emailAiKeys = {
   all: ['email-ai'] as const,
-  summarize: (emailId: string) => [...emailAiKeys.all, 'summarize', emailId] as const,
-  smartReplies: (emailId: string) => [...emailAiKeys.all, 'smart-replies', emailId] as const,
-  sentiment: (emailId: string) => [...emailAiKeys.all, 'sentiment', emailId] as const,
-  priority: (emailId: string) => [...emailAiKeys.all, 'priority', emailId] as const,
+  summarize: (emailId: string, locale?: string) => [...emailAiKeys.all, 'summarize', emailId, locale || 'default'] as const,
+  smartReplies: (emailId: string, locale?: string, tone?: string) =>
+    [...emailAiKeys.all, 'smart-replies', emailId, locale || 'default', tone || 'default'] as const,
+  sentiment: (emailId: string, locale?: string) => [...emailAiKeys.all, 'sentiment', emailId, locale || 'default'] as const,
+  priority: (emailId: string, locale?: string) => [...emailAiKeys.all, 'priority', emailId, locale || 'default'] as const,
 };
 
 // ============ Query Options ============
 
 export function summarizeEmailOptions(emailId: string, locale?: string) {
   return queryOptions({
-    queryKey: emailAiKeys.summarize(emailId),
+    queryKey: emailAiKeys.summarize(emailId, locale),
     queryFn: async () => {
       const response = await aiApi.summarizeEmail(emailId, locale);
       if (!response.data.success) throw new Error('Failed to summarize');
@@ -39,7 +40,7 @@ export function summarizeEmailOptions(emailId: string, locale?: string) {
 
 export function smartRepliesOptions(emailId: string, locale?: string, tone?: string) {
   return queryOptions({
-    queryKey: emailAiKeys.smartReplies(emailId),
+    queryKey: emailAiKeys.smartReplies(emailId, locale, tone),
     queryFn: async () => {
       const response = await aiApi.generateSmartReplies(emailId, locale, tone);
       if (!response.data.success) throw new Error('Failed to generate replies');
@@ -53,7 +54,7 @@ export function smartRepliesOptions(emailId: string, locale?: string, tone?: str
 
 export function sentimentOptions(emailId: string, locale?: string) {
   return queryOptions({
-    queryKey: emailAiKeys.sentiment(emailId),
+    queryKey: emailAiKeys.sentiment(emailId, locale),
     queryFn: async () => {
       const response = await aiApi.analyzeSentiment(emailId, locale);
       if (!response.data.success) throw new Error('Failed to analyze sentiment');
@@ -67,7 +68,7 @@ export function sentimentOptions(emailId: string, locale?: string) {
 
 export function priorityOptions(emailId: string, locale?: string) {
   return queryOptions({
-    queryKey: emailAiKeys.priority(emailId),
+    queryKey: emailAiKeys.priority(emailId, locale),
     queryFn: async () => {
       const response = await aiApi.calculatePriority(emailId, locale);
       if (!response.data.success) throw new Error('Failed to calculate priority');
