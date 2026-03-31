@@ -10,7 +10,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateObject, generateText } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -60,6 +60,37 @@ const extractionResultSchema = z.object({
 });
 
 type ExtractionResult = z.infer<typeof extractionResultSchema>;
+
+/** Plain JSON schema for the system prompt (Mistral json_object mode). */
+const EXTRACTION_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    entities: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['person', 'organization', 'topic'] },
+          name: { type: 'string' },
+        },
+        required: ['type', 'name'],
+      },
+    },
+    relationships: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          source: { type: 'string' },
+          target: { type: 'string' },
+          type: { type: 'string', enum: ['sent', 'received', 'mentions', 'about'] },
+        },
+        required: ['source', 'target', 'type'],
+      },
+    },
+  },
+  required: ['entities', 'relationships'],
+};
 
 // ============ Prompt ============
 
@@ -230,53 +261,36 @@ export class EntityExtractionService {
       .filter(Boolean)
       .join('\n');
 
-    // Try generateObject (structured output) first
-    try {
-      const result = await generateObject({
-        model: this.modelProvider.getChatModel(this.modelId),
-        schema: extractionResultSchema,
-        schemaName: 'EntityExtraction',
-        system: EXTRACTION_PROMPT,
-        prompt: emailContext,
-        temperature: 0.1,
-        maxOutputTokens: 800,
-        abortSignal: AbortSignal.timeout(30_000),
-      });
-
-      return result.object;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      if (!msg.includes('structured output')) {
-        this.logger.warn(`LLM entity extraction failed: ${msg}`);
-        return null;
-      }
-      this.logger.debug(
-        `Structured output rejected, falling back to generateText: ${msg}`,
-      );
-    }
-
-    // Fallback: generateText with JSON instruction + manual parse
+    // Use generateText + Mistral-native json_object mode instead of
+    // generateObject, which uses tool-calling via OpenRouter and triggers
+    // intermittent "Invalid structured output syntax" rejections.
     try {
       const { text } = await generateText({
         model: this.modelProvider.getChatModel(this.modelId),
-        system: `${EXTRACTION_PROMPT}\n\nRespond with ONLY a JSON object, no markdown fences.`,
+        system: `${EXTRACTION_PROMPT}\n\nRespond with ONLY a valid JSON object matching this schema:\n${JSON.stringify(EXTRACTION_JSON_SCHEMA, null, 2)}`,
         prompt: emailContext,
         temperature: 0.1,
         maxOutputTokens: 800,
         abortSignal: AbortSignal.timeout(30_000),
+        providerOptions: {
+          openrouter: { response_format: { type: 'json_object' } },
+        },
       });
 
-      const cleaned = text.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+      const cleaned = text
+        .replace(/```json?\s*/g, '')
+        .replace(/```\s*/g, '')
+        .trim();
       if (!cleaned || !cleaned.startsWith('{')) {
         this.logger.debug(
-          `Entity extraction returned non-JSON response, skipping (subject: "${params.subject.slice(0, 40)}")`,
+          `Entity extraction: non-JSON response for "${params.subject.slice(0, 40)}"`,
         );
         return null;
       }
       return extractionResultSchema.parse(JSON.parse(cleaned));
-    } catch (fallbackError) {
-      const msg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      this.logger.debug(`Entity extraction skipped (both modes failed): ${msg}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Entity extraction skipped: ${msg}`);
       return null;
     }
   }
