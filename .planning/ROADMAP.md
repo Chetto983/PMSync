@@ -137,7 +137,7 @@
  (completed 2026-03-31)
 - [x] **Phase 126: Cron-to-BullMQ Migration** - Migrate all @Cron decorators to BullMQ repeatable jobs for multi-instance safety (completed 2026-03-31)
 - [x] **Phase 127: Transport & Connection Hardening** - Force WebSocket-only transport and size DB connection pool for replicas (completed 2026-03-31)
-- [ ] **Phase 128: State Externalization** - Externalize in-memory state to Redis for multi-instance correctness
+- [x] **Phase 128: State Externalization** - Externalize in-memory state to Redis for multi-instance correctness (completed 2026-03-31)
 - [ ] **Phase 129: Replica Activation** - Enable multi-replica deployment with tuned workers and per-replica observability
 - [ ] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints
 - [ ] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect
@@ -268,7 +268,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 125. Dead Code Removal | v11.0 | 3/3 | Complete    | 2026-03-31 |
 | 126. Cron-to-BullMQ Migration | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 127. Transport & Connection Hardening | v11.0 | 1/1 | Complete    | 2026-03-31 |
-| 128. State Externalization | v11.0 | 1/2 | In Progress|  |
+| 128. State Externalization | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 129. Replica Activation | v11.0 | 0/TBD | Not started | - |
 | 130. Frontend Performance | v11.0 | 0/TBD | Not started | - |
 | 131. Billing Frontend | v11.0 | 0/TBD | Not started | - |
