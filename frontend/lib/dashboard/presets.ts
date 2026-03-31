@@ -3,8 +3,8 @@
  *
  * Predefined dashboard layouts for different use cases.
  * All widget IDs must match the real widget registry:
- *   briefing, insights, events, emails, deadlines, followups,
- *   priority, trends, contacts, triage
+ *   briefing, events, emails, deadlines, followups,
+ *   trends, contacts, triage
  */
 
 import type { DashboardLayout } from './layout-engine';
@@ -27,7 +27,6 @@ export const LAYOUT_PRESETS: Record<string, DashboardLayout> = {
       { i: 'trends-1', widgetId: 'trends', x: 6, y: 0, w: 3, h: 3 },
       { i: 'events-1', widgetId: 'events', x: 9, y: 0, w: 3, h: 3 },
       { i: 'deadlines-1', widgetId: 'deadlines', x: 0, y: 3, w: 4, h: 2 },
-      { i: 'insights-1', widgetId: 'insights', x: 4, y: 3, w: 4, h: 2 },
       { i: 'contacts-1', widgetId: 'contacts', x: 8, y: 3, w: 4, h: 2 },
     ],
   },
@@ -40,8 +39,7 @@ export const LAYOUT_PRESETS: Record<string, DashboardLayout> = {
     cols: DEFAULT_GRID_COLS,
     rowHeight: DEFAULT_ROW_HEIGHT,
     widgets: [
-      { i: 'insights-1', widgetId: 'insights', x: 0, y: 0, w: 4, h: 3 },
-      { i: 'triage-1', widgetId: 'triage', x: 4, y: 0, w: 4, h: 3 },
+      { i: 'triage-1', widgetId: 'triage', x: 0, y: 0, w: 4, h: 3 },
       { i: 'deadlines-1', widgetId: 'deadlines', x: 8, y: 0, w: 4, h: 3 },
       { i: 'followups-1', widgetId: 'followups', x: 0, y: 3, w: 4, h: 3 },
       { i: 'emails-1', widgetId: 'emails', x: 4, y: 3, w: 4, h: 3 },
@@ -87,7 +85,7 @@ export const LAYOUT_PRESETS: Record<string, DashboardLayout> = {
     rowHeight: DEFAULT_ROW_HEIGHT,
     widgets: [
       { i: 'trends-1', widgetId: 'trends', x: 0, y: 0, w: 6, h: 3 },
-      { i: 'insights-1', widgetId: 'insights', x: 6, y: 0, w: 6, h: 3 },
+      { i: 'briefing-1', widgetId: 'briefing', x: 6, y: 0, w: 6, h: 3 },
       { i: 'deadlines-1', widgetId: 'deadlines', x: 0, y: 3, w: 4, h: 2 },
       { i: 'followups-1', widgetId: 'followups', x: 4, y: 3, w: 4, h: 2 },
       { i: 'contacts-1', widgetId: 'contacts', x: 8, y: 3, w: 4, h: 2 },
@@ -110,8 +108,8 @@ export const LAYOUT_PRESETS: Record<string, DashboardLayout> = {
       { i: 'deadlines-1', widgetId: 'deadlines', x: 0, y: 3, w: 3, h: 2 },
       { i: 'followups-1', widgetId: 'followups', x: 3, y: 3, w: 4, h: 2 },
       { i: 'triage-1', widgetId: 'triage', x: 7, y: 3, w: 5, h: 2 },
-      // Row 3: Insights + Stale Contacts
-      { i: 'insights-1', widgetId: 'insights', x: 0, y: 5, w: 6, h: 2 },
+      // Row 3: Trends + Stale Contacts
+      { i: 'trends-1', widgetId: 'trends', x: 0, y: 5, w: 6, h: 2 },
       { i: 'contacts-1', widgetId: 'contacts', x: 6, y: 5, w: 6, h: 2 },
     ],
   },

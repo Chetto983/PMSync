@@ -139,19 +139,6 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     tags: ['ai', 'summary'],
   },
 
-  'insights': {
-    id: 'insights',
-    name: 'AI Insights',
-    description: 'Proactive action items and alerts',
-    category: 'ai',
-    icon: 'Sparkles',
-    defaultSize: 'large',
-    minSize: { w: 3, h: 2 },
-    maxSize: { w: 6, h: 4 },
-    component: placeholder,
-    tags: ['ai', 'alerts'],
-  },
-
   // ========== CRM WIDGETS ==========
 
   'contacts': {

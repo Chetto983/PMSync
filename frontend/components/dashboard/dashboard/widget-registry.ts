@@ -31,9 +31,6 @@ const FollowUpWidget = lazy(() =>
 const TodayEventsWidget = lazy(() =>
   import('../widgets/TodayEventsWidget').then((m) => ({ default: m.TodayEventsWidget }))
 );
-const PredictiveInsightsWidget = lazy(() =>
-  import('../widgets/PredictiveInsightsWidget').then((m) => ({ default: m.PredictiveInsightsWidget }))
-);
 const TrendChartsWidget = lazy(() =>
   import('../widgets/TrendChartsWidget').then((m) => ({ default: m.TrendChartsWidget }))
 );
@@ -44,7 +41,7 @@ const AiTriageWidget = lazy(() =>
   import('../widgets/AiTriageWidget').then((m) => ({ default: m.AiTriageWidget }))
 );
 
-export type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'trends' | 'contacts' | 'triage';
+export type WidgetId = 'briefing' | 'events' | 'emails' | 'deadlines' | 'followups' | 'trends' | 'contacts' | 'triage';
 
 export interface WidgetConfig {
   id: WidgetId;
@@ -59,11 +56,6 @@ export const WIDGETS: WidgetConfig[] = [
     icon: React.createElement(Sparkles, { size: 20 }),
     component: BriefingWidget,
     fullWidth: true,
-  },
-  {
-    id: 'insights',
-    icon: React.createElement(Sparkles, { size: 20 }),
-    component: PredictiveInsightsWidget,
   },
   {
     id: 'events',
@@ -105,7 +97,6 @@ export const WIDGETS: WidgetConfig[] = [
 export function getWidgetName(id: WidgetId, t: ReturnType<typeof useTranslations>): string {
   const names: Record<WidgetId, string> = {
     briefing: t.dashboard?.widgets?.briefing?.title || 'Daily Briefing',
-    insights: t.dashboard?.widgets?.insights?.title || 'AI Insights',
     events: t.calendar?.title || "Today's Events",
     emails: t.email?.title || 'Unread Emails',
     deadlines: t.dashboard?.widgets?.deadlines?.title || 'Deadlines',
@@ -120,7 +111,6 @@ export function getWidgetName(id: WidgetId, t: ReturnType<typeof useTranslations
 export function getWidgetDescription(id: WidgetId): string {
   const descriptions: Record<WidgetId, string> = {
     briefing: 'AI-powered summary of your day',
-    insights: 'Proactive action items and alerts',
     events: 'Calendar events for today',
     emails: 'Your unread email count',
     deadlines: 'Upcoming deadlines',
