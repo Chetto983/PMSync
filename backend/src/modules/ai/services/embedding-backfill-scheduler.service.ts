@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { EmailEmbeddingQueueService } from './email-embedding.queue';
 import { EmbeddingsService } from './embeddings.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 
 interface BackfillJobData {
   type: 'scheduled' | 'manual';
@@ -17,6 +18,10 @@ interface BackfillResult {
   enqueued: number;
   remaining: number;
   rateLimited: boolean;
+  /** Per-tenant enqueue counts for this run */
+  tenantCounts?: Record<string, number>;
+  /** Tenants that hit the hourly throttle limit */
+  throttledTenants?: string[];
 }
 
 /**
@@ -40,12 +45,18 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
   private readonly INTERVAL_MS: number;
   private readonly BACKFILL_DAYS: number; // Option C: Limit history
   private readonly REINDEX_BATCH: number; // Max old-format embeddings to purge per run
+  private readonly PER_TENANT_HOURLY_LIMIT: number; // KB-C1: Max emails per tenant per hour
+
+  /** Redis key prefix for per-tenant hourly backfill counters */
+  private static readonly TENANT_THROTTLE_PREFIX = 'pmsync:backfill:hourly:';
+  private static readonly TENANT_THROTTLE_TTL = 3600; // 1 hour
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
     private readonly embeddingsService: EmbeddingsService,
     private readonly configService: ConfigService,
+    private readonly redisConnection: RedisConnectionService,
   ) {
     this.BATCH_SIZE = parseInt(
       this.configService.get<string>('EMBEDDING_BACKFILL_BATCH_SIZE', '50'),
@@ -63,6 +74,11 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     );
     this.REINDEX_BATCH = parseInt(
       this.configService.get<string>('EMBEDDING_REINDEX_BATCH', '100'),
+      10,
+    );
+    // KB-C1: Per-tenant throttle to prevent one large tenant from starving others
+    this.PER_TENANT_HOURLY_LIMIT = parseInt(
+      this.configService.get<string>('EMBEDDING_BACKFILL_PER_TENANT_LIMIT', '100'),
       10,
     );
   }
@@ -109,8 +125,14 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
 
     this.worker.on('completed', (_job, result) => {
       if (result.enqueued > 0) {
+        const tenantInfo = result.tenantCounts
+          ? `, tenants: ${Object.keys(result.tenantCounts).length}`
+          : '';
+        const throttleInfo = result.throttledTenants?.length
+          ? `, throttled: ${result.throttledTenants.length}`
+          : '';
         this.logger.log(
-          `Backfill job completed: processed ${result.processed}, enqueued ${result.enqueued}, remaining ${result.remaining}`,
+          `Backfill job completed: processed ${result.processed}, enqueued ${result.enqueued}, remaining ${result.remaining}${tenantInfo}${throttleInfo}`,
         );
       }
     });
@@ -178,9 +200,18 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
 
     let enqueued = 0;
     let rateLimited = false;
+    const tenantCounts: Record<string, number> = {};
+    const throttledTenants = new Set<string>();
 
     for (const email of orphanEmails) {
       if (rateLimited) break;
+
+      // KB-C1: Check per-tenant hourly throttle
+      const throttled = await this.isTenantThrottled(email.tenantId);
+      if (throttled) {
+        throttledTenants.add(email.tenantId);
+        continue;
+      }
 
       try {
         // Double-check embedding doesn't exist (race condition protection)
@@ -207,6 +238,10 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
         });
 
         enqueued++;
+        tenantCounts[email.tenantId] = (tenantCounts[email.tenantId] || 0) + 1;
+
+        // KB-C1: Increment per-tenant hourly counter
+        await this.incrementTenantCounter(email.tenantId);
 
         // Update job progress
         if (enqueued % 10 === 0) {
@@ -230,6 +265,12 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       }
     }
 
+    if (throttledTenants.size > 0) {
+      this.logger.log(
+        `Throttled ${throttledTenants.size} tenant(s) at ${this.PER_TENANT_HOURLY_LIMIT}/hr limit: ${[...throttledTenants].join(', ')}`,
+      );
+    }
+
     const remaining = await this.countOrphanEmails();
 
     return {
@@ -237,6 +278,8 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       enqueued,
       remaining,
       rateLimited,
+      tenantCounts,
+      throttledTenants: [...throttledTenants],
     };
   }
 
@@ -252,112 +295,58 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     'deleted items', 'junk email', 'junk e-mail',
   ];
 
-  /**
-   * Find emails without embeddings across all tenants.
-   * Efficient single query using LEFT JOIN.
-   * Excludes spam, deleted, and archived emails.
-   */
-  private async findOrphanEmails(limit: number): Promise<
-    Array<{
-      id: string;
-      tenantId: string;
-      providerId: string;
-      subject: string | null;
-      snippet: string | null;
-      bodyText: string | null;
-      bodyHtml: string | null;
-      from: string | null;
-      to: string[] | null;
-      receivedAt: Date | null;
-    }>
-  > {
-    // Build the folder exclusion pattern for SQL ILIKE
-    const excludedPatterns = EmbeddingBackfillSchedulerService.EXCLUDED_FOLDER_PATTERNS;
-    const excludedSpecialUse = EmbeddingBackfillSchedulerService.EXCLUDED_SPECIAL_USE;
-
-    // Build OR conditions for folder pattern exclusion
+  /** Build shared SQL filter fragments for orphan email queries */
+  private buildOrphanFilters() {
     const patternConditions = Prisma.join(
-      excludedPatterns.map((pattern) =>
-        Prisma.sql`LOWER(COALESCE(e."folder", '')) LIKE ${`%${pattern.toLowerCase()}%`}`,
+      EmbeddingBackfillSchedulerService.EXCLUDED_FOLDER_PATTERNS.map((p) =>
+        Prisma.sql`LOWER(COALESCE(e."folder", '')) LIKE ${`%${p.toLowerCase()}%`}`,
       ),
       ' OR ',
     );
-
-    // Option C: Limit to recent history
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() - this.BACKFILL_DAYS);
-
-    const rows = await this.prisma.$queryRaw<Array<any>>(
-      Prisma.sql`
-        SELECT
-          e."id",
-          e."tenantId",
-          e."providerId",
-          e."subject",
-          e."snippet",
-          e."bodyText",
-          e."bodyHtml",
-          e."from",
-          e."to",
-          e."receivedAt"
-        FROM "emails" e
-        LEFT JOIN "embeddings" emb
-          ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
-        LEFT JOIN "folders" f
-          ON f."providerId" = e."providerId"
-          AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
-        WHERE emb."id" IS NULL
-          AND e."isDeleted" = FALSE
-          AND e."receivedAt" > ${limitDate}
-          -- Exclude by specialUse
-          AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
-          -- Exclude by folder name patterns (case insensitive)
-          AND NOT (${patternConditions})
-        ORDER BY e."receivedAt" DESC NULLS LAST
-        LIMIT ${limit};
-      `,
-    );
-
-    return rows;
+    const specialUse = EmbeddingBackfillSchedulerService.EXCLUDED_SPECIAL_USE;
+    return { patternConditions, limitDate, specialUse };
   }
 
-  /**
-   * Count total orphan emails (excluding spam, deleted, archived)
-   */
+  /** Find emails without embeddings across all tenants (LEFT JOIN, excludes spam/trash/archive) */
+  private async findOrphanEmails(limit: number): Promise<
+    Array<{
+      id: string; tenantId: string; providerId: string;
+      subject: string | null; snippet: string | null;
+      bodyText: string | null; bodyHtml: string | null;
+      from: string | null; to: string[] | null; receivedAt: Date | null;
+    }>
+  > {
+    const { patternConditions, limitDate, specialUse } = this.buildOrphanFilters();
+    return this.prisma.$queryRaw<Array<any>>(Prisma.sql`
+      SELECT e."id", e."tenantId", e."providerId", e."subject", e."snippet",
+             e."bodyText", e."bodyHtml", e."from", e."to", e."receivedAt"
+      FROM "emails" e
+      LEFT JOIN "embeddings" emb ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
+      LEFT JOIN "folders" f ON f."providerId" = e."providerId"
+        AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
+      WHERE emb."id" IS NULL AND e."isDeleted" = FALSE AND e."receivedAt" > ${limitDate}
+        AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(specialUse)}))
+        AND NOT (${patternConditions})
+      ORDER BY e."receivedAt" DESC NULLS LAST
+      LIMIT ${limit};
+    `);
+  }
+
+  /** Count total orphan emails (excluding spam, deleted, archived) */
   private async countOrphanEmails(): Promise<number> {
-    const excludedPatterns = EmbeddingBackfillSchedulerService.EXCLUDED_FOLDER_PATTERNS;
-    const excludedSpecialUse = EmbeddingBackfillSchedulerService.EXCLUDED_SPECIAL_USE;
-
-    // Build OR conditions for folder pattern exclusion
-    const patternConditions = Prisma.join(
-      excludedPatterns.map((pattern) =>
-        Prisma.sql`LOWER(COALESCE(e."folder", '')) LIKE ${`%${pattern.toLowerCase()}%`}`,
-      ),
-      ' OR ',
-    );
-
-    const limitDate = new Date();
-    limitDate.setDate(limitDate.getDate() - this.BACKFILL_DAYS);
-
-    const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>(
-      Prisma.sql`
-        SELECT COUNT(*)::bigint AS count
-        FROM "emails" e
-        LEFT JOIN "embeddings" emb
-          ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
-        LEFT JOIN "folders" f
-          ON f."providerId" = e."providerId"
-          AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
-        WHERE emb."id" IS NULL
-          AND e."isDeleted" = FALSE
-          AND e."receivedAt" > ${limitDate}
-          -- Exclude by specialUse
-          AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
-          -- Exclude by folder name patterns (case insensitive)
-          AND NOT (${patternConditions});
-      `,
-    );
-
+    const { patternConditions, limitDate, specialUse } = this.buildOrphanFilters();
+    const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT COUNT(*)::bigint AS count
+      FROM "emails" e
+      LEFT JOIN "embeddings" emb ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
+      LEFT JOIN "folders" f ON f."providerId" = e."providerId"
+        AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
+      WHERE emb."id" IS NULL AND e."isDeleted" = FALSE AND e."receivedAt" > ${limitDate}
+        AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(specialUse)}))
+        AND NOT (${patternConditions});
+    `);
     return Number(result?.[0]?.count ?? BigInt(0));
   }
 
@@ -392,6 +381,39 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     }
   }
 
+  /**
+   * KB-C1: Check if a tenant has exceeded the hourly backfill limit.
+   * Uses Redis INCR counter with 1h TTL for sliding window approximation.
+   * Fails open: if Redis is unavailable, allow the enqueue (backfill is non-critical).
+   */
+  private async isTenantThrottled(tenantId: string): Promise<boolean> {
+    try {
+      const key = `${EmbeddingBackfillSchedulerService.TENANT_THROTTLE_PREFIX}${tenantId}`;
+      const current = await this.redisConnection.client.get(key);
+      return current !== null && parseInt(current, 10) >= this.PER_TENANT_HOURLY_LIMIT;
+    } catch {
+      return false; // Fail open — backfill is best-effort
+    }
+  }
+
+  /**
+   * KB-C1: Increment the per-tenant hourly backfill counter.
+   * Sets TTL on first increment to auto-expire after 1 hour.
+   */
+  private async incrementTenantCounter(tenantId: string): Promise<void> {
+    try {
+      const key = `${EmbeddingBackfillSchedulerService.TENANT_THROTTLE_PREFIX}${tenantId}`;
+      const redis = this.redisConnection.client;
+      const count = await redis.incr(key);
+      // Set TTL only on first increment (when count becomes 1)
+      if (count === 1) {
+        await redis.expire(key, EmbeddingBackfillSchedulerService.TENANT_THROTTLE_TTL);
+      }
+    } catch {
+      // Non-critical — worst case we over-enqueue slightly
+    }
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -403,6 +425,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     enabled: boolean;
     intervalMinutes: number;
     batchSize: number;
+    perTenantHourlyLimit: number;
     missingEmbeddings: number;
     queueStats: {
       waiting: number;
@@ -428,6 +451,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       enabled: this.ENABLED,
       intervalMinutes: this.INTERVAL_MS / 60000,
       batchSize: this.BATCH_SIZE,
+      perTenantHourlyLimit: this.PER_TENANT_HOURLY_LIMIT,
       missingEmbeddings,
       queueStats,
     };
