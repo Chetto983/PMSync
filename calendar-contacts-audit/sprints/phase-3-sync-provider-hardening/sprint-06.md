@@ -10,13 +10,13 @@
 
 ## Sprint Backlog
 
-### T-0601: Microsoft MSAL token refresh resilience [3 SP]
-- [ ] Read `microsoft-auth.service.ts` — trace MSAL token flow
-- [ ] Verify silent token refresh works when access token expires
-- [ ] Handle consent revocation (user removed app in Azure AD)
-- [ ] Handle interaction_required error (re-auth needed)
-- [ ] Add structured error for: token_expired, consent_revoked, interaction_required
-- [ ] Test: expired token → silent refresh → operation succeeds
+### T-0601: Microsoft MSAL token refresh resilience [3 SP] ✅ DONE
+- [x] Read `microsoft-oauth.service.ts` — traced MSAL token flow
+- [x] Verify silent token refresh works when access token expires
+- [x] Handle consent revocation (user removed app in Azure AD)
+- [x] Handle interaction_required error (re-auth needed)
+- [x] Add structured error for: token_expired, consent_revoked, interaction_required
+- [x] Test: expired token → silent refresh → operation succeeds
 
 ### T-0602: Microsoft delta query error handling [3 SP]
 - [ ] Read `microsoft-calendar-sync.service.ts` — trace delta token usage

@@ -15,6 +15,7 @@ import { GoogleOAuthService } from '../../providers/services/google-oauth.servic
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { GoogleProviderError, isGoogleProviderError } from '../../providers/errors';
+import { MicrosoftProviderError, isMicrosoftProviderError } from '../../providers/errors';
 import type { ProviderConfig as ProviderEntity } from '@prisma/client';
 
 type ProviderWithToken = {
@@ -204,20 +205,34 @@ export class ProviderTokenService {
       this.logger.log(`Microsoft token refreshed for ${provider.email}`);
       return accessToken;
     } catch (error) {
-      // T-0501: Notify user via WebSocket when token refresh fails
-      const isAuthError =
+      // T-0601: Handle typed MicrosoftProviderError hierarchy + legacy NestJS exceptions
+      const isTypedMsError = isMicrosoftProviderError(error);
+      const isLegacyAuthError =
         error instanceof UnauthorizedException || error instanceof ForbiddenException;
 
-      if (isAuthError && provider.tenantId) {
+      if ((isTypedMsError || isLegacyAuthError) && provider.tenantId) {
+        const errorMessage = isTypedMsError
+          ? `Microsoft account ${provider.email}: ${(error as MicrosoftProviderError).errorType}`
+          : error instanceof ForbiddenException
+            ? `Microsoft account ${provider.email} needs permission re-grant`
+            : `Microsoft account ${provider.email} requires re-authentication`;
+
         this.realtimeEvents.emitSyncStatus(provider.tenantId, {
           providerId: provider.id,
           status: 'failed',
-          error: `Microsoft account ${provider.email} requires re-authentication`,
+          error: errorMessage,
         });
 
-        this.logger.warn(
-          `Microsoft token refresh auth failure for ${provider.email} (${provider.id}): ${(error as Error).message}`,
-        );
+        if (isTypedMsError) {
+          this.logger.warn(
+            'Microsoft token refresh classified error',
+            (error as MicrosoftProviderError).toStructuredLog(),
+          );
+        } else {
+          this.logger.warn(
+            `Microsoft token refresh auth failure for ${provider.email} (${provider.id}): ${(error as Error).message}`,
+          );
+        }
       }
 
       throw error;

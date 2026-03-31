@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import { getConfiguration } from '../../../config/configuration';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { MicrosoftAuthError, MicrosoftRateLimitError } from '../errors';
 
 @Injectable()
 export class MicrosoftOAuthService {
@@ -275,24 +276,25 @@ export class MicrosoftOAuthService {
         errorType: (error as any)?.constructor?.name,
       });
 
-      // Differentiate error types for better handling
+      // T-0601: Throw typed MicrosoftProviderError hierarchy for structured handling
       if (errorMessage.includes('insufficient') || errorMessage.includes('access_denied') || errorCode === 'consent_required') {
-        throw new ForbiddenException('Permission denied by Microsoft. Please reconnect with required permissions.');
+        throw new MicrosoftAuthError('consent_revoked', undefined, error instanceof Error ? error : undefined);
       }
 
       if (errorMessage.includes('invalid_grant') || errorCode === 'invalid_grant' || errorMessage.includes('AADSTS700082')) {
-        throw new UnauthorizedException('Re-authentication required. Microsoft refresh token has been revoked or expired.');
+        throw new MicrosoftAuthError('token_expired', undefined, error instanceof Error ? error : undefined);
       }
 
       if (errorMessage.includes('AADSTS50076') || errorMessage.includes('interaction_required')) {
-        throw new UnauthorizedException('Re-authentication required. Additional verification needed by Microsoft.');
+        throw new MicrosoftAuthError('interaction_required', undefined, error instanceof Error ? error : undefined);
       }
 
       if (errorMessage.includes('rate') || errorCode === 429 || errorMessage.includes('throttled')) {
-        throw new UnauthorizedException('Microsoft API rate limit exceeded. Please try again later.');
+        throw new MicrosoftRateLimitError(undefined, undefined, error instanceof Error ? error : undefined);
       }
 
-      throw new UnauthorizedException('Failed to refresh Microsoft access token. Please reconnect this account.');
+      // Fallback: classify via MSAL error code analysis
+      throw MicrosoftAuthError.fromMsalError(error);
     }
   }
 
@@ -620,7 +622,11 @@ export class MicrosoftOAuthService {
         );
         this.logger.error('Stack trace:', error instanceof Error ? error.stack : '');
 
-        // Re-throw to propagate the error up
+        // T-0601: Propagate typed MicrosoftProviderError as-is for structured handling
+        if (error instanceof MicrosoftAuthError || error instanceof MicrosoftRateLimitError) {
+          throw error;
+        }
+
         throw new UnauthorizedException(
           'Failed to refresh access token. Please reconnect this provider.'
         );
