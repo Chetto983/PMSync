@@ -1227,6 +1227,16 @@ export const en: AppTranslations = {
       aiPromptHelperText: 'The AI will automatically apply this label to emails matching this description.',
       // T-0902: IMAP local-only notice
       imapLocalOnly: 'Labels on this account are local only and will not sync to the mail server.',
+      // Bulk select & delete
+      selectMode: 'Select',
+      exitSelectMode: 'Cancel',
+      selected: '{count} selected',
+      bulkDelete: 'Delete selected',
+      bulkDeleteConfirm: 'Are you sure you want to delete {count} label(s)? Emails with these labels will not be deleted.',
+      bulkDeleteFailed: 'Failed to delete some labels. Please try again.',
+      bulkDeleted: '{count} label(s) deleted',
+      selectAll: 'Select all',
+      deselectAll: 'Deselect all',
       errors: {
         nameRequired: 'Name is required',
         nameTooShort: 'Name must be at least 2 characters',

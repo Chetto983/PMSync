@@ -1217,6 +1217,16 @@ export const it: AppTranslations = {
       aiPromptHelperText: 'L\'AI applicherà automaticamente questa etichetta alle email che corrispondono a questa descrizione.',
       // T-0902: IMAP local-only notice
       imapLocalOnly: 'Le etichette su questo account sono solo locali e non verranno sincronizzate con il server di posta.',
+      // Bulk select & delete
+      selectMode: 'Seleziona',
+      exitSelectMode: 'Annulla',
+      selected: '{count} selezionate',
+      bulkDelete: 'Elimina selezionate',
+      bulkDeleteConfirm: 'Sei sicuro di voler eliminare {count} etichetta/e? Le email con queste etichette non verranno eliminate.',
+      bulkDeleteFailed: 'Eliminazione di alcune etichette fallita. Riprova.',
+      bulkDeleted: '{count} etichetta/e eliminate',
+      selectAll: 'Seleziona tutto',
+      deselectAll: 'Deseleziona tutto',
       errors: {
         nameRequired: 'Il nome è obbligatorio',
         nameTooShort: 'Il nome deve essere almeno 2 caratteri',

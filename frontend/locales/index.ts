@@ -1157,6 +1157,16 @@ export interface AppTranslations {
       aiLabelAccepted: string;
       aiLabelDismissed: string;
       imapLocalOnly: string;
+      // Bulk select & delete
+      selectMode?: string;
+      exitSelectMode?: string;
+      selected?: string;
+      bulkDelete?: string;
+      bulkDeleteConfirm?: string;
+      bulkDeleteFailed?: string;
+      bulkDeleted?: string;
+      selectAll?: string;
+      deselectAll?: string;
     };
     list: {
       loading: string;

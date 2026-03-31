@@ -1,14 +1,5 @@
 /**
- * Labels Sidebar Component
- *
- * Displays labels as a hierarchical tree in the email sidebar with:
- * - Collapsible section header
- * - Nested tree view with indentation, guide lines, and chevrons
- * - Expand/collapse per label with localStorage persistence
- * - Aggregate email counts on parent labels
- * - Context menu for edit/delete
- * - Colored left border per label
- * - Drag-drop nesting and reordering (via LabelTreeDndWrapper)
+ * Labels Sidebar Component — hierarchical label tree with DnD, bulk select/delete.
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -24,16 +15,19 @@ import {
   Collapse,
   TextField,
   alpha,
+  Checkbox,
+  CircularProgress,
 } from '@mui/material';
-import { Tag, Plus, ChevronDown, ChevronRight, Search, X } from 'lucide-react';
+import { Tag, Plus, ChevronDown, ChevronRight, Search, X, Trash2, CheckSquare } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useLabels } from '@/hooks/queries';
+import { useLabels, useBulkDeleteLabels } from '@/hooks/queries';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import { useLabelTreeStore } from '@/stores/label-tree-store';
 import { buildTree, flattenTree, getAncestorIds } from '@/lib/label-tree-utils';
 import { LabelTreeDndWrapper } from '../labels/LabelTreeDndWrapper';
 import { LabelDialog } from '../labels/LabelDialog';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { Label } from '@/lib/api/labels';
 import type { FlattenedItem } from '@/lib/label-tree-utils';
 
@@ -67,6 +61,12 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
   // Context menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<Label | null>(null);
+
+  // Bulk selection state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const bulkDelete = useBulkDeleteLabels();
 
   // Filter to show only USER labels (not SYSTEM)
   const userLabels = useMemo(
@@ -112,7 +112,6 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     matchIds.forEach((id) => expandTo(id, userLabels));
   }, [searchQuery, userLabels, expandTo]);
 
-  // Prune stale expansion IDs when labels change
   useEffect(() => {
     if (userLabels.length > 0) {
       const validIds = new Set(userLabels.map((l) => l.id));
@@ -120,7 +119,6 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     }
   }, [userLabels, pruneStaleIds]);
 
-  // Handle label click - toggle filter by label
   const handleLabelClick = useCallback(
     (labelId: string) => {
       if (filters.labelId === labelId) {
@@ -139,7 +137,6 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     [setFilters, filters.labelId],
   );
 
-  // Handle context menu from DnD wrapper (receives FlattenedItem)
   const handleDndContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>, item: FlattenedItem) => {
       event.preventDefault();
@@ -158,18 +155,15 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     // Don't clear selectedLabel here - the dialog still needs it!
   }, []);
 
-  // Toggle section expanded
   const toggleSectionExpanded = useCallback(() => {
     setSectionExpanded((prev) => !prev);
   }, []);
 
-  // Check if a label is selected
   const isLabelSelected = useCallback(
     (id: string) => filters.labelId === id,
     [filters.labelId],
   );
 
-  // DnD wrapper label click handler (receives FlattenedItem)
   const handleDndLabelClick = useCallback(
     (item: FlattenedItem) => {
       handleLabelClick(item.id);
@@ -187,6 +181,44 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     setCreateDialogOpen(false);
     setCreateParentId(undefined);
   }, []);
+
+  // Bulk selection handlers
+  const toggleSelectMode = useCallback(() => {
+    setSelectMode((prev) => {
+      if (prev) setSelectedIds(new Set());
+      return !prev;
+    });
+  }, []);
+
+  const toggleLabelSelected = useCallback((labelId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(labelId)) next.delete(labelId);
+      else next.add(labelId);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === userLabels.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(userLabels.map((l) => l.id)));
+    }
+  }, [selectedIds.size, userLabels]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await bulkDelete.mutateAsync(ids);
+      setSelectedIds(new Set());
+      setSelectMode(false);
+    } catch {
+      // partial failure still resets
+    }
+    setConfirmDeleteOpen(false);
+  }, [selectedIds, bulkDelete]);
 
   // Loading state
   if (isLoading) {
@@ -244,18 +276,35 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
               {t.email?.labels?.title || 'Labels'}
             </Typography>
           </Box>
-          <Tooltip title={t.email?.labels?.addLabel || 'Add Label'}>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenCreate();
-              }}
-              sx={{ p: 0.5 }}
-            >
-              <Plus size={14} />
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+            {userLabels.length > 0 && (
+              <Tooltip title={selectMode ? (t.email?.labels?.exitSelectMode || 'Cancel') : (t.email?.labels?.selectMode || 'Select')}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelectMode();
+                  }}
+                  sx={{ p: 0.5 }}
+                  color={selectMode ? 'primary' : 'default'}
+                >
+                  <CheckSquare size={14} />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={t.email?.labels?.addLabel || 'Add Label'}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenCreate();
+                }}
+                sx={{ p: 0.5 }}
+              >
+                <Plus size={14} />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
       ) : (
         // Collapsed sidebar: Show Tag icon as section indicator
@@ -330,6 +379,49 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
               </Box>
             )}
 
+            {/* Bulk action bar */}
+            {selectMode && (
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Checkbox
+                    size="small"
+                    checked={selectedIds.size === userLabels.length && userLabels.length > 0}
+                    indeterminate={selectedIds.size > 0 && selectedIds.size < userLabels.length}
+                    onChange={toggleSelectAll}
+                    sx={{ p: 0.25 }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    {selectedIds.size > 0
+                      ? (t.email?.labels?.selected || '{count} selected').replace('{count}', String(selectedIds.size))
+                      : (t.email?.labels?.selectAll || 'Select all')}
+                  </Typography>
+                </Box>
+                {selectedIds.size > 0 && (
+                  <Tooltip title={t.email?.labels?.bulkDelete || 'Delete selected'}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => setConfirmDeleteOpen(true)}
+                      disabled={bulkDelete.isPending}
+                      sx={{ p: 0.5 }}
+                    >
+                      {bulkDelete.isPending ? <CircularProgress size={14} /> : <Trash2 size={14} />}
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            )}
+
             {filteredFlatItems.length === 0 ? (
               <Typography
                 variant="caption"
@@ -347,8 +439,11 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
                 expandedIds={expandedIds}
                 onToggle={toggleExpanded}
                 isLabelSelected={isLabelSelected}
-                onLabelClick={handleDndLabelClick}
-                onContextMenu={handleDndContextMenu}
+                onLabelClick={selectMode ? (item) => toggleLabelSelected(item.id) : handleDndLabelClick}
+                onContextMenu={selectMode ? undefined : handleDndContextMenu}
+                selectMode={selectMode}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleLabelSelected}
               />
             )}
           </>
@@ -396,13 +491,25 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
         label={selectedLabel}
         onAddChild={handleOpenCreate}
       />
+
+      {/* Bulk Delete Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title={t.email?.labels?.bulkDelete || 'Delete selected'}
+        message={
+          (t.email?.labels?.bulkDeleteConfirm || 'Are you sure you want to delete {count} label(s)? Emails with these labels will not be deleted.').replace('{count}', String(selectedIds.size))
+        }
+        confirmText={t.common?.delete || 'Delete'}
+        cancelText={t.common?.cancel || 'Cancel'}
+        confirmColor="error"
+        isLoading={bulkDelete.isPending}
+        variant="danger"
+      />
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-// CollapsedLabelList - flat icons when sidebar is collapsed
-// ---------------------------------------------------------------------------
 
 function CollapsedLabelList({
   labels,

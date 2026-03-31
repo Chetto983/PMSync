@@ -66,7 +66,13 @@ interface LabelTreeDndWrapperProps {
   onToggle: (id: string) => void;
   isLabelSelected: (id: string) => boolean;
   onLabelClick: (label: FlattenedItem) => void;
-  onContextMenu: (event: React.MouseEvent<HTMLElement>, label: FlattenedItem) => void;
+  onContextMenu?: (event: React.MouseEvent<HTMLElement>, label: FlattenedItem) => void;
+  /** Bulk selection mode */
+  selectMode?: boolean;
+  /** IDs currently selected for bulk operations */
+  selectedIds?: Set<string>;
+  /** Toggle a label's selection state */
+  onToggleSelect?: (labelId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +88,9 @@ interface SortableLabelItemProps {
   onMenuClick: (event: React.MouseEvent<HTMLElement>) => void;
   projectedDepth: number | null;
   isActiveItem: boolean;
+  selectMode?: boolean;
+  isChecked?: boolean;
+  onToggleCheck?: () => void;
 }
 
 function SortableLabelItem({
@@ -93,6 +102,9 @@ function SortableLabelItem({
   onMenuClick,
   projectedDepth,
   isActiveItem,
+  selectMode,
+  isChecked,
+  onToggleCheck,
 }: SortableLabelItemProps) {
   const {
     attributes,
@@ -125,8 +137,11 @@ function SortableLabelItem({
       onContextMenu={onContextMenu}
       onMenuClick={onMenuClick}
       style={style}
-      dragProps={{ ...attributes, ...listeners }}
+      dragProps={selectMode ? undefined : { ...attributes, ...listeners }}
       isDragging={isDragging}
+      selectMode={selectMode}
+      isChecked={isChecked}
+      onToggleCheck={onToggleCheck}
     />
   );
 }
@@ -143,6 +158,9 @@ export function LabelTreeDndWrapper({
   isLabelSelected,
   onLabelClick,
   onContextMenu,
+  selectMode,
+  selectedIds,
+  onToggleSelect,
 }: LabelTreeDndWrapperProps) {
   // DnD state
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -287,10 +305,13 @@ export function LabelTreeDndWrapper({
               isSelected={isLabelSelected(item.id)}
               onToggle={() => onToggle(item.id)}
               onClick={() => onLabelClick(item)}
-              onContextMenu={(e) => onContextMenu(e, item)}
-              onMenuClick={(e) => onContextMenu(e, item)}
+              onContextMenu={(e) => onContextMenu?.(e, item)}
+              onMenuClick={(e) => onContextMenu?.(e, item)}
               projectedDepth={projected?.depth ?? null}
               isActiveItem={activeId === item.id}
+              selectMode={selectMode}
+              isChecked={selectedIds?.has(item.id)}
+              onToggleCheck={() => onToggleSelect?.(item.id)}
             />
           ))}
         </List>

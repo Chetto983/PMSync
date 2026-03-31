@@ -15,6 +15,7 @@ import {
   Typography,
   IconButton,
   Box,
+  Checkbox,
   alpha,
   useMediaQuery,
 } from '@mui/material';
@@ -39,6 +40,12 @@ interface LabelTreeItemProps {
   style?: React.CSSProperties;
   dragProps?: React.HTMLAttributes<HTMLDivElement>;
   isDragging?: boolean;
+  /** Show checkbox for bulk selection */
+  selectMode?: boolean;
+  /** Whether this item is checked in bulk selection */
+  isChecked?: boolean;
+  /** Toggle checked state */
+  onToggleCheck?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +83,9 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
       style,
       dragProps,
       isDragging,
+      selectMode,
+      isChecked,
+      onToggleCheck,
     },
     ref,
   ) {
@@ -138,6 +148,19 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
               }}
             />
           ))}
+
+          {/* Checkbox for bulk selection */}
+          {selectMode && (
+            <Checkbox
+              size="small"
+              checked={!!isChecked}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCheck?.();
+              }}
+              sx={{ p: 0.25, mr: 0.25 }}
+            />
+          )}
 
           {/* Chevron for expand/collapse */}
           {hasChildren ? (
