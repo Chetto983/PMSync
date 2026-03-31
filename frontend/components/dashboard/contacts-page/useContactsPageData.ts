@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type SetStateAction } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
+import { useRouter } from 'next/router';
 import { useQueryClient } from '@tanstack/react-query';
 import { type Contact, type ContactCounts } from '@/lib/api/contacts';
 import {
@@ -55,8 +56,41 @@ export function useContactsPageData() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [syncingProviders, setSyncingProviders] = useState<Set<string>>(new Set());
-  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  // Persist filters in URL search params
+  const router = useRouter();
+
+  const selectedProviderId = (router.query.provider as string) || null;
+  const selectedFilter = (router.query.filter as string) || null;
+
+  const setSelectedProviderId = useCallback(
+    (value: SetStateAction<string | null>) => {
+      const next = typeof value === 'function' ? value(selectedProviderId) : value;
+      const query = { ...router.query };
+      if (next) {
+        query.provider = next;
+      } else {
+        delete query.provider;
+      }
+      // Clear filter when changing provider
+      delete query.filter;
+      void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+    },
+    [router, selectedProviderId],
+  );
+
+  const setSelectedFilter = useCallback(
+    (value: SetStateAction<string | null>) => {
+      const next = typeof value === 'function' ? value(selectedFilter) : value;
+      const query = { ...router.query };
+      if (next) {
+        query.filter = next;
+      } else {
+        delete query.filter;
+      }
+      void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+    },
+    [router, selectedFilter],
+  );
   const [pagination, setPagination] = useState({ offset: 0, limit: 50, hasMore: true, total: 0 });
 
   // Snackbar state
