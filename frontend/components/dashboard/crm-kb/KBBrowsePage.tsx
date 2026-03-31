@@ -224,7 +224,7 @@ export function KBBrowsePage() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>{tf?.title ?? 'Title'}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{tf?.category ?? 'Category'}</TableCell>
+                <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>{tf?.category ?? 'Category'}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{tf?.status ?? 'Status'}</TableCell>
                 <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>{tb?.publishedOn ?? 'Published'}</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 80, display: { xs: 'none', sm: 'table-cell' } }} />
@@ -235,7 +235,7 @@ export function KBBrowsePage() {
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton variant="text" /></TableCell>
-                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Skeleton variant="text" width={80} /></TableCell>
                     <TableCell><Skeleton variant="text" width={70} /></TableCell>
                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}><Skeleton variant="text" width={80} /></TableCell>
                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Skeleton variant="text" width={60} /></TableCell>
@@ -280,7 +280,7 @@ export function KBBrowsePage() {
                         </Box>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                       {article.category ? (
                         <Chip label={article.category.name} size="small" variant="outlined" />
                       ) : '—'}

@@ -30,7 +30,7 @@ export class PipelineService {
       where: { tenantId, deletedAt: null },
       include: {
         stages: {
-          select: { id: true, name: true, color: true, probability: true, position: true },
+          select: { id: true, name: true, color: true, probability: true, position: true, isWon: true, isLost: true },
           orderBy: { position: 'asc' },
         },
         _count: { select: { stages: true, deals: true } },
