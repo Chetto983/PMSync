@@ -1,69 +1,65 @@
-# Sprint 17 — Checkpoint
+# Sprint 18 — Checkpoint
 
 ## Stato
-- **Sprint:** 17 — Knowledge Base & Customer Portal
-- **Last Task Completed:** T-1710 — Portal ticket tracking page
-- **Next Task:** Sprint complete — all tasks done
-- **Tasks Done:** 10/10
-- **SP Completed:** 19/19
-- **Last Updated:** 2026-03-31 13:30
+- **Sprint:** 18 — CSAT, Reports & Beta Release
+- **Last Task Completed:** T-1806 — Canned responses CRUD + UI
+- **Next Task:** T-1807 — Bug fixes Phase 3
+- **Tasks Done:** 6/10
+- **SP Completed:** 14/20
+- **Last Updated:** 2026-03-31 17:00
 
 ## Last Modified Files
-- backend/prisma/schema.prisma (KBCategory, KBArticle models + portalToken/senderName/senderEmail on Ticket)
-- backend/prisma/migrations/20260331100000_kb_article_tsvector/migration.sql (tsvector + trigger + GIN)
-- backend/src/modules/crm/kb/kb.module.ts (KBModule with PortalKBController)
-- backend/src/modules/crm/kb/services/kb.service.ts (CRUD + full-text search)
-- backend/src/modules/crm/kb/controllers/kb.controller.ts (auth'd staff endpoints)
-- backend/src/modules/crm/kb/controllers/portal-kb.controller.ts (@Public, tenant from slug)
-- backend/src/modules/crm/kb/dto/kb.dto.ts (category + article + search DTOs)
-- backend/src/modules/crm/ticket/controllers/portal-ticket.controller.ts (@Public, honeypot + timestamp)
-- backend/src/modules/crm/ticket/ticket.module.ts (PortalTicketController added)
-- backend/src/modules/crm/crm.module.ts (KBModule wired)
-- frontend/lib/api/crm-kb.ts (KB API module)
-- frontend/hooks/queries/crm-kb-keys.ts (query keys)
-- frontend/hooks/queries/use-crm-kb.ts (TanStack Query hooks + mutations)
-- frontend/components/dashboard/crm-kb/KBArticleEditor.tsx (article editor)
-- frontend/components/dashboard/crm-kb/KBBrowsePage.tsx (staff KB browse + search)
-- frontend/components/layout/PortalLayout.tsx (tenant-scoped portal layout)
-- frontend/components/portal/PortalKBBrowse.tsx (public KB browse)
-- frontend/components/portal/PortalTicketForm.tsx (public ticket submission)
-- frontend/components/portal/PortalTicketTracking.tsx (public ticket tracking)
-- frontend/pages/dashboard/crm/kb/index.tsx (staff KB page)
-- frontend/pages/dashboard/crm/kb/articles/new.tsx
-- frontend/pages/dashboard/crm/kb/articles/[id]/edit.tsx
-- frontend/pages/portal/[tenant]/index.tsx (portal KB)
-- frontend/pages/portal/[tenant]/tickets/new.tsx (portal ticket form)
-- frontend/pages/portal/[tenant]/tickets/[token].tsx (portal ticket tracking)
-- frontend/components/layout/Sidebar.tsx (KB nav item added)
-- frontend/locales/en.ts (kb section + nav)
-- frontend/locales/it.ts (kb section + nav)
-- frontend/locales/index.ts (kb types + nav)
+- backend/prisma/schema.prisma (CSATSurvey, TicketTemplate models)
+- backend/src/modules/crm/ticket/services/csat.service.ts (new — BullMQ CSAT email job)
+- backend/src/modules/crm/ticket/services/ticket.service.ts (CSAT hook in changeStatus)
+- backend/src/modules/crm/ticket/services/ticket-template.service.ts (new — CRUD)
+- backend/src/modules/crm/ticket/controllers/portal-csat.controller.ts (new — public GET/POST survey)
+- backend/src/modules/crm/ticket/controllers/ticket-template.controller.ts (new — CRUD)
+- backend/src/modules/crm/ticket/ticket.module.ts (wired CsatService, PortalCsatController, TicketTemplate*)
+- backend/src/modules/crm/analytics/analytics.service.ts (new — CSAT agg + service metrics)
+- backend/src/modules/crm/analytics/analytics.controller.ts (new — GET /csat, GET /service)
+- backend/src/modules/crm/analytics/analytics.module.ts (new)
+- backend/src/modules/crm/crm.module.ts (AnalyticsModule wired)
+- frontend/components/portal/PortalCsatSurvey.tsx (new — 5-star MUI Rating survey page)
+- frontend/pages/portal/survey/[token].tsx (new — portal survey page)
+- frontend/components/dashboard/crm-analytics/ServiceAnalyticsDashboard.tsx (new)
+- frontend/components/dashboard/crm-analytics/ServiceAnalyticsCharts.tsx (new — Recharts)
+- frontend/pages/dashboard/crm/service-analytics.tsx (new — dynamic import)
+- frontend/components/dashboard/crm-tickets/TicketDetail.tsx (canned response menu)
+- frontend/components/layout/Sidebar.tsx (Service Analytics nav item)
+- frontend/lib/api/crm-analytics.ts (new)
+- frontend/lib/api/crm-ticket-templates.ts (new)
+- frontend/hooks/queries/use-crm-analytics.ts (new)
+- frontend/hooks/queries/use-crm-ticket-templates.ts (new)
+- frontend/locales/en.ts (portal survey + serviceAnalytics + insertTemplate)
+- frontend/locales/it.ts (portal survey + serviceAnalytics + insertTemplate)
+- frontend/locales/index.ts (types for all new sections)
 
 ## Key Decisions Made
-- T-1701/02: KBCategory uses self-referential tree (parentId). KBArticle uses slug uniqueness per tenant.
-- T-1703: tsvector uses 'simple' config for language-agnostic tokenization (MVP). Weight: A=title, B=body, C=tags.
-- T-1704/05: Search uses plainto_tsquery + ts_rank + ts_headline for highlighted snippets.
-- T-1708: Portal is multi-tenant SaaS: routes are /portal/[tenantSlug]/... not /portal/...
-- T-1708: @Public() decorator skips BetterAuthGuard. Tenant resolved from URL slug.
-- T-1709: Anti-spam uses honeypot + timestamp (3s minimum), no external services. Returns fake success to bots.
-- T-1710: portalToken is nanoid(21), unique globally. Only non-internal comments exposed.
-- Agent dashboard sidebar fix: was missing <Layout> wrapper (pre-existing bug from S16).
+- T-1801: CSATSurvey uses ticketId @unique (one survey per ticket). Token is nanoid(21).
+- T-1802: CSAT email job follows SLA timer pattern (direct BullMQ Queue+Worker). 1-hour delay. Fire-and-forget from changeStatus.
+- T-1802: Contact email extracted from JSON `emails[0].value` (Contact.emails is JSONB, not a relation).
+- T-1803: Survey page is at /portal/survey/[token] (no tenant slug needed — token is globally unique).
+- T-1804: Raw SQL for monthly trend and service metrics (Prisma.sql composable fragments for conditional clauses).
+- T-1805: Service analytics uses date range filter (last30/90/6m/all). Recharts for CSAT trend + distribution.
+- T-1806: Canned response menu inserted before comment TextField. Body appended to existing comment text.
+- DB push dropped search_vector tsvector column — re-applied migration SQL to restore it.
 
 ## Patterns Established
-- Portal controllers: @Public() + resolveTenantId(slug) pattern for unauthenticated SaaS routes
-- KB module: backend/src/modules/crm/kb/ (service, dto, kb.controller, portal-kb.controller)
-- Portal components: frontend/components/portal/ (PortalKBBrowse, PortalTicketForm, PortalTicketTracking)
-- Portal layout: frontend/components/layout/PortalLayout.tsx (tenantSlug prop, minimal header)
-- Portal pages: frontend/pages/portal/[tenant]/ (dynamic tenant slug routing)
+- CSAT service: backend/src/modules/crm/ticket/services/csat.service.ts (BullMQ delayed email job)
+- Analytics module: backend/src/modules/crm/analytics/ (service + controller + module)
+- Portal CSAT: @Public() controller at /portal/survey/:token (GET info, POST submit)
+- Frontend analytics: crm-analytics API + hooks + dashboard components
+- Canned responses: TicketTemplate CRUD + Menu in TicketDetail
 
 ## Blockers / Notes
-- Pre-existing tsc errors from parallel worktree merges (contacts merge, cron migration) intermittently blocked commits
-- senderEmail field on Ticket already existed from S15 email-to-ticket handler
-- Sprint 18 (sprint-18.md) exists and is next in Phase 3
+- T-1807 (Bug fixes) — need to investigate any regressions from S15-S17
+- T-1808 (Integration tests) — need test database setup
+- T-1809 (Smoke test) — manual checklist on staging
+- T-1810 (Beta release) — seed data, migration verification, git tag v0.3.0-beta
 
 ## Validation Status
-- Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing (pre-existing contact merge errors excluded)
-- Circular deps: ✅ zero (KB module verified)
+- Backend tsc: ✅ passing (pre-existing errors in follow-up-crud tests excluded)
+- Frontend tsc: ✅ passing (pre-existing errors in ComposeDialog/use-follow-ups excluded)
 - Prisma generate: ✅ passing
-- DB push: ✅ schema synced (portalToken unique constraint applied)
+- DB push: ✅ schema synced (tsvector re-applied)
