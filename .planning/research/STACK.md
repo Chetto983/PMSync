@@ -1,260 +1,230 @@
 # Technology Stack
 
-**Project:** PMSync v9.0 -- AI Intelligence & Platform Hardening
-**Researched:** 2026-03-24
-**Overall confidence:** HIGH
+**Project:** PMSync v11.0 -- Legacy Cleanup, Scalability & Billing Hardening
+**Researched:** 2026-03-31
 
-## Executive Decision
+## Scope
 
-**No new npm packages required.** Every capability needed for v9.0 is achievable with already-installed dependencies. This is the ideal outcome for a brownfield project -- zero dependency surface increase.
-
-## What Is Already Installed (DO NOT ADD)
-
-| Package | Version | Used For in v9.0 |
-|---------|---------|------------------|
-| `web-push` | ^3.6.7 | Push notification dispatch (installed v8.0, unused) |
-| `@types/web-push` | ^3.6.4 | TypeScript types for web-push |
-| `@nestjs/throttler` | ^6.5.0 | Tiered rate limiting (already configured with named throttlers) |
-| `ai` (AI SDK) | ^6.0.49 | HITL approval via `needsApproval` on tool definitions |
-| `@ai-sdk/react` | (installed) | Frontend `addToolApprovalResponse` for HITL UX |
-| `ioredis` | ^5.9.2 | Redis-backed throttler storage (already implemented) |
-| `bullmq` | ^5.67.1 | Entity graph nightly refresh job |
-| `@nestjs/schedule` | ^6.1.0 | Cron scheduling for graph refresh |
-| `eventemitter2` (via `@nestjs/event-emitter`) | (installed) | Domain events for push notification triggers |
-| `prisma` | ^7.3.0 | EntityGraph model, AIMemory anchoring fields |
-| `pgvector` (via Prisma) | (installed) | Existing hybrid search, unchanged |
-| `prom-client` | (installed) | Metrics for push delivery, throttle hits |
-| `tokenlens` | ^1.3.1 | Token counting for context assembly budget |
-
-## Feature-by-Feature Stack Analysis
-
-### 1. Push Notification Backend Dispatch
-
-**What exists:**
-- `web-push` ^3.6.7 installed but never imported in backend code
-- `PushSubscription` Prisma model with multi-tenant upsert
-- `PushService` with subscribe/unsubscribe methods only
-- Frontend: Serwist SW handlers for `push` and `notificationclick` events
-- Frontend: VAPID subscription UI with browser support gating
-
-**What to build (no new packages):**
-- `PushDispatchService` -- wraps `web-push.sendNotification()` with VAPID config from env vars
-- Event listeners on `EventEmitter2` for trigger events (new email, HITL pending, calendar reminder)
-- `NotificationPreferencesService` -- per-user opt-in/out by category (stored in existing User model or new Prisma field)
-- Dead subscription cleanup -- handle 410 Gone responses from push services
-- BullMQ job for batched/delayed push dispatch (avoid spam on bulk email sync)
-
-**Why no new packages:**
-- `web-push` handles VAPID signing, payload encryption, and HTTP/2 dispatch to push services. It is the standard Node.js library for Web Push Protocol (RFC 8030). Nothing else needed.
-- `EventEmitter2` (already global) provides the event bus for trigger routing.
-- `BullMQ` (already global) handles async dispatch with retry.
-
-**Environment variables needed:**
-```
-VAPID_PUBLIC_KEY=    # Already exists (frontend uses it)
-VAPID_PRIVATE_KEY=   # Needs adding to backend .env
-VAPID_SUBJECT=mailto:admin@pmsync.local
-```
-
-**Confidence:** HIGH -- web-push is the de facto standard, already installed, well-documented API.
+This document covers ONLY new stack additions/changes for v11.0. The existing validated stack (NestJS 11, Prisma 7, PostgreSQL, Redis, BullMQ, Next.js 16, React 19, TanStack Query, MUI, better-auth, AI SDK v6, Serwist, Prometheus, Railway/Vercel, Autumn billing) is not re-evaluated.
 
 ---
 
-### 2. Tiered Write-Rate Limiting
+## Recommended Stack Additions
 
-**What exists:**
-- `@nestjs/throttler` ^6.5.0 with named throttlers (`short`: 300/min, `write`: 30/min)
-- `RedisThrottlerStorage` -- Lua-script-based atomic increment with blocking
-- `UserThrottlerGuard` -- tracks by userId (auth'd) or IP (anon)
-- Per-route `@Throttle()` overrides on email send/reply/forward (10/min)
-- `@SkipThrottle()` on health, metrics, webhooks
+### Railway Horizontal Scaling
 
-**What to build (no new packages):**
-- Add more named throttlers in `ThrottlerModule.forRoot()` for granular tiers:
-  - `auth`: 5/min (login, register, password reset -- anti-brute-force)
-  - `ai`: 20/min (AI chat streaming -- expensive operations)
-  - `bulk`: 50/min (bulk email actions, label operations)
-  - Keep `short` (300/min read) and `write` (30/min general write)
-- Apply `@Throttle({ ai: { limit: 20, ttl: 60000 } })` to AI chat controller
-- Apply `@Throttle({ auth: { limit: 5, ttl: 60000 } })` to auth endpoints
-- Apply `@Throttle({ bulk: { limit: 50, ttl: 60000 } })` to bulk action endpoints
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Railway Replicas (config) | N/A | Multi-instance backend | Railway has built-in horizontal scaling via replica count in service settings. No library needed -- configure in dashboard. Load balancing is automatic (random distribution). **No sticky sessions** supported, which is fine because PMSync uses Redis-backed sessions (better-auth + cookie) and Redis-backed WebSocket adapter (already implemented). |
+| PgBouncer | 1.23+ (Railway template) | DB connection pooling | Railway offers a one-click PgBouncer template that sits between app and PostgreSQL. Required because: each Prisma instance opens `connection_limit` connections (currently 20). With 3 replicas, that's 60 direct connections competing for Railway PostgreSQL's default 97 max. PgBouncer in transaction mode multiplexes these efficiently. |
 
-**Why `@nestjs/throttler` v6 is sufficient:**
-- Named throttlers already work (proven in codebase with `short` and `write`)
-- Per-route `@Throttle()` decorator overrides global config per throttler name
-- Redis storage already distributes across replicas
-- `@SkipThrottle({ write: true })` selectively disables specific tiers per route
-- No need for external rate limiting (nginx, Cloudflare) -- app-level is correct for user-based tracking
+**What NOT to add:**
+- **Node.js cluster module** -- Railway replicas are separate containers. Do not use `cluster.fork()` inside Railway; it wastes container resources and complicates debugging. Let Railway handle process replication.
+- **@nestjs/terminus** for health checks -- Railway does not use HTTP health checks for replica routing (it uses process liveness). The existing `/health` endpoint is sufficient for monitoring.
+- **Sticky sessions library** -- Railway explicitly does not support sticky sessions. The app already handles this correctly: Redis-backed sessions, Redis WebSocket adapter, Redis BullMQ coordination.
 
-**Confidence:** HIGH -- already working in production, just needs more named tiers.
+### Database Connection Pooling (PgBouncer)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| PgBouncer (Railway template) | 1.23+ | Connection pooling proxy | Deploy via `railway.com/deploy/postgres-pgbouncer`. Sits on port 6432, same credentials as PostgreSQL. Transaction mode required for Prisma compatibility. |
+| `DIRECT_URL` env var | N/A | Prisma CLI migrations | PgBouncer breaks `prisma migrate` (Schema Engine needs a single persistent connection). Add `DIRECT_URL` pointing to raw PostgreSQL for CLI commands. Runtime traffic goes through PgBouncer URL. |
+
+**Configuration changes needed:**
+
+1. **`prisma.config.ts`** -- Add `directUrl` for migrations:
+   ```typescript
+   datasource: {
+     url: process.env.DATABASE_URL,        // PgBouncer URL (port 6432)
+     directUrl: process.env.DIRECT_URL,    // Raw PostgreSQL URL (port 5432)
+   }
+   ```
+
+2. **`prisma-client.factory.ts`** -- Remove the `connection_limit=20` append logic. PgBouncer manages the pool; Prisma should NOT open its own pool on top. Set `connection_limit=1` per instance (Prisma opens 1 connection to PgBouncer, which handles pooling).
+
+3. **PgBouncer config:**
+   - `pool_mode = transaction` (required for Prisma)
+   - `max_client_conn = 200` (supports ~10 replicas with room)
+   - `default_pool_size = 20` (actual connections to PostgreSQL)
+   - `max_prepared_statements = 100` (Prisma uses prepared statements; PgBouncer 1.21+ supports this)
+   - `server_idle_timeout = 300` (reap idle server connections)
+
+4. **No `?pgbouncer=true`** in connection string -- Not needed for PgBouncer 1.21+. The old flag disabled prepared statements; modern PgBouncer handles them natively via `max_prepared_statements`.
+
+**Confidence:** HIGH -- Prisma docs explicitly document PgBouncer transaction mode as the supported configuration. Railway has a dedicated deploy template.
+
+### BullMQ Multi-Instance Tuning
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| BullMQ (existing) | 5.67.3 | Job queue | No version change needed. BullMQ inherently supports multi-instance via Redis coordination. Each replica runs its own workers against the same Redis queues -- Redis prevents duplicate job processing automatically. |
+
+**Configuration changes needed (no new dependencies):**
+
+1. **Reduce per-instance concurrency** -- Currently `DEFAULT.concurrency = 5`, `HIGH_THROUGHPUT.concurrency = 10`. With 3 replicas, effective concurrency triples. Reduce per-instance values to avoid overwhelming downstream services:
+   - `DEFAULT.concurrency`: 5 -> 3
+   - `HIGH_THROUGHPUT.concurrency`: 10 -> 5
+   - `EMAIL_SYNC.concurrency`: 3 -> 2
+   - Scale via `WORKER_CONCURRENCY` env var to tune per deployment size
+
+2. **`maxRetriesPerRequest: null`** on Redis connections -- Already set in `getSharedRedisConnection()` via ioredis defaults for BullMQ. Verify this is explicitly set; it's critical for blocking operations across distributed workers.
+
+3. **Scheduled job deduplication** -- The `SCHEDULED_*` queues use repeatable jobs. BullMQ handles repeatable job deduplication via Redis keys, so multiple replicas adding the same repeatable job is safe (idempotent). No code change needed.
+
+4. **Queue metrics for scaling decisions** -- Already have `prom-client` Prometheus metrics for BullMQ depth. Add gauge for active worker count per instance to inform scaling decisions.
+
+**What NOT to add:**
+- **BullBoard / Arena** -- UI dashboards for BullMQ. Nice-to-have but not v11.0 scope.
+- **Auto-scaling logic** -- Premature. Start with manual replica count; add auto-scaling only after observing production load patterns.
+
+**Confidence:** HIGH -- BullMQ's distributed coordination via Redis is core architecture, not an add-on. The existing shared Redis connection pattern already handles this correctly.
+
+### Frontend Performance Optimization
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `@next/bundle-analyzer` (existing) | 16.1.6 | Bundle visualization | Already installed and wired in `next.config.js`. Run `ANALYZE=true npm run build` to generate treemap. No change needed. |
+| `optimizePackageImports` (existing) | N/A (Next.js built-in) | Tree-shaking barrel files | Already configured for `@mui/material`, `@mui/icons-material`, `lucide-react`. These are the three largest barrel-export libraries in the project. |
+
+**Configuration changes needed (no new dependencies):**
+
+1. **Add more packages to `optimizePackageImports`:**
+   ```javascript
+   optimizePackageImports: [
+     '@mui/material',
+     '@mui/icons-material',
+     'lucide-react',
+     'recharts',           // Chart library, barrel exports
+     'lodash-es',          // Utility library, many exports
+     '@xyflow/react',      // Graph rendering, large
+   ]
+   ```
+
+2. **Dynamic imports for heavy routes** -- Already partially done (TipTap, @dnd-kit per v2.1). Extend to:
+   - `recharts` (only needed on analytics/dashboard pages)
+   - `@xyflow/react` (only needed on graph visualization)
+   - `@rive-app/react-webgl2` (only needed where Rive animations exist)
+   - `FullCalendar` bundle (only on calendar page)
+
+3. **Lighthouse CI budget enforcement** -- Already exists per v2.1. Tighten budgets:
+   - Total JS: target < 350KB gzipped (measure current baseline first)
+   - LCP: < 2.5s
+   - TTI: < 3.5s
+
+**What NOT to add:**
+- **source-map-explorer** -- `@next/bundle-analyzer` already provides equivalent visualization. Adding both is redundant.
+- **Partytown / web workers for third-party scripts** -- PMSync has no third-party analytics/marketing scripts to offload.
+- **Module federation** -- Overkill for a single-team monorepo. Code splitting via dynamic imports is sufficient.
+- **Tailwind CSS removal** -- Listed as v11.0 legacy cleanup (removing `tailwindcss` package and `@tailwind base` injection), but this is a deletion, not a stack addition.
+
+**Confidence:** HIGH -- `@next/bundle-analyzer` and `optimizePackageImports` are already installed and working. Changes are configuration-only.
+
+### Billing Hardening
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `autumn-js` (existing) | 0.1.75 | Billing SDK | No version change. Autumn's architecture explicitly eliminates webhook complexity -- it uses a "pull" model (check/track API calls) rather than "push" (webhooks). The current `AutumnService` correctly implements this pattern. |
+
+**Key architectural insight: Autumn does NOT use webhooks for billing state.**
+
+Unlike Stripe-based billing where you must handle `invoice.paid`, `customer.subscription.updated`, etc. via webhooks, Autumn's SDK works differently:
+- `check()` -- Query feature access in real-time (synchronous)
+- `track()` -- Record usage events (fire-and-forget with local fallback)
+- `attach()` -- Initiate subscription (returns checkout URL)
+- `cancel()` -- Cancel subscription
+
+The local fallback in `AutumnService.localFeatureCheck()` already provides resilience when Autumn's API is unavailable. This is the correct pattern.
+
+**Hardening changes needed (no new dependencies):**
+
+1. **Idempotency on `track()` calls** -- Currently fire-and-forget. Add a Redis-based dedup key (`track:{tenantId}:{featureId}:{jobId}`) with short TTL (60s) to prevent double-counting during retries. Use existing `ioredis` instance.
+
+2. **Circuit breaker on Autumn API calls** -- If Autumn is down, fall back to local limits immediately instead of waiting for timeout. Pattern already exists in the codebase (AI circuit breaker). Apply same pattern: 5 failures -> open circuit -> local fallback for 60s -> half-open probe.
+
+3. **Reconciliation job** -- Add a scheduled BullMQ job (daily) that compares local `SubscriptionUsage` records with Autumn's API response. Log discrepancies but don't auto-correct (human review).
+
+4. **`attach()` return URL validation** -- The `returnUrl` in `billingPortal()` should be validated against a whitelist of allowed domains (current `FRONTEND_URL` + production domains). Prevents open redirect if `returnUrl` is user-supplied.
+
+5. **better-auth Autumn plugin** -- Autumn has a dedicated better-auth plugin that auto-creates customers on signup. The current implementation manually calls `createCustomer()`. Consider migrating to the plugin for cleaner integration, but this is optional (current approach works).
+
+**What NOT to add:**
+- **Stripe SDK** -- Autumn wraps Stripe internally. Do not add `stripe` package; interact only through Autumn's API.
+- **Webhook endpoint for Autumn** -- Autumn's architecture does not require one. The current proxy-style controller is correct.
+- **Complex event sourcing for billing** -- Overkill. The check/track model with local fallback is sufficient for the current scale.
+
+**Confidence:** MEDIUM -- Autumn is a younger product (SDK at 0.1.x). The "no webhooks" model is well-documented but the SDK may add webhook support later. Monitor Autumn changelog. The local fallback pattern provides good resilience regardless.
 
 ---
 
-### 3. Explicit HITL Approval Routing
+## Alternatives Considered
 
-**What exists:**
-- Tool registry with `requiresApproval: boolean` and `riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'` metadata
-- HITL contract tests verifying HIGH-risk tools require approval
-- `HitlApprovalWrapper` frontend component
-- AI SDK v6 `tool()` definitions in tool service files
-- Inconsistent enforcement: some mutating tools bypass approval (noted in `docs/technical_overview.md`)
-
-**What to build (no new packages):**
-- Use AI SDK v6 native `needsApproval` property on tool definitions:
-  ```typescript
-  tool({
-    description: '...',
-    parameters: z.object({...}),
-    needsApproval: true, // or async (args) => args.permanent === true
-    execute: async (args, { tenantId }) => { ... }
-  })
-  ```
-- Dynamic approval logic: `needsApproval: async (args) => isDestructive(args)` for conditional gates
-- Frontend: `addToolApprovalResponse(toolCallId, approved)` via `@ai-sdk/react` `useChat`
-- Map tool registry `requiresApproval` metadata to AI SDK `needsApproval` at tool registration time
-- Audit every tool's `riskLevel` and ensure HIGH-risk tools have `needsApproval: true`
-
-**Why AI SDK v6 native HITL is the right approach:**
-- Already installed (`ai` ^6.0.49)
-- `needsApproval` pauses the tool loop agent automatically -- no custom state machine
-- Frontend gets `approval-requested` tool part state natively
-- Denial message forwarded to model so it can respond appropriately
-- Memory reference confirms this pattern: `memory/reference_ai_sdk_hitl.md`
-
-**What NOT to do:**
-- Do NOT build custom approval queue/polling (AI SDK handles this in-stream)
-- Do NOT add WebSocket channels for approval (SSE stream already carries tool states)
-- Do NOT add a separate approval database table (approval state lives in message stream)
-
-**Confidence:** HIGH -- AI SDK v6 docs explicit, memory reference confirms pattern, existing code partially implements.
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Connection pooling | PgBouncer (Railway template) | Prisma Accelerate | Adds cloud dependency + cost. PgBouncer is self-hosted, free, and Railway has a template. |
+| Connection pooling | PgBouncer (Railway template) | pgpool-II | Heavier, more complex. PgBouncer is lightweight and purpose-built for connection pooling. pgpool-II adds query caching and load balancing features not needed here. |
+| Bundle analysis | `@next/bundle-analyzer` (existing) | `source-map-explorer` | Already have bundle analyzer. Adding a second tool provides marginal value. |
+| Bundle analysis | `@next/bundle-analyzer` (existing) | `webpack-bundle-analyzer` standalone | `@next/bundle-analyzer` wraps this already. Turbopack integration in Next.js 16 makes it even better. |
+| Process scaling | Railway replicas | Node.js `cluster` module | Railway manages container replication. Using `cluster` inside a container wastes the orchestrator's capabilities and doubles complexity. |
+| Billing hardening | Circuit breaker pattern (custom) | `opossum` npm package | Dedicated circuit breaker library. The codebase already has a pattern for this (AI module). Adding a package for 30 lines of code is unnecessary. |
+| Job queue scaling | BullMQ concurrency tuning | Separate worker service | Could deploy a dedicated "worker" Railway service that only processes queues (no HTTP). Useful at scale but premature for v11.0. Revisit if queue backlog grows. |
 
 ---
 
-### 4. Graph RAG Pipeline
+## Summary of Changes
 
-**What exists:**
-- Hybrid search: pgvector HNSW + tsvector FTS with RRF (k=60) in SQL functions
-- `HybridSearchService` with `hybrid_email_search` SQL function
-- `RerankingService` already created (heuristic reranking pass)
-- 31 tools registered via `ToolRegistryModule` with domain/risk metadata
-- `AIMemory` Prisma model for memory storage
-- Full 8-step plan in `rosy-imagining-starlight.md`
+### New Dependencies: NONE
 
-**What to build (no new packages):**
+v11.0 requires **zero new npm packages**. All changes are:
+- Configuration adjustments to existing tools
+- Railway infrastructure setup (PgBouncer template, replica count)
+- Code patterns using existing libraries (ioredis for dedup, prom-client for metrics)
 
-All 8 Graph RAG steps use only PostgreSQL + Prisma + existing NestJS patterns:
+### Infrastructure Changes
 
-| Step | New Service | Dependencies Used |
-|------|------------|-------------------|
-| 1. Query Router | `QueryRouterService` | Pure TypeScript (regex + keyword scoring) |
-| 2. Reranking | `RerankingService` (exists) | Heuristic scoring on RRF results |
-| 3. Graph Expansion | `GraphExpansionService` | 3 parallel SQL queries via Prisma |
-| 4. Context Assembly | `ContextAssemblerService` | `tokenlens` (installed) for token counting |
-| 5. Entity Graph | `EntityGraphService` + migration | New `entity_graph` Prisma model, BullMQ nightly job |
-| 6. Memory Anchoring | Migration + tool update | Add `emailId`/`contactId` FKs to `AIMemory` |
-| 7. Tool Consolidation | Modify `rag-tools.service.ts` | Merge search tools, no new deps |
-| 8. Few-Shot Examples | Modify `system-prompt.ts` | ~40 lines of prompt text |
-
-**Why no graph database (Neo4j, etc.):**
-- The entity graph is a simple adjacency list (source, target, edge_type, weight)
-- PostgreSQL handles this with indexed FK lookups in <20ms
-- Data volume is modest (10K-100K emails per tenant, not billions of nodes)
-- Adding Neo4j would mean: new infra, new connection management, new deployment config, data sync
-- The plan explicitly states "All PostgreSQL -- no new dependencies"
-
-**Why not mem0:**
-- mem0 is a standalone graph memory service designed for single-agent scenarios
-- PMSync is multi-tenant with existing Prisma-managed memory table
-- Adopting mem0 would require: separate process, separate database, migration of AIMemory data
-- The memory anchoring approach (Step 6) achieves the same entity-linked recall within Prisma
-
-**Confidence:** HIGH -- plan fully specified, all infrastructure exists, pure PostgreSQL approach validated.
+| Change | Type | Effort |
+|--------|------|--------|
+| Railway replica count: 1 -> 3 | Dashboard config | Trivial |
+| Deploy PgBouncer template on Railway | Infrastructure | Low |
+| Add `DIRECT_URL` env var | Config | Trivial |
+| Update `prisma.config.ts` for `directUrl` | Code | Trivial |
+| Update `prisma-client.factory.ts` pool settings | Code | Low |
+| Reduce BullMQ worker concurrency per instance | Code | Low |
+| Add circuit breaker to AutumnService | Code | Medium |
+| Add track() idempotency via Redis | Code | Low |
+| Add billing reconciliation scheduled job | Code | Medium |
+| Extend `optimizePackageImports` list | Config | Trivial |
+| Add dynamic imports for heavy components | Code | Medium |
+| Remove Tailwind CSS package + config | Code | Low |
+| Remove JWT dual-stack auth code | Code | Medium |
+| Remove deprecated API aliases | Code | Low |
 
 ---
-
-## Alternatives Considered and Rejected
-
-| Category | Considered | Why Rejected |
-|----------|-----------|--------------|
-| Push dispatch | Firebase Cloud Messaging (FCM) | web-push already installed; FCM adds Google dependency and complexity for a feature that only needs Web Push Protocol |
-| Push dispatch | OneSignal / Pushover | Third-party SaaS dependency; web-push is self-hosted and sufficient |
-| Rate limiting | `express-rate-limit` | Already have `@nestjs/throttler` with Redis storage; adding another would create two competing systems |
-| Rate limiting | Cloudflare Rate Limiting | App-level user-based tracking needed; Cloudflare only sees IP |
-| HITL | Custom approval queue + WebSocket | AI SDK v6 `needsApproval` handles this natively in the streaming protocol |
-| HITL | Separate approval database table | Approval state is transient (per-stream), not persistent; DB table is overengineering |
-| Graph RAG | Neo4j / ArangoDB | Overkill for adjacency-list entity graph; adds deployment complexity for modest data volume |
-| Graph RAG | LangChain / LlamaIndex | Python ecosystem; project is TypeScript-only; AI SDK v6 covers all needs |
-| Graph RAG | mem0 | Separate process; multi-tenant mismatch; Prisma-native anchoring is simpler |
-| Reranking | Cohere Rerank API | External API call adds latency and cost; heuristic reranking is sufficient for email domain |
-
-## Schema Changes Required (Prisma, no new packages)
-
-```prisma
-// New model for Step 5: Entity Graph
-model EntityGraph {
-  id           String   @id @default(cuid())
-  tenantId     String
-  sourceType   String   // 'email' | 'contact' | 'calendar_event'
-  sourceId     String
-  targetType   String
-  targetId     String
-  edgeType     String   // 'email_sender' | 'co_thread' | 'co_attendee' | etc.
-  weight       Float    @default(1.0)
-  lastSeenAt   DateTime
-  createdAt    DateTime @default(now())
-
-  @@unique([tenantId, sourceType, sourceId, targetType, targetId, edgeType])
-  @@index([tenantId, sourceType, sourceId])
-  @@index([tenantId, targetType, targetId])
-}
-
-// Modified model for Step 6: Memory Anchoring
-model AIMemory {
-  // ... existing fields ...
-  emailId    String?  // FK to Email (nullable)
-  contactId  String?  // FK to Contact (nullable)
-
-  @@index([tenantId, emailId])
-  @@index([tenantId, contactId])
-}
-```
-
-## Environment Variables (New)
-
-```bash
-# Push notifications (backend dispatch)
-VAPID_PRIVATE_KEY=       # Base64-encoded ECDSA private key
-VAPID_SUBJECT=mailto:admin@pmsync.local  # Contact URI for push service
-# VAPID_PUBLIC_KEY already exists in frontend config
-```
-
-## What NOT to Add
-
-| Package | Why Not |
-|---------|---------|
-| `firebase-admin` | web-push covers Web Push Protocol without Google lock-in |
-| `@langchain/*` | Python-centric ecosystem; AI SDK v6 is the TypeScript standard |
-| `neo4j-driver` | PostgreSQL adjacency list sufficient for email-scale graph |
-| `mem0` | Multi-tenant incompatible; Prisma-native anchoring simpler |
-| `express-rate-limit` | Conflicts with existing @nestjs/throttler |
-| `@cohere-ai/cohere` | External reranking API unnecessary; heuristic reranking sufficient |
-| `graphql` | REST API pattern established; no benefit for these features |
-| Any embedding model package | pgvector + Mistral embeddings already working |
 
 ## Installation
 
 ```bash
-# Nothing to install. All packages already present.
-# Verify with:
-cd backend && node -e "require('web-push'); console.log('web-push OK')"
+# No new packages to install.
+# v11.0 is configuration and code changes only.
+
+# Verify current versions are sufficient:
+cd backend && npm ls autumn-js bullmq ioredis @prisma/client pg prom-client
+cd frontend && npm ls @next/bundle-analyzer @serwist/next
 ```
+
+---
 
 ## Sources
 
-- [@nestjs/throttler npm](https://www.npmjs.com/package/@nestjs/throttler) -- v6.5.0 named throttlers, per-route `@Throttle()` (HIGH confidence)
-- [AI SDK v6 Tool Execution Approval](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling) -- `needsApproval` property (HIGH confidence)
-- [AI SDK HITL Cookbook](https://ai-sdk.dev/cookbook/next/human-in-the-loop) -- Frontend approval flow (HIGH confidence)
-- [web-push npm](https://www.npmjs.com/package/web-push) -- v3.6.7 sendNotification API (HIGH confidence)
-- [web-push GitHub](https://github.com/web-push-libs/web-push) -- VAPID configuration, payload encryption (HIGH confidence)
-- Graph RAG plan: `C:\Users\Davide\.claude\plans\rosy-imagining-starlight.md` -- Full 8-step implementation (HIGH confidence, project-internal)
-- Existing codebase analysis (HIGH confidence, verified by reading source files)
+- [Railway Scaling Documentation](https://docs.railway.com/reference/scaling) -- HIGH confidence
+- [Railway PgBouncer Deploy Template](https://railway.com/deploy/postgres-pgbouncer) -- HIGH confidence
+- [Prisma PgBouncer Configuration](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer) -- HIGH confidence
+- [Prisma Connection Pool Documentation](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/connection-pool) -- HIGH confidence
+- [BullMQ Horizontal Scaling Guide](https://oneuptime.com/blog/post/2026-01-21-bullmq-horizontal-scaling/view) -- MEDIUM confidence
+- [BullMQ Concurrency Documentation](https://docs.bullmq.io/guide/workers/concurrency) -- HIGH confidence
+- [Next.js optimizePackageImports](https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports) -- HIGH confidence
+- [Next.js Package Bundling Guide](https://nextjs.org/docs/app/guides/package-bundling) -- HIGH confidence
+- [Autumn SDK (autumn-js)](https://www.npmjs.com/package/autumn-js) -- MEDIUM confidence
+- [Autumn Documentation](https://docs.useautumn.com/documentation/getting-started/gating) -- MEDIUM confidence
+- [Autumn better-auth Plugin](https://better-auth.com/docs/plugins/autumn) -- MEDIUM confidence
+- [Railway Blog: Horizontal Scaling](https://blog.railway.com/p/launch-week-01-horizontal-scaling) -- HIGH confidence
+- [PgBouncer Configuration Reference](https://www.pgbouncer.org/config.html) -- HIGH confidence

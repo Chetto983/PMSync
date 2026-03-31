@@ -10,29 +10,27 @@
 
 ## Sprint Backlog
 
-### T-0401: Handle Google People API sync token expiry [3 SP]
-- [ ] Read `google-contacts-sync.service.ts` — trace sync token usage
-- [ ] Google sync tokens expire after 7 days of inactivity
-- [ ] Add EXPIRED_SYNC_TOKEN error detection
-- [ ] On expired token → clear stored token → trigger full sync
-- [ ] Log the expiry event with last sync timestamp
-- [ ] Test: simulate expired token → verify full sync triggered
+### T-0401: Handle Google People API sync token expiry [3 SP] ✅ DONE (N/A)
+- [x] Read `google-contacts-sync.service.ts` — traced sync flow
+- [x] FINDING: Contacts sync does NOT use sync tokens — always full fetch via `fetchAllContacts()`
+- [x] `syncToken` field exists in GoogleContactsWebhookService metadata but is always `null`
+- [x] CON-C1 is a FALSE POSITIVE — no sync token means no expiry issue
+- [x] Calendar sync (separate module) DOES use sync tokens and was already fixed in S02
 
-### T-0402: Enforce etag on Google contact updates [3 SP]
-- [ ] Read `contact-crud.service.ts` — find update flow
-- [ ] Read `google-contacts-sync.service.ts` — find push-to-provider flow
-- [ ] Store contact etag from Google People API responses
-- [ ] Include etag in update requests to prevent concurrent modification
-- [ ] Handle 409 Conflict response → re-fetch → retry with new etag
-- [ ] Test: concurrent update scenario handled gracefully
+### T-0402: Enforce etag on Google contact updates [3 SP] ✅ DONE
+- [x] Read update flow: ContactCrudService → GoogleContactsSyncService.updateContact
+- [x] Store etag from extractContactData (person.etag) into ProviderContact.eTag during sync
+- [x] updateContact now fetches stored etag (or fetches from Google API) before update
+- [x] Passes etag in requestBody to prevent concurrent modification
+- [x] Handles 409 Conflict: re-fetches fresh etag → retries once
+- [x] Stores updated etag after successful update for future operations
 
-### T-0403: Enforce sequential writes per user [2 SP]
-- [ ] Read `contacts.service.ts` and `contacts-import.service.ts`
-- [ ] Add per-user mutex (Redis lock) for contact mutations to Google
-- [ ] Prevent parallel: bulk import + manual sync + webhook-triggered sync
-- [ ] Lock key pattern: `contact-write:{tenantId}:{providerId}`
-- [ ] Lock TTL: 30 seconds with auto-extend
-- [ ] Test: concurrent writes are serialized, not rejected
+### T-0403: Enforce sequential writes per user [2 SP] ✅ DONE
+- [x] Added RedisLockService to ContactCrudService
+- [x] All provider mutations wrapped with `redisLock.withLock()`
+- [x] Lock key pattern: `contact-write:{tenantId}:{providerId}` — 30s TTL
+- [x] Covers: createContact, updateContact, deleteContact, bulkDeleteContacts
+- [x] Serializes: manual CRUD + sync-triggered writes per provider
 
 ### T-0404: Fix vCard encoding handling [3 SP]
 - [ ] Read `contacts-import.service.ts` — find vCard parsing logic

@@ -1,99 +1,37 @@
-# Feature Landscape: v9.0 AI Intelligence & Platform Hardening
+# Feature Landscape
 
-**Domain:** Push dispatch, tiered rate limiting, explicit HITL approval, Graph RAG for AI email client
-**Researched:** 2026-03-24
-**Confidence:** HIGH (all features verified against existing codebase)
-
-## Scope Note
-
-This document covers only v9.0 features. The following are already shipped and NOT re-listed:
-- Full email client (VList, TipTap, kanban, keyboard nav, search, dark mode)
-- AI chat with streaming, 31 tools, PII tokenization, circuit breaker
-- PWA: installable, offline email reading, background sync, SW push handlers
-- Push subscription UI toggle in settings, PushSubscription model in DB
-- Flat rate limiting: 300/min read, 30/min write (ThrottlerModule), 30/60s AI chat (RedisRateLimiter)
-- `needsApproval: true` on 6 HIGH-risk tools (send/delete/forward/reply email, delete contact, delete calendar)
-- AI SDK v6 HITL: backend pauses tool execution, frontend re-submits via `convertToModelMessages`
-- Graph RAG Steps 1-3 complete: QueryRouterService, RerankingService, GraphExpansionService
-- `graph_context_search` tool with thread/contact/calendar expansion
-
----
+**Domain:** Legacy cleanup, horizontal scaling, and billing hardening for NestJS/Next.js email platform
+**Researched:** 2026-03-31
 
 ## Table Stakes
 
-Features that MUST work. Missing = broken promises or user frustration.
+Features users/operators expect. Missing = production risk or accumulated debt.
 
-### 1. Push Notification Backend Dispatch
-
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| New email push notification | Users toggled push ON in v8.0 settings. Nothing fires. The toggle is a lie. Trust-destroying. | Medium | PushSubscription model (exists), web-push 3.6.7 (installed, unused), SW push/notificationclick handlers (exist) |
-| Event-driven dispatch service | PushService only has subscribe/unsubscribe. No `sendNotification()` method. Need: event trigger -> lookup user subscriptions -> web-push.sendNotification() per device. | Medium | EventEmitter2 (exists), new PushDispatchService, VAPID keys from env |
-| Per-user notification preferences | Without preferences, push is all-or-nothing. Users need category controls (new email, calendar reminder, AI completion). Minimum: on/off per category. | Low | Extend UserPreferences or new PushPreference columns |
-| Stale subscription cleanup | Browsers silently revoke push endpoints. Sending to dead endpoints returns 410 Gone. Must delete subscription on 410/404 from web-push. | Low | Error callback in web-push.sendNotification(), PushService.unsubscribe() |
-| Multi-device delivery | Users subscribe from phone + laptop. Each device must receive notification. | Low | Already handled -- PushSubscription keyed by `tenantId_endpoint`, not userId uniquely. Multiple rows per user = multiple devices. |
-
-### 2. Tiered Rate Limiting
-
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| Per-category write limits | Flat 30/min write tier causes false 429s during normal workflows. Archiving 10 emails = 10 writes. Chat + email actions compete for same budget. Users get blocked doing expected things. v7.0 explicitly flagged this for revisit. | Low | ThrottlerModule already supports named throttlers. Add `@Throttle()` per controller/route. |
-| Burst-friendly limits for safe writes | Archive, star, mark-read are safe, reversible. 30/min is hostile to power users doing email triage. These need higher limits (e.g., 100/min) than send/delete (30/min). | Low | Named throttle tiers: `read` (300/min), `write-safe` (100/min), `write-destructive` (30/min) |
-| Rate limit response headers | Frontend needs `X-RateLimit-Remaining` / `X-RateLimit-Reset` to show proactive warnings before hitting 429. Prevents surprise errors. | Low | UserThrottlerGuard header injection, already standard NestJS pattern |
-
-### 3. Explicit HITL Approval UX
-
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| Approval/rejection buttons on destructive tool calls | Backend already pauses (needsApproval: true, AI SDK enters `approval-requested` state). Frontend renders nothing special -- all tool calls look the same through FallbackToolRenderer. Users cannot distinguish "read email" from "delete email". | Medium | AI SDK `part.state === 'approval-requested'`, `addToolApprovalResponse()`, tool renderer component |
-| Visual distinction for destructive tools | Tool calls with HIGH risk must look dangerous (red/warning styling, shield icon). Currently all tools render identically. | Low | Existing smart tool renderer registry, add approval-state variant |
-| Approval resubmit flow | After user clicks approve/reject, frontend must call `addToolApprovalResponse()` which re-submits the message chain. Backend already handles this via `isApprovalResubmit` path in `prepareChatAgent`. | Medium | `sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses` (AI SDK pattern) |
-| Approval audit logging | Who approved what destructive action and when. GDPR-relevant accountability trail. | Low | AuditService.logAudit() already exists. Fire on approval/rejection. |
-
-### 4. Graph RAG Steps 4-8 (Continuing Existing Roadmap)
-
-Steps 1-3 are complete and working. These are the remaining planned steps.
-
-| Feature | Why Expected | Complexity | Dependencies |
-|---------|--------------|------------|--------------|
-| Memory-entity anchoring (Step 6) | AIMemory records float free. "Marco prefers PDF invoices" has no link to Marco's contact ID. "What do I know about Marco?" requires semantic search instead of direct lookup. | Medium | AIMemory schema extension (add emailId?, contactId?), save_memory tool update, system prompt instruction |
-| Context assembly (Step 4) | graph_context_search returns raw results. Dumping 10 email snippets into LLM context wastes tokens. Structured summary ("3 contacts at Acme, 12 emails in 2 threads") = same signal in 40-60% fewer tokens. | Medium | GraphExpansionService (exists), new ContextAssemblerService |
-| Few-shot tool chain examples (Step 8) | Model sometimes picks wrong tool sequences for multi-hop queries. 3-5 concrete examples in system prompt fix this. ~40 lines, ~250 extra tokens. | Low | System prompt modification only |
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| JWT dual-stack removal | Auth fully migrated to better-auth in v5.0; residual JWT references are dead code that confuses contributors and expands attack surface | Low | Only comment references remain in guards -- no actual JwtModule/JwtService. ES256 key generation script still exists for reference. Main work: delete `generate-es256-keys.ts`, strip JWT comments from guards, remove any `JWT_SECRET`/`JWT_PRIVATE_KEY` env vars |
+| Deprecated API alias removal (voltAgentApi, multiAgentApi) | MEMORY.md says aliases kept for compat; grep shows ZERO references in frontend/src -- already cleaned. Verify package.json and any barrel exports | Low | Confirm no remaining references. If truly gone, this is a documentation cleanup only (update MEMORY.md, remove deprecation warnings) |
+| Tailwind CSS package removal | `tailwindcss` kept solely for `@tailwind base` CSS var injection (globals.css line 3). Only 1 reference in src/ (ChatThemeBridge.tsx comment). MUI is the actual design system | Medium | Requires converting CSS custom property definitions from `@tailwind base` + `@layer base` to plain CSS. Tailwind config maps `hsl(var(--xxx))` -- these vars are defined in globals.css already. Remove tailwindcss, postcss-tailwind deps, tailwind.config.ts. Verify no component uses Tailwind utility classes |
+| Socket.IO transport hardening for multi-instance | Railway has NO sticky sessions. Socket.IO defaults to polling+websocket. If long-polling is still enabled, multi-instance will break with 400 errors | Medium | Redis adapter already exists and works. Must force `transports: ['websocket']` on both server and client to disable HTTP long-polling fallback. This is mandatory for Railway horizontal scaling |
+| DB connection pool sizing for replicas | Current: `connection_limit=20` appended if missing. With N replicas, total connections = 20*N. Railway PostgreSQL has finite connection limits | Medium | Need to calculate: Railway PostgreSQL max connections (typically 97 for starter), divide by expected replica count, set per-instance pool size accordingly. May need PgBouncer or Supabase pooler |
+| BullMQ worker coordination across replicas | BullMQ uses Redis for coordination -- multiple workers safely dequeue. But concurrency settings multiply per instance (2 workers x 3 replicas = 6 effective, not 2) | Medium | Audit all queue concurrency settings. Decide: run workers on dedicated instance (recommended) or let all replicas process jobs with reduced per-instance concurrency. Cron/scheduled jobs MUST run on single instance to avoid duplicates |
+| Frontend billing UI | Backend has complete Autumn integration (attach, check, track, cancel, billing portal, pricing table) but frontend has ZERO billing pages | High | Must build: pricing table page, plan selection/upgrade flow, usage dashboard, billing portal redirect, quota warning banners. This is a gap between backend completeness and frontend absence |
+| Billing E2E validation on Railway/Vercel | Autumn SDK integration exists but has never been validated end-to-end in production. Payment flows, webhook delivery, usage tracking, quota enforcement -- all untested with real Stripe | High | Requires: Autumn test mode configuration, E2E test scripts for attach/check/track/cancel flows, webhook delivery verification, edge case testing (payment failure, card decline, mid-cycle upgrade/downgrade) |
 
 ## Differentiators
 
-Features that elevate the product. Not expected, but valued when present.
-
-### Push Notifications (Beyond Table Stakes)
+Features that improve operational quality. Not blocking but high-value.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| AI triage batch notifications | "3 urgent emails need attention" instead of 5 separate alerts. Superhuman-grade intelligent batching. | High | Requires debounce window (e.g., 60s), email triage service (exists), summary generation |
-| Thread-grouped notifications | Multiple emails in same thread = single notification with count, not N separate alerts | Medium | web-push `tag` field for collapsing, thread ID from email model |
-| Deep link to email thread | Click notification -> opens exact email thread in app, not just inbox | Low | SW notificationclick handler exists, needs thread/email ID in push payload |
-| Follow-up reminder push | "Reminder: You haven't replied to Marco's email from Tuesday" | Medium | ReminderModule exists, needs push dispatch integration |
-
-### Rate Limiting (Beyond Table Stakes)
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Progressive rate limiting | First hit = 429 with retry-after. Sustained abuse = exponentially longer cooldowns. Better than cliff-edge blocking. | Medium | Sliding window with escalation in Redis |
-| Cost-aware AI throttling | AI calls have real $ cost. Separate monthly token budget prevents accidental cost spikes. | Medium | AiRunLedger (exists) has cost data; add threshold check |
-
-### HITL Approval (Beyond Table Stakes)
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Approval with parameter modification | User sees "Send email to john@acme.com" and edits recipient before approving. Fix-in-place instead of reject-and-retype. | High | Custom editable tool args UI, re-injection into agent pipeline |
-| Batch approval for multi-step plans | AI proposes "archive 5 emails" -- user approves all at once instead of 5 clicks | Medium | Grouped approval UI, multi-approval batching |
-| Auto-reject timeout | Pending approvals auto-reject after N minutes if user walks away. Prevents stuck agent loops. | Low | Frontend timer, state cleanup, no backend changes |
-
-### Graph RAG (Beyond Table Stakes, Steps 5 and 7)
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Materialized entity graph (Step 5) | Pre-computed relationship edges drop graph expansion latency from ~200ms JSONB queries to ~20ms index lookups. entity_graph table with edge types: email_sender, email_recipient, co_thread, co_attendee. | High | New Prisma model, nightly BullMQ rebuild, incremental updates on email sync events |
-| Tool consolidation (Step 7) | Merge search_emails + semantic_search into unified `search` tool with `mode: keyword/semantic/auto`. Reduces model confusion across 31 tools. Keep old names as aliases for 1 release. | Medium | QueryRouterService (exists) routes auto mode. Alias period for backward compat. |
+| Horizontal autoscaling (Railway replica dial) | Handle traffic spikes without manual intervention. Railway supports manual replica count; no autoscale trigger yet | Low | Just configure replica count in Railway service settings. All prerequisites (Redis adapter, stateless backend) already met once transport hardening is done |
+| Bundle size optimization with @next/bundle-analyzer | Reduce JS payload, improve LCP/TTI. Lighthouse CI already enforces budgets but analyzer provides actionable insights | Medium | Install @next/bundle-analyzer, audit large deps (TipTap, MUI, date-fns, AI SDK), apply dynamic imports where missing. Target: reduce initial JS by 15-20% |
+| SSR/RSC optimization | Move data-fetching to server components where possible. Next.js 16 with React 19 supports this natively | Medium | Audit pages for client-only data fetching that could be server-side. Low-hanging fruit: landing page, pricing page, settings pages with static content |
+| CDN cache headers for static assets | Vercel handles this by default but custom headers for API responses (Cache-Control for GET endpoints) reduce backend load | Low | Add Cache-Control headers to read-heavy GET endpoints (folder list, labels, pricing table). Vercel already caches static assets |
+| Prometheus metrics per replica | Current metrics are summed across replicas by Railway. Per-instance labels in prom-client allow Grafana to distinguish replica health | Low | Add `instance` label to existing Prometheus counters/histograms. Useful for debugging hot replicas |
+| Graceful shutdown with connection draining | Railway scales down by terminating replicas. Active requests and WebSocket connections need graceful termination | Medium | NestJS `enableShutdownHooks()` likely already configured. Verify: HTTP request draining, WebSocket disconnect events, BullMQ worker graceful stop |
+| Usage quota warning banners in UI | Show users approaching quota limits before they hit hard blocks. Improves UX vs. sudden 403/429 errors | Medium | Requires frontend component polling /check endpoint or receiving real-time quota updates via WebSocket. Display at 80% and 95% thresholds |
+| Billing webhook endpoint for Autumn/Stripe events | Autumn claims to handle webhooks internally, but having a server-side webhook receiver enables: audit logging, plan change propagation to local DB, cache invalidation | Medium | No webhook controller exists in subscription module. Autumn may handle plan changes transparently, but local DB subscription record needs updating on plan change |
 
 ## Anti-Features
 
@@ -101,90 +39,76 @@ Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Push for every single email | Notification fatigue. Users disable push entirely. Defeats the purpose. | Default to "important/urgent only" or batch via AI triage. Per-category preferences. |
-| Per-endpoint rate limit config UI | Over-engineering. No evidence admins need to tune individual endpoints. | Hardcoded tiers (read/write-safe/write-destructive/ai) with sensible defaults. Env var overrides at most. |
-| Drag-and-drop HITL approval workflow builder | Enterprise ABAC territory. Out of scope per PROJECT.md constraints. | Simple boolean `requiresApproval` on tool registry. Conditional rules are a much later phase. |
-| Cross-model reranker (Cohere/BGE rerank API) | Extra latency (~200ms), cost, and external dependency. Heuristic reranking (Step 2, already built) is sufficient for current data volumes. | Keep RerankingService with recency/thread/priority/keyword heuristics. Revisit only if result quality measurably degrades. |
-| Neo4j or separate graph database | New operational dependency. PostgreSQL handles the traversal patterns via joins on entity_graph table. | Materialized entity_graph in PostgreSQL (Step 5). |
-| Universal mega-search tool | Merging ALL search tools (contacts, calendar, emails, semantic) into one confuses the model with too many optional parameters. | Consolidate only search_emails + semantic_search (Step 7). Keep domain-specific contact/calendar search separate. |
-| Real-time entity graph (event-sourced) | Complex event choreography for marginal freshness gain. | Nightly full rebuild + incremental edge upsert on email sync. |
+| Custom Stripe integration bypassing Autumn | Autumn wraps Stripe; going direct adds massive complexity (webhook handling, subscription state machine, invoice management) | Keep Autumn as billing abstraction. Only go direct if Autumn proves inadequate |
+| Node.js cluster mode on Railway | Railway provides horizontal scaling via replicas with load balancing. Node cluster mode inside a container adds complexity without benefit since Railway already distributes across instances | Use Railway replica scaling. One Node process per container |
+| PgBouncer self-managed on Railway | Running PgBouncer as a separate Railway service adds operational complexity | Use Prisma's built-in connection_limit parameter. If connections are exhausted, reduce per-instance pool size proportionally to replica count. Consider Supabase pooler only if Railway Postgres hits hard limits |
+| Real-time billing usage via WebSocket | Pushing every usage event to frontend via WS is over-engineering. Usage changes slowly (per-request) | Poll /check on page load + after AI operations. Cache aggressively client-side (5min staleTime) |
+| Tailwind-to-MUI migration of CSS variables | The CSS custom properties in globals.css are framework-agnostic (plain CSS). Don't migrate them to MUI theme -- just stop routing through Tailwind's @layer base | Keep CSS variables as-is. Only remove the Tailwind processing pipeline |
+| Frontend-side JWT validation | JWT is being removed. Don't add any new JWT handling to replace what's being deleted | Cookie-based auth via better-auth is already the sole auth mechanism |
 
 ## Feature Dependencies
 
 ```
-Push Notification Dispatch
-  PushSubscription model (EXISTS) --> PushDispatchService.sendNotification() (NEW)
-  EventEmitter2 domain events (EXISTS) --> email.received trigger --> push dispatch (NEW)
-  NotificationSettings toggle (EXISTS) --> per-user category preferences (NEW)
-  web-push 3.6.7 (INSTALLED) --> VAPID env config (NEW)
-
-Tiered Rate Limiting
-  ThrottlerModule named throttlers (EXISTS: 'short' + 'write') --> @Throttle() per controller (NEW)
-  UserThrottlerGuard (EXISTS) --> rate limit response headers (NEW)
-  RedisThrottlerStorage (EXISTS) --> no changes needed
-
-HITL Explicit Approval
-  needsApproval: true on 6 tools (EXISTS) --> frontend approval-requested rendering (NEW)
-  convertToModelMessages HITL path (EXISTS) --> approval resubmit UX (NEW)
-  Tool registry governance metadata (EXISTS) --> approval audit logging (NEW)
-  Smart tool renderers (EXISTS, 10 custom) --> approval-state variant renderer (NEW)
-
-Graph RAG Continuation
-  QueryRouterService (EXISTS, Step 1) --> Tool consolidation auto mode (Step 7)
-  RerankingService (EXISTS, Step 2) --> Better seed quality (passive)
-  GraphExpansionService (EXISTS, Step 3) --> ContextAssemblerService (Step 4)
-  GraphExpansionService (EXISTS, Step 3) --> EntityGraphService + migration (Step 5)
-  AIMemory model (EXISTS) --> add emailId/contactId columns (Step 6, independent)
-  Steps 1+3 --> Tool consolidation unified search (Step 7)
-  Step 7 --> Few-shot examples in system prompt (Step 8)
+Socket.IO transport hardening --> Horizontal scaling (replicas will break WS without this)
+DB connection pool sizing --> Horizontal scaling (connection exhaustion without this)
+BullMQ worker coordination --> Horizontal scaling (duplicate jobs without this)
+Tailwind removal --> Bundle size optimization (removes unused CSS processing)
+Frontend billing UI --> Billing E2E validation (can't E2E test what doesn't exist)
+Backend billing webhook --> Billing E2E validation (plan changes need local propagation)
 ```
 
 ## MVP Recommendation
 
-### Priority 1 (Fix broken promises)
+### Phase 1: Legacy Removal (prerequisite, low risk)
+Prioritize:
+1. JWT dual-stack removal (comments + env vars + key gen script)
+2. Deprecated API alias verification (confirm already removed, update docs)
+3. Tailwind CSS package removal (convert @tailwind base to plain CSS)
 
-1. **Push notification backend dispatch** -- Toggle exists, nothing fires. Trust-destroying broken promise.
-   - PushDispatchService with web-push.sendNotification()
-   - Email received event trigger
-   - 410/404 subscription cleanup
-   - Per-user category preferences (minimum: on/off per category)
+**Rationale:** Zero new features, pure deletion. Reduces confusion, removes dead dependencies, shrinks bundle.
 
-2. **Tiered rate limiting** -- Users hit 429 during normal workflows. Quick config fix.
-   - Named throttle tiers: `read` (300/min, existing), `write-safe` (100/min), `write-destructive` (30/min, existing), `ai-chat` (30/min, existing separate)
-   - `@Throttle()` decorators on controllers
-   - Rate limit headers in response
+### Phase 2: Horizontal Scaling Readiness (infrastructure, medium risk)
+Prioritize:
+1. Socket.IO transport hardening (force websocket-only)
+2. DB connection pool sizing (calculate per-replica limits)
+3. BullMQ worker strategy (dedicated worker instance vs. distributed)
+4. Graceful shutdown verification
 
-### Priority 2 (Complete existing plumbing)
+**Rationale:** Must work before increasing replicas. One wrong setting = production outage.
 
-3. **Explicit HITL approval UX** -- Backend pauses, frontend shows nothing.
-   - Approval/rejection buttons for `part.state === 'approval-requested'`
-   - Visual distinction (red/warning for destructive tools)
-   - `addToolApprovalResponse()` integration
-   - Audit logging on approve/reject
+### Phase 3: Frontend Performance (user-facing, medium effort)
+Prioritize:
+1. Bundle analysis with @next/bundle-analyzer
+2. Dynamic imports for heavy deps (TipTap, chart libs)
+3. CDN cache headers for GET endpoints
 
-### Priority 3 (Intelligence improvements)
+**Rationale:** Measurable improvement. Lighthouse CI provides regression gate.
 
-4. **Graph RAG Steps 6, 4, 8** -- Extend existing working pipeline.
-   - Step 6: Memory-entity anchoring (standalone, no dependencies)
-   - Step 4: Context assembly (depends on Step 3, token efficiency)
-   - Step 8: Few-shot examples (lowest effort, highest signal-to-code ratio)
+### Phase 4: Billing Hardening (highest complexity, highest business value)
+Prioritize:
+1. Frontend billing UI (pricing table, upgrade flow, usage dashboard)
+2. Billing webhook endpoint
+3. E2E validation on Railway/Vercel with Autumn test mode
+4. Edge case testing (payment failures, mid-cycle changes, cancellations)
 
-### Defer to v9.x+
+**Rationale:** Billing has the most unknowns. Backend is built but untested. Frontend is entirely missing. Needs real Stripe test mode to validate.
 
-- **Step 5 (Entity graph materialization)**: Performance optimization for graph expansion. Current ~200ms JSONB is acceptable. Build when query volume justifies it.
-- **Step 7 (Tool consolidation)**: Reduces model confusion but requires alias period. Ship after Steps 4/6/8 prove the pipeline.
-- AI triage batch notifications: Additional AI pipeline work. Ship basic per-email push first.
-- Approval with parameter modification: Complex UI. Simple approve/reject is sufficient.
-- Progressive rate limiting: Standard 429 + retry-after covers requirements.
+Defer:
+- **Autoscaling triggers**: Railway doesn't support auto-scaling triggers yet; manual replica dial is sufficient
+- **Per-replica Prometheus labels**: Nice-to-have, not blocking
+- **SSR/RSC migration**: Large effort, incremental benefit on an app that's already fast
 
 ## Sources
 
-- Codebase analysis: PushService, PushController, ThrottlerModule config, UserThrottlerGuard, tool-registry.interface.ts, EmailToolsService (needsApproval), AiChatService (HITL resubmit path), HybridSearchService, RerankingService, GraphExpansionService, QueryRouterService, RagToolsService
-- AI SDK v6 HITL cookbook: https://ai-sdk.dev/cookbook/next/human-in-the-loop (HIGH confidence, verified via memory reference)
-- Graph RAG 8-step plan: `C:\Users\Davide\.claude\plans\rosy-imagining-starlight.md` (HIGH confidence, Steps 1-3 verified in codebase)
-- web-push npm: v3.6.7 installed in backend/package.json but unused (no sendNotification calls in codebase)
-- NestJS ThrottlerModule: named throttlers supported, @Throttle() per-route decoration (HIGH confidence, verified in app.module.ts config)
-
----
-*Feature research for: v9.0 AI Intelligence & Platform Hardening*
-*Researched: 2026-03-24*
+- Railway Scaling Docs: https://docs.railway.com/deployments/scaling
+- Railway Horizontal Scaling Launch: https://blog.railway.com/p/launch-week-01-horizontal-scaling
+- Socket.IO Multiple Nodes: https://socket.io/docs/v3/using-multiple-nodes/
+- Socket.IO Redis Adapter: https://socket.io/docs/v4/redis-adapter/
+- BullMQ Concurrency: https://docs.bullmq.io/guide/workers/concurrency
+- BullMQ Parallelism: https://docs.bullmq.io/guide/parallelism-and-concurrency
+- BullMQ Multi-Instance Discussion: https://github.com/taskforcesh/bullmq/discussions/3049
+- Autumn Billing Platform: https://useautumn.com/
+- Autumn GitHub: https://github.com/useautumn/autumn
+- Next.js Bundle Optimization: https://nextjs.org/docs/app/guides/package-bundling
+- Railway NestJS Sticky Sessions Issue: https://station.railway.com/feedback/sticky-sessions-fa65efc4
+- Codebase: direct grep/read of D:/MailAgent backend and frontend source

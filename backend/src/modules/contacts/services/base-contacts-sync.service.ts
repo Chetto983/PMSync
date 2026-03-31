@@ -53,6 +53,7 @@ export interface ExtractedContactData {
   photoUrl?: string | null;
   notes?: string | null;
   primaryEmail?: string | null;
+  etag?: string | null;
 }
 
 /**
@@ -369,6 +370,7 @@ export abstract class BaseContactsSyncService {
               birthday: pc.data.birthday,
               photoUrl: pc.data.photoUrl,
               notes: pc.data.notes,
+              eTag: pc.data.etag ?? null,
               metadata: pc.rawContact,
               lastSyncedAt: new Date(),
             })),

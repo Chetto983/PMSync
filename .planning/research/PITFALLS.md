@@ -1,266 +1,285 @@
 # Domain Pitfalls
 
-**Domain:** Adding push dispatch, tiered rate limiting, HITL approval routing, and Graph RAG to existing NestJS AI email client
-**Researched:** 2026-03-24
+**Domain:** Legacy cleanup, Railway horizontal scaling, and billing hardening for existing NestJS + Next.js email platform
+**Researched:** 2026-03-31
+
+---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data loss, or security vulnerabilities.
+Mistakes that cause outages, data corruption, or require architectural rewrites.
 
-### Pitfall 1: Stale Push Subscriptions Silently Dropping Notifications
+### Pitfall 1: Remaining @Cron Decorators Execute on Every Instance
 
-**What goes wrong:** Backend sends push notifications via `web-push` to endpoints stored in `PushSubscription`, but browser endpoints go stale when users clear browser data, uninstall the PWA, or when the push service rotates the endpoint URL. The `sendNotification()` call returns a 410 Gone or 404, but if you catch-and-swallow these errors, you accumulate dead subscriptions and users silently stop receiving notifications with no feedback.
+**What goes wrong:** The codebase has migrated most scheduled jobs to BullMQ repeatable jobs (via `ScheduledJobsQueueService`), but 6 `@Cron` decorators remain in production code: `cache-prewarming.service.ts` (2), `data-cleanup.service.ts` (4), `churn-recompute.cron.ts` (1), `forecast-refresh.cron.ts` (1). When Railway scales to N instances, each `@Cron` fires on ALL instances simultaneously.
 
-**Why it happens:** The current `PushSubscription` model has no `lastSuccessAt` or `failureCount` field. The `push.service.ts` only handles subscribe/unsubscribe -- there is no cleanup path for server-detected failures.
+**Why it happens:** The BullMQ migration was done incrementally. These stragglers were either added after the migration or missed during it. NestJS `@nestjs/schedule` `@Cron` runs in-process -- there is no distributed lock.
 
-**Consequences:** Database fills with dead subscriptions. Dispatch latency grows as you attempt delivery to stale endpoints. Users think notifications are broken but have no way to diagnose it.
+**Consequences:**
+- `data-cleanup.service.ts` runs GDPR-related cleanup (expired sessions, orphaned data) on all instances -- potential race conditions on DELETE operations causing P2002/P2034 Prisma errors
+- `churn-recompute.cron.ts` and `forecast-refresh.cron.ts` run expensive CRM computations N times instead of once
+- Cache prewarming multiplied by N instances wastes LLM API budget (embedding cache warmup)
 
 **Prevention:**
-1. On every `web-push.sendNotification()` response, check for HTTP 404/410 -- immediately delete the subscription row.
-2. Track `failureCount` and `lastSuccessAt` on the model. After 3 consecutive failures, soft-delete the subscription.
-3. Return delivery stats (sent/failed/stale) from the dispatch method so callers can log observability metrics.
-4. Add a scheduled cleanup job (e.g., weekly) to purge subscriptions with no success in 30+ days.
+- Audit ALL `@Cron` decorators and migrate to `ScheduledJobsQueueService` handlers BEFORE enabling horizontal scaling
+- Add a startup check: if `RAILWAY_REPLICA_ID` is set and `@Cron` decorators exist, log a warning
+- Use `JOBS_ENABLED=false` env var (already supported) on replica instances as interim safety net
 
-**Detection:** Monitor `PushSubscription` table growth vs. active user count. If subscriptions grow faster than users, you have a stale endpoint problem.
+**Detection:** Monitor BullMQ dashboard for duplicate job completions. Alert on Prisma P2002/P2034 spike after scaling.
 
-**Confidence:** HIGH -- this is the #1 cited backend push failure mode across MDN docs and production post-mortems.
+**Phase:** Must be resolved in Legacy Cleanup phase, before horizontal scaling phase.
 
 ---
 
-### Pitfall 2: Push Dispatch Blocking the Event Loop
+### Pitfall 2: In-Memory State Lost Across Instances
 
-**What goes wrong:** When a triggering event (new email, AI triage complete, calendar reminder) fires, the push dispatch runs synchronously in the same request/job handler. With `web-push.sendNotification()` making HTTPS calls to push service endpoints (FCM, Mozilla, Apple), each call takes 100-500ms. If a user has 5 subscriptions across devices, that is 500ms-2.5s of blocking.
+**What goes wrong:** Several services maintain in-memory Maps that are NOT shared across instances:
 
-**Why it happens:** The natural approach is to call dispatch inline after the domain event completes. The existing codebase uses `EventEmitter2` for domain events with async handlers, but if the push handler awaits delivery, it blocks the event chain.
+1. **`TenantKeyService`** -- `cache` and `hmacCache` (Map<string, Buffer>) for derived encryption keys. Safe because deterministic (same input = same output), but wastes CPU re-deriving on each instance.
 
-**Consequences:** Email sync jobs slow down. API response latency spikes. BullMQ job throughput drops. Under load, the event loop backs up.
+2. **`TriageLearningService`** -- `signalBuffer` (Map) and `scoreCache` (Map) hold user behavior signals IN MEMORY before flushing to Redis. If a user's signals land on different instances, the buffer never reaches the flush threshold, and scores diverge between instances.
+
+3. **`CircuitBreaker`** -- `breakers` Map tracks failure counts per service. Instance A's circuit opens, but Instance B's stays closed -- defeating the purpose of circuit breaking.
+
+4. **`ScheduledJobsQueueService`** -- `handlers` Map is instance-local (fine, since each instance registers the same handlers on boot).
+
+5. **`EmailTriageService`** -- in-memory semaphore for global concurrency control. With N instances, actual concurrency is N * limit, not the intended limit.
+
+**Why it happens:** These were written for single-instance deployment. In-memory caches are faster than Redis, so developers default to Maps.
+
+**Consequences:**
+- Triage learning scores become inconsistent (signals split across instances)
+- Circuit breaker provides false safety (one instance sees failures, others keep hammering)
+- AI concurrency control is N times higher than intended, risking LLM API rate limits
 
 **Prevention:**
-1. Push dispatch MUST go through BullMQ, not inline execution. Create a `push-dispatch` queue with a dedicated worker.
-2. The domain event handler should only enqueue the job (fire-and-forget), never await delivery.
-3. Set concurrency on the push worker to 5-10 to parallelize deliveries without flooding outbound connections.
-4. Use `web-push.sendNotification()` with a timeout option (5s) to prevent hanging on unresponsive endpoints.
+- `TriageLearningService`: Flush signals to Redis immediately (RPUSH) instead of buffering in memory. The buffer exists for performance; switch to Redis pipeline for equivalent throughput.
+- `CircuitBreaker`: Move state to Redis (INCR failure count with TTL). Or accept per-instance circuit breaking as "good enough" and document the tradeoff.
+- `EmailTriageService` semaphore: Use Redis-based distributed semaphore (SETNX with TTL).
+- `TenantKeyService`: Keep as-is -- deterministic derivation means each instance has correct keys. No consistency issue.
 
-**Detection:** Monitor BullMQ job duration for email-sync and triage jobs. If they spike after push dispatch is added, push is blocking inline.
+**Detection:** Triage score divergence visible in logs (different scores from different instances for same sender). Circuit breaker ineffectiveness visible when LLM API returns 429 despite breaker being "open."
 
-**Confidence:** HIGH -- directly observable from the codebase architecture (EventEmitter2 async handlers, BullMQ patterns).
+**Phase:** Must be resolved before or during horizontal scaling phase.
 
 ---
 
-### Pitfall 3: Throttler Tier Name Collision Breaking Existing Rate Limits
+### Pitfall 3: Prisma Connection Pool Exhaustion Under Multi-Instance + BullMQ Workers
 
-**What goes wrong:** The current `ThrottlerModule.forRoot()` defines two named tiers: `short` (300/min reads) and `write` (30/min writes). Controllers use `@Throttle({ default: { ... } })` with the `default` key, NOT the tier names. When you add new per-endpoint tiers, if you use `@Throttle({ write: { limit: 10, ttl: 60000 } })` expecting to override only the write tier, the `short` tier still applies simultaneously. The endpoint gets BOTH limits -- the per-endpoint write limit AND the global 300/min read limit. This is correct behavior but often surprises developers.
+**What goes wrong:** The current `prisma-client.factory.ts` sets `connection_limit=20` with `pool_timeout=20`. With 2+ Railway instances, each creates its own Prisma pool. Railway PostgreSQL has a default max_connections of ~97 (Railway standard). 2 instances x 20 connections = 40 for Prisma alone. Add BullMQ workers (which use separate Redis connections but trigger Prisma queries), and connection starvation occurs under load.
 
-**Why it happens:** `@nestjs/throttler` applies ALL defined throttlers unless a specific one is skipped. The `@Throttle()` decorator overrides limits for named throttlers but does not disable the others. The current codebase uses `{ default: { ... } }` which overrides ALL throttlers with a single rule -- this was a workaround, not intentional tiered design.
+**Why it happens:** Railway's TCP proxy adds ~1-5ms latency per connection handshake. Under load, connections are held longer. The pool fills up, and new requests queue behind `pool_timeout`. Railway does NOT run PgBouncer by default.
 
-**Consequences:** Endpoints either get rate limited twice (too strict) or the wrong tier applies. Existing 429 responses (already flagged in v7.0 as a user-reported issue) get worse instead of better.
+**Consequences:**
+- `P1001` (Can't reach database server) or `P2024` (Timed out fetching a new connection from the pool) errors under moderate load
+- BullMQ workers starve HTTP request handlers of connections (no priority separation)
+- During Railway deployments, old and new instances briefly co-exist, doubling connection usage
 
 **Prevention:**
-1. Before changing anything, audit every `@Throttle()` usage in the codebase -- there are 17+ decorators already. Map which tier each endpoint should belong to.
-2. Rename the global tiers to be explicit: `read` and `write` instead of `short` and `write`.
-3. Use `@SkipThrottle({ read: true })` on write-only endpoints to disable the read tier, rather than trying to override it.
-4. Write a verification script (like the existing `verify-rate-limiting.ts`) that tests each tier independently.
+- Calculate: `connection_limit = max_connections / (instances * 1.5)`. For 97 max and 3 instances: ~21, so current 20 is borderline. For 4+: reduce to 12-15.
+- Add PgBouncer as a Railway service between app and database (transaction mode). This is the standard Railway recommendation.
+- Separate Prisma instances for HTTP vs BullMQ workers with different pool sizes (HTTP gets priority).
+- Monitor `pg_stat_activity` and alert when active connections exceed 80% of max.
+- During deployment, Railway runs old + new instances simultaneously. Account for 2x normal instances in pool math.
 
-**Detection:** The existing `scripts/verify-rate-limiting.ts` should be extended to validate per-endpoint limits against the intended tier config.
+**Detection:** `P2024` errors in logs. Increasing response times under moderate load. `pg_stat_activity` query showing connections at limit.
 
-**Confidence:** HIGH -- verified by reading the actual throttler config in `app.module.ts` and the 17+ `@Throttle()` decorators.
+**Phase:** Horizontal scaling phase. Must be solved before adding instances.
 
 ---
 
-### Pitfall 4: HITL Approval Re-submit Losing Conversation State
+### Pitfall 4: Billing Webhook Has No Idempotency Protection
 
-**What goes wrong:** When a tool with `needsApproval: true` fires, the AI SDK pauses the stream and sends a `tool-approval-request` to the client. The user approves/denies. The client then re-submits the full `messages[]` array (including the approval response) via `clientMessages` in the `StreamChatParams`. The `prepareChatAgent` method handles this via `convertToModelMessages()`. But if the conversation history has been modified between the original request and the approval re-submit (e.g., another message was sent in a different tab, or a background enrichment ran), the re-submitted messages diverge from server state, causing either `InvalidPromptError` or tool calls referencing non-existent context.
+**What goes wrong:** The `AutumnService` and `AutumnController` proxy requests to Autumn SDK but have NO webhook receiver endpoint for Autumn-to-app callbacks. If Autumn sends billing events (subscription changes, payment failures, usage resets), the app has no handler. If a handler is added without idempotency, duplicate webhooks cause double plan changes or double usage resets.
 
-**Why it happens:** The current flow trusts `clientMessages` for HITL re-submits (line 184 in `ai-chat.service.ts`) and bypasses server-side history loading. There is no server-side correlation between the pending approval and the re-submitted messages. The approval is purely client-side state.
+**Why it happens:** Current billing is primarily pull-based (app calls Autumn SDK). But real billing systems send webhooks for async events (payment succeeded, payment failed, subscription canceled by Autumn admin, usage threshold reached). The `subscription-lifecycle.service.ts` handles expiry checks via cron, but NOT real-time billing events.
 
-**Consequences:** Intermittent `InvalidPromptError` during approval flows. Users approve an action, get an error, and have to re-ask the AI from scratch. The destructive tool may or may not have executed depending on when the error occurred.
+**Consequences:**
+- Subscription state can drift between Autumn and local DB (Autumn says "canceled" but local DB says "active")
+- No real-time response to payment failures (only caught by daily cron at 02:00 UTC -- up to 24h delay)
+- If webhook handler added without idempotency: duplicate webhooks from Autumn retries cause double downgrade/upgrade processing
 
 **Prevention:**
-1. Store a `pendingApprovalId` server-side when a tool triggers `needsApproval`. Include the tool call context (toolCallId, toolName, args).
-2. On re-submit, validate that the `pendingApprovalId` matches and the tool call context is unchanged.
-3. If the conversation state has diverged, reject the approval with a clear error message instead of silently proceeding.
-4. Add idempotency protection -- if the same `toolCallId` has already been executed, return the cached result instead of re-executing.
+- Add a webhook endpoint with idempotency key tracking (event ID in a `billing_webhook_events` table or Redis SET with TTL)
+- Use atomic operations: `INSERT ... ON CONFLICT (event_id) DO NOTHING` to ensure exactly-once processing
+- Enqueue webhook processing to BullMQ (respond 200 immediately, process asynchronously) to handle Autumn's retry timeout
+- Add signature verification for webhook authenticity
+- Test with deliberate duplicate webhook payloads
 
-**Detection:** Log correlation between approval re-submits and `InvalidPromptError` occurrences. If they spike together, this is the cause.
+**Detection:** Subscription state mismatch between Autumn dashboard and local DB. Users reporting incorrect plan after payment.
 
-**Confidence:** MEDIUM -- the vulnerability is visible in the code, but the exact failure frequency depends on user behavior patterns (multi-tab usage, slow approval).
+**Phase:** Billing hardening phase. This is the single most important billing pitfall.
 
 ---
-
-### Pitfall 5: Graph Expansion N+1 Queries from Contact Email Lookup
-
-**What goes wrong:** The `GraphExpansionService.expandContacts()` runs two SQL queries: one to find contacts matching seed senders (via JSONB `emails` array), then another to find recent emails from those contacts. The second query JOINs `emails` with `unified_contacts` using a JSONB subquery (`EXISTS (SELECT 1 FROM jsonb_array_elements(...))`). This is functionally correct but the JSONB `jsonb_array_elements` call in the JOIN condition prevents PostgreSQL from using indexes effectively, causing a sequential scan on the contacts table for each email row.
-
-**Why it happens:** The `unified_contacts.emails` field is a JSONB array, not a normalized relation. There is no GIN index on the email values within the JSONB structure. The existing code (lines 204-241 in `graph-expansion.service.ts`) works at small scale but degrades quadratically.
-
-**Consequences:** Graph expansion latency grows from ~50ms to 500ms+ as the contact table grows past 10K records. The 300ms slow-expansion warning will trigger frequently. The entire RAG pipeline stalls because graph expansion is on the critical path.
-
-**Prevention:**
-1. Add a GIN index on the email values: `CREATE INDEX idx_contacts_emails_gin ON unified_contacts USING GIN ((emails jsonb_path_ops))` -- but verify this actually helps with the `ANY()` pattern used.
-2. Better: extract contact emails into a junction table `contact_emails(contactId, email)` with a B-tree index. This is a schema change but eliminates the JSONB scan entirely.
-3. If schema change is too invasive, pre-compute a materialized mapping table `sender_contact_map(sender_email, contact_id)` refreshed on contact updates, and use that for the JOIN instead.
-4. Set a hard timeout (200ms) on graph expansion and return partial results if exceeded.
-
-**Detection:** The existing `elapsed > 300` warning in `GraphExpansionService` is the canary. Monitor its frequency as contact volume grows.
-
-**Confidence:** HIGH -- the JSONB pattern is visible in the code and is a well-documented PostgreSQL anti-pattern for JOIN conditions.
 
 ## Moderate Pitfalls
 
-### Pitfall 6: Push Notification Payload Size Exceeding Browser Limits
+### Pitfall 5: Railway Does NOT Support Sticky Sessions for WebSocket
 
-**What goes wrong:** Web Push payloads are limited to ~4KB (varies by browser). If you include the full email subject, sender info, snippet, and metadata, you can exceed this limit. `web-push.sendNotification()` silently truncates or the push service rejects the payload entirely.
+**What goes wrong:** Railway's load balancer distributes requests round-robin with NO sticky session support. Socket.IO's default transport sequence is: HTTP polling (multiple requests) -> WebSocket upgrade. The polling phase sends 3-4 HTTP requests that MUST hit the same instance. Without sticky sessions, the handshake fails.
+
+**Why it happens:** Railway explicitly does not support sticky sessions. The codebase already has `RedisIoAdapter` for cross-instance pub/sub, which handles message broadcasting correctly. But the Socket.IO handshake itself requires session affinity during the upgrade window.
+
+**Consequences:**
+- WebSocket connections fail intermittently (succeed when all polling requests happen to hit same instance by chance)
+- Real-time email notifications, sync status, and chat streaming break for users
 
 **Prevention:**
-1. Define a strict notification payload schema with max lengths: title (50 chars), body (100 chars), icon URL, click URL, and a data object for routing.
-2. Never include email body content in the push payload -- only enough to identify and route.
-3. Test with Firefox (strictest limit at ~3.9KB) not just Chrome.
+- Force WebSocket-only transport: `{ transports: ['websocket'] }` on BOTH client and server. This skips the polling phase entirely and upgrades directly.
+- Update frontend Socket.IO client config to `transports: ['websocket']` (remove 'polling' fallback)
+- Test with multiple Railway instances: verify WebSocket connections establish reliably
+- Fallback: If WebSocket-only causes issues for some corporate proxies, add reconnection logic that retries with exponential backoff
 
-**Confidence:** HIGH -- documented browser limitation.
+**Detection:** `connect_error` events in frontend Socket.IO logs. Users reporting stale email counts or missing notifications.
+
+**Phase:** Must be resolved at the START of horizontal scaling phase. Without this, scaling breaks real-time features.
 
 ---
 
-### Pitfall 7: Rate Limit Bypass via AI Chat Tool Calls
+### Pitfall 6: JWT References in External Provider Code Confused with Auth JWT Removal
 
-**What goes wrong:** The AI chat pipeline has its own rate limiter (`RedisRateLimiterService` at 30 req/min per user in `ai-chat.service.ts`), separate from the HTTP-level `@nestjs/throttler`. But AI tool calls (send_email, delete_email, etc.) execute server-side within the agent loop and bypass the HTTP throttler entirely. A single chat message can trigger 8 tool calls (the `stepCountIs(8)` limit), meaning one chat request could execute 8 email sends -- far exceeding the intended 10/min write limit on the email actions endpoint.
+**What goes wrong:** The codebase has JWT references in 3 distinct contexts: (1) Google Pub/Sub OIDC JWT verification in `gmail-webhook.service.ts`, (2) Microsoft OAuth access token JWT validation in `microsoft-oauth.service.ts`, (3) AI sandbox service JWT in `sandbox.service.ts`. A developer tasked with "remove legacy JWT auth" might accidentally remove or break these.
+
+**Why it happens:** The v5.0 migration replaced the app's own JWT auth with better-auth DB sessions. The comments in `better-auth.guard.ts`, `tenant.guard.ts`, and `roles.guard.ts` reference "former JWT payload" for backward compatibility. A grep for "JWT" returns 40+ hits across these unrelated contexts.
+
+**Consequences:**
+- Removing Google Pub/Sub JWT verification breaks Gmail real-time push notifications
+- Removing Microsoft JWT validation breaks OAuth token refresh flow
+- Both failures are silent (webhooks stop working, tokens stop refreshing) and only surface hours later
 
 **Prevention:**
-1. Add per-tool rate limits within the tool execution layer, not just at the HTTP level.
-2. The `ToolRegistryService` already tracks tool metadata -- extend it with per-tool rate limit config.
-3. Check rate limits inside the tool's `execute` function before performing the action.
-4. Consider the total tool calls per chat message (currently max 8 steps) as a multiplier when setting chat-level rate limits.
+- Create a clear inventory: "JWT references to KEEP" vs "JWT references to REMOVE"
+- JWT to REMOVE: any `JwtStrategy`, `JwtAuthGuard`, `@nestjs/jwt` imports, JWT secret env vars used for app auth
+- JWT to KEEP: `verifyPubSubToken()` in gmail-webhook, `validateJWT()` in microsoft-oauth, `sandbox.service.ts` compute SDK token
+- Add `// NOTE: This is NOT app auth JWT -- this is [Google/Microsoft/Compute] provider JWT` comments to each keeper
+- Run full E2E after removal: trigger Gmail webhook, refresh Microsoft token, verify sandbox
 
-**Confidence:** HIGH -- directly visible from the code: `stopWhen: stepCountIs(8)` and no per-tool rate limiting.
+**Detection:** Gmail push notifications stop arriving. Microsoft token refresh returns 401. Test these explicitly in the removal PR.
+
+**Phase:** Legacy cleanup phase. Requires careful audit before any deletion.
 
 ---
 
-### Pitfall 8: HITL FallbackToolRenderer Showing Approval UI for Non-Destructive Tools
+### Pitfall 7: Tailwind Removal Breaks CSS Custom Properties
 
-**What goes wrong:** The current `FallbackToolRenderer` in the frontend shows ALL tool invocations in the chat UI, including read-only tools like `search_emails` and `semantic_search`. When you add explicit approval routing for destructive tools, users may confuse the informational tool-call display (showing what the AI searched) with the approval prompt (asking permission to delete). This creates "approval fatigue" -- users click approve habitually without reading, defeating the purpose of HITL.
+**What goes wrong:** The project kept `tailwindcss` package solely for `@tailwind base` CSS variable injection in `globals.css`. Removing it removes CSS custom properties that MUI components or chat CSS files may depend on (e.g., `--tw-ring-color`, `--tw-border-opacity`). The chat CSS files (3 files, ~950 lines) use pure CSS with custom properties.
+
+**Why it happens:** The v9.0 migration removed all Tailwind utility classes from TSX files but kept the package for base layer injection. The dependency chain is: `tailwindcss` -> `@tailwind base` in `globals.css` -> CSS custom properties -> chat CSS files.
+
+**Consequences:**
+- Chat UI styling breaks (missing variable values default to browser defaults)
+- Subtle visual regressions that are only visible in specific states (focus rings, border colors)
+- MUI + chat CSS interaction breaks silently
 
 **Prevention:**
-1. Split the tool renderer into two distinct UIs: an informational renderer (collapsed, non-interactive) for read-only tools, and an approval renderer (prominent, with explicit approve/deny buttons and a summary of what will happen) for `needsApproval` tools.
-2. The approval renderer must show the tool's effect in plain language ("Send email to john@example.com with subject 'Re: Budget'"), not raw JSON args.
-3. Auto-collapse completed tool calls after approval to reduce visual noise.
+- Before removing tailwind: extract ALL CSS custom properties from `@tailwind base` output
+- Grep chat CSS files for `--tw-` prefixed variables
+- Replace with explicit CSS custom property definitions in `globals.css`
+- Visual regression test: screenshot chat UI before/after removal
+- Run Lighthouse to verify no CLS regressions
 
-**Confidence:** MEDIUM -- based on the HITL contract test showing 6 HIGH-risk tools and ~20 total tools all going through FallbackToolRenderer.
+**Detection:** Visual inspection of chat UI in all states (idle, loading, error, streaming). Check browser DevTools computed styles for `unset` or missing values.
+
+**Phase:** Legacy cleanup phase. Low risk if done methodically.
 
 ---
 
-### Pitfall 9: Query Router False Negatives Skipping RAG for Complex Queries
+### Pitfall 8: BullMQ Worker Starvation During Rolling Deploys
 
-**What goes wrong:** The `QueryRouterService` uses regex heuristics to classify query complexity. The `MULTI_HOP_PATTERNS` list has 8 patterns, but natural language is infinitely varied. A query like "what happened with the Johnson proposal after our lunch" has multi-hop intent (email + calendar + contact) but may not match any pattern, falling through to the `search` tier which skips graph expansion.
+**What goes wrong:** Railway's rolling deploy runs old and new instances simultaneously. Both register BullMQ workers for the same queues. During the overlap:
+- Old instance workers are processing jobs but about to be killed
+- New instance workers start competing for the same jobs
+- If old instance is killed mid-job, the job's lock expires and another worker retries it, but side effects (emails sent, webhooks dispatched) from the partial execution are NOT rolled back
+
+**Why it happens:** BullMQ uses Redis locks with TTL. When a worker dies, its lock expires and the job becomes available for retry. But non-idempotent side effects (API calls, email sends) have already occurred.
+
+**Consequences:**
+- Duplicate email sends (partially completed send job retried by new instance)
+- Duplicate webhook dispatches (push notifications sent twice)
+- Orphaned state (job half-completed, some DB writes committed, others not)
 
 **Prevention:**
-1. Default to `search` (not `simple`) for unmatched queries -- already done, this is correct.
-2. Make `graph_context_search` available as a tool at the `search` tier, not just `multi_hop`. Let the LLM decide when to use it based on the tool description.
-3. Add telemetry: log classification results and compare with whether the user's follow-up suggests the initial results were insufficient (e.g., "no, I meant the conversation with Johnson AND the meeting").
-4. Do NOT try to make the regex classifier comprehensive -- it will never catch everything. The LLM's tool selection is the real router; the heuristic classifier is a performance optimization for step 0 tool filtering.
+- Implement graceful shutdown: listen for `SIGTERM`, call `worker.close()` which waits for active jobs to complete (up to `lockDuration`)
+- Set Railway's shutdown timeout to match the longest `lockDuration` (currently 300s for scheduled jobs -- this is very long, consider reducing)
+- Make all job handlers idempotent: use deduplication IDs for email sends, webhook dispatches
+- For email send: check if email already has `sentAt` timestamp before sending again
+- Add `beforeClose` handler to workers to log in-flight jobs
 
-**Confidence:** HIGH -- the regex approach is inherently limited and this is acknowledged by the 0.5 confidence default fallback.
+**Detection:** Duplicate email notifications after deployments. Check BullMQ "stalled" job count after each deploy.
+
+**Phase:** Horizontal scaling phase. Must be solved alongside multi-instance configuration.
 
 ---
-
-### Pitfall 10: Entity Graph Materialization Stale Data
-
-**What goes wrong:** If you materialize an entity graph (email-to-contact-to-calendar relationships) as a table or materialized view, it becomes stale as new emails arrive, contacts are updated, and calendar events change. The graph expansion results will be incorrect until the next refresh, leading to the AI providing outdated relationship context.
-
-**Prevention:**
-1. Do NOT use a materialized view for the entity graph. The current approach of running live SQL queries in `GraphExpansionService` is correct -- it always reflects current data.
-2. If performance requires caching, cache at the query level (Redis, 5-min TTL) keyed by `(tenantId, seedEmailIds hash)`, not at the graph level.
-3. If you add a `sender_contact_map` table (per Pitfall 5), update it via domain events (`ContactUpdatedEvent`, `ContactCreatedEvent`) to keep it in sync.
-
-**Confidence:** MEDIUM -- this is a design temptation, not a current bug.
-
----
-
-### Pitfall 11: Push Notification Preferences Not Respecting Tenant Isolation
-
-**What goes wrong:** Push notification preferences (which event types trigger notifications) need to be per-user AND per-tenant. If a user belongs to multiple tenants (orgs), they may want notifications for one org but not another. Storing preferences at the user level without tenant scoping leaks notification preferences across organizational boundaries.
-
-**Prevention:**
-1. The `PushSubscription` model already has `tenantId` -- good. But notification preferences (event type toggles) must also be scoped to `(tenantId, userId)`, not just `userId`.
-2. When dispatching, filter subscriptions by `tenantId` to ensure notifications only go to subscriptions registered in the same tenant context.
-3. The existing `NotificationSettings.tsx` frontend component should be checked to ensure it sends `tenantId` with preference updates.
-
-**Confidence:** HIGH -- multi-tenancy is a core architectural constraint and every new feature must respect it.
-
----
-
-### Pitfall 12: Memory Anchoring Creating Circular Context Inflation
-
-**What goes wrong:** When implementing memory anchoring for Graph RAG (injecting relevant AI memories alongside search results), the memories themselves may reference entities that trigger additional graph expansion, which finds more context, which activates more memories. Each chat turn grows the context window.
-
-**Prevention:**
-1. Cap total context assembly at a fixed token budget (e.g., 4K tokens for RAG context + 1K for memories).
-2. Never re-expand graph results found via memory injection -- memories are additive context, not new seed queries.
-3. The existing `memoryService.getRelevantMemories(tenantId, userId, llmMessage, 5)` with limit=5 is a good starting point. Keep this limit low.
-4. Track total context size in the `AiRunLedger` and alert if average context per chat message exceeds the budget.
-
-**Confidence:** MEDIUM -- this is a design risk for the upcoming implementation, not a current bug.
 
 ## Minor Pitfalls
 
-### Pitfall 13: web-push VAPID Key Mismatch Between Environments
+### Pitfall 9: Frontend Bundle Size Regression from MUI + TanStack Query
 
-**What goes wrong:** VAPID keys must match between the frontend (subscription request) and backend (notification send). If environment variables are not in sync (e.g., different keys in development vs. Railway deployment), subscriptions created in one environment fail silently in another.
+**What goes wrong:** MUI is already large (~80-120KB gzipped depending on components used). Adding lazy-loaded routes, new billing pages, or settings pages without code splitting causes the main bundle to grow past Lighthouse budgets.
 
-**Prevention:** Store VAPID keys as a single source of truth in environment config. The frontend should fetch the public VAPID key from a backend endpoint, not from a hardcoded env variable.
+**Prevention:**
+- Use `React.lazy()` + `Suspense` for ALL new billing/settings pages (not just "non-critical" ones)
+- Import MUI components from specific paths: `@mui/material/Button` not `@mui/material`
+- Monitor bundle size in CI: the project already has Lighthouse CI budget enforcement -- ensure it runs on billing PRs
+- TanStack Query: already uses `staleTime: 5min` -- no change needed
 
-**Confidence:** HIGH -- standard web-push deployment issue.
+**Phase:** Frontend performance phase. Ongoing discipline, not a one-time fix.
 
 ---
 
-### Pitfall 14: Throttler Redis Storage Fail-Open Allowing Unlimited Requests
+### Pitfall 10: Deprecated API Aliases Removed Before Frontend Updated
 
-**What goes wrong:** The existing `RedisThrottlerStorage` has a `catch` block that returns `totalHits: 0` on Redis errors (line 88-96), meaning if Redis goes down, ALL rate limits are disabled. This is intentional (fail-open to not block users), but it means a Redis outage creates an unprotected window.
+**What goes wrong:** The MEMORY.md notes `voltAgentApi -> aiChatApi` with a deprecated alias kept for compatibility. If backend removes deprecated aliases before ALL frontend call sites are updated, API calls break silently (404s caught by error boundaries but losing functionality).
 
 **Prevention:**
-1. Log fail-open events with WARN level and increment a Prometheus counter.
-2. Consider a local in-memory fallback with conservative limits (e.g., 10 req/min) when Redis is unreachable.
-3. Monitor the fail-open counter in dashboards -- any non-zero value needs investigation.
+- Search frontend for ALL deprecated alias usages before removing any backend alias
+- Remove in order: (1) update all frontend call sites, (2) deploy frontend, (3) remove backend alias, (4) deploy backend
+- Or: remove both simultaneously in a coordinated deploy, but test in staging first
 
-**Confidence:** HIGH -- visible in the code.
+**Phase:** Legacy cleanup phase. Simple but requires coordination.
 
 ---
 
-### Pitfall 15: Graph RAG Few-Shot Examples Inflating Prompt Size
+### Pitfall 11: Subscription Plan State Diverges Between Autumn and Local DB
 
-**What goes wrong:** Adding few-shot examples to the system prompt for Graph RAG tool usage guidance increases the base prompt size. With 20+ tools already, the system prompt is already substantial. Adding 3-5 few-shot examples (each ~200-500 tokens) can push the base prompt past 3K tokens, reducing the available context window for actual conversation history and RAG results.
+**What goes wrong:** The `SubscriptionService` maintains a local `Subscription` table with plan/status. `AutumnService` proxies to Autumn SDK. If Autumn's state changes (admin action, payment processor event) without the app being notified (no webhook handler -- see Pitfall 4), the local DB drifts.
 
 **Prevention:**
-1. Use dynamic few-shot injection -- only include examples relevant to the detected query complexity tier.
-2. Keep few-shot examples minimal (1-2 per tier, not per tool).
-3. Monitor total input tokens via `AiRunLedger` -- if average prompt tokens increase by more than 500 after few-shot addition, the examples are too verbose.
+- Add periodic reconciliation: daily cron that compares local subscription state with Autumn API (if Autumn provides a customer status endpoint)
+- Log every state transition with both old and new values for audit trail
+- Add admin endpoint to force-sync from Autumn
 
-**Confidence:** MEDIUM -- depends on implementation choices.
+**Phase:** Billing hardening phase. Complementary to Pitfall 4 webhook handler.
+
+---
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Push backend dispatch | Stale subscriptions (P1), blocking event loop (P2) | BullMQ queue, 410 cleanup, delivery metrics |
-| Push notification preferences | Tenant isolation leak (P11) | Scope all preferences to (tenantId, userId) |
-| Push payload construction | 4KB payload limit (P6) | Strict schema, truncation, test on Firefox |
-| VAPID key deployment | Key mismatch (P13) | Backend serves public key, single source of truth |
-| Tiered rate limiting migration | Tier name collision (P3), existing @Throttle audit | Map all 17+ decorators before changing config |
-| Rate limiting AI tools | Tool call bypass (P7) | Per-tool rate limits in execute(), not just HTTP |
-| Throttler Redis failover | Fail-open unlimited (P14) | Local fallback, Prometheus counter |
-| HITL approval routing | State divergence (P4), approval fatigue (P8) | Server-side pending state, split UI renderers |
-| HITL for new destructive tools | Inconsistent classification | Extend HITL contract test for every new tool |
-| Query router accuracy | False negatives (P9) | LLM tool selection is the real router, not regex |
-| Graph expansion performance | JSONB N+1 (P5) | GIN index or junction table, 200ms timeout |
-| Entity graph materialization | Stale data (P10) | Live queries, not materialized views |
-| Memory anchoring | Context inflation (P12) | Fixed token budget, no recursive expansion |
-| Few-shot examples | Prompt bloat (P15) | Dynamic injection by tier, monitor input tokens |
+|---|---|---|
+| Legacy JWT removal | Accidentally removing provider JWT validation (Pitfall 6) | Create explicit keep/remove inventory before touching code |
+| Legacy Tailwind removal | CSS custom property loss (Pitfall 7) | Extract and replace `--tw-` variables before removing package |
+| Legacy API alias removal | Frontend breaks from premature removal (Pitfall 10) | Frontend-first removal order |
+| Railway horizontal scaling | @Cron duplicate execution (Pitfall 1) | Migrate remaining 6 @Cron decorators to BullMQ first |
+| Railway horizontal scaling | In-memory state divergence (Pitfall 2) | Audit and externalize TriageLearning, CircuitBreaker, Semaphore |
+| Railway horizontal scaling | Prisma pool exhaustion (Pitfall 3) | Add PgBouncer, recalculate pool sizes |
+| Railway horizontal scaling | WebSocket handshake failure (Pitfall 5) | Force `transports: ['websocket']` on client+server |
+| Railway horizontal scaling | Rolling deploy side effects (Pitfall 8) | Graceful shutdown + idempotent job handlers |
+| Billing hardening | No webhook receiver (Pitfall 4) | Add idempotent webhook endpoint with event tracking |
+| Billing hardening | State drift (Pitfall 11) | Add reconciliation cron + webhook handler |
+| Frontend performance | Bundle regression (Pitfall 9) | Code splitting discipline + Lighthouse CI enforcement |
+
+---
 
 ## Sources
 
-- [MDN Web Push API Best Practices](https://developer.mozilla.org/en-US/docs/Web/API/Push_API/Best_Practices) -- payload limits, subscription lifecycle
-- [NestJS Rate Limiting Docs](https://docs.nestjs.com/security/rate-limiting) -- throttler module, named tiers, @SkipThrottle
-- [NestJS Throttler GitHub](https://github.com/nestjs/throttler) -- per-endpoint override behavior
-- [AI SDK v6 HITL Cookbook](https://ai-sdk.dev/cookbook/next/human-in-the-loop) -- needsApproval flow, approval/denial handling
-- [AI SDK v6 needsApproval mid-execute issue #9862](https://github.com/vercel/ai/issues/9862) -- limitations of current HITL model
-- [Graph RAG vs SQL RAG](https://towardsdatascience.com/graph-rag-vs-sql-rag/) -- PostgreSQL graph query complexity
-- [EDB SQL/PGQ for PostgreSQL](https://www.enterprisedb.com/blog/representing-graphs-postgresql-sqlpgq) -- recursive CTE performance characteristics
-- Codebase analysis: `backend/src/app.module.ts` (throttler config), `backend/src/modules/push/push.service.ts` (current push implementation), `backend/src/modules/ai-chat/services/ai-chat.service.ts` (HITL flow, tool creation), `backend/src/modules/ai-chat/services/graph-expansion.service.ts` (JSONB join pattern), `backend/src/common/guards/redis-throttler-storage.service.ts` (fail-open behavior)
+- [Railway Scaling Documentation](https://docs.railway.com/reference/scaling) - HIGH confidence
+- [Railway Sticky Sessions Feedback (not supported)](https://station.railway.com/feedback/sticky-sessions-fa65efc4) - HIGH confidence
+- [NestJS scaling issues on Railway](https://station.railway.com/questions/nestjs-backend-doesn-t-scale-bbf417ff) - MEDIUM confidence
+- [BullMQ Repeatable Jobs Documentation](https://docs.bullmq.io/guide/jobs/repeatable) - HIGH confidence
+- [BullMQ Horizontal Scaling Guide](https://oneuptime.com/blog/post/2026-01-21-bullmq-horizontal-scaling/view) - MEDIUM confidence
+- [Handling Cron Jobs in NestJS with Multiple Instances using Bull](https://dev.to/juan_castillo/handling-cron-jobs-in-nestjs-with-multiple-instances-using-bull-3pj2) - MEDIUM confidence
+- [Prisma Connection Pool Documentation](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/connection-pool) - HIGH confidence
+- [Building Reliable Stripe Subscriptions: Webhook Idempotency](https://dev.to/aniefon_umanah_ac5f21311c/building-reliable-stripe-subscriptions-in-nestjs-webhook-idempotency-and-optimistic-locking-3o91) - MEDIUM confidence
+- [Webhook Idempotency Best Practices](https://hookdeck.com/webhooks/guides/implement-webhook-idempotency) - MEDIUM confidence
+- Codebase analysis of `backend/src/common/config/queue.config.ts`, `prisma-client.factory.ts`, `scheduled-jobs.queue.ts`, `tenant-key.service.ts`, `triage-learning.service.ts`, `better-auth.guard.ts`, `redis-io.adapter.ts`, `autumn.service.ts` - HIGH confidence (direct code inspection)

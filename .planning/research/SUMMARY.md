@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** PMSync v9.0 — AI Intelligence & Platform Hardening
-**Domain:** Multi-tenant AI email client — push dispatch, tiered rate limiting, HITL approval, Graph RAG
-**Researched:** 2026-03-24
-**Confidence:** HIGH
+**Project:** PMSync v11.0 — Legacy Cleanup, Scalability & Billing Hardening
+**Domain:** NestJS/Next.js email platform — horizontal scaling, legacy removal, billing hardening
+**Researched:** 2026-03-31
+**Confidence:** HIGH (stack + architecture verified against codebase; MEDIUM on Autumn SDK specifics)
 
 ## Executive Summary
 
-PMSync v9.0 is a brownfield hardening release, not a greenfield build. The research confirms that every capability needed for this version is already present in installed dependencies — no new packages are required. The four feature areas (push notification backend dispatch, tiered rate limiting, explicit HITL approval routing, Graph RAG steps 4-8) each extend existing infrastructure rather than introduce new systems. The recommended approach is strictly additive: configure what is already installed, fix what is already partially wired, complete what was started, and avoid the temptation to import external services where the current stack already covers the requirement.
+PMSync v11.0 is a hardening release, not a feature release. The codebase is already architecturally correct for horizontal scaling — Redis-backed sessions, Redis WebSocket adapter, BullMQ Redis coordination, stateless HTTP handlers — but several gaps block actually turning on multiple replicas without production risk. The recommended approach is sequential: remove legacy dead code first (zero risk, immediate wins), then resolve multi-instance blockers one by one before touching Railway replica count, then harden billing as a parallel track. No new npm packages are required. Every change in v11.0 is configuration adjustment, code cleanup, or targeted hardening using libraries already present.
 
-The single most urgent item is push notification backend dispatch. The v8.0 settings UI has a push notification toggle that has always been a lie — `web-push` is installed but never called. Users who opted in have been silently receiving nothing. This is a broken promise, not a missing feature, and it carries trust damage if left unaddressed. Tiered rate limiting is the second urgent fix: the flat 30/min write limit was documented in v7.0 as causing user-reported 429s during normal workflows and was explicitly deferred for v9.0 resolution. These two items are table stakes. HITL approval UX and Graph RAG steps 4-8 complete existing plumbing rather than fix active regressions.
+The single highest-risk area is the transition to horizontal scaling. Six `@Cron` decorators will fire on every instance simultaneously, in-memory Maps in `TriageLearningService`, `CircuitBreaker`, and `EmailTriageService` will diverge across instances, and Prisma's `connection_limit=20` per instance will exhaust Railway PostgreSQL's ~97 connection max at 3+ replicas. These are not theoretical risks — they are concrete bugs that will surface immediately when `numReplicas` is increased. They must all be resolved before increasing the replica count.
 
-The primary risks are operational rather than architectural. Stale push subscriptions and event-loop blocking are the top two push pitfalls, both preventable by routing dispatch through BullMQ. HITL approval re-submit can lose conversation state under multi-tab usage. Graph expansion has a latent JSONB N+1 query problem that degrades past 10K contacts. None of these require architectural pivots — they require disciplined implementation: 410 cleanup on push, BullMQ queuing, server-side approval correlation, and either a GIN index or junction table for contact email lookups.
+Billing is the biggest unknown. The backend `AutumnService` is complete and well-structured, but the entire frontend billing UI does not exist, and the backend has never been validated end-to-end in production against real Stripe test mode. Autumn's "no webhooks needed" claim needs verification in practice: without a webhook receiver, subscription state can drift up to 24 hours from reality when payments fail or plans change externally. The billing phase carries the most unknowns and should be treated as exploratory with real Stripe test mode validation required before shipping.
 
 ---
 
@@ -19,129 +19,124 @@ The primary risks are operational rather than architectural. Stale push subscrip
 
 ### Recommended Stack
 
-No new dependencies. Every tool needed is already in `backend/package.json`. The decision is validated against the full feature set:
+v11.0 requires zero new npm dependencies. All work uses the existing stack: NestJS 11, Prisma 7 + `@prisma/adapter-pg`, BullMQ 5.67.3 + ioredis, `@socket.io/redis-adapter`, `autumn-js` 0.1.75, `@next/bundle-analyzer`, `prom-client`. Infrastructure additions are Railway-level: a PgBouncer service (Railway template, no app code) and replica count configuration in `railway.toml`.
 
-**Core technologies in use for v9.0:**
-- `web-push` ^3.6.7 — push notification dispatch — already installed, zero imports at runtime; just needs `PushDispatchService` wrapping `sendNotification()`
-- `@nestjs/throttler` ^6.5.0 — tiered rate limiting — named throttlers already working with Redis storage; v9.0 adds `write`, `send`, and `delete` tiers
-- `ai` (AI SDK) ^6.0.49 — HITL approval — `needsApproval` property on `tool()` definitions is SDK-native; dynamic per-user wrapping in `createToolSet()` is the only gap
-- `bullmq` ^5.67.1 — async push dispatch, entity graph nightly build — already global, needs new job types
-- `prisma` ^7.3.0 — `PushPreference`, `UserAiPreference`, `EntityNode`, `EntityEdge` models — schema additions only
-- `tokenlens` ^1.3.1 — token budgeting in `ContextAssemblyService` — already installed
-- `EventEmitter2` (via `@nestjs/event-emitter`) — domain event bus for push triggers — already global; new `@OnEvent` listeners only
-
-Alternatives considered and rejected: Firebase/OneSignal (Google lock-in, SaaS dependency), Neo4j (overkill for adjacency-list graph at email scale), LangChain (Python ecosystem), mem0 (multi-tenant incompatible), Cohere Rerank (external latency + cost), express-rate-limit (conflicts with existing throttler).
+**Core technologies and v11.0 role:**
+- **PgBouncer 1.23+ (Railway template):** DB connection pooling proxy — multiplexes Prisma connections across N replicas so PostgreSQL max_connections (~97) is not exhausted. Transaction mode required; `DIRECT_URL` env var needed for `prisma migrate`.
+- **BullMQ (existing, config change only):** Reduce per-instance concurrency (DEFAULT: 5→3, HIGH_THROUGHPUT: 10→5) so effective concurrency stays bounded when replicas multiply.
+- **Railway replicas (config only):** Start at `numReplicas=2`, validate, then scale to 3. All prerequisites (Redis adapter, stateless auth) are already met once blocking pitfalls are resolved.
+- **`optimizePackageImports` + dynamic imports (Next.js built-in):** Extend to `recharts`, `@xyflow/react`, `FullCalendar`, `@rive-app/react-webgl2` for bundle reduction. No packages added.
+- **`autumn-js` (existing, hardening only):** Add Redis-based idempotency on `track()` calls, circuit breaker pattern (already exists in AI module), and a daily reconciliation BullMQ job.
 
 ### Expected Features
 
-**Must have (table stakes):**
-- Push notification backend dispatch — toggle exists in v8.0, nothing fires; trust-destroying broken promise
-- Event-driven dispatch service (`PushDispatchListener` + `PushDispatchService`) — wires `email:new` event to web-push
-- Per-user notification preferences scoped to `(tenantId, userId)` — minimum on/off per category
-- Stale subscription cleanup on 410/404 from web-push — prevents silent accumulation of dead endpoints
-- Per-category write-rate limits — `read` (300/min), `write` (60/min), `send` (10/min), `delete` (20/min)
-- HITL approval/rejection buttons for `part.state === 'approval-requested'` — backend pauses, frontend shows nothing currently
-- Visual distinction between informational tool calls and destructive approval prompts — prevents approval fatigue
+**Must have (table stakes — missing = production risk or critical debt):**
+- JWT dual-stack removal — 84 `@ApiBearerAuth()` decorators + `addBearerAuth()` in `main.ts` are dead code; auth migrated to better-auth in v5.0. Remove carefully: keep Google Pub/Sub JWT, Microsoft OAuth JWT, sandbox service JWT.
+- Tailwind CSS package removal — `tailwindcss` kept solely for `@tailwind base` CSS var injection; MUI is the design system. Requires extracting `--tw-` variables to plain CSS before removing the package.
+- Socket.IO transport hardening — force `transports: ['websocket']` on client and server. Without this, HTTP long-polling across Railway instances fails because Railway has no sticky sessions.
+- DB connection pool sizing for replicas — current `connection_limit=20` per instance exceeds Railway PostgreSQL limits at 3+ replicas. PgBouncer or dynamic pool math required before scaling.
+- BullMQ @Cron audit — 6 remaining `@Cron` decorators (cache-prewarming x2, data-cleanup x4, churn-recompute x1, forecast-refresh x1) must be migrated to BullMQ before horizontal scaling or they fire on every instance.
+- Frontend billing UI — backend billing is complete; frontend has ZERO billing pages. Pricing table, upgrade flow, usage dashboard, and quota warning banners all need to be built.
 
-**Should have (competitive differentiators):**
-- Graph RAG Step 6: Memory-entity anchoring — link AIMemory records to EntityNode for contextual recall
-- Graph RAG Step 4: Context assembly — structured summarization of graph expansion results, 40-60% token reduction
-- Graph RAG Step 8: Few-shot tool chain examples — dynamic injection by query complexity tier, ~250 extra tokens per query
-- Three-level HITL preference (`HIGH_ONLY` / `ALL_MUTATIONS` / `NONE`) — per-user configurable in AI Safety settings
-- Rate limit response headers (`X-RateLimit-Remaining` / `X-RateLimit-Reset`) — proactive client warnings before hitting 429
-- Approval audit logging via existing `AuditService.logAudit()` — GDPR accountability trail
+**Should have (high operational value, not day-1 blockers):**
+- Billing webhook endpoint with idempotency — without it, subscription state can be 24h stale after payment failure. Add `AutumnWebhookController` + `AutumnWebhookService` + `WebhookEvent` dedup table.
+- Graceful shutdown for rolling deploys — `SIGTERM` handling during Railway rolling deploys to prevent duplicate email sends from partially-completed BullMQ jobs.
+- Per-replica Prometheus instance labels — adds `RAILWAY_REPLICA_ID` to prom-client metrics for per-replica Grafana visibility.
+- Bundle dynamic imports for heavy routes — `recharts`, `@xyflow/react`, `FullCalendar` behind `React.lazy`.
+- Billing reconciliation scheduled job — daily BullMQ job to compare local subscription state with Autumn API; logs discrepancies.
 
-**Defer to v9.x+:**
-- Graph RAG Step 5: Materialized entity graph — current ~200ms JSONB graph expansion is acceptable; optimize when query volume justifies it
-- Graph RAG Step 7: Tool consolidation (`semantic_search` + `graph_context_search` merge) — requires alias period; ship after Steps 4/6/8 stabilize
-- AI triage batch notifications ("3 urgent emails need attention") — additional AI pipeline; ship basic per-email push first
-- Approval with parameter modification (edit args before approving) — complex custom UI; simple approve/reject covers the requirement
-- Progressive rate limiting with escalating cooldowns — standard 429 + Retry-After covers requirements
-
-**Explicit anti-features (do not build):**
-- Push for every single email — notification fatigue destroys the feature; default to important/urgent or batch
-- Per-endpoint rate limit config UI — hardcoded tiers are correct; env var overrides at most
-- Drag-and-drop HITL workflow builder — enterprise ABAC territory, out of scope
-- Cross-model reranker API (Cohere/BGE) — heuristic reranking already sufficient at current data volumes
-- Neo4j or any graph database — PostgreSQL adjacency list is sufficient at email scale
-- Universal mega-search tool (all domains merged) — confuses model with too many optional parameters
+**Defer (not v11.0 scope):**
+- Railway autoscaling triggers — Railway does not support auto-scaling triggers yet. Manual replica dial is sufficient.
+- SSR/RSC migration — large effort, incremental benefit on an already-performant app.
+- Separate BullMQ worker Railway service — useful at scale, premature for v11.0. Revisit if queue backlog grows.
+- BullBoard/Arena dashboards — nice-to-have monitoring UI, not blocking.
 
 ### Architecture Approach
 
-All four features follow the same integration philosophy: extend existing services and event infrastructure, never duplicate trigger logic, keep state in the right layer. Push dispatch hangs off `EventEmitter2` domain events via a new `PushDispatchListener` — the same events already driving WebSocket broadcast — then delegates to `PushDispatchService` which calls `web-push.sendNotification()` asynchronously via BullMQ. Rate limiting is purely a configuration change to `ThrottlerModule.forRoot()` plus `@Throttle()` decorator updates across ~18 controller files. HITL approval routing modifies only `AiChatService.createToolSet()` to dynamically set `needsApproval` based on a new `UserAiPreference` model, with no changes to the underlying AI SDK streaming protocol. Graph RAG builds a chain of services: `ContextAssemblyService` (Step 4) -> `EntityGraphService` + nightly BullMQ build job (Step 5, deferred) -> `MemoryService` entity-aware retrieval (Step 6) -> `FewShotService` dynamic injection (Step 8).
+v11.0 modifies the existing monolith deployment model to run as N Railway replicas behind a round-robin load balancer, with PgBouncer proxying all database connections. No new modules are introduced — `AutumnWebhookController` and `AutumnWebhookService` are additions to the existing `subscription` module. Everything else is modification of existing components. The app is already stateless at the right boundaries: sessions in PostgreSQL, caches in Redis, job state in Redis. The gaps are specific in-memory data structures that need Redis externalization before multi-instance is safe.
 
-**Major components (new or modified):**
-1. `PushDispatchService` / `PushDispatchListener` / `PushPreferenceService` — complete the push pipeline left unfinished in v8.0
-2. `ThrottlerModule` tier config + controller `@Throttle()` decorators — split flat write tier into `write` (60/min), `send` (10/min), `delete` (20/min)
-3. `AiPreferenceService` + `AiChatService.createToolSet()` modification + split approval UI renderer — dynamic HITL gate with structured diff display
-4. `ContextAssemblyService` + `FewShotService` — token-efficient RAG context packaging with query-type-aware few-shot examples
-5. Prisma schema additions: `PushPreference`, `UserAiPreference`, `EntityNode`, `EntityEdge` (Step 5, deferred), AIMemory `entityNodeId` FK
+**Components and v11.0 changes:**
+1. `prisma-client.factory.ts` — MODIFY: configure for PgBouncer transaction mode, dynamic pool sizing
+2. `prisma.config.ts` — MODIFY: add `directUrl` for CLI migrations bypassing PgBouncer
+3. `railway.toml` — MODIFY: `numReplicas = 2` (start conservative)
+4. `main.ts` — MODIFY: replace `addBearerAuth()` with `addCookieAuth()` in Swagger config
+5. 84 controller files — MODIFY: replace `@ApiBearerAuth()` with `@ApiCookieAuth()` (mechanical)
+6. `AutumnWebhookController` — NEW: raw body parsing, HMAC signature verification, event routing
+7. `AutumnWebhookService` — NEW: idempotent subscription lifecycle event handlers
+8. `WebhookEvent` Prisma model — NEW: deduplication store for processed billing events
+9. `TriageLearningService` signal buffer — MODIFY: externalize to Redis (currently in-memory Map)
+10. `CircuitBreaker` state — MODIFY or DOCUMENT: per-instance state vs. shared Redis state decision
+11. `EmailTriageService` semaphore — MODIFY: Redis-based distributed semaphore
 
 ### Critical Pitfalls
 
-1. **Stale push subscriptions silently dropping notifications** — check every `sendNotification()` response for HTTP 410/404; immediately delete the subscription row; track `failureCount`/`lastSuccessAt`; add weekly cleanup job. This is the #1 backend push failure mode in production post-mortems.
+1. **@Cron decorators fire on every Railway instance** — Migrate the 6 remaining `@Cron` decorators to BullMQ `ScheduledJobsQueueService` before increasing `numReplicas`. Add `JOBS_ENABLED=false` env var as interim safety net on non-primary instances. This is a data corruption risk (duplicate GDPR cleanups) and cost risk (N times LLM cache warmup).
 
-2. **Push dispatch blocking the event loop** — never await delivery inline in an event handler; route all sends through a `push-dispatch` BullMQ queue with concurrency 5-10; set 5s timeout on each `sendNotification()` call.
+2. **In-memory Maps diverge across instances** — `TriageLearningService.signalBuffer`, `CircuitBreaker.breakers`, and `EmailTriageService` semaphore are all in-memory and not shared across replicas. The most critical is the semaphore: actual AI concurrency becomes N times the configured limit, risking LLM API 429s. Externalize to Redis before scaling.
 
-3. **Throttler tier name collision breaking existing rate limits** — `@Throttle()` applies ALL named throttlers simultaneously unless explicitly skipped; audit all 17+ existing decorators before changing `ThrottlerModule.forRoot()` config; use `@SkipThrottle({ read: true })` on write-only endpoints rather than trying to override.
+3. **Prisma connection pool exhaustion** — 3 replicas x 20 connections = 60 of Railway PostgreSQL's ~97 max. During rolling deploys, old and new instances co-exist, temporarily doubling the count. Deploy PgBouncer and set Prisma `connection_limit=1` per instance (PgBouncer manages the actual server pool).
 
-4. **HITL approval re-submit losing conversation state** — client-side approval re-submit trusts `clientMessages` and bypasses server-side history loading; under multi-tab usage or background enrichment, re-submitted messages diverge; add server-side `pendingApprovalId` correlation and idempotency check on `toolCallId`.
+4. **Billing webhook has no idempotency** — No webhook receiver exists. If added without event deduplication, Stripe/Autumn retries (up to 3 days) will double-process subscription state changes. Use `INSERT ... ON CONFLICT (event_id) DO NOTHING` pattern with a `WebhookEvent` table. Return 200 immediately after signature verification; process asynchronously via BullMQ.
 
-5. **Graph expansion JSONB N+1 from contact email lookup** — `unified_contacts.emails` is a JSONB array with no GIN index; `EXISTS (SELECT 1 FROM jsonb_array_elements(...))` JOIN pattern causes sequential scans past 10K contacts; add GIN index or extract to `contact_emails` junction table; enforce 200ms hard timeout on graph expansion.
+5. **JWT scope confusion during legacy removal** — Grepping for "JWT" returns 40+ hits including Google Pub/Sub OIDC verification, Microsoft OAuth token validation, and sandbox compute SDK tokens. These must NOT be removed. Create explicit keep/remove inventory before touching any JWT-related code.
 
 ---
 
 ## Implications for Roadmap
 
-Based on combined research, the architecture file's suggested build order is authoritative and well-reasoned. Four main phases with clean dependency boundaries:
+Based on combined research, the phase structure is hard-constrained by dependencies: legacy cleanup must precede scaling (@Cron pitfall), connection pooling must precede replica increase (Pitfall 3), WebSocket transport must be hardened before replicas (Pitfall 5). Billing can run in parallel with phases 2-3 but billing E2E requires the frontend to exist first.
 
-### Phase 1: Tiered Rate Limiting
+### Phase 1: Legacy Cleanup
+**Rationale:** Pure deletion — zero new features, zero new risk. Removes dead auth code, dead CSS tooling, and deprecated API aliases. Establishes a cleaner baseline for everything that follows. Also the prerequisite for Phase 2 because remaining `@Cron` decorators must be migrated to BullMQ before replicas increase.
+**Delivers:** Smaller bundle, fewer confusing code paths, no dead dependencies, accurate Swagger auth docs, all scheduled jobs running under BullMQ coordination.
+**Addresses:** JWT dual-stack removal, Tailwind CSS removal, deprecated API alias verification, @Cron-to-BullMQ migration.
+**Avoids:** Pitfall 6 (JWT scope confusion — create keep/remove inventory first), Pitfall 7 (Tailwind CSS variable loss — extract `--tw-` vars before removing package), Pitfall 10 (alias removal order — frontend-first).
 
-**Rationale:** Zero schema changes, zero service additions, immediate user-visible benefit. Fixes the documented v7.0 regression (user-reported 429s during normal workflows). Pure configuration + decorator updates. Lowest-risk change in the entire release. Should ship before any other feature so developers are not hitting false 429s during their own testing.
-**Delivers:** Named throttle tiers (`read` 300/min, `write` 60/min, `send` 10/min, `delete` 20/min), updated `@Throttle()` decorators on all controllers, rate limit response headers.
-**Addresses:** Tiered write-rate limiting table stakes (MVP Priority 1 from FEATURES.md).
-**Avoids:** Pitfall 3 (tier name collision) — requires pre-flight audit of all 17+ existing decorators before touching `ThrottlerModule.forRoot()` config.
+### Phase 2: Horizontal Scaling Readiness
+**Rationale:** Connection pooling and WebSocket transport hardening are prerequisites for safely increasing replica count. These must all pass validation at `numReplicas=1` with PgBouncer before going to 2.
+**Delivers:** Railway ready for 2-3 replicas with confidence that DB connections, WebSocket, BullMQ, and in-memory state are all multi-instance safe.
+**Uses:** PgBouncer (Railway template), `ioredis` (distributed semaphore and signal buffer), existing `RedisIoAdapter`.
+**Implements:** PgBouncer sidecar, `directUrl` in `prisma.config.ts`, `transports: ['websocket']` on client+server, Redis externalization of `TriageLearningService` buffer and `EmailTriageService` semaphore, graceful shutdown verification.
+**Avoids:** Pitfall 2 (in-memory Maps), Pitfall 3 (connection exhaustion), Pitfall 5 (WebSocket transport), Pitfall 8 (rolling deploy stale jobs).
 
-### Phase 2: Push Notification Backend Dispatch
+### Phase 3: Replica Activation and Validation
+**Rationale:** Separated from Phase 2 because Phase 2 changes need validation at single-replica before scaling. Phase 3 is the actual replica increase plus observability.
+**Delivers:** Production running at `numReplicas=2`, validated via load test and real traffic. Per-replica Prometheus labels visible in Grafana.
+**Uses:** Railway `numReplicas=2`, `RAILWAY_REPLICA_ID` env var, prom-client instance labels.
+**Implements:** `railway.toml` replica count increase, instance ID in health responses and structured logs, per-replica metrics labels.
+**Avoids:** Pitfall 3 (must have PgBouncer from Phase 2 running before this).
 
-**Rationale:** Standalone feature with no impact on the chat pipeline. Completes the broken v8.0 push promise. One Prisma migration (`PushPreference` model). BullMQ dispatch pattern mirrors existing email-sync job patterns — low novelty, high urgency.
-**Delivers:** `PushDispatchService`, `PushDispatchListener`, `PushPreferenceService`, `PushPreference` model, preferences API endpoints (`GET/PATCH /push/preferences`), 410/404 subscription cleanup, `push-dispatch` BullMQ queue.
-**Addresses:** All push dispatch table stakes (MVP Priority 1 from FEATURES.md).
-**Avoids:** Pitfall 1 (stale subscriptions — 410 cleanup on every send), Pitfall 2 (event loop blocking — BullMQ queue required), Pitfall 6 (4KB payload limit — strict schema with truncation), Pitfall 11 (tenant isolation — all preferences scoped to `(tenantId, userId)`), Pitfall 13 (VAPID key mismatch — backend serves public key as single source of truth).
-**Operational prerequisite:** `VAPID_PRIVATE_KEY` must be added to Railway backend environment before this phase can go live in production.
+### Phase 4: Frontend Performance
+**Rationale:** Independent of scaling phases; no shared infrastructure dependencies. Lighthouse CI already gates regressions. Can be parallelized with Phase 2 if capacity allows. Must precede Phase 5 because billing pages will be new routes that need the same bundle discipline.
+**Delivers:** Reduced initial JS bundle (target -15% to -20%), improved LCP/TTI metrics, tightened Lighthouse budget.
+**Uses:** `@next/bundle-analyzer` (existing), Next.js `optimizePackageImports` extension, `React.lazy()` dynamic imports.
+**Addresses:** Bundle optimization for `recharts`, `@xyflow/react`, `FullCalendar`, `@rive-app/react-webgl2`.
+**Avoids:** Pitfall 9 (bundle regression from new billing pages — enforce Lighthouse CI on billing PRs).
 
-### Phase 3: Explicit HITL Approval Routing
-
-**Rationale:** Touches `AiChatService` (highest-traffic code path); needs careful testing in isolation. Requires one Prisma migration (`UserAiPreference` model). Backend dynamic approval is minimal — `createToolSet()` wrapping. Frontend approval renderer with structured diff display is the bulk of the work. Independent of Graph RAG.
-**Delivers:** `AiPreferenceService`, `UserAiPreference` model, dynamic `needsApproval` in `createToolSet()`, split approval/informational frontend tool renderers with structured diff display, AI Safety settings section, approval audit logging.
-**Addresses:** HITL approval UX table stakes + three-level HITL preference differentiator (MVP Priority 2 from FEATURES.md).
-**Avoids:** Pitfall 4 (conversation state divergence — server-side `pendingApprovalId` correlation and toolCallId idempotency), Pitfall 8 (approval fatigue — split informational vs. approval renderers with distinct visual treatment).
-**Research flag:** The server-side `pendingApprovalId` correlation mechanism is not currently implemented. The approach needs validation against AI SDK v6 streaming protocol constraints before implementation begins. Spike required at start of phase.
-
-### Phase 4: Graph RAG Steps 4, 6, 8 (Context Assembly + Memory Anchoring + Few-shot)
-
-**Rationale:** Steps 1-3 are working. These three steps deliver the highest value among the remaining graph RAG steps: Step 4 cuts token waste, Step 6 enables entity-aware memory recall, Step 8 improves tool chain accuracy for multi-hop queries. All three are independent of the entity graph materialization (Step 5) which is deferred. Step 8 is the lowest effort with the highest signal-to-code ratio.
-**Delivers:** `ContextAssemblyService` with 4K token budget, updated `RagToolsService` using assembled context, AIMemory `entityNodeId` FK + entity-aware `MemoryService` retrieval, `FewShotService` with dynamic query-tier injection, system prompt modification (~40 lines, ~250 tokens per query).
-**Addresses:** Graph RAG differentiators (MVP Priority 3 from FEATURES.md).
-**Avoids:** Pitfall 5 (JSONB N+1 — add GIN index on `unified_contacts.emails` in this phase; measure query plan first), Pitfall 12 (context inflation — fixed 4K token budget in `ContextAssemblyService`, no recursive expansion from memory injection), Pitfall 15 (prompt bloat — dynamic few-shot injection by tier, not global injection, monitored via `AiRunLedger` input token tracking).
-**Note:** Step 5 (entity graph materialization) and Step 7 (tool consolidation) are explicitly deferred to v9.x per MVP recommendation.
+### Phase 5: Billing Hardening
+**Rationale:** Most unknowns, most isolated. Backend billing is built; this phase adds the missing webhook receiver, builds the frontend UI, and validates everything end-to-end with Autumn test mode and real Stripe. Placed last because it has the highest uncertainty and should not block the higher-confidence scaling phases.
+**Delivers:** Complete billing stack — frontend pricing table, upgrade flow, usage dashboard, quota warning banners — plus webhook receiver with idempotency, billing reconciliation job, E2E validation with Autumn test mode.
+**Uses:** `autumn-js` (existing), BullMQ (existing), Prisma `WebhookEvent` model (new), ioredis (track() idempotency dedup key).
+**Implements:** `AutumnWebhookController`, `AutumnWebhookService`, Redis `track()` idempotency, circuit breaker on Autumn API, daily reconciliation job, `returnUrl` whitelist validation, frontend billing pages.
+**Avoids:** Pitfall 4 (webhook idempotency), Pitfall 11 (subscription state drift).
 
 ### Phase Ordering Rationale
 
-- Rate limiting first: unblocks clean testing of all other features, carries zero schema risk, fixes documented regression immediately.
-- Push before HITL: push is self-contained with no impact on the chat pipeline; HITL modifies `AiChatService` (the most critical service) and needs isolated testing.
-- HITL before Graph RAG: HITL is simpler (one new model, one method modification) vs. Graph RAG (multiple service chains, schema additions, context budgeting); HITL is also closer to a broken promise (backend pauses, frontend shows nothing) than Graph RAG (search works, just could be smarter).
-- Graph RAG last: Steps 1-3 already provide functional search; Steps 4/6/8 improve quality, not restore broken functionality; can ship incrementally within the phase.
+- Phase 1 before all else: @Cron migration is a hard prerequisite for safe scaling, and legacy removal has zero failure modes. Clean up before adding complexity.
+- Phase 2 before Phase 3: PgBouncer and WebSocket transport hardening must be validated at single-replica before scaling up. Reversing this order risks a production outage.
+- Phase 4 parallel with 2-3: No dependencies on scaling infrastructure. Run concurrently if team capacity allows; sequential if solo.
+- Phase 5 last: Billing has the most unknowns (Autumn SDK at 0.1.x, E2E with real Stripe required). Keeping it last avoids blocking the higher-confidence phases.
 
 ### Research Flags
 
-**Phases likely needing `/gsd:research-phase` during planning:**
-- **Phase 3 (HITL Approval Routing):** Server-side `pendingApprovalId` correlation against AI SDK v6 streaming protocol is underspecified in research. Pitfall 4 (conversation state divergence) identifies the risk but the fix requires API-level validation before implementation. Treat as a mandatory spike before writing code.
-- **Phase 4 (Graph RAG):** GIN index vs. junction table for `unified_contacts.emails` lookup (Pitfall 5) requires a query plan analysis against real data volumes before committing to an approach. The JSONB pattern is confirmed as an anti-pattern but the threshold for degradation needs measurement.
+Phases needing deeper research or careful verification during planning:
+- **Phase 2:** `TriageLearningService` Redis migration needs source read to understand flush thresholds and signal format before implementing. `CircuitBreaker` needs an explicit design decision: shared Redis state vs. per-instance with documented tradeoff.
+- **Phase 5:** Autumn webhook specifics need verification against current Autumn docs before implementation. SDK is at 0.1.x and the `Stripe-Signature` verification pattern must be confirmed against Autumn's actual webhook format (may differ from raw Stripe). Do not implement until confirmed.
 
-**Phases with standard patterns (skip research-phase):**
-- **Phase 1 (Rate Limiting):** Well-documented `@nestjs/throttler` pattern; codebase already has working named throttler examples; change is purely additive configuration.
-- **Phase 2 (Push Dispatch):** `web-push` API is simple and documented; BullMQ dispatch pattern mirrors existing email-sync jobs; `EventEmitter2` listener pattern is established in codebase. No novel integration work.
+Phases with well-documented patterns (can skip deep research):
+- **Phase 1:** Mechanical code removal. Patterns are clear from codebase analysis.
+- **Phase 3:** Railway replica configuration is well-documented once Phase 2 is validated.
+- **Phase 4:** `@next/bundle-analyzer` and `optimizePackageImports` are official Next.js features with clear docs.
 
 ---
 
@@ -149,43 +144,47 @@ Based on combined research, the architecture file's suggested build order is aut
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All recommendations verified against actual `package.json` and codebase imports. No speculative dependencies. Alternatives considered and explicitly rejected with rationale. |
-| Features | HIGH | Every feature verified against existing codebase state. Broken promises identified by direct code reading (no `sendNotification()` calls exist in codebase). Priority ordering is unambiguous. |
-| Architecture | HIGH | All patterns derive from reading existing services, not external sources. Integration points mapped to specific files. Anti-patterns explicitly documented with reasoning. |
-| Pitfalls | HIGH | Pitfalls 1, 2, 3, 5, 6, 7, 11, 13, 14 are HIGH confidence (visible in code or MDN-documented). Pitfalls 4, 8, 9, 10, 12, 15 are MEDIUM (design risks, not current bugs). |
+| Stack | HIGH | All recommendations use existing installed libraries. PgBouncer and Railway replica config are documented by Railway and Prisma official docs. Zero new packages. |
+| Features | HIGH | Feature inventory derived from direct codebase grep plus Railway/Socket.IO/BullMQ official docs. Frontend billing gap confirmed by codebase inspection (no billing pages found). |
+| Architecture | HIGH | Multi-instance safety analysis performed against actual source files: `prisma-client.factory.ts`, `base.worker.ts`, `queue.config.ts`, `redis-io.adapter.ts`, `autumn.service.ts`, `railway.toml`. |
+| Pitfalls | HIGH (critical pitfalls 1-3, 5) / MEDIUM (billing pitfalls 4, 11) | @Cron, in-memory Maps, connection pool, WebSocket transport pitfalls verified against codebase. Billing webhook specifics rated MEDIUM because Autumn SDK is 0.1.x and webhook contract needs live verification. |
 
-**Overall confidence:** HIGH
+**Overall confidence:** HIGH for scaling work. MEDIUM for billing hardening (Autumn SDK maturity, no prior E2E validation).
 
 ### Gaps to Address
 
-- **HITL approval server-side state (HIGH priority):** `convertToModelMessages()` HITL path trusts client-provided messages. Pitfall 4 identifies a multi-tab state divergence risk. The fix (`pendingApprovalId` server-side correlation) is not designed. Resolve with a spike at the start of Phase 3 planning before writing any implementation code.
-
-- **Contact email lookup performance (MEDIUM priority):** JSONB `jsonb_array_elements()` JOIN is a confirmed anti-pattern but current contact volumes may be below the degradation threshold. Measure actual PostgreSQL query plan on production data before committing to GIN index vs. junction table. Do this at the start of Phase 4.
-
-- **VAPID key deployment (operational blocker for Phase 2):** `VAPID_PRIVATE_KEY` does not exist in the Railway backend environment. Must be added and matched to the existing `VAPID_PUBLIC_KEY` in frontend config before Phase 2 can ship to production. This is an ops prerequisite, not a code gap — but it blocks production verification of the entire push feature.
-
-- **Rate-limiting decorator audit (prerequisite for Phase 1):** 17+ existing `@Throttle()` decorators must be mapped to new tiers before changing `ThrottlerModule.forRoot()`. No code is blocked by this, but shipping rate limit changes without the audit risks worsening the 429 situation. Do this before writing Phase 1 code.
+- **Autumn webhook contract:** Autumn SDK is at 0.1.x. Whether it uses `Stripe-Signature` headers directly or wraps them needs verification against current Autumn docs before implementing `AutumnWebhookController`. Do not implement until confirmed.
+- **CircuitBreaker Redis migration decision:** Per-instance circuit breaking (simpler, already correct for most failure scenarios) vs. shared Redis state (more correct but adds complexity). This is a design decision that must be made explicit in Phase 2 planning, not left implicit.
+- **`TriageLearningService` flush threshold:** The in-memory signal buffer has a flush threshold. The exact threshold and flush logic must be read from source before implementing the Redis migration. Do not guess.
+- **PgBouncer `max_prepared_statements` compatibility:** Prisma 7 uses `@prisma/adapter-pg` (driver adapter). Verify the Railway PgBouncer template version is 1.21+ before relying on native prepared statement support and omitting `?pgbouncer=true` from the connection string.
+- **`localFeatureCheck()` coverage:** The Autumn local fallback needs an audit to confirm it covers all quota checks. If it does not, a circuit-open Autumn outage may allow unconstrained usage before Phase 5 hardening ships.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Existing codebase — all services, models, controllers, test files read directly; all recommendations verified against running code
-- AI SDK v6 HITL cookbook (ai-sdk.dev/cookbook/next/human-in-the-loop) — `needsApproval` property, approval/denial flow
-- web-push npm v3.6.7 (npmjs.com/package/web-push) — `sendNotification()` API, VAPID configuration
-- NestJS Throttler docs (docs.nestjs.com/security/rate-limiting) — named tiers, `@Throttle()`, `@SkipThrottle()`
-- Graph RAG 8-step plan (`C:\Users\Davide\.claude\plans\rosy-imagining-starlight.md`) — Steps 1-3 verified in codebase
+- [Prisma PgBouncer Configuration](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer) — Transaction mode requirement, `directUrl` config
+- [Prisma Connection Pool Docs](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/connection-pool) — Pool sizing guidance
+- [Railway Scaling Documentation](https://docs.railway.com/reference/scaling) — Replica behavior, no sticky sessions, SIGTERM handling
+- [Railway PgBouncer Deploy Template](https://railway.com/deploy/postgres-pgbouncer) — Infrastructure setup
+- [BullMQ Repeatable Jobs](https://docs.bullmq.io/guide/jobs/repeatable) — Single-execution guarantee across instances
+- [BullMQ Concurrency Docs](https://docs.bullmq.io/guide/workers/concurrency) — Per-instance concurrency behavior
+- [Next.js optimizePackageImports](https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports) — Tree-shaking config
+- [Railway Sticky Sessions (not supported)](https://station.railway.com/feedback/sticky-sessions-fa65efc4) — WebSocket transport constraint
+- PMSync codebase (direct file inspection): `prisma-client.factory.ts`, `base.worker.ts`, `queue.config.ts`, `redis-io.adapter.ts`, `autumn.service.ts`, `autumn.controller.ts`, `railway.toml`, `main.ts`, `triage-learning.service.ts`, `better-auth.guard.ts`
 
 ### Secondary (MEDIUM confidence)
-- MDN Web Push API Best Practices — payload limits (4KB), subscription lifecycle, 410 handling
-- NestJS Throttler GitHub — per-endpoint override behavior, simultaneous throttler application
-- Graph RAG vs SQL RAG (towardsdatascience.com) — PostgreSQL graph query complexity at modest data volumes
+- [BullMQ Horizontal Scaling Guide](https://oneuptime.com/blog/post/2026-01-21-bullmq-horizontal-scaling/view) — Worker distribution patterns
+- [Autumn SDK (autumn-js 0.1.75)](https://www.npmjs.com/package/autumn-js) — Billing SDK patterns
+- [Autumn Documentation](https://docs.useautumn.com/documentation/getting-started/gating) — Check/track/attach model
+- [Autumn better-auth Plugin](https://better-auth.com/docs/plugins/autumn) — Customer auto-creation on signup
+- [Webhook Idempotency Best Practices](https://hookdeck.com/webhooks/guides/implement-webhook-idempotency) — Event store deduplication
+- [Railway NestJS Scaling Issues](https://station.railway.com/questions/nestjs-backend-doesn-t-scale-bbf417ff) — Known NestJS + Railway gotchas
 
-### Tertiary (LOW confidence)
-- AI SDK v6 needsApproval mid-execute issue #9862 (github.com/vercel/ai) — limitations of current HITL model; relevant to Pitfall 4 but issue-tracker, not documentation
-- EDB SQL/PGQ for PostgreSQL — recursive CTE performance characteristics; informational context for entity graph design
+### Tertiary (LOW confidence, needs validation)
+- [Autumn/Stripe Webhook Architecture](https://deepwiki.com/useautumn/autumn/9.1-revenuecat-webhook-architecture) — Autumn webhook contract (unverified against live SDK)
 
 ---
-*Research completed: 2026-03-24*
+*Research completed: 2026-03-31*
 *Ready for roadmap: yes*

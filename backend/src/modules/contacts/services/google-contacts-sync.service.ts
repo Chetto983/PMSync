@@ -111,6 +111,7 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
       photoUrl,
       notes: person.biographies?.[0]?.value,
       primaryEmail,
+      etag: person.etag ?? null,
     };
   }
 
@@ -171,53 +172,106 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
   }
 
   /**
-   * Update a contact in Google
+   * Update a contact in Google.
+   * Fetches current etag first to prevent concurrent modification conflicts.
+   * On 409 Conflict: re-fetches etag and retries once.
    */
   async updateContact(providerId: string, externalId: string, data: any): Promise<void> {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
     const peopleService = this.createPeopleClient(accessToken);
 
-    const person: people_v1.Schema$Person = {
+    // Fetch current etag from provider contact record or from Google API
+    let etag = await this.getStoredEtag(providerId, externalId);
+    if (!etag) {
+      etag = await this.fetchEtagFromGoogle(peopleService, externalId);
+    }
+
+    const buildPerson = (etagValue: string | null): people_v1.Schema$Person => ({
+      etag: etagValue ?? undefined,
       names: data.firstName || data.lastName
-        ? [
-          {
-            givenName: data.firstName,
-            familyName: data.lastName,
-            displayName: data.displayName,
-          },
-        ]
+        ? [{ givenName: data.firstName, familyName: data.lastName, displayName: data.displayName }]
         : undefined,
-      emailAddresses: data.emails?.map((email: any) => ({
-        value: email.value,
-        type: email.type || 'other',
-      })),
-      phoneNumbers: data.phoneNumbers?.map((phone: any) => ({
-        value: phone.value,
-        type: phone.type || 'other',
-      })),
-      organizations: data.company
-        ? [
-          {
-            name: data.company,
-            title: data.jobTitle,
-          },
-        ]
-        : undefined,
+      emailAddresses: data.emails?.map((email: any) => ({ value: email.value, type: email.type || 'other' })),
+      phoneNumbers: data.phoneNumbers?.map((phone: any) => ({ value: phone.value, type: phone.type || 'other' })),
+      organizations: data.company ? [{ name: data.company, title: data.jobTitle }] : undefined,
       biographies: data.notes ? [{ value: data.notes }] : undefined,
-    };
+    });
 
     const circuitBreaker = getContactsCircuitBreaker('google', 'updateContact');
 
-    await withRetry(
-      async () => circuitBreaker.execute(() =>
-        peopleService.people.updateContact({
+    try {
+      const response = await withRetry(
+        async () => circuitBreaker.execute(() =>
+          peopleService.people.updateContact({
+            resourceName: externalId,
+            updatePersonFields: 'names,emailAddresses,phoneNumbers,organizations,biographies',
+            requestBody: buildPerson(etag),
+          })
+        ),
+        { provider: 'google', operationName: 'updateContact', maxRetries: 2, logger: this.logger },
+      );
+
+      // Store updated etag for future operations
+      const newEtag = response.data.etag ?? null;
+      if (newEtag) {
+        await this.storeEtag(providerId, externalId, newEtag);
+      }
+    } catch (error: any) {
+      // Handle 409 Conflict: re-fetch etag and retry once
+      if (error?.response?.status === 409 || error?.code === 409) {
+        this.logger.warn(`Etag conflict for ${externalId}, re-fetching and retrying`);
+        const freshEtag = await this.fetchEtagFromGoogle(peopleService, externalId);
+        const response = await peopleService.people.updateContact({
           resourceName: externalId,
           updatePersonFields: 'names,emailAddresses,phoneNumbers,organizations,biographies',
-          requestBody: person,
-        })
-      ),
-      { provider: 'google', operationName: 'updateContact', maxRetries: 2, logger: this.logger },
-    );
+          requestBody: buildPerson(freshEtag),
+        });
+        const newEtag = response.data.etag ?? null;
+        if (newEtag) await this.storeEtag(providerId, externalId, newEtag);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get stored etag from ProviderContact record
+   */
+  private async getStoredEtag(providerId: string, externalId: string): Promise<string | null> {
+    const pc = await this.prisma.providerContact.findUnique({
+      where: { providerId_externalId: { providerId, externalId } },
+      select: { eTag: true },
+    });
+    return pc?.eTag ?? null;
+  }
+
+  /**
+   * Fetch current etag from Google People API
+   */
+  private async fetchEtagFromGoogle(peopleService: people_v1.People, resourceName: string): Promise<string | null> {
+    try {
+      const response = await peopleService.people.get({
+        resourceName,
+        personFields: 'names',
+      });
+      return response.data.etag ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Store etag in ProviderContact for future update operations
+   */
+  private async storeEtag(providerId: string, externalId: string, etag: string): Promise<void> {
+    try {
+      await this.prisma.providerContact.update({
+        where: { providerId_externalId: { providerId, externalId } },
+        data: { eTag: etag },
+      });
+    } catch {
+      // Non-critical: if we can't store it, we'll fetch it next time
+    }
   }
 
   /**

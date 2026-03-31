@@ -11,6 +11,7 @@ import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
 import { ContactsCacheService } from './contacts-cache.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { ContactEmbeddingQueueService } from '../../ai/services/contact-embedding.queue';
 import { ContactUpdatedEvent } from '../../../common/events/contact.events';
 import { CONTACTS_DEFAULTS } from '../contacts.constants';
@@ -28,6 +29,7 @@ export class ContactCrudService {
     private readonly microsoftContactsSync: MicrosoftContactsSyncService,
     private readonly cacheService: ContactsCacheService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly redisLock: RedisLockService,
     private readonly configService: ConfigService,
     private readonly contactEmbeddingQueue: ContactEmbeddingQueueService,
     private readonly eventEmitter: EventEmitter2,
@@ -96,10 +98,13 @@ export class ContactCrudService {
   async createContact(tenantId: string, data: CreateContactDto): Promise<ContactWithProviders> {
     const provider = await this.prisma.providerConfig.findFirst({ where: { id: data.providerId, tenantId, isActive: true, supportsContacts: true } });
     if (!provider) throw new BadRequestException('Provider not found or does not support contacts');
+    const lockKey = `contact-write:${tenantId}:${provider.id}`;
     let externalContact;
-    if (provider.providerType === 'google') { externalContact = await this.googleContactsSync.createContact(provider.id, data); }
-    else if (provider.providerType === 'microsoft') { externalContact = await this.microsoftContactsSync.createContact(provider.id, data); }
-    else { throw new BadRequestException(`Provider type ${provider.providerType} not supported`); }
+    if (provider.providerType === 'google') {
+      externalContact = await this.redisLock.withLock(lockKey, 30_000, () => this.googleContactsSync.createContact(provider.id, data));
+    } else if (provider.providerType === 'microsoft') {
+      externalContact = await this.redisLock.withLock(lockKey, 30_000, () => this.microsoftContactsSync.createContact(provider.id, data));
+    } else { throw new BadRequestException(`Provider type ${provider.providerType} not supported`); }
     const contact = await this.prisma.contact.create({
       data: { tenantId, firstName: data.firstName, lastName: data.lastName, displayName: data.displayName, emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined, phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined, company: data.company, jobTitle: data.jobTitle, notes: data.notes, isVip: data.isVip ?? false },
     });
@@ -119,8 +124,9 @@ export class ContactCrudService {
         try {
           const prov = await this.prisma.providerConfig.findUnique({ where: { id: pc.providerId } });
           if (prov?.isActive) {
-            if (prov.providerType === 'google') await this.googleContactsSync.updateContact(prov.id, pc.externalId, data);
-            else if (prov.providerType === 'microsoft') await this.microsoftContactsSync.updateContact(prov.id, pc.externalId, data);
+            const lockKey = `contact-write:${tenantId}:${prov.id}`;
+            if (prov.providerType === 'google') await this.redisLock.withLock(lockKey, 30_000, () => this.googleContactsSync.updateContact(prov.id, pc.externalId, data));
+            else if (prov.providerType === 'microsoft') await this.redisLock.withLock(lockKey, 30_000, () => this.microsoftContactsSync.updateContact(prov.id, pc.externalId, data));
           }
         } catch (error: any) { this.logger.warn(`Failed to sync update to provider ${pc.providerId}: ${error.message}`); }
       }
@@ -144,8 +150,9 @@ export class ContactCrudService {
         try {
           const prov = await this.prisma.providerConfig.findUnique({ where: { id: pc.providerId } });
           if (prov?.isActive) {
-            if (prov.providerType === 'google') await this.googleContactsSync.deleteContact(prov.id, pc.externalId);
-            else if (prov.providerType === 'microsoft') await this.microsoftContactsSync.deleteContact(prov.id, pc.externalId);
+            const lockKey = `contact-write:${tenantId}:${prov.id}`;
+            if (prov.providerType === 'google') await this.redisLock.withLock(lockKey, 30_000, () => this.googleContactsSync.deleteContact(prov.id, pc.externalId));
+            else if (prov.providerType === 'microsoft') await this.redisLock.withLock(lockKey, 30_000, () => this.microsoftContactsSync.deleteContact(prov.id, pc.externalId));
           }
         } catch (error: any) { this.logger.warn(`Failed to delete from provider ${pc.providerId}: ${error.message}`); }
       }
@@ -184,14 +191,16 @@ export class ContactCrudService {
     if (!contacts.length) return 0;
 
     // 2. Delete from external providers (best-effort, don't block on failures)
+    // Sequential writes per provider to prevent parallel mutations (CON-C3)
     for (const contact of contacts) {
       for (const pc of contact.providerContacts) {
         if (!pc.provider?.isActive) continue;
         try {
+          const lockKey = `contact-write:${tenantId}:${pc.providerId}`;
           if (pc.provider.providerType === 'google') {
-            await this.googleContactsSync.deleteContact(pc.providerId, pc.externalId);
+            await this.redisLock.withLock(lockKey, 30_000, () => this.googleContactsSync.deleteContact(pc.providerId, pc.externalId));
           } else if (pc.provider.providerType === 'microsoft') {
-            await this.microsoftContactsSync.deleteContact(pc.providerId, pc.externalId);
+            await this.redisLock.withLock(lockKey, 30_000, () => this.microsoftContactsSync.deleteContact(pc.providerId, pc.externalId));
           }
         } catch (error: any) {
           this.logger.warn(`Bulk delete: failed to delete from provider ${pc.providerId}: ${error.message}`);
