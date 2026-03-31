@@ -1,7 +1,13 @@
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { Layout } from '@/components/layout/Layout';
-import { Calendar } from '@/components/dashboard/Calendar';
+import { Skeleton } from '@mui/material';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
+
+const Calendar = dynamic(
+  () => import('@/components/dashboard/Calendar').then(m => ({ default: m.Calendar })),
+  { ssr: false, loading: () => <Skeleton variant="rounded" height={600} /> },
+);
 
 /**
  * Calendar Page

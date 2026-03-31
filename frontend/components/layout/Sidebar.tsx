@@ -31,6 +31,7 @@ import {
   Ticket,
   Headset,
   BookOpen,
+  BarChart3,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -79,6 +80,7 @@ export function Sidebar({
     { label: t.nav.crmGovernance, icon: <ShieldCheck size={24} strokeWidth={1.7} />, href: '/dashboard/crm/ai-governance', section: 'crm' },
     { label: t.nav.crmTickets, icon: <Ticket size={24} strokeWidth={1.7} />, href: '/dashboard/crm/tickets', section: 'crm' },
     { label: t.nav.kb || 'Knowledge Base', icon: <BookOpen size={24} strokeWidth={1.7} />, href: '/dashboard/crm/kb', section: 'crm' },
+    { label: t.serviceAnalytics?.title || 'Service Analytics', icon: <BarChart3 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/service-analytics', section: 'crm' },
     { label: t.agentDashboard?.title || 'Agent Dashboard', icon: <Headset size={24} strokeWidth={1.7} />, href: '/dashboard/agent', section: 'crm' },
     { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={24} strokeWidth={1.7} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
     { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={24} strokeWidth={1.7} />, href: '/dashboard/reminders', section: 'ai' },

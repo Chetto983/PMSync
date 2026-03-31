@@ -3447,6 +3447,31 @@ export interface AppTranslations {
     emptyTitle?: string;
     emptyDescription?: string;
   };
+  serviceAnalytics?: {
+    title?: string;
+    subtitle?: string;
+    firstResponseTime?: string;
+    resolutionTime?: string;
+    slaCompliance?: string;
+    csatAverage?: string;
+    minutes?: string;
+    hours?: string;
+    noData?: string;
+    csatTrend?: string;
+    csatDistribution?: string;
+    topTickets?: string;
+    ticketSubject?: string;
+    assignee?: string;
+    resolutionMins?: string;
+    unassigned?: string;
+    dateRange?: string;
+    last30Days?: string;
+    last90Days?: string;
+    last6Months?: string;
+    allTime?: string;
+    responses?: string;
+    stars?: string;
+  };
   errors: {
     notFound: {
       title: string;
