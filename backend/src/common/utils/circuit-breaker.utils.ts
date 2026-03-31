@@ -55,6 +55,35 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
 };
 
 /**
+ * PER-INSTANCE DESIGN (Phase 128 — SCAL-04)
+ *
+ * Circuit breakers are intentionally kept as per-instance in-memory state.
+ * This is NOT externalized to Redis. Rationale:
+ *
+ * 1. PROTECTION SCOPE: Circuit breakers protect the calling instance from
+ *    cascade failure. If replica A sees Google returning 500s, it should stop
+ *    calling. Replica B may be hitting a different endpoint or recovering.
+ *
+ * 2. LATENCY COST: Shared CB via Redis adds a Redis round-trip to EVERY
+ *    external API call (check before call + update after call). Email sync
+ *    drivers make hundreds of API calls per sync — unacceptable overhead.
+ *
+ * 3. CONVERGENCE: The failure window (60s) and reset timeout (30s) are short
+ *    enough that all replicas converge to the same state within ~90 seconds.
+ *
+ * 4. INDUSTRY STANDARD: Netflix Hystrix, resilience4j, and Polly all default
+ *    to per-instance circuit breakers. Shared state is an anti-pattern.
+ *
+ * TRADEOFF: With N replicas, worst case is N * failureThreshold (5) requests
+ * to a failing service before all replicas trip. For 2-4 replicas = 10-20
+ * requests max, which is acceptable.
+ *
+ * FUTURE MITIGATION: If this becomes problematic at scale, add a Redis INCR
+ * failure counter with TTL (shared counter, local decision) without full
+ * state sharing.
+ */
+
+/**
  * Circuit Breaker implementation
  */
 export class CircuitBreaker {
@@ -226,9 +255,7 @@ export class CircuitBreakerOpenError extends Error {
   }
 }
 
-/**
- * Global circuit breaker registry for API providers
- */
+/** Global per-process registry. Each replica has its own independent registry (see PER-INSTANCE DESIGN above). */
 class CircuitBreakerRegistry {
   private readonly breakers = new Map<string, CircuitBreaker>();
 
