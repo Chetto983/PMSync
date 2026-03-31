@@ -1,18 +1,51 @@
 const WINDOWS_TIMEZONE_ALIASES: Record<string, string> = {
+  // UTC/GMT
   'UTC': 'UTC',
   'GMT Standard Time': 'Europe/London',
+  // Europe
   'W. Europe Standard Time': 'Europe/Berlin',
   'Central Europe Standard Time': 'Europe/Budapest',
+  'Central European Standard Time': 'Europe/Warsaw',
   'Romance Standard Time': 'Europe/Paris',
+  'FLE Standard Time': 'Europe/Helsinki',
+  'GTB Standard Time': 'Europe/Bucharest',
+  'E. Europe Standard Time': 'Europe/Chisinau',
+  'Russian Standard Time': 'Europe/Moscow',
+  'Turkey Standard Time': 'Europe/Istanbul',
+  'Israel Standard Time': 'Asia/Jerusalem',
+  // Americas
   'Eastern Standard Time': 'America/New_York',
+  'US Eastern Standard Time': 'America/Indianapolis',
   'Central Standard Time': 'America/Chicago',
   'Mountain Standard Time': 'America/Denver',
+  'US Mountain Standard Time': 'America/Phoenix',
   'Pacific Standard Time': 'America/Los_Angeles',
+  'Alaskan Standard Time': 'America/Anchorage',
+  'Hawaiian Standard Time': 'Pacific/Honolulu',
+  'Atlantic Standard Time': 'America/Halifax',
+  'SA Pacific Standard Time': 'America/Bogota',
+  'SA Eastern Standard Time': 'America/Cayenne',
   'E. South America Standard Time': 'America/Sao_Paulo',
+  'Argentina Standard Time': 'America/Buenos_Aires',
+  'Canada Central Standard Time': 'America/Regina',
+  'Central Standard Time (Mexico)': 'America/Mexico_City',
+  // Asia-Pacific
   'China Standard Time': 'Asia/Shanghai',
+  'Taipei Standard Time': 'Asia/Taipei',
   'Tokyo Standard Time': 'Asia/Tokyo',
+  'Korea Standard Time': 'Asia/Seoul',
   'India Standard Time': 'Asia/Kolkata',
+  'SE Asia Standard Time': 'Asia/Bangkok',
+  'Singapore Standard Time': 'Asia/Singapore',
+  'Arabian Standard Time': 'Asia/Dubai',
+  'Pakistan Standard Time': 'Asia/Karachi',
+  // Australia/NZ
   'AUS Eastern Standard Time': 'Australia/Sydney',
+  'AUS Central Standard Time': 'Australia/Darwin',
+  'Cen. Australia Standard Time': 'Australia/Adelaide',
+  'W. Australia Standard Time': 'Australia/Perth',
+  'New Zealand Standard Time': 'Pacific/Auckland',
+  'Tonga Standard Time': 'Pacific/Tongatapu',
 };
 
 type DateTimeParts = {

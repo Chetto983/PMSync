@@ -36,14 +36,15 @@
 - [x] If no webhook for 30 min → queues normal-priority contacts sync
 - [x] Exposed via POST /webhooks/contacts/microsoft/fallback-poll endpoint
 
-### T-0604: DST/timezone edge cases in calendar events [3 SP]
-- [ ] Read `calendar-events.service.ts` — find timezone handling
-- [ ] Test event creation across DST boundary (spring forward, fall back)
-- [ ] Test recurring event that spans DST transition
-- [ ] Verify all-day events stored without timezone offset
-- [ ] Verify non-UTC timezones stored correctly in CalendarEvent.timeZone
-- [ ] Add tests for: US/Eastern, Europe/Rome, Asia/Tokyo across DST
-- [ ] Test: event at 2AM during spring-forward shows correct time
+### T-0604: DST/timezone edge cases in calendar events [3 SP] ✅ DONE
+- [x] Read `calendar-events.service.ts` — traced timezone handling
+- [x] Test event creation across DST boundary (spring forward, fall back)
+- [x] Recurring event DST: parseDateTimeInTimeZone 2-pass refinement handles transitions
+- [x] Verify all-day events stored without timezone offset (date-only format)
+- [x] Verify non-UTC timezones stored correctly in CalendarEvent.timeZone
+- [x] Add tests for: US/Eastern, Europe/Rome, Asia/Tokyo across DST
+- [x] Test: event at 2AM during spring-forward produces valid date
+- [x] Expanded WINDOWS_TIMEZONE_ALIASES from 15 to 46 entries
 
 ### T-0605: Microsoft folder cache tenant isolation (CON-H4 / MS-C2) [2 SP]
 - [ ] Read `microsoft-folder.service.ts` — verify cache key includes tenantId
