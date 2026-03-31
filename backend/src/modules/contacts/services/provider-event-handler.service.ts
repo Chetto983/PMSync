@@ -15,6 +15,7 @@ import {
   getRedisConnectionOptions,
   getDefaultJobOptions,
 } from '../../../common/config';
+import { ScheduledJobsQueueService, ScheduledJobType } from '../../../common/services/scheduled-jobs.queue';
 
 /**
  * Handles provider lifecycle events for the Contacts domain.
@@ -38,6 +39,7 @@ export class ContactsProviderEventHandlerService implements OnModuleInit, OnModu
     private readonly prisma: PrismaService,
     private readonly contactsService: ContactsService,
     private readonly relationshipScoreService: RelationshipScoreService,
+    private readonly scheduledJobs: ScheduledJobsQueueService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -68,6 +70,22 @@ export class ContactsProviderEventHandlerService implements OnModuleInit, OnModu
     });
 
     this.logger.log('Relationship score queue + worker initialized');
+
+    // Register contact purge handler (auto-delete soft-deleted contacts >30 days)
+    this.scheduledJobs.registerHandler(ScheduledJobType.CONTACT_PURGE, async () => {
+      const tenants = await this.prisma.tenant.findMany({
+        where: { isActive: true },
+        select: { id: true },
+      });
+      let totalPurged = 0;
+      for (const tenant of tenants) {
+        const purged = await this.contactsService.purgeDeletedContacts(tenant.id);
+        totalPurged += purged;
+      }
+      if (totalPurged > 0) {
+        this.logger.log(`[ContactPurge] Purged ${totalPurged} soft-deleted contacts across ${tenants.length} tenants`);
+      }
+    });
   }
 
   async onModuleDestroy(): Promise<void> {

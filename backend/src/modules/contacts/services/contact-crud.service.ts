@@ -310,6 +310,79 @@ export class ContactCrudService {
     return validIds.length;
   }
 
+  /**
+   * Restore soft-deleted contacts (undo bulk delete).
+   * Only restores contacts deleted within the last 30 days.
+   * @returns Number of contacts restored
+   */
+  async bulkRestoreContacts(tenantId: string, contactIds: string[]): Promise<number> {
+    if (!contactIds.length) return 0;
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const result = await this.prisma.contact.updateMany({
+      where: {
+        id: { in: contactIds },
+        tenantId,
+        isDeleted: true,
+        updatedAt: { gte: thirtyDaysAgo },
+      },
+      data: { isDeleted: false, updatedAt: new Date() },
+    });
+
+    if (result.count > 0) {
+      this.logger.log(`Restored ${result.count} contacts for tenant ${tenantId}`);
+      void this.updateContactCounts(tenantId);
+    }
+
+    return result.count;
+  }
+
+  /**
+   * Hard-delete contacts that have been soft-deleted for more than 30 days.
+   * Called by scheduled job (BullMQ cron).
+   * @returns Number of contacts purged
+   */
+  async purgeDeletedContacts(tenantId: string): Promise<number> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Find contacts to purge
+    const toPurge = await this.prisma.contact.findMany({
+      where: {
+        tenantId,
+        isDeleted: true,
+        updatedAt: { lt: thirtyDaysAgo },
+      },
+      select: { id: true },
+    });
+
+    if (toPurge.length === 0) return 0;
+
+    const ids = toPurge.map((c) => c.id);
+
+    // Delete related records first, then hard-delete contacts
+    await this.prisma.$transaction([
+      this.prisma.providerContact.deleteMany({
+        where: { contactId: { in: ids }, tenantId },
+      }),
+      this.prisma.embedding.deleteMany({
+        where: { contactId: { in: ids }, tenantId },
+      }),
+      this.prisma.accountContact.deleteMany({
+        where: { contactId: { in: ids }, tenantId },
+      }),
+      this.prisma.dealContact.deleteMany({
+        where: { contactId: { in: ids }, tenantId },
+      }),
+      this.prisma.contact.deleteMany({
+        where: { id: { in: ids }, tenantId, isDeleted: true },
+      }),
+    ]);
+
+    this.logger.log(`Purged ${ids.length} soft-deleted contacts for tenant ${tenantId}`);
+    return ids.length;
+  }
+
   async toggleVip(tenantId: string, contactId: string): Promise<ContactWithProviders> {
     const contact = await this.getContact(tenantId, contactId);
     const updated = await this.prisma.contact.update({

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useQueryClient } from '@tanstack/react-query';
 import { type Contact, contactsApi } from '@/lib/api/contacts';
@@ -186,7 +186,11 @@ export function useContactsPageHandlers(
     }
   }, [contactToDelete, contactsCopy, deleteContactMutation, setDeleteDialogOpen, setContactToDelete, selectedContact, setSelectedContact, setSnackbar, setActionLoading]);
 
-  // Bulk delete handler
+  // Undo bulk delete state
+  const [undoDeletedIds, setUndoDeletedIds] = useState<string[]>([]);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Bulk delete handler (with undo support)
   const handleBulkDelete = useCallback(async () => {
     const idsToDelete = Array.from(selectedIds);
     if (idsToDelete.length === 0) return;
@@ -195,19 +199,18 @@ export function useContactsPageHandlers(
       setActionLoading(true);
       await contactsApi.bulkDeleteContacts(idsToDelete);
       // Remove from Zustand store immediately for instant UI update.
-      // loadContacts() returns stale cached data — store removal is the source of truth.
       for (const id of idsToDelete) {
         useContactStore.getState().deleteContact(id);
       }
-      // Invalidate cache so next fetch gets fresh data (not stale cached contacts)
+      // Invalidate cache so next fetch gets fresh data
       queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
       queryClient.invalidateQueries({ queryKey: contactsKeys.counts() });
       clearSelection();
-      setSnackbar({
-        open: true,
-        message: (contactsCopy.alerts?.deletedCount || 'Deleted {count} contacts').replace('{count}', String(idsToDelete.length)),
-        severity: 'success',
-      });
+
+      // Show undo snackbar for 10 seconds
+      setUndoDeletedIds(idsToDelete);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = setTimeout(() => setUndoDeletedIds([]), 10_000);
     } catch (error) {
       logger.error('Failed to delete contacts', { error });
       setSnackbar({
@@ -219,6 +222,36 @@ export function useContactsPageHandlers(
       setActionLoading(false);
     }
   }, [selectedIds, contactsCopy, queryClient, clearSelection, setSnackbar, setActionLoading]);
+
+  // Undo bulk delete handler
+  const handleUndoBulkDelete = useCallback(async () => {
+    if (undoDeletedIds.length === 0) return;
+    try {
+      await contactsApi.bulkRestoreContacts(undoDeletedIds);
+      queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.counts() });
+      await loadContacts();
+      setUndoDeletedIds([]);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      setSnackbar({
+        open: true,
+        message: (contactsCopy.alerts?.deletedCount || '{count} contacts restored').replace('{count}', String(undoDeletedIds.length)).replace('Deleted', 'Restored'),
+        severity: 'success',
+      });
+    } catch (error) {
+      logger.error('Failed to restore contacts', { error });
+      setSnackbar({
+        open: true,
+        message: 'Failed to restore contacts',
+        severity: 'error',
+      });
+    }
+  }, [undoDeletedIds, contactsCopy, queryClient, loadContacts, setSnackbar]);
+
+  const dismissUndo = useCallback(() => {
+    setUndoDeletedIds([]);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+  }, []);
 
   // Sync handler
   const handleSyncContacts = useCallback(async () => {
@@ -331,5 +364,8 @@ export function useContactsPageHandlers(
     handleEmail,
     handleToggleVip,
     handleSelectAll,
+    handleUndoBulkDelete,
+    dismissUndo,
+    undoDeletedIds,
   };
 }

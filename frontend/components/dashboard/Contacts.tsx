@@ -11,6 +11,7 @@ import {
   DialogActions,
   Button,
   Tooltip,
+  Snackbar,
 } from '@mui/material';
 import { Search, Menu, Download, Upload, ArrowUpDown } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -94,6 +95,9 @@ export function Contacts() {
     handleEmail,
     handleToggleVip,
     handleSelectAll,
+    handleUndoBulkDelete,
+    dismissUndo,
+    undoDeletedIds,
   } = handlers;
 
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
@@ -363,6 +367,21 @@ export function Contacts() {
           clearSelection();
           setMergeDialogOpen(false);
         }}
+      />
+
+      {/* Undo bulk delete snackbar — visible for 10 seconds after bulk delete */}
+      <Snackbar
+        open={undoDeletedIds.length > 0}
+        autoHideDuration={10000}
+        onClose={dismissUndo}
+        message={contactsCopy.alerts?.deletedCount
+          ? contactsCopy.alerts.deletedCount.replace('{count}', String(undoDeletedIds.length))
+          : `Deleted ${undoDeletedIds.length} contacts`}
+        action={
+          <Button color="inherit" size="small" onClick={handleUndoBulkDelete}>
+            {translations.common.undo ?? 'Undo'}
+          </Button>
+        }
       />
     </>
   );

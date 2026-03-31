@@ -188,8 +188,13 @@ export const contactsApi = {
     await apiClient.delete(`/contacts/${id}`);
   },
 
-  async bulkDeleteContacts(contactIds: string[]): Promise<{ success: boolean; deleted: number }> {
+  async bulkDeleteContacts(contactIds: string[]): Promise<{ success: boolean; deleted: number; contactIds: string[] }> {
     const response = await apiClient.delete('/contacts/bulk', { data: { contactIds } });
+    return response.data;
+  },
+
+  async bulkRestoreContacts(contactIds: string[]): Promise<{ success: boolean; restored: number }> {
+    const response = await apiClient.post('/contacts/bulk/restore', { contactIds });
     return response.data;
   },
 

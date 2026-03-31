@@ -79,6 +79,9 @@ export enum ScheduledJobType {
   // CRM scheduled jobs (Phase 126 — @Cron migration)
   FORECAST_REFRESH = 'forecast-refresh',
   CHURN_RECOMPUTE = 'churn-recompute',
+
+  // Contact purge (S09 T-0905 — auto-delete soft-deleted contacts after 30 days)
+  CONTACT_PURGE = 'contact-purge',
 }
 
 /**
@@ -116,6 +119,8 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   // CRM scheduled jobs (Phase 126 — @Cron migration)
   [ScheduledJobType.FORECAST_REFRESH]: '0 2 * * 0',                    // Sunday 2 AM
   [ScheduledJobType.CHURN_RECOMPUTE]: '0 3 * * 0',                     // Sunday 3 AM
+  // Contact purge (S09 T-0905)
+  [ScheduledJobType.CONTACT_PURGE]: '0 4 * * *',                      // Daily 4 AM
 };
 
 export interface ScheduledJobData {

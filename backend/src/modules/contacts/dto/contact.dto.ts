@@ -292,6 +292,16 @@ export class BulkDeleteContactsDto {
 }
 
 /**
+ * DTO for restoring bulk-deleted contacts (undo window)
+ */
+export class BulkRestoreContactsDto {
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(500)
+  contactIds!: string[];
+}
+
+/**
  * DTO for batch lookup of contacts by email addresses
  * Used for populating sender photos in email list
  */
