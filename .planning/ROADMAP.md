@@ -199,7 +199,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [ ] 128-01-PLAN.md — Externalize TriageLearningService signal buffer to Redis lists and remove scoreCache
-- [ ] 128-02-PLAN.md — Replace EmailTriageService in-memory semaphore with Redis distributed semaphore + document CircuitBreaker per-instance design
+- [x] 128-02-PLAN.md — Replace EmailTriageService in-memory semaphore with Redis distributed semaphore + document CircuitBreaker per-instance design
 
 ### Phase 129: Replica Activation
 **Goal**: Production runs on 2+ Railway replicas with tuned workers and per-replica observability
@@ -268,7 +268,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 125. Dead Code Removal | v11.0 | 3/3 | Complete    | 2026-03-31 |
 | 126. Cron-to-BullMQ Migration | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 127. Transport & Connection Hardening | v11.0 | 1/1 | Complete    | 2026-03-31 |
-| 128. State Externalization | v11.0 | 0/2 | In progress | - |
+| 128. State Externalization | v11.0 | 1/2 | In Progress|  |
 | 129. Replica Activation | v11.0 | 0/TBD | Not started | - |
 | 130. Frontend Performance | v11.0 | 0/TBD | Not started | - |
 | 131. Billing Frontend | v11.0 | 0/TBD | Not started | - |
