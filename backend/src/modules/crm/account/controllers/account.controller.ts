@@ -13,7 +13,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
@@ -30,7 +30,7 @@ import {
 } from '../dto/account.dto';
 
 @ApiTags('CRM - Accounts')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/accounts')
 @UseGuards(TenantGuard, RolesGuard)
 export class AccountController {

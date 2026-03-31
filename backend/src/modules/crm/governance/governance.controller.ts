@@ -11,7 +11,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -21,7 +21,7 @@ import { ModelRetrainService } from './model-retrain.service';
 import { GovernanceQueryDto, RetrainModelDto } from './dto/governance.dto';
 
 @ApiTags('CRM - AI Governance')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/governance')
 @UseGuards(TenantGuard, RolesGuard)
 export class GovernanceController {

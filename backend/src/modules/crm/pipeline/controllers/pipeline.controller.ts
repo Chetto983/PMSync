@@ -11,7 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
 import { PipelineService } from '../services/pipeline.service';
@@ -25,7 +25,7 @@ import {
 import { CreateSavedViewDto, UpdateSavedViewDto } from '../dto/saved-view.dto';
 
 @ApiTags('CRM - Pipelines')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/pipelines')
 @UseGuards(TenantGuard, RolesGuard)
 export class PipelineController {
@@ -159,7 +159,7 @@ export class PipelineController {
 
 // Separate controller for stage-level operations (no pipeline param)
 @ApiTags('CRM - Stages')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/stages')
 @UseGuards(TenantGuard, RolesGuard)
 export class StageController {

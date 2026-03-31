@@ -12,7 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
 import { ProductService } from '../services/product.service';
@@ -23,7 +23,7 @@ import {
 } from '../dto/product.dto';
 
 @ApiTags('CRM - Products')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/products')
 @UseGuards(TenantGuard, RolesGuard)
 export class ProductController {

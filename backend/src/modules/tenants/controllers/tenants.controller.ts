@@ -10,7 +10,7 @@ import {
   Request,
   ForbiddenException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
 import { TenantService } from '../services/tenant.service';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -20,7 +20,7 @@ import { CreateTenantDto } from '../dto/create-tenant.dto';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';
 
 @ApiTags('Tenants')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('tenants')
 @UseGuards(TenantGuard, RolesGuard)
 export class TenantsController {

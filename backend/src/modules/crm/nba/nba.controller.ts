@@ -11,7 +11,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -19,7 +19,7 @@ import { NBAService } from './nba.service';
 import { UpdateNBAStatusDto } from './dto/nba.dto';
 
 @ApiTags('CRM - Next Best Action')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/nba')
 @UseGuards(TenantGuard, RolesGuard)
 export class NBAController {

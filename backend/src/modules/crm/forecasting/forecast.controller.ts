@@ -12,7 +12,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -21,7 +21,7 @@ import { ForecastService } from './forecast.service';
 import { ForecastQueryDto } from './dto/forecast.dto';
 
 @ApiTags('CRM - Forecasting')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('crm/forecast')
 @UseGuards(TenantGuard, RolesGuard)
 export class ForecastController {

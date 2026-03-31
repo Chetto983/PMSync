@@ -1,6 +1,6 @@
 import { Controller, Delete, Get, Post, Request, UseGuards } from '@nestjs/common';
 import {
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiOkResponse,
   ApiOperation,
   ApiResponse,
@@ -26,7 +26,7 @@ import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorato
  * @SkipLegalCheck: GDPR right to erasure must remain accessible regardless of legal acceptance.
  */
 @ApiTags('Compliance')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @SkipLegalCheck()
 @Controller('compliance/data-deletion')
 @UseGuards(TenantGuard)

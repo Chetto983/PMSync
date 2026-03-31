@@ -1,5 +1,5 @@
 import { Controller, Get, Put, Delete, Body, UseGuards, Request, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { UsersService } from '../services/users.service';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -20,7 +20,7 @@ import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorato
 @ApiTags('Users')
 @Controller('users')
 @UseGuards(TenantGuard, RolesGuard)
-@ApiBearerAuth()
+@ApiCookieAuth()
 export class UsersController {
   constructor(private usersService: UsersService) { }
 

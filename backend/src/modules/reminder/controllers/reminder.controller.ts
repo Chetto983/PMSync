@@ -11,7 +11,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ReminderStatus } from '@prisma/client';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -25,7 +25,7 @@ interface AuthenticatedRequest {
 }
 
 @ApiTags('Reminders')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @UseGuards(TenantGuard, RolesGuard)
 @Controller('reminders')
 export class ReminderController {

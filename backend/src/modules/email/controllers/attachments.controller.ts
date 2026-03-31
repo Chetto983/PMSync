@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiTags,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiOperation,
   ApiResponse,
   ApiParam,
@@ -46,7 +46,7 @@ const toNodeReadableStream = (streamBody: unknown): NodeJS.ReadableStream => {
  * Tenant isolation: Enforced via req.user.tenantId and TenantGuard
  */
 @ApiTags('Email Attachments')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('email/attachments')
 @UseGuards(TenantGuard, RolesGuard)
 export class AttachmentsController {

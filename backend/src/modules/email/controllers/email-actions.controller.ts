@@ -3,7 +3,7 @@
  * Extracted from EmailsController (Phase 43 god-file split).
  */
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiCookieAuth } from '@nestjs/swagger';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { Response } from 'express';
 import { Readable } from 'stream';
@@ -76,7 +76,7 @@ const toNodeReadableStream = (streamBody: unknown): NodeJS.ReadableStream => {
 };
 
 @ApiTags('Emails')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('emails')
 @UseGuards(TenantGuard, RolesGuard)
 export class EmailActionsController {

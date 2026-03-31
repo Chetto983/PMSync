@@ -17,7 +17,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiBody,
   ApiQuery,
 } from '@nestjs/swagger';
@@ -165,7 +165,7 @@ export const LOCALIZED_FOLDER_NAMES: Record<string, keyof typeof CANONICAL_FOLDE
 @ApiTags('Folders')
 @Controller('folders')
 @UseGuards(TenantGuard, RolesGuard)
-@ApiBearerAuth()
+@ApiCookieAuth()
 export class FoldersController {
   constructor(
     private readonly folderSyncService: FolderSyncService,

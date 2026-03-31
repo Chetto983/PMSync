@@ -20,7 +20,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -39,7 +39,7 @@ import {
 } from '../dto/subscription.dto';
 
 @ApiTags('Subscription')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @UseGuards(TenantGuard)
 @Controller('subscription')
 export class SubscriptionController {

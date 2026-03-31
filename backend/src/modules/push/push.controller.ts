@@ -7,7 +7,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantGuard } from '../../common/auth/tenant.guard';
 import { RolesGuard } from '../../common/auth/roles.guard';
 import { PushService } from './push.service';
@@ -23,7 +23,7 @@ interface AuthenticatedRequest {
 }
 
 @ApiTags('Push')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @UseGuards(TenantGuard, RolesGuard)
 @Controller('push')
 export class PushController {

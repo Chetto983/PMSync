@@ -15,7 +15,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { ContactsService } from '../services/contacts.service';
@@ -38,7 +38,7 @@ import {
 } from '../dto/contact.dto';
 
 @ApiTags('Contacts')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('contacts')
 @UseGuards(TenantGuard, RolesGuard)
 export class ContactsController {

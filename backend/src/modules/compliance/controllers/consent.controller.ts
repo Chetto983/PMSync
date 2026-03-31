@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Query, Request, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { ConsentService } from '../services/consent.service';
@@ -18,7 +18,7 @@ import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorato
  * @SkipLegalCheck: Consent management must remain accessible before legal acceptance.
  */
 @ApiTags('Compliance')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @SkipLegalCheck()
 @Controller('compliance/consent')
 @UseGuards(TenantGuard)

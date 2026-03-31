@@ -20,7 +20,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
@@ -67,7 +67,7 @@ import {
  * Phase 24: Chat endpoint moved to AiChatModule (ai-chat.controller.ts)
  */
 @ApiTags('AI')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('ai')
 @UseGuards(TenantGuard, QuotaGuard, ConsentGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))

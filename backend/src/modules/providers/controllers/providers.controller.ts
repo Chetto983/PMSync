@@ -11,7 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { ProviderConfigService } from '../services/provider-config.service';
@@ -33,7 +33,7 @@ import { ImapService } from '../services/imap.service';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 @ApiTags('Providers')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @UseGuards(TenantGuard, RolesGuard)
 @Controller('providers')
 export class ProvidersController {

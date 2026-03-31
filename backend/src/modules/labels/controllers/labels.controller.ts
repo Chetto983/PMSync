@@ -11,7 +11,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { LabelsService } from '../services/labels.service';
 import {
   AddEmailsToLabelDto,
@@ -28,7 +28,7 @@ import { FeatureFlagGuard } from '../../../common/guards/feature-flag.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Labels')
-@ApiBearerAuth()
+@ApiCookieAuth()
 @Controller('labels')
 @UseGuards(TenantGuard, RolesGuard, FeatureFlagGuard)
 @FeatureFlag('userLabels')
