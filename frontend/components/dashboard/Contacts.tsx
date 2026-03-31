@@ -20,6 +20,7 @@ import {
   ContactSidebar,
   ContactDetail,
   ContactBulkActionBar,
+  VCardImportDialog,
 } from '@/components/contacts';
 import { useContactsPageData } from './contacts-page/useContactsPageData';
 import { useContactsPageHandlers } from './contacts-page/useContactsPageHandlers';
@@ -97,6 +98,7 @@ export function Contacts() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [vcardDialogOpen, setVcardDialogOpen] = useState(false);
 
   // Lead score sorting: null = off, 'desc' = high to low, 'asc' = low to high
   const [scoreSort, setScoreSort] = useState<'asc' | 'desc' | null>(null);
@@ -150,6 +152,7 @@ export function Contacts() {
       isSyncing={syncingProviders.size > 0}
       onSync={handleSyncContacts}
       onNewContact={openCreateContactDialog}
+      onImportVCard={() => setVcardDialogOpen(true)}
       totalCount={contactCounts.total}
       withEmailCount={contactCounts.withEmail}
       withPhoneCount={contactCounts.withPhone}
@@ -335,6 +338,11 @@ export function Contacts() {
       <ImportContactsDialog
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
+      />
+
+      <VCardImportDialog
+        open={vcardDialogOpen}
+        onClose={() => setVcardDialogOpen(false)}
       />
     </>
   );

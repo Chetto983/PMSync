@@ -305,6 +305,7 @@ export interface AppTranslations {
     crmChurn: string;
     crmGovernance: string;
     crmTickets: string;
+    kb: string;
     settings: string;
     profile: string;
     logout: string;
@@ -1883,6 +1884,29 @@ export interface AppTranslations {
       cancel: string;
       success: string;
       error: string;
+    };
+    importVCard?: {
+      title?: string;
+      button?: string;
+      dropzone?: string;
+      dropzoneActive?: string;
+      selectFile?: string;
+      changeFile?: string;
+      preview?: string;
+      previewTitle?: string;
+      previewDescription?: string;
+      importing?: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      success?: string;
+      skipped?: string;
+      errors?: string;
+      noContacts?: string;
+      invalidFile?: string;
+      emptyFile?: string;
+      fileTooLarge?: string;
+      importFailed?: string;
     };
     edit: string;
     close: string;
@@ -4962,6 +4986,42 @@ export interface AppTranslations {
     noTickets?: string;
     viewTicket?: string;
     assignToMe?: string;
+  };
+  kb?: {
+    title?: string;
+    subtitle?: string;
+    articles?: string;
+    categories?: string;
+    search?: string;
+    newArticle?: string;
+    editArticle?: string;
+    noArticles?: string;
+    noResults?: string;
+    form?: {
+      title?: string;
+      body?: string;
+      category?: string;
+      tags?: string;
+      tagsHelp?: string;
+      status?: string;
+      statusDraft?: string;
+      statusPublished?: string;
+      statusArchived?: string;
+      preview?: string;
+      editor?: string;
+      save?: string;
+      publish?: string;
+      cancel?: string;
+      delete?: string;
+      confirmDelete?: string;
+    };
+    browse?: {
+      allCategories?: string;
+      articlesCount?: string;
+      readMore?: string;
+      publishedOn?: string;
+      by?: string;
+    };
   };
 }
 

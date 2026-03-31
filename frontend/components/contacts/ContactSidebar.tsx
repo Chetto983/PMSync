@@ -18,7 +18,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Plus, RefreshCcw, Users, Building, Mail, Phone, ChevronDown, Filter } from 'lucide-react';
+import { Plus, RefreshCcw, Users, Building, Mail, Phone, ChevronDown, Filter, FileUp } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
@@ -64,6 +64,11 @@ interface ContactSidebarProps {
    * Callback to open new contact dialog
    */
   onNewContact?: () => void;
+
+  /**
+   * Callback to open vCard import dialog
+   */
+  onImportVCard?: () => void;
 
   /**
    * Total contact count
@@ -113,6 +118,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
   isSyncing = false,
   onSync,
   onNewContact,
+  onImportVCard,
   totalCount = 0,
   withEmailCount,
   withPhoneCount,
@@ -187,6 +193,19 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
             {isSyncing
               ? (t.contacts?.syncing || 'Syncing...')
               : (t.contacts?.sync || 'Sync Contacts')}
+          </Button>
+        )}
+
+        {/* Import vCard Button */}
+        {onImportVCard && (
+          <Button
+            variant="outlined"
+            startIcon={<FileUp size={18} />}
+            onClick={onImportVCard}
+            fullWidth
+            sx={{ textTransform: 'none', fontWeight: 500 }}
+          >
+            {t.contacts?.importVCard?.button || 'Import vCard'}
           </Button>
         )}
       </Box>
