@@ -65,6 +65,20 @@ export enum ScheduledJobType {
 
   // CRM Lead Scoring (Sprint 09 — T-0906)
   LEAD_FEATURE_COMPUTE = 'lead-feature-compute',
+
+  // Data cleanup jobs (Phase 126 — @Cron migration)
+  DATA_CLEANUP = 'data-cleanup',
+  DATA_CLEANUP_AUDIT_LOGS = 'data-cleanup-audit-logs',
+  DATA_CLEANUP_ACCOUNT_DELETIONS = 'data-cleanup-account-deletions',
+  DATA_CLEANUP_DATA_EXPORTS = 'data-cleanup-data-exports',
+
+  // Cache pre-warming jobs (Phase 126 — @Cron migration)
+  CACHE_PREWARM_COMMON = 'cache-prewarm-common',
+  CACHE_PREWARM_TENANT = 'cache-prewarm-tenant',
+
+  // CRM scheduled jobs (Phase 126 — @Cron migration)
+  FORECAST_REFRESH = 'forecast-refresh',
+  CHURN_RECOMPUTE = 'churn-recompute',
 }
 
 /**
@@ -91,6 +105,17 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.REMINDER_EMAIL_MONITOR]: '*/5 * * * *', // Every 5 minutes
   [ScheduledJobType.LABEL_CONSISTENCY_CHECK]: '30 2 * * *', // Daily at 2:30 AM
   [ScheduledJobType.LEAD_FEATURE_COMPUTE]: '0 3 * * *', // Daily at 3 AM
+  // Data cleanup jobs (Phase 126 — @Cron migration)
+  [ScheduledJobType.DATA_CLEANUP]: '0 3 * * *',                        // Daily 3 AM
+  [ScheduledJobType.DATA_CLEANUP_AUDIT_LOGS]: '0 4 * * 0',             // Sunday 4 AM
+  [ScheduledJobType.DATA_CLEANUP_ACCOUNT_DELETIONS]: '0 2 * * *',      // Daily 2 AM
+  [ScheduledJobType.DATA_CLEANUP_DATA_EXPORTS]: '30 3 * * *',          // Daily 3:30 AM
+  // Cache pre-warming jobs (Phase 126 — @Cron migration)
+  [ScheduledJobType.CACHE_PREWARM_COMMON]: '0 6 * * *',                // Daily 6 AM
+  [ScheduledJobType.CACHE_PREWARM_TENANT]: '0 */4 * * *',              // Every 4 hours
+  // CRM scheduled jobs (Phase 126 — @Cron migration)
+  [ScheduledJobType.FORECAST_REFRESH]: '0 2 * * 0',                    // Sunday 2 AM
+  [ScheduledJobType.CHURN_RECOMPUTE]: '0 3 * * 0',                     // Sunday 3 AM
 };
 
 export interface ScheduledJobData {
