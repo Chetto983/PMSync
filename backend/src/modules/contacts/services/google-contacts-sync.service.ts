@@ -98,7 +98,12 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
     }));
 
     const organization = person.organizations?.[0];
-    const photoUrl = person.photos?.[0]?.url;
+    // T-0504: Skip default/placeholder Google photos (generic silhouette)
+    const photo = person.photos?.[0];
+    const isDefaultPhoto = photo?.default === true;
+    const photoUrl = isDefaultPhoto ? null : (photo?.url ?? null);
+    // Use photo URL as etag — Google embeds a unique hash in the URL that changes on photo update
+    const photoEtag = photoUrl ?? null;
     const birthday = person.birthdays?.[0]?.date
       ? new Date(
         person.birthdays[0].date.year || 1900,
@@ -123,6 +128,7 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
       department: organization?.department,
       birthday,
       photoUrl,
+      photoEtag,
       notes: person.biographies?.[0]?.value,
       primaryEmail,
       etag: person.etag ?? null,

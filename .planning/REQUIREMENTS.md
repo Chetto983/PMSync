@@ -9,7 +9,7 @@ Requirements for Legacy Cleanup, Scalability & Billing Hardening. Each maps to r
 
 ### Legacy Cleanup
 
-- [ ] **LEGC-01**: All JWT-related dead code removed (guard comments, env vars, key gen script, @ApiBearerAuth Swagger decorators, addBearerAuth config)
+- [x] **LEGC-01**: All JWT-related dead code removed (guard comments, env vars, key gen script, @ApiBearerAuth Swagger decorators, addBearerAuth config)
 - [ ] **LEGC-02**: Deprecated voltAgentApi/multiAgentApi aliases confirmed fully removed and documentation updated
 - [ ] **LEGC-03**: Tailwind CSS package removed — @tailwind base converted to plain CSS, tailwindcss + postcss deps + config deleted
 - [ ] **LEGC-04**: All @Cron decorators migrated to BullMQ repeatable jobs (single-instance execution guaranteed)
@@ -65,7 +65,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LEGC-01 | Phase 125 | Pending |
+| LEGC-01 | Phase 125 | Complete |
 | LEGC-02 | Phase 125 | Pending |
 | LEGC-03 | Phase 125 | Pending |
 | LEGC-04 | Phase 126 | Pending |

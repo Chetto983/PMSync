@@ -51,6 +51,8 @@ export interface ExtractedContactData {
   department?: string | null;
   birthday?: Date | null;
   photoUrl?: string | null;
+  /** T-0504: Photo etag for change detection (avoids redundant photo re-downloads) */
+  photoEtag?: string | null;
   notes?: string | null;
   primaryEmail?: string | null;
   etag?: string | null;
@@ -369,6 +371,7 @@ export abstract class BaseContactsSyncService {
               department: pc.data.department,
               birthday: pc.data.birthday,
               photoUrl: pc.data.photoUrl,
+              photoEtag: pc.data.photoEtag ?? null,
               notes: pc.data.notes,
               eTag: pc.data.etag ?? null,
               metadata: pc.rawContact,

@@ -25,6 +25,7 @@ export class ContactProviderOpsService {
 
   async getContactPhoto(tenantId: string, contactId: string): Promise<string | null> {
     const contact = await this.crudService.getContact(tenantId, contactId);
+    // T-0504: Return cached photo URL — avoids redundant provider API calls
     if (contact.photoUrl) return contact.photoUrl;
 
     if (contact.providerContacts?.length) {

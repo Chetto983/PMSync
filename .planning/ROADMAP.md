@@ -157,7 +157,7 @@
   5. Frontend builds and renders correctly with no missing styles or broken layouts after Tailwind removal
 **Plans**: 3 plans
 Plans:
-- [ ] 125-01-PLAN.md — Replace @ApiBearerAuth with @ApiCookieAuth across 38 controllers + clean Swagger config, dead scripts, guard comments, and JWT_SECRET
+- [x] 125-01-PLAN.md — Replace @ApiBearerAuth with @ApiCookieAuth across 38 controllers + clean Swagger config, dead scripts, guard comments, and JWT_SECRET
 - [ ] 125-02-PLAN.md — Verify deprecated API aliases removed + remove Tailwind CSS pipeline
 - [ ] 125-03-PLAN.md — End-to-end validation and visual verification checkpoint
 
@@ -256,7 +256,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 125. Dead Code Removal | v11.0 | 0/3 | Planning complete | - |
+| 125. Dead Code Removal | v11.0 | 1/3 | In Progress|  |
 | 126. Cron-to-BullMQ Migration | v11.0 | 0/TBD | Not started | - |
 | 127. Transport & Connection Hardening | v11.0 | 0/TBD | Not started | - |
 | 128. State Externalization | v11.0 | 0/TBD | Not started | - |
