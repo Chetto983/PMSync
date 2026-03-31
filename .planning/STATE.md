@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 125 — first of 9 in v11.0 (Phases 125-133)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-31 — v11.0 roadmap created with 9 phases, 16 requirements mapped
+Plan: 2 of 3 in current phase
+Status: Executing Phase 125
+Last activity: 2026-03-31 — Completed 125-02 (LEGC-02/03 dead code removal)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████░░░░] 66%
 
 ## Performance Metrics
 
@@ -25,9 +25,9 @@ Progress: [░░░░░░░░░░] 0%
 - Requirements: 49/50 satisfied
 
 **v11.0 Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 49min
+- Total execution time: 0.8 hours
 
 ## Accumulated Context
 
@@ -36,6 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 - v11.0 roadmap: Legacy cleanup (125-126) must complete before scaling (127-129) due to @Cron multi-fire risk
 - v11.0 roadmap: Frontend perf (130) and billing frontend (131) can run parallel to scaling chain
 - v11.0 roadmap: Billing E2E (133) last — depends on frontend UI + backend webhook
+- 125-02: Tailwind fully removed; MUI CssBaseline provides CSS reset, native @layer base for custom properties
 
 ### Blockers/Concerns
 
@@ -46,5 +47,5 @@ Progress: [░░░░░░░░░░] 0%
 ## Session Continuity
 
 Last session: 2026-03-31
-Stopped at: v11.0 roadmap created, ready to plan Phase 125
+Stopped at: Completed 125-02-PLAN.md (LEGC-02/03)
 Resume file: None
