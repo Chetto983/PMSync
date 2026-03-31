@@ -267,10 +267,16 @@ export class EntityExtractionService {
       });
 
       const cleaned = text.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
+      if (!cleaned || !cleaned.startsWith('{')) {
+        this.logger.debug(
+          `Entity extraction returned non-JSON response, skipping (subject: "${params.subject.slice(0, 40)}")`,
+        );
+        return null;
+      }
       return extractionResultSchema.parse(JSON.parse(cleaned));
     } catch (fallbackError) {
       const msg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      this.logger.warn(`LLM entity extraction failed (both modes): ${msg}`);
+      this.logger.debug(`Entity extraction skipped (both modes failed): ${msg}`);
       return null;
     }
   }
