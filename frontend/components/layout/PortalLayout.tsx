@@ -15,7 +15,9 @@ export function PortalLayout({ children, tenantSlug }: PortalLayoutProps) {
   const t = useTranslations();
   const tk = t.kb;
   const tp = t.portal;
-  const base = `/portal/${tenantSlug}`;
+  const normalizedTenantSlug = tenantSlug.trim();
+  const base = normalizedTenantSlug ? `/portal/${normalizedTenantSlug}` : '/portal';
+  const submitTicketHref = normalizedTenantSlug ? `${base}/tickets/new` : '/portal';
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
@@ -44,7 +46,7 @@ export function PortalLayout({ children, tenantSlug }: PortalLayoutProps) {
             </MuiLink>
             <MuiLink
               component={NextLink}
-              href={`${base}/tickets/new`}
+              href={submitTicketHref}
               underline="hover"
               color="text.secondary"
               sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}

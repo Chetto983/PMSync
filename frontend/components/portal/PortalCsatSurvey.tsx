@@ -57,6 +57,15 @@ export function PortalCsatSurvey({ token }: PortalCsatSurveyProps) {
     onSuccess: () => setSubmitted(true),
   });
 
+  if (!token) {
+    return (
+      <Box sx={{ maxWidth: 560, mx: 'auto', mt: 4 }}>
+        <Skeleton variant="text" width="60%" height={40} />
+        <Skeleton variant="rectangular" height={200} sx={{ mt: 2, borderRadius: 1 }} />
+      </Box>
+    );
+  }
+
   // Loading state
   if (surveyQuery.isLoading) {
     return (
@@ -78,7 +87,17 @@ export function PortalCsatSurvey({ token }: PortalCsatSurveyProps) {
     );
   }
 
-  const survey = surveyQuery.data!;
+  const survey = surveyQuery.data;
+
+  if (!survey) {
+    return (
+      <Box sx={{ maxWidth: 560, mx: 'auto', mt: 4 }}>
+        <Alert severity="warning" icon={<AlertTriangle size={20} />}>
+          {tp?.surveyNotFound ?? 'Survey not found. The link may have expired.'}
+        </Alert>
+      </Box>
+    );
+  }
 
   // Already responded (loaded from API)
   if (survey.alreadyResponded && !submitted) {
