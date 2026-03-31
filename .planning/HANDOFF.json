@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-03-31T11:26:19.689Z",
+  "phase": "129",
+  "phase_name": "Replica Activation",
+  "phase_dir": ".planning/phases/129-replica-activation",
+  "plan": null,
+  "task": null,
+  "total_tasks": 4,
+  "status": "paused",
+  "completed_tasks": [],
+  "remaining_tasks": [
+    {"id": 1, "name": "scaleForReplicas() helper + tests", "status": "not_started"},
+    {"id": 2, "name": "Apply scaleForReplicas to all 9 workers", "status": "not_started"},
+    {"id": 3, "name": "Graceful shutdown hardening + test", "status": "not_started"},
+    {"id": 4, "name": "Prometheus per-replica labels + numReplicas=2 + test", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {"decision": "WORKER_REPLICA_COUNT env var for concurrency divisor (not RAILWAY_REPLICA_ID which is UUID)", "rationale": "RAILWAY_REPLICA_ID is a UUID string, cannot be used as integer divisor", "phase": "129"},
+    {"decision": "Both plans run in parallel (Wave 1)", "rationale": "No file overlap between concurrency scaling and shutdown/metrics work", "phase": "129"},
+    {"decision": "25s shutdown timeout", "rationale": "Railway SIGKILL grace period is typically 30s, 25s leaves margin", "phase": "129"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Execute phase 129: /gsd:execute-phase 129",
+  "context_notes": "Planning complete. Research done, 2 plans created and verified (passed checker on iteration 2/3). Plans are ready for execution. No code changes made yet - all artifacts are planning docs."
+}
