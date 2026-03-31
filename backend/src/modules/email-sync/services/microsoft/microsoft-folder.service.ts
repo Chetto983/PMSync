@@ -186,9 +186,9 @@ export class MicrosoftFolderService {
     this.logger.log(`Starting Microsoft folder sync for provider ${providerId}`);
 
     try {
-      // Get provider config
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
+      // T-0605: Get provider config with tenantId validation (tenant isolation)
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { id: providerId, tenantId },
       });
 
       if (!provider || !provider.accessToken || !provider.tokenEncryptionIv) {
@@ -233,8 +233,10 @@ export class MicrosoftFolderService {
 
       if (deletedPaths.length > 0) {
         this.logger.log(`Deleting ${deletedPaths.length} removed Microsoft folders`);
+        // T-0605: Include tenantId in delete filter for tenant isolation
         await (this.prisma as any).folder.deleteMany({
           where: {
+            tenantId,
             providerId,
             path: { in: deletedPaths },
           },

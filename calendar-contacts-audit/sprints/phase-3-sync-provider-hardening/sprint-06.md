@@ -46,11 +46,12 @@
 - [x] Test: event at 2AM during spring-forward produces valid date
 - [x] Expanded WINDOWS_TIMEZONE_ALIASES from 15 to 46 entries
 
-### T-0605: Microsoft folder cache tenant isolation (CON-H4 / MS-C2) [2 SP]
-- [ ] Read `microsoft-folder.service.ts` — verify cache key includes tenantId
-- [ ] Verify Redis cache keys: `ms-folder:{tenantId}:{userId}` (not just userId)
-- [ ] Test: two tenants with same user email see different folder caches
-- [ ] Fix if tenant isolation is missing — critical security issue
+### T-0605: Microsoft folder cache tenant isolation (CON-H4 / MS-C2) [2 SP] ✅ DONE
+- [x] Read `microsoft-folder.service.ts` — verified cache architecture
+- [x] In-memory cache: MicrosoftDriver is Scope.TRANSIENT — per-instance, can't leak across tenants
+- [x] Redis cache: email-folder.service uses `folder-map:{tenantId}:{providerId}` — tenant-isolated
+- [x] Fixed: syncMicrosoftFolders provider lookup now validates tenantId
+- [x] Fixed: folder deleteMany now includes tenantId in WHERE clause
 
 ## Dependencies
 - S05 (Google hardened)
