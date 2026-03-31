@@ -20,6 +20,8 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { ChevronRight, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import type { TreeItem } from '@/lib/label-tree-utils';
 
 // ---------------------------------------------------------------------------
@@ -90,6 +92,7 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
     ref,
   ) {
     const [hovered, setHovered] = useState(false);
+    const { locale } = useLocale();
     const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
     const indent = getIndent(depth);
 
@@ -183,9 +186,9 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
           )}
 
           {/* Label name */}
-          <Tooltip title={label.name} enterDelay={600} disableInteractive>
+          <Tooltip title={localizeAiLabel(label.name, locale)} enterDelay={600} disableInteractive>
             <ListItemText
-              primary={label.name}
+              primary={localizeAiLabel(label.name, locale)}
               slotProps={{
                 primary: {
                   variant: 'body2',

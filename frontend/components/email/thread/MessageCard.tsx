@@ -34,7 +34,9 @@ import {
   Forward,
   Paperclip,
 } from 'lucide-react';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { EmailHtmlContent } from './EmailHtmlContent';
 
 export interface MessageCardData {
@@ -104,6 +106,7 @@ export const MessageCard = memo(function MessageCard({
   onForward,
 }: MessageCardProps) {
   const t = useTranslations();
+  const { locale } = useLocale();
   const theme = useTheme();
   const isNarrowViewport = useMediaQuery(theme.breakpoints.down('md'));
   const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
@@ -216,7 +219,7 @@ export const MessageCard = memo(function MessageCard({
             {message.labels?.slice(0, 2).map((label) => (
               <Chip
                 key={label.id}
-                label={label.name}
+                label={localizeAiLabel(label.name, locale)}
                 size="small"
                 sx={{
                   height: 16,

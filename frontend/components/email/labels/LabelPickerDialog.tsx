@@ -29,8 +29,10 @@ import {
   IconButton,
 } from '@mui/material';
 import { Tag, Search, Check, Plus, MoreHorizontal } from 'lucide-react';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLabels, useBulkAddLabels, useBulkRemoveLabels } from '@/hooks/queries';
+import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { LabelContextMenu } from './LabelContextMenu';
 import type { Label } from '@/lib/api/labels';
 
@@ -54,6 +56,7 @@ export function LabelPickerDialog({
   providerType,
 }: LabelPickerDialogProps) {
   const t = useTranslations();
+  const { locale } = useLocale();
 
   // Fetch labels
   const { data: labels, isLoading: isLoadingLabels } = useLabels();
@@ -90,9 +93,10 @@ export function LabelPickerDialog({
     if (!search.trim()) return labels;
     const searchLower = search.toLowerCase();
     return labels.filter((label) =>
-      label.name.toLowerCase().includes(searchLower)
+      label.name.toLowerCase().includes(searchLower) ||
+      localizeAiLabel(label.name, locale).toLowerCase().includes(searchLower)
     );
-  }, [labels, search]);
+  }, [labels, search, locale]);
 
   // Toggle label selection
   const handleToggle = useCallback((labelId: string) => {
@@ -294,7 +298,7 @@ export function LabelPickerDialog({
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Chip
-                            label={label.name}
+                            label={localizeAiLabel(label.name, locale)}
                             size="small"
                             sx={{
                               backgroundColor: label.color?.backgroundColor || '#9E9E9E',

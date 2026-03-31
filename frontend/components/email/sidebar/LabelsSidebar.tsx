@@ -19,11 +19,13 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Tag, Plus, ChevronDown, ChevronRight, Search, X, Trash2, CheckSquare } from 'lucide-react';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLabels, useBulkDeleteLabels } from '@/hooks/queries';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import { useLabelTreeStore } from '@/stores/label-tree-store';
 import { buildTree, flattenTree, getAncestorIds } from '@/lib/label-tree-utils';
+import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { LabelTreeDndWrapper } from '../labels/LabelTreeDndWrapper';
 import { LabelDialog } from '../labels/LabelDialog';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
@@ -38,6 +40,7 @@ interface LabelsSidebarProps {
 
 export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
   const t = useTranslations();
+  const { locale } = useLocale();
   const { data: labels, isLoading } = useLabels();
 
   const filters = useEmailUIStore((state) => state.filters);
@@ -91,7 +94,10 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     const query = searchQuery.toLowerCase();
     const matchIds = new Set(
       userLabels
-        .filter((l) => l.name.toLowerCase().includes(query))
+        .filter((l) => {
+          const localizedName = localizeAiLabel(l.name, locale).toLowerCase();
+          return l.name.toLowerCase().includes(query) || localizedName.includes(query);
+        })
         .map((l) => l.id),
     );
     const ancestorIds = new Set<string>();
@@ -107,10 +113,13 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     if (!searchQuery.trim()) return;
     const query = searchQuery.toLowerCase();
     const matchIds = userLabels
-      .filter((l) => l.name.toLowerCase().includes(query))
+      .filter((l) => {
+        const localizedName = localizeAiLabel(l.name, locale).toLowerCase();
+        return l.name.toLowerCase().includes(query) || localizedName.includes(query);
+      })
       .map((l) => l.id);
     matchIds.forEach((id) => expandTo(id, userLabels));
-  }, [searchQuery, userLabels, expandTo]);
+  }, [searchQuery, userLabels, expandTo, locale]);
 
   useEffect(() => {
     if (userLabels.length > 0) {
@@ -340,6 +349,7 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
             labels={userLabels}
             selectedLabelId={filters.labelId}
             onLabelClick={handleLabelClick}
+            locale={locale}
           />
         ) : (
           <>
@@ -515,15 +525,17 @@ function CollapsedLabelList({
   labels,
   selectedLabelId,
   onLabelClick,
+  locale,
 }: {
   labels: Label[];
   selectedLabelId?: string;
   onLabelClick: (id: string) => void;
+  locale?: string;
 }) {
   return (
     <List disablePadding>
       {labels.map((label) => (
-        <Tooltip key={label.id} title={label.name} placement="right">
+        <Tooltip key={label.id} title={localizeAiLabel(label.name, locale)} placement="right">
           <ListItemButton
             selected={selectedLabelId === label.id}
             onClick={() => onLabelClick(label.id)}

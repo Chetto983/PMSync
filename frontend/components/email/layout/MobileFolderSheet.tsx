@@ -35,9 +35,11 @@ import {
   Plus,
   MoreHorizontal,
 } from 'lucide-react';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useLabels } from '@/hooks/queries';
 import { useEmailUIStore, type SpecialFolder } from '@/stores/email-ui-store';
+import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { LabelDialog } from '../labels/LabelDialog';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
 import {
@@ -67,6 +69,7 @@ interface MobileFolderSheetProps {
 export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheetProps) {
   const theme = useTheme();
   const t = useTranslations();
+  const { locale } = useLocale();
   const { data } = useFolders();
   const { data: labels } = useLabels();
 
@@ -340,7 +343,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                         />
                       </ListItemIcon>
                       <ListItemText
-                        primary={label.name}
+                        primary={localizeAiLabel(label.name, locale)}
                         slotProps={{
                           primary: {
                             fontSize: '0.8125rem',
