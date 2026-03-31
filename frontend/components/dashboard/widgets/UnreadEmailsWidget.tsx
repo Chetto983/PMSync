@@ -1,10 +1,16 @@
 /**
  * UnreadEmailsWidget - Unread emails count and list
+ *
+ * Badge count uses useUnifiedEmailCounts() (folder-based) so it always
+ * matches the sidebar INBOX badge. Email list uses a separate detail query.
+ *
+ * Addresses: DASH-C2
  */
 
 'use client';
 
 import { useRecentUnreadEmails } from '@/hooks/queries/use-dashboard';
+import { useUnifiedEmailCounts } from '@/hooks/queries/use-unified-email-counts';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import { Typography, List, ListItem, ListItemText } from '@mui/material';
@@ -15,6 +21,7 @@ export function UnreadEmailsWidget() {
     const t = useTranslations();
     const router = useRouter();
     const { data, isLoading, error, refetch } = useRecentUnreadEmails({ limit: 5 });
+    const { inboxUnread, isLoading: countsLoading } = useUnifiedEmailCounts();
 
     const getSenderName = (from: { name?: string; email?: string } | string) => {
         if (typeof from === 'string') return from.split('<')[0].trim() || from;
@@ -25,12 +32,12 @@ export function UnreadEmailsWidget() {
         <BaseWidget
             id="unread-emails"
             title={t.dashboard.widgets.unreadEmails.title}
-            loading={isLoading}
+            loading={isLoading || countsLoading}
             error={error?.message}
             rawError={error}
             onRefresh={() => refetch()}
             icon={<Mail size={18} />}
-            badge={data?.total || undefined}
+            badge={inboxUnread || undefined}
         >
             {data && data.emails.length > 0 ? (
                 <List dense disablePadding>
