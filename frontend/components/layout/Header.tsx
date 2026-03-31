@@ -39,10 +39,6 @@ interface HeaderNotification {
 
 export interface PmSyncHeaderProps {
   onMenuClick?: () => void;
-  /** @deprecated Use ThemeToggle component directly - kept for backwards compat */
-  onThemeToggle?: () => void;
-  /** @deprecated Use ThemeToggle component directly - kept for backwards compat */
-  isDarkMode?: boolean;
 }
 
 export function Header({
