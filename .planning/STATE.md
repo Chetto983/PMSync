@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
-status: executing
-stopped_at: Completed 126-01-PLAN.md
-last_updated: "2026-03-31T09:11:46.370Z"
+status: verifying
+stopped_at: Completed 126-02-PLAN.md
+last_updated: "2026-03-31T09:15:57.053Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 66
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 
 Phase: 126 (cron-to-bullmq-migration) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-31
 
 Progress: [██████░░░░] 66%
@@ -59,6 +59,7 @@ Progress: [██████░░░░] 66%
 - [Phase 125]: Swagger visual check via source inspection (production disables Swagger UI)
 - [Phase 125]: Frontend visual verification via Playwright CDP against Railway/Vercel production
 - [Phase 126]: All 8 @Cron decorators replaced with BullMQ registerHandler -- zero @Cron remains in codebase
+- [Phase 126]: Manual package.json edit for @nestjs/schedule removal (worktree has no node_modules)
 
 ### Blockers/Concerns
 
@@ -68,6 +69,6 @@ Progress: [██████░░░░] 66%
 
 ## Session Continuity
 
-Last session: 2026-03-31T09:11:46.365Z
-Stopped at: Completed 126-01-PLAN.md
+Last session: 2026-03-31T09:15:57.048Z
+Stopped at: Completed 126-02-PLAN.md
 Resume file: None

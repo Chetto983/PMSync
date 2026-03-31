@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
 import { RedisThrottlerStorage } from './common/guards/redis-throttler-storage.service';
 import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
-import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LoggerModule } from 'nestjs-pino';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -58,8 +57,6 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     }),
     // Pino Logger - Structured logging con rotazione FIFO 2 giorni
     LoggerModule.forRoot(pinoLoggerConfig),
-    // Schedule Module - Per cron job di rotazione log
-    ScheduleModule.forRoot(),
     // Phase 31: In-process event bus for domain event decoupling (Phase 32)
     EventEmitterModule.forRoot(),
     // Rate limiting: 4-tier system (RATE-01)

@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
@@ -70,7 +69,6 @@ import { FoldersController } from '../email/controllers/folders.controller';
 @Module({
   imports: [
     ConfigModule,
-    ScheduleModule.forRoot(),
     PrismaModule,
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailSyncModule)
     AiModule, // SyncWorker needs EmailTriageService (no forwardRef -- AiModule doesn't import EmailSyncModule)
