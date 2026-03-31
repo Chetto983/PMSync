@@ -142,10 +142,9 @@ export class ContactsController {
   @ApiOperation({ summary: 'Get interaction history', description: 'Returns interaction history for a contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiResponse({ status: 200, description: 'History returned successfully' })
-  async getContactHistory(@Req() _req: any, @Param('id') _contactId: string, @Query('limit') _limit?: number) {
-    // Stub: ContactInteraction model removed (dead code)
-    // Return raw array to match frontend contract (ContactInteraction[])
-    return [];
+  async getContactHistory(@Req() req: any, @Param('id') contactId: string, @Query('limit') limit?: number) {
+    const tenantId = req.user.tenantId;
+    return this.contactsService.getContactHistory(tenantId, contactId, limit ? Number(limit) : undefined);
   }
 
   /**

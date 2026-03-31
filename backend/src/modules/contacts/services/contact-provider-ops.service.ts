@@ -1,6 +1,6 @@
 /**
  * ContactProviderOpsService - Provider-level contact operations.
- * Handles: getContactPhoto, findContactsByEmails, deleteProviderContacts.
+ * Handles: getContactPhoto, findContactsByEmails, getContactHistory, deleteProviderContacts.
  * Extracted from ContactsService (Phase 43 god-file split).
  */
 import { Injectable, Logger } from '@nestjs/common';
@@ -9,6 +9,7 @@ import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
 import { ContactCrudService } from './contact-crud.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import type { ContactInteraction } from '../contacts.types';
 
 @Injectable()
 export class ContactProviderOpsService {
@@ -66,6 +67,122 @@ export class ContactProviderOpsService {
       }
     }
     return result;
+  }
+
+  /**
+   * Get interaction history for a contact by matching their email addresses
+   * against the Email and CalendarEvent tables.
+   */
+  async getContactHistory(tenantId: string, contactId: string, limit = 50): Promise<ContactInteraction[]> {
+    const contact = await this.crudService.getContact(tenantId, contactId);
+
+    // Extract email addresses from contact's JSON emails field
+    const contactEmails: string[] = [];
+    if (contact.emails && Array.isArray(contact.emails)) {
+      for (const e of contact.emails as Array<{ value?: string }>) {
+        if (e.value) contactEmails.push(e.value.toLowerCase());
+      }
+    }
+
+    if (contactEmails.length === 0) return [];
+
+    const interactions: ContactInteraction[] = [];
+    const contactName = contact.displayName || [contact.firstName, contact.lastName].filter(Boolean).join(' ') || null;
+
+    // 1. Query emails sent TO the contact (user sent them)
+    const sentEmails = await this.prisma.email.findMany({
+      where: {
+        tenantId,
+        isDeleted: false,
+        folder: { in: ['SENT', '[Gmail]/Sent Mail', 'Sent Items', 'Sent'] },
+        to: { hasSome: contactEmails },
+      },
+      select: { id: true, subject: true, sentAt: true, receivedAt: true, aiSentiment: true, to: true },
+      orderBy: { sentAt: 'desc' },
+      take: limit,
+    });
+
+    for (const email of sentEmails) {
+      const matchedEmail = email.to.find((t) => contactEmails.includes(t.toLowerCase())) || contactEmails[0];
+      interactions.push({
+        id: `email-sent-${email.id}`,
+        type: 'EMAIL_SENT',
+        date: (email.sentAt || email.receivedAt).toISOString(),
+        summary: email.subject || null,
+        sentiment: email.aiSentiment || null,
+        sourceType: 'email',
+        emailId: email.id,
+        contactEmail: matchedEmail,
+        contactName,
+      });
+    }
+
+    // 2. Query emails received FROM the contact
+    // Email.from may be "Name <email>" or plain "email" format
+    const fromConditions = contactEmails.map((e) => ({ from: { contains: e, mode: 'insensitive' as const } }));
+    const receivedEmails = await this.prisma.email.findMany({
+      where: {
+        tenantId,
+        isDeleted: false,
+        OR: fromConditions,
+      },
+      select: { id: true, subject: true, from: true, sentAt: true, receivedAt: true, aiSentiment: true },
+      orderBy: { receivedAt: 'desc' },
+      take: limit,
+    });
+
+    for (const email of receivedEmails) {
+      const fromLower = email.from.toLowerCase();
+      const matchedEmail = contactEmails.find((e) => fromLower.includes(e)) || contactEmails[0];
+      interactions.push({
+        id: `email-recv-${email.id}`,
+        type: 'EMAIL_RECEIVED',
+        date: (email.receivedAt || email.sentAt || new Date()).toISOString(),
+        summary: email.subject || null,
+        sentiment: email.aiSentiment || null,
+        sourceType: 'email',
+        emailId: email.id,
+        contactEmail: matchedEmail,
+        contactName,
+      });
+    }
+
+    // 3. Query calendar events where contact is an attendee
+    // attendees is JSON: [{email, displayName, responseStatus}]
+    const calendarEvents = await this.prisma.$queryRaw<
+      Array<{ id: string; title: string; startTime: Date; attendees: unknown }>
+    >`
+      SELECT id, title, "startTime", attendees
+      FROM "calendar_events"
+      WHERE "tenantId" = ${tenantId}
+        AND "isDeleted" = false
+        AND "isCancelled" = false
+        AND attendees IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements(attendees::jsonb) AS att
+          WHERE LOWER(att->>'email') = ANY(${contactEmails}::text[])
+        )
+      ORDER BY "startTime" DESC
+      LIMIT ${limit}
+    `;
+
+    for (const event of calendarEvents) {
+      interactions.push({
+        id: `meeting-${event.id}`,
+        type: 'MEETING',
+        date: event.startTime.toISOString(),
+        summary: event.title || null,
+        sentiment: null,
+        sourceType: 'calendar',
+        emailId: null,
+        contactEmail: contactEmails[0],
+        contactName,
+      });
+    }
+
+    // Sort all interactions by date descending, take limit
+    interactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return interactions.slice(0, limit);
   }
 
   async deleteProviderContacts(providerId: string, tenantId: string): Promise<void> {

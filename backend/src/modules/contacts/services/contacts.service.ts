@@ -13,7 +13,7 @@ import { Contact } from '@prisma/client';
 import { ContactCrudService } from './contact-crud.service';
 import { ContactProviderOpsService } from './contact-provider-ops.service';
 import { ContactSyncService } from './contact-sync.service';
-import type { ContactWithProviders, ListContactsFilters, ContactCounts, VCardImportResult, EmailExtractionResult } from '../contacts.types';
+import type { ContactWithProviders, ListContactsFilters, ContactCounts, VCardImportResult, EmailExtractionResult, ContactInteraction } from '../contacts.types';
 import type { CreateContactDto, UpdateContactDto } from '../dto/contact.dto';
 
 // Re-export types for backward compatibility
@@ -70,6 +70,9 @@ export class ContactsService {
   }
   async deleteProviderContacts(providerId: string, tenantId: string): Promise<void> {
     return this.providerOps.deleteProviderContacts(providerId, tenantId);
+  }
+  async getContactHistory(tenantId: string, contactId: string, limit?: number): Promise<ContactInteraction[]> {
+    return this.providerOps.getContactHistory(tenantId, contactId, limit);
   }
 
   // Sync & import

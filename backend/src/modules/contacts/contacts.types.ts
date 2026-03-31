@@ -124,3 +124,19 @@ export interface EmailExtractionResult {
   skipped: number;
   total: number;
 }
+
+/**
+ * Contact interaction history entry.
+ * Matches the frontend ContactInteraction interface in frontend/lib/api/contacts.ts
+ */
+export interface ContactInteraction {
+  id: string;
+  type: 'EMAIL_SENT' | 'EMAIL_RECEIVED' | 'MEETING' | 'CALL' | 'NOTE';
+  date: string;
+  summary: string | null;
+  sentiment: string | null;
+  sourceType: string | null;
+  emailId: string | null;
+  contactEmail: string | null;
+  contactName: string | null;
+}
