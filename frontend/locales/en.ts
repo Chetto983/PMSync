@@ -5218,6 +5218,7 @@ export const en: AppTranslations = {
       commentPlaceholder: 'Write a comment...',
       internalNote: 'Internal note (not visible to customer)',
       noComments: 'No comments yet',
+      insertTemplate: 'Insert canned response',
       linkedEmail: 'Linked Email',
       timeline: 'Timeline',
     },

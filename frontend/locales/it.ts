@@ -5195,6 +5195,7 @@ export const it: AppTranslations = {
       commentPlaceholder: 'Scrivi un commento...',
       internalNote: 'Nota interna (non visibile al cliente)',
       noComments: 'Nessun commento',
+      insertTemplate: 'Inserisci risposta rapida',
       linkedEmail: 'Email Collegata',
       timeline: 'Cronologia',
     },

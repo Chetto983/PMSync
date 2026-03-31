@@ -4938,6 +4938,7 @@ export interface AppTranslations {
       commentPlaceholder?: string;
       internalNote?: string;
       noComments?: string;
+      insertTemplate?: string;
       linkedEmail?: string;
       timeline?: string;
     };

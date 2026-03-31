@@ -14,8 +14,11 @@ import {
   FormControlLabel,
   Breadcrumbs,
   Link as MuiLink,
+  Menu,
+  MenuItem,
+  ListItemText,
 } from '@mui/material';
-import { ArrowLeft, Ticket as TicketIcon, Send } from 'lucide-react';
+import { ArrowLeft, Ticket as TicketIcon, Send, FileText } from 'lucide-react';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -24,6 +27,7 @@ import {
   useChangeTicketStatus,
   useAddTicketComment,
 } from '@/hooks/queries/use-crm-tickets';
+import { useTicketTemplates } from '@/hooks/queries/use-crm-ticket-templates';
 
 const STATUS_COLORS: Record<string, 'default' | 'primary' | 'warning' | 'success' | 'error'> = {
   open: 'primary',
@@ -61,6 +65,8 @@ export function TicketDetail() {
 
   const [commentBody, setCommentBody] = useState('');
   const [isInternal, setIsInternal] = useState(false);
+  const [templateAnchor, setTemplateAnchor] = useState<null | HTMLElement>(null);
+  const { data: templates } = useTicketTemplates();
 
   const statusLabel = (s: string) =>
     (tt?.status as Record<string, string> | undefined)?.[s] ?? s;
@@ -251,6 +257,36 @@ export function TicketDetail() {
 
       {/* Add comment */}
       <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
+        {templates && templates.length > 0 && (
+          <>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<FileText size={14} />}
+              onClick={(e) => setTemplateAnchor(e.currentTarget)}
+              sx={{ mb: 1 }}
+            >
+              {tt?.detail?.insertTemplate ?? 'Insert canned response'}
+            </Button>
+            <Menu
+              anchorEl={templateAnchor}
+              open={Boolean(templateAnchor)}
+              onClose={() => setTemplateAnchor(null)}
+            >
+              {templates.map((tpl) => (
+                <MenuItem
+                  key={tpl.id}
+                  onClick={() => {
+                    setCommentBody((prev) => (prev ? `${prev}\n${tpl.body}` : tpl.body));
+                    setTemplateAnchor(null);
+                  }}
+                >
+                  <ListItemText primary={tpl.name} secondary={tpl.category ?? undefined} />
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        )}
         <TextField
           fullWidth
           multiline
