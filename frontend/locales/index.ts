@@ -1907,6 +1907,8 @@ export interface AppTranslations {
       emptyFile?: string;
       fileTooLarge?: string;
       importFailed?: string;
+      duplicatesFound?: string;
+      duplicate?: string;
     };
     edit: string;
     close: string;

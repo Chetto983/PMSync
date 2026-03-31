@@ -3643,6 +3643,8 @@ export const it: AppTranslations = {
       emptyFile: 'Il file è vuoto.',
       fileTooLarge: 'File troppo grande. Massimo 5 MB.',
       importFailed: 'Importazione fallita. Riprova.',
+      duplicatesFound: '{count} possibile/i duplicato/i trovato/i. Verranno saltati dal server.',
+      duplicate: 'Duplicato',
     },
     edit: 'Modifica',
     close: 'Chiudi',

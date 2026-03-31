@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -20,10 +20,11 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useImportFromVCard } from '@/hooks/queries/use-contacts';
-import type { VCardImportResult } from '@/lib/api/contacts';
+import { contactsApi } from '@/lib/api/contacts';
+import type { VCardImportResult, SenderContactMap } from '@/lib/api/contacts';
 
 interface VCardImportDialogProps {
   open: boolean;
@@ -93,6 +94,8 @@ export function VCardImportDialog({ open, onClose }: VCardImportDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<VCardImportResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [duplicates, setDuplicates] = useState<SenderContactMap>({});
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
 
   const parsedContacts = useMemo(
     () => (fileContent ? parseVCardPreview(fileContent) : []),
@@ -106,6 +109,8 @@ export function VCardImportDialog({ open, onClose }: VCardImportDialogProps) {
     setError(null);
     setResult(null);
     setDragOver(false);
+    setDuplicates({});
+    setCheckingDuplicates(false);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -179,6 +184,38 @@ export function VCardImportDialog({ open, onClose }: VCardImportDialogProps) {
   const handleDragLeave = useCallback(() => {
     setDragOver(false);
   }, []);
+
+  // Check for duplicates when preview step is reached
+  const duplicateCount = Object.keys(duplicates).length;
+
+  useEffect(() => {
+    if (step !== 'preview' || parsedContacts.length === 0) return;
+
+    const emails = parsedContacts
+      .map((c) => c.email)
+      .filter(Boolean);
+
+    if (emails.length === 0) return;
+
+    let cancelled = false;
+    setCheckingDuplicates(true);
+
+    contactsApi
+      .lookupByEmails(emails)
+      .then((map) => {
+        if (!cancelled) setDuplicates(map);
+      })
+      .catch(() => {
+        // Non-critical — proceed without duplicate info
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingDuplicates(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, parsedContacts]);
 
   const handleImport = useCallback(async () => {
     if (!file) return;
@@ -278,6 +315,23 @@ export function VCardImportDialog({ open, onClose }: VCardImportDialogProps) {
               )}
             </Box>
 
+            {/* Duplicate warning */}
+            {checkingDuplicates && (
+              <LinearProgress sx={{ mb: 1 }} />
+            )}
+            {!checkingDuplicates && duplicateCount > 0 && (
+              <Alert
+                severity="warning"
+                icon={<AlertCircle size={18} />}
+                sx={{ mb: 2 }}
+              >
+                {(iv?.duplicatesFound ?? '{count} possible duplicate(s) found. They will be skipped by the server.').replace(
+                  '{count}',
+                  String(duplicateCount),
+                )}
+              </Alert>
+            )}
+
             <TableContainer
               component={Paper}
               variant="outlined"
@@ -292,13 +346,31 @@ export function VCardImportDialog({ open, onClose }: VCardImportDialogProps) {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {parsedContacts.slice(0, 50).map((c, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{c.name}</TableCell>
-                      <TableCell>{c.email || '—'}</TableCell>
-                      <TableCell>{c.phone || '—'}</TableCell>
-                    </TableRow>
-                  ))}
+                  {parsedContacts.slice(0, 50).map((c, i) => {
+                    const isDuplicate = !!(c.email && duplicates[c.email.toLowerCase()]);
+                    return (
+                      <TableRow
+                        key={i}
+                        sx={isDuplicate ? {
+                          bgcolor: alpha(theme.palette.warning.main, 0.06),
+                        } : undefined}
+                      >
+                        <TableCell>{c.name}</TableCell>
+                        <TableCell>
+                          {c.email || '—'}
+                          {isDuplicate && (
+                            <Chip
+                              label={iv?.duplicate ?? 'Duplicate'}
+                              size="small"
+                              color="warning"
+                              sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell>{c.phone || '—'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {parsedContacts.length > 50 && (
                     <TableRow>
                       <TableCell colSpan={3} align="center">

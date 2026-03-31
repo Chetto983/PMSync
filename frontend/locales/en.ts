@@ -3665,6 +3665,8 @@ export const en: AppTranslations = {
       emptyFile: 'The file is empty.',
       fileTooLarge: 'File is too large. Maximum 5 MB.',
       importFailed: 'Import failed. Please try again.',
+      duplicatesFound: '{count} possible duplicate(s) found. They will be skipped by the server.',
+      duplicate: 'Duplicate',
     },
     // UI labels
     edit: 'Edit',
