@@ -30,48 +30,48 @@
 
 ### AI Chat Tools (8 SP)
 
-- [ ] T-1411 — `get_lead_score` tool: fetch lead score + breakdown for a contact — 1 SP
+- [x] T-1411 — `get_lead_score` tool: fetch lead score + breakdown for a contact — 1 SP — ✅ DONE
   - Schema: `{ contactId: string }`
   - Calls: `LeadScoringService` or Prisma query on LeadFeatureStore
   - Returns: score, tier (hot/warm/cold), top factors, last computed date
 
-- [ ] T-1412 — `list_top_leads` tool: list contacts ranked by lead score — 1 SP
+- [x] T-1412 — `list_top_leads` tool: list contacts ranked by lead score — 1 SP — ✅ DONE
   - Schema: `{ limit?: number, minScore?: number }`
   - Calls: Prisma query on LeadFeatureStore ordered by totalScore DESC
   - Returns: array of { contactName, email, score, tier }
 
-- [ ] T-1413 — `get_revenue_forecast` tool: fetch quarterly forecast — 1 SP
+- [x] T-1413 — `get_revenue_forecast` tool: fetch quarterly forecast — 1 SP — ✅ DONE
   - Schema: `{ pipelineId?: string, period?: 'monthly' | 'quarterly' }`
   - Calls: `ForecastService.generateForecast()`
   - Returns: periods with predicted value, confidence low/high, MAPE
 
-- [ ] T-1414 — `get_churn_risk` tool: get churn assessment for a contact/account — 1 SP
+- [x] T-1414 — `get_churn_risk` tool: get churn assessment for a contact/account — 1 SP — ✅ DONE
   - Schema: `{ contactId?: string, accountId?: string }`
   - Calls: `ChurnController` GET endpoints
   - Returns: risk level, probability, contributing signals, last assessed
 
-- [ ] T-1415 — `list_churn_at_risk` tool: list contacts/accounts at churn risk — 1 SP
+- [x] T-1415 — `list_churn_at_risk` tool: list contacts/accounts at churn risk — 1 SP — ✅ DONE
   - Schema: `{ level?: 'high' | 'medium' | 'low', limit?: number }`
   - Calls: `ChurnController.getAtRisk()`
   - Returns: array of { name, riskLevel, probability, topSignal }
 
-- [ ] T-1416 — `get_ai_costs` tool: show AI cost breakdown — 1 SP
+- [x] T-1416 — `get_ai_costs` tool: show AI cost breakdown — 1 SP — ✅ DONE
   - Schema: `{ range?: '7d' | '30d' | '90d' }`
   - Calls: `GovernanceService.getCostBreakdown()`
   - Returns: per-feature costs, total, token counts
 
-- [ ] T-1417 — `get_model_performance` tool: fetch model accuracy metrics — 1 SP
+- [x] T-1417 — `get_model_performance` tool: fetch model accuracy metrics — 1 SP — ✅ DONE
   - Schema: `{ modelType?: string }`
   - Calls: `GovernanceService.getAccuracyMetrics()` + `ModelRetrainService.getModelRegistry()`
   - Returns: per-model accuracy, MAPE, last trained, status
 
-- [ ] T-1418 — Register all new tools in ToolRegistry with governance metadata — 1 SP
+- [x] T-1418 — Register all new tools in ToolRegistry with governance metadata — 1 SP — ✅ DONE
   - All tools registered in `onModuleInit()` with domain, riskLevel, requiresApproval, inputSchema
   - All tools added to `AiChatService.createToolSet()` spread
 
 ### System Prompt Update (2 SP)
 
-- [ ] T-1419 — Add CRM section to system prompt decision tree — 2 SP
+- [x] T-1419 — Add CRM section to system prompt decision tree — 2 SP — ✅ DONE
   - Add "CRM & Intelligence" section to Tool Selection Decision Tree
   - Add tool guidance for: leads, deals, forecast, churn, NBA, governance
   - Add Multi-Step Workflow Examples for CRM:
@@ -86,15 +86,15 @@
 
 ### Frontend Tool Renderers (3 SP)
 
-- [ ] T-1420 — `DealsToolUI.tsx` renderer for deal-related tools — 1 SP
+- [x] T-1420 — `DealsToolUI.tsx` renderer for deal-related tools — 1 SP — ✅ DONE
   - Handles: `get_deals_by_pipeline` (table of deals), `move_deal_stage` (confirmation card), `get_deal_timeline` (timeline)
   - Register in `TOOL_RENDERERS` map
 
-- [ ] T-1421 — `CrmIntelligenceToolUI.tsx` renderer for intelligence tools — 1 SP
+- [x] T-1421 — `CrmIntelligenceToolUI.tsx` renderer for intelligence tools — 1 SP — ✅ DONE
   - Handles: `get_lead_score` (gauge + factors), `list_top_leads` (ranked list), `get_churn_risk` (risk card), `list_churn_at_risk` (risk table), `get_revenue_forecast` (mini chart)
   - Register in `TOOL_RENDERERS` map
 
-- [ ] T-1422 — `GovernanceToolUI.tsx` renderer for governance tools — 1 SP
+- [x] T-1422 — `GovernanceToolUI.tsx` renderer for governance tools — 1 SP — ✅ DONE
   - Handles: `get_ai_costs` (cost breakdown card), `get_model_performance` (model status cards)
   - Register in `TOOL_RENDERERS` map
 
