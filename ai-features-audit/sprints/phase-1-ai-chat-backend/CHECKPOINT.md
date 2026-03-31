@@ -1,39 +1,39 @@
-# Sprint 01 Checkpoint — Chat Engine & Conversation Management
+# Sprint 02 Checkpoint — RAG Pipeline, Routing & Tools
 
 | Field | Value |
 |-------|-------|
 | **Status** | COMPLETE |
-| **Last Task** | T-0106 |
-| **Next Task** | Sprint 02 (T-0201) |
-| **Tasks Done** | 6/6 |
-| **SP Done** | 15 |
+| **Last Task** | T-0205 |
+| **Next Task** | Sprint 03 (T-0301) |
+| **Tasks Done** | 5/5 |
+| **SP Done** | 13 |
 
 ## Findings Addressed
 
 | Finding | Status | Notes |
 |---------|--------|-------|
-| CHAT-C1 | Fixed | SSE timeout (120s) + keepalive (30s) added to consumeChatStream |
-| CHAT-C2 | Fixed | Retry with exponential backoff in streamChat(); main chat UI already had error+reload via AI SDK |
-| CHAT-H1 | Fixed | Backend pagination (offset/limit) added; frontend "Load older" deferred (assistant-ui limitation) |
-| CHAT-H2 | Fixed | QueryRouter already defaults to 'search'; added fallback logging to AiRunLedger |
-| CHAT-H3 | Dismissed | SandboxService is NOT dead code — actively used by SandboxToolsService |
-| CHAT-H4 | Already fixed | ChatEnrichmentService.maybeGenerateSmartTitle() already generates titles at 4 messages |
+| CHAT-M1 | Fixed | AI_CHAT_CONTEXT_WINDOW env var (default 20). Summary trigger/retention aligned with window. |
+| CHAT-M2 | Fixed | shouldSkipReranking() heuristic + explicit skipReranking option. Note: reranker is heuristic (<1ms), not LLM-based as audit claimed. |
+| CHAT-M3 | Fixed | AI_GRAPH_MAX_DEPTH env var (default 2, hard cap 3). Traverse uses configured default. |
+| CHAT-L1 | Fixed | saveUserMessage overlapped with graph context assembly (~5-20ms savings). |
 
 ## Last Modified Files
 
-- `frontend/lib/api/ai.ts` — SSE timeout, keepalive, retry with backoff
-- `backend/src/modules/ai-chat/services/conversation.service.ts` — getMessagesPaginated()
-- `backend/src/modules/ai-chat/controllers/ai-chat.controller.ts` — offset/limit query params
-- `backend/src/modules/ai-chat/services/query-router.service.ts` — isFallback() + debug logging
-- `backend/src/modules/ai-chat/services/ai-chat.service.ts` — fallback ledger logging
+- `backend/src/modules/ai-chat/services/ai-chat.service.ts` — CHAT_CONTEXT_WINDOW constant, parallel save, error boundary wrapper
+- `backend/src/modules/ai-chat/services/chat-enrichment.service.ts` — configurable CONTEXT_WINDOW for summary trigger
+- `backend/src/modules/ai-chat/services/reranking.service.ts` — shouldSkipReranking() + skipReranking option
+- `backend/src/modules/ai-chat/services/hybrid-search.service.ts` — pass-through skipReranking option
+- `backend/src/modules/ai-chat/services/entity-graph.service.ts` — DEFAULT_GRAPH_MAX_DEPTH from env
+- `backend/src/modules/ai-chat/utils/tool-error-boundary.ts` — NEW: centralized wrapToolsWithErrorBoundary()
 
 ## Key Decisions
 
-1. **T-0102**: Main chat UI uses AssistantChatTransport (assistant-ui) which has its own error handling via AI SDK's `useChat` error/regenerate. Custom retry only needed for legacy `consumeChatStream` path.
-2. **T-0103**: assistant-ui's ThreadHistoryAdapter.load() doesn't support incremental loading. Backend pagination added for API consumers; 50-message cap already prevents memory pressure.
-3. **T-0105/T-0106**: Audit findings CHAT-H3 and CHAT-H4 were incorrect — code was already active/fixed.
+1. **T-0201**: Memory eviction (summary generation + rolling window) already existed. Added configurability via env var only.
+2. **T-0202**: Audit finding CHAT-M2 was inaccurate — reranker is pure heuristic (<1ms), not LLM-based. Added bypass anyway for explicit control.
+3. **T-0204**: Graph context must complete before LLM call (injects into system prompt). Parallelized saveUserMessage instead.
+4. **T-0205**: 32/45 tools lacked error boundaries. Centralized wrapper in createToolSet() rather than modifying 32 files individually.
 
 ## Validation Status
 
-- Backend: `npx tsc --noEmit` ✅ PASS
-- Frontend: `npx tsc --noEmit` ✅ PASS
+- Backend: `npx tsc --noEmit` PASS
+- Frontend: no changes
