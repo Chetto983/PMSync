@@ -19,7 +19,7 @@ Requirements for Legacy Cleanup, Scalability & Billing Hardening. Each maps to r
 - [x] **SCAL-01**: Socket.IO transport forced to websocket-only on both server and client (HTTP long-polling disabled)
 - [x] **SCAL-02**: DB connection pool sized per-replica with env var override (total connections < Railway PostgreSQL max)
 - [ ] **SCAL-03**: BullMQ worker concurrency tuned for N-replica deployment (per-instance limits, no duplicate job processing)
-- [ ] **SCAL-04**: In-memory state in TriageLearningService, CircuitBreaker, and EmailTriage semaphore externalized to Redis
+- [x] **SCAL-04**: In-memory state in TriageLearningService, CircuitBreaker, and EmailTriage semaphore externalized to Redis
 
 ### Frontend Performance
 
@@ -72,7 +72,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCAL-01 | Phase 127 | Complete |
 | SCAL-02 | Phase 127 | Complete |
 | SCAL-03 | Phase 129 | Pending |
-| SCAL-04 | Phase 128 | Pending |
+| SCAL-04 | Phase 128 | Complete |
 | PERF-01 | Phase 130 | Pending |
 | PERF-02 | Phase 130 | Pending |
 | PERF-03 | Phase 129 | Pending |
