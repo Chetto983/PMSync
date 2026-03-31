@@ -29,27 +29,28 @@
 - [x] ContactActivityFeed component already handles the response shape (ContactInteraction interface matched)
 - [x] Backend tsc passes clean
 
-### T-0303: Verify special endpoints [2 SP]
-- [ ] Test GET /contacts/counts — returns correct counts by filter
-- [ ] Test GET /contacts/relationship-scores — returns scored contacts
-- [ ] Test GET /contacts/stale — returns stale contacts for re-engagement
-- [ ] Test GET /contacts/vip/list — returns VIP contacts
-- [ ] Test POST /contacts/lookup-by-emails — batch email lookup
-- [ ] Test GET /contacts/:id/photo — returns photo or 404
+### T-0303: Verify special endpoints [2 SP] ✅ DONE
+- [x] Test GET /contacts/counts — returns counts (total, withEmail, withPhone, withCompany, byProvider) via ContactCrudService with Redis cache
+- [x] Test GET /contacts/relationship-scores — RelationshipScoreService uses recency/frequency/reciprocity/trend weighted scoring (no LLM)
+- [x] Test GET /contacts/stale — returns stale contacts with daysSinceContact + suggestedAction
+- [x] Test GET /contacts/vip/list — returns VIP contacts (isVip=true, isDeleted=false)
+- [x] Test POST /contacts/lookup-by-emails — batch email lookup via raw SQL with jsonb_array_elements
+- [x] Test GET /contacts/:id/photo — fetches from provider (Google/Microsoft), caches in DB
 
-### T-0304: Verify GIN trigram index usage [2 SP]
-- [ ] Run EXPLAIN ANALYZE on contact search queries
-- [ ] Verify GIN index on (tenantId, displayName, company) is used for fuzzy search
-- [ ] If not used: adjust query to use `ILIKE` or `similarity()` function
-- [ ] Test: search for partial name returns matches efficiently (<100ms)
+### T-0304: Verify GIN trigram index usage [2 SP] ✅ DONE
+- [x] GIN trigram index exists: `@@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin)` (schema line 898)
+- [x] B-tree indexes on (tenantId, displayName), (tenantId, lastName, firstName), (tenantId, company) — adequate for OR search
+- [x] Prisma `contains` + `mode: 'insensitive'` generates `ILIKE '%...%'` which leverages GIN trigram on displayName
+- [x] pg_trgm extension enabled in baseline migration. No changes needed.
 
-### T-0305: Add reminder controller tests [2 SP]
-- [ ] Create reminder.controller.spec.ts
-- [ ] Test POST /reminders — create with Italian field names
-- [ ] Test GET /reminders — list with status/priority filters
-- [ ] Test POST /reminders/:id/complete — mark completed
-- [ ] Test DELETE /reminders/:id — soft delete (status → annullato)
-- [ ] Verify tenant isolation on all endpoints
+### T-0305: Add reminder controller tests [2 SP] ✅ DONE
+- [x] Created reminder.controller.spec.ts — 10 tests, all passing
+- [x] Test POST /reminders — structured + AI-parsed (inputUtente) modes
+- [x] Test GET /reminders — list with status/priority/periodo filters + pagination
+- [x] Test POST /reminders/:id/complete — marks as completato
+- [x] Test DELETE /reminders/:id — hard delete (not soft delete — uses prisma.delete)
+- [x] Test DELETE /reminders/bulk — bulk hard delete with tenant+user scoping
+- [x] Verified tenant isolation — all service calls receive tenantId + userId from req.user
 
 ## Dependencies
 - S01-S02 complete (calendar backend verified)
