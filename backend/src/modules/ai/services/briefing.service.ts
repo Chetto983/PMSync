@@ -759,7 +759,7 @@ export class BriefingService {
         tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
         promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
-        promptVersion: promptHash(SYSTEM_PROMPT),
+        promptVersion: promptHash(systemPrompt),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
       return result.object;
     } catch (error) {
@@ -769,7 +769,7 @@ export class BriefingService {
         tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
         promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
         status: AiRunStatus.FAILED, errorMessage: `generateObject: ${msg}`,
-        promptVersion: promptHash(SYSTEM_PROMPT),
+        promptVersion: promptHash(systemPrompt),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
       return null;
     }
@@ -791,7 +791,7 @@ export class BriefingService {
         tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
         promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
-        promptVersion: promptHash(SYSTEM_PROMPT),
+        promptVersion: promptHash(systemPrompt),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
       return parseJsonOutput(result.text, briefingSchema);
     } catch (error) {
@@ -801,7 +801,7 @@ export class BriefingService {
         tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
         promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
         status: AiRunStatus.FAILED, errorMessage: `generateText: ${msg}`,
-        promptVersion: promptHash(SYSTEM_PROMPT),
+        promptVersion: promptHash(systemPrompt),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
       return null;
     }
