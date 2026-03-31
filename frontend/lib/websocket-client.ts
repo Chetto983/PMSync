@@ -398,7 +398,7 @@ class WebSocketClient {
       }
 
       this.socket = io(`${backendUrl}/realtime`, {
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'],
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
