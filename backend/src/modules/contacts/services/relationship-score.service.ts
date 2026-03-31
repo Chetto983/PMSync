@@ -343,6 +343,43 @@ export class RelationshipScoreService {
     return 'occasional';
   }
 
+  /**
+   * Recalculate relationship scores for all active contacts in a tenant
+   * and persist the results to the Contact model.
+   * Called by BullMQ worker after email sync (debounced per tenant).
+   */
+  async recalculateAndPersist(tenantId: string): Promise<number> {
+    this.logger.log(`Recalculating relationship scores for tenant ${tenantId}`);
+
+    const scores = await this.getRelationshipScores(tenantId, { limit: 200, minScore: 0 });
+
+    if (scores.length === 0) {
+      this.logger.debug(`No scores to update for tenant ${tenantId}`);
+      return 0;
+    }
+
+    // Batch update contacts with new scores
+    let updated = 0;
+    for (const score of scores) {
+      try {
+        await this.prisma.contact.update({
+          where: { id_tenantId: { id: score.contactId, tenantId } },
+          data: {
+            relationshipScore: score.totalScore,
+            lastInteractedAt: score.lastInteractedAt,
+          },
+        });
+        updated++;
+      } catch (error: any) {
+        // Contact may have been deleted between score computation and update
+        this.logger.debug(`Skip score update for ${score.contactId}: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`Updated ${updated}/${scores.length} relationship scores for tenant ${tenantId}`);
+    return updated;
+  }
+
   /** Suggest re-engagement action based on relationship strength */
   private suggestAction(daysSinceContact: number, totalInteractions: number): string {
     if (totalInteractions >= 20 && daysSinceContact > 60) {

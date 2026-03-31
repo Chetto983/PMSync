@@ -1,12 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Queue, Worker } from 'bullmq';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
   ProviderConnectedEvent,
   ProviderDisconnectedEvent,
 } from '../../../common/events/provider.events';
+import { EmailSyncedEvent } from '../../../common/events/email.events';
 import { ContactsService } from './contacts.service';
+import { RelationshipScoreService } from './relationship-score.service';
+import {
+  QUEUE_NAMES,
+  getRedisConnectionOptions,
+  getDefaultJobOptions,
+} from '../../../common/config';
 
 /**
  * Handles provider lifecycle events for the Contacts domain.
@@ -15,16 +23,57 @@ import { ContactsService } from './contacts.service';
  * - ProviderConnectedEvent: triggers initial contacts sync (if supported)
  * - ProviderDisconnectedEvent: cleanup provider contacts
  *
+ * S09 T-0903: Also handles EmailSyncedEvent to trigger relationship score
+ * recalculation via BullMQ (debounced: max once per hour per tenant).
+ *
  * All @OnEvent handlers wrap body in try/catch with logger.error (Pitfall 3).
  */
 @Injectable()
-export class ContactsProviderEventHandlerService {
+export class ContactsProviderEventHandlerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ContactsProviderEventHandlerService.name);
+  private scoreQueue!: Queue;
+  private scoreWorker!: Worker;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly contactsService: ContactsService,
+    private readonly relationshipScoreService: RelationshipScoreService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    const connection = getRedisConnectionOptions();
+
+    this.scoreQueue = new Queue(QUEUE_NAMES.RELATIONSHIP_SCORE, {
+      connection,
+      defaultJobOptions: {
+        ...getDefaultJobOptions(),
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    });
+
+    this.scoreWorker = new Worker(
+      QUEUE_NAMES.RELATIONSHIP_SCORE,
+      async (job) => {
+        const { tenantId } = job.data as { tenantId: string };
+        this.logger.log(`[RelationshipScore] Recalculating scores for tenant ${tenantId}`);
+        const updated = await this.relationshipScoreService.recalculateAndPersist(tenantId);
+        return { tenantId, updated };
+      },
+      { connection, concurrency: 2 },
+    );
+
+    this.scoreWorker.on('failed', (job, err) => {
+      this.logger.error(`[RelationshipScore] Job ${job?.id} failed: ${err.message}`);
+    });
+
+    this.logger.log('Relationship score queue + worker initialized');
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.scoreWorker?.close();
+    await this.scoreQueue?.close();
+  }
 
   /**
    * Handle provider connected: trigger initial contacts sync if supported.
@@ -93,6 +142,34 @@ export class ContactsProviderEventHandlerService {
     } catch (error) {
       this.logger.error(
         `[ProviderDisconnected] Contacts handler error for provider ${event.providerId}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Handle email synced: enqueue debounced relationship score recalculation.
+   * Uses jobId = `score-{tenantId}-{hourSlot}` so BullMQ deduplicates:
+   * at most one recalculation per tenant per hour.
+   */
+  @OnEvent(EmailSyncedEvent.eventName)
+  async handleEmailSynced(event: EmailSyncedEvent): Promise<void> {
+    try {
+      const hourSlot = Math.floor(Date.now() / (60 * 60 * 1000));
+      const jobId = `score-${event.tenantId}-${hourSlot}`;
+
+      await this.scoreQueue.add(
+        'recalculate',
+        { tenantId: event.tenantId },
+        {
+          jobId,
+          delay: 30_000, // 30s delay to batch multiple sync events
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `[EmailSynced] Failed to queue score recalculation for tenant ${event.tenantId}: ${
           error instanceof Error ? error.message : error
         }`,
       );

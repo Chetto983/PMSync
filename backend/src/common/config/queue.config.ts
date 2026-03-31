@@ -447,4 +447,7 @@ export const QUEUE_NAMES = {
 
   // CRM model retraining (AI governance, Sprint 14)
   CRM_MODEL_RETRAIN: 'crm-model-retrain',
+
+  // Contact relationship score recalculation (S09 T-0903)
+  RELATIONSHIP_SCORE: 'relationship-score',
 } as const;
