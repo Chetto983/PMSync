@@ -122,6 +122,8 @@ export interface VCardImportResult {
 export interface EmailExtractionResult {
   created: number;
   skipped: number;
+  /** Candidates skipped because fuzzy name match found (need human review) */
+  flaggedForReview: number;
   total: number;
 }
 

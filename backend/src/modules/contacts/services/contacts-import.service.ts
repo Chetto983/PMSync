@@ -129,7 +129,7 @@ export class ContactsImportService {
 
     if (candidateEmails.length === 0) {
       this.logger.log('No candidate emails after filtering');
-      return { created: 0, skipped: addressMap.size, total: addressMap.size };
+      return { created: 0, skipped: addressMap.size, flaggedForReview: 0, total: addressMap.size };
     }
 
     // Check which emails already exist using PostgreSQL JSONB query (O(1) per batch)
@@ -143,21 +143,19 @@ export class ContactsImportService {
     `;
     const existingEmails = new Set(existingEmailsResult.map(r => r.email));
 
-    // Prepare batch of contacts to create
-    const contactsToCreate: Array<{
-      tenantId: string;
+    // Prepare candidates (after exact email dedup)
+    const candidates: Array<{
+      emailAddr: string;
       firstName?: string;
       lastName?: string;
       displayName: string;
-      emails: Prisma.InputJsonValue;
-      company?: string;
-      metadata: Prisma.InputJsonValue;
+      domain: string;
     }> = [];
 
     let skipped = 0;
 
     for (const [emailAddr, info] of addressMap) {
-      // Skip if already exists
+      // Skip if already exists (exact email match)
       if (existingEmails.has(emailAddr)) {
         skipped++;
         continue;
@@ -185,22 +183,76 @@ export class ContactsImportService {
         lastName = parts.length > 1 ? parts.slice(1).join(' ') : undefined;
       }
 
-      // Add to batch
-      contactsToCreate.push({
-        tenantId,
+      candidates.push({
+        emailAddr,
         firstName,
         lastName,
         displayName: info.name || emailAddr,
-        emails: [{ value: emailAddr, type: 'work', primary: true }] as unknown as Prisma.InputJsonValue,
-        company: domain.split('.')[0],
+        domain,
+      });
+
+      // Prevent duplicates within this run
+      existingEmails.add(emailAddr);
+    }
+
+    // Fuzzy name dedup: batch check candidates with real names against existing contacts
+    // Only check candidates that have a real name (not just email as displayName)
+    let flaggedForReview = 0;
+    const namesToCheck = candidates
+      .filter((c) => c.displayName !== c.emailAddr && c.displayName.trim().length >= 2)
+      .map((c) => c.displayName);
+
+    const fuzzyMatches = new Set<string>();
+    if (namesToCheck.length > 0) {
+      // Batch fuzzy check: find existing contacts whose displayName is similar to any candidate
+      const fuzzyResults = await this.prisma.$queryRaw<
+        Array<{ candidate_name: string }>
+      >`
+        SELECT DISTINCT cn.name AS candidate_name
+        FROM unnest(${namesToCheck}::text[]) AS cn(name)
+        WHERE EXISTS (
+          SELECT 1
+          FROM "unified_contacts" c
+          WHERE c."tenantId" = ${tenantId}
+            AND c."isDeleted" = false
+            AND c."displayName" IS NOT NULL
+            AND similarity(c."displayName", cn.name) >= 0.6
+        )
+      `;
+      for (const row of fuzzyResults) {
+        fuzzyMatches.add(row.candidate_name);
+      }
+    }
+
+    // Build final create batch, excluding fuzzy matches
+    const contactsToCreate: Array<{
+      tenantId: string;
+      firstName?: string;
+      lastName?: string;
+      displayName: string;
+      emails: Prisma.InputJsonValue;
+      company?: string;
+      metadata: Prisma.InputJsonValue;
+    }> = [];
+
+    for (const candidate of candidates) {
+      if (fuzzyMatches.has(candidate.displayName)) {
+        flaggedForReview++;
+        continue;
+      }
+
+      contactsToCreate.push({
+        tenantId,
+        firstName: candidate.firstName,
+        lastName: candidate.lastName,
+        displayName: candidate.displayName,
+        emails: [{ value: candidate.emailAddr, type: 'work', primary: true }] as unknown as Prisma.InputJsonValue,
+        company: candidate.domain.split('.')[0],
         metadata: {
           source: CONTACT_SOURCES.EMAIL_EXTRACTION,
           extractedAt: new Date().toISOString(),
         } as Prisma.InputJsonValue,
       });
-
-      // Prevent duplicates within this run
-      existingEmails.add(emailAddr);
     }
 
     // Create all contacts in a single transaction
@@ -218,9 +270,11 @@ export class ContactsImportService {
       }
     }
 
-    this.logger.log(`Contact extraction complete: ${created} created, ${skipped} skipped, ${addressMap.size} total`);
+    this.logger.log(
+      `Contact extraction complete: ${created} created, ${skipped} skipped, ${flaggedForReview} flagged, ${addressMap.size} total`,
+    );
 
-    return { created, skipped, total: addressMap.size };
+    return { created, skipped, flaggedForReview, total: addressMap.size };
   }
 
   /**

@@ -135,7 +135,7 @@
 
 - [x] **Phase 125: Dead Code Removal** - Remove JWT dual-stack, deprecated API aliases, and Tailwind CSS package
  (completed 2026-03-31)
-- [x] **Phase 126: Cron-to-BullMQ Migration** - Migrate all @Cron decorators to BullMQ repeatable jobs for multi-instance safety (completed 2026-03-31)
+- [x] **Phase 126: Cron-to-BullMQ Migration** - Migrate all @Cron decorators to BullMQ repeatable jobs for multi-instance safety (completed 2026-03-31)
 - [ ] **Phase 127: Transport & Connection Hardening** - Force WebSocket-only transport and size DB connection pool for replicas
 - [ ] **Phase 128: State Externalization** - Externalize in-memory state to Redis for multi-instance correctness
 - [ ] **Phase 129: Replica Activation** - Enable multi-replica deployment with tuned workers and per-replica observability
@@ -184,7 +184,9 @@ Plans:
   2. Socket.IO client config matches server (websocket-only); real-time features work on Railway without sticky sessions
   3. DB connection pool is configurable via environment variable with a formula that respects Railway PostgreSQL max_connections across N replicas
   4. Connection pool exhaustion does not occur during rolling deploys (old + new instances co-existing)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 127-01-PLAN.md — Force WebSocket-only transport on client + fix DB pool config with env var overrides
 
 ### Phase 128: State Externalization
 **Goal**: No in-memory state diverges across backend replicas
@@ -262,7 +264,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 |-------|-----------|----------------|--------|-----------|
 | 125. Dead Code Removal | v11.0 | 3/3 | Complete    | 2026-03-31 |
 | 126. Cron-to-BullMQ Migration | v11.0 | 2/2 | Complete    | 2026-03-31 |
-| 127. Transport & Connection Hardening | v11.0 | 0/TBD | Not started | - |
+| 127. Transport & Connection Hardening | v11.0 | 0/1 | Not started | - |
 | 128. State Externalization | v11.0 | 0/TBD | Not started | - |
 | 129. Replica Activation | v11.0 | 0/TBD | Not started | - |
 | 130. Frontend Performance | v11.0 | 0/TBD | Not started | - |

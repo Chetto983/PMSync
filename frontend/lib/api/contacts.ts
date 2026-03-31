@@ -137,6 +137,8 @@ export interface ExtractContactsResult {
   success: boolean;
   created: number;
   skipped: number;
+  /** Candidates skipped due to fuzzy name match — need human review */
+  flaggedForReview: number;
   total: number;
 }
 
