@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 127 — transport-connection-hardening
+**Current focus:** Phase 128 — state-externalization
 
 ## Current Position
 
 Phase: 128
-Plan: Not started
-Status: Phase complete — ready for verification
+Plan: 01 of 01 complete
+Status: Plan 128-01 complete
 Last activity: 2026-03-31
 
 Progress: [██████░░░░] 66%
@@ -66,11 +66,15 @@ Progress: [██████░░░░] 66%
 ### Blockers/Concerns
 
 - Research: Autumn webhook contract needs verification before Phase 132 (SDK at 0.1.x)
-- Research: TriageLearningService flush threshold must be read from source before Phase 128
 - Research: CircuitBreaker Redis vs per-instance decision needed in Phase 128 planning
+
+### Decisions
+
+- [Phase 128]: TriageLearningService signalBuffer+scoreCache Maps removed; Redis RPUSH+Lua drain for multi-replica safety
+- [Phase 128]: recordSignal sync->async safe (no external callers); 600s buffer TTL as orphan safety net
 
 ## Session Continuity
 
-Last session: 2026-03-31T09:39:05.802Z
-Stopped at: Completed 127-01-PLAN.md
+Last session: 2026-03-31T10:16:19Z
+Stopped at: Completed 128-01-PLAN.md
 Resume file: None
