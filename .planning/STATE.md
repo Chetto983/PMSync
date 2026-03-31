@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: (none)
-milestone_name: (none)
-status: Between milestones
-last_updated: "2026-03-30T17:30:00.000Z"
+milestone: v11.0
+milestone_name: Legacy Cleanup, Scalability & Billing Hardening
+status: Defining requirements
+last_updated: "2026-03-31T00:00:00.000Z"
 progress:
   total_phases: 0
   completed_phases: 0
@@ -15,15 +15,17 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-03-30)
+See: `.planning/PROJECT.md` (updated 2026-03-31)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Planning next milestone
+**Current focus:** Defining requirements for v11.0
 
 ## Current Position
 
-Phase: (none)
-Plan: (none)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-31 — Milestone v11.0 started
 
 ## Performance Metrics
 
@@ -39,7 +41,7 @@ Plan: (none)
 
 ### Decisions
 
-(Cleared — see `.planning/milestones/v10.0-ROADMAP.md` for v10.0 decisions)
+(None yet)
 
 ### Research Flags
 
@@ -51,7 +53,7 @@ Plan: (none)
 
 ## Session Continuity
 
-Last session: 2026-03-30
-Completed: v10.0 milestone archived
-Next action: /gsd:new-milestone
+Last session: 2026-03-31
+Completed: v11.0 milestone initialization
+Next action: Define requirements
 Resume file: None

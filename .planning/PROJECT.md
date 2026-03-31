@@ -158,7 +158,15 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- Next milestone requirements will go here -->
+## Current Milestone: v11.0 Legacy Cleanup, Scalability & Billing Hardening
+
+**Goal:** Remove all transitional legacy code, optimize for Railway horizontal scaling and performance, and harden + validate the billing system end-to-end.
+
+**Target features:**
+- Legacy removal: JWT dual-stack auth, deprecated API aliases, tailwindcss base injection
+- Horizontal scaling: Multi-instance backend on Railway, DB connection pooling, BullMQ tuning
+- Frontend performance: Bundle size, SSR optimization, CDN caching, Lighthouse targets
+- Billing hardening: E2E validation of Autumn flows + edge case hardening on Railway/Vercel
 
 ### Out of Scope
 
@@ -299,5 +307,22 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v10.0: Code-level evidence fallback for DB queries | When DATABASE_URL unavailable, document code path + partial qualifier instead of hard-failing | ✓ Good |
 | v10.0: WRITE-03/FOLD-03 infrastructure-blocked | Railway/Libero limitations documented as infrastructure gaps, not code gaps; consistent qualifier pattern | ✓ Good |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-30 after v10.0 milestone*
+*Last updated: 2026-03-31 after v11.0 milestone started*
