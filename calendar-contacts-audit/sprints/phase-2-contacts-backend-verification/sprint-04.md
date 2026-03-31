@@ -42,13 +42,13 @@
 - [x] Backend tsc passes clean. Addresses CON-M1.
 
 ### T-0405: Verify contacts sync on production [3 SP]
+- [ ] Push changes and wait for Railway deploy
 - [ ] POST /contacts/sync/:providerId — trigger Google sync
 - [ ] POST /contacts/sync-all — trigger all providers
 - [ ] Verify contacts appear in DB with correct fields
-- [ ] Verify incremental sync (only changes fetched)
+- [ ] Verify full sync works (no incremental sync tokens — always full fetch)
 - [ ] Test POST /contacts/extract-from-emails — creates contacts from threads
 - [ ] Check Railway logs for sync errors
-- [ ] Document sync flow in CHECKPOINT.md
 
 ## Dependencies
 - S03 (contacts API verified)

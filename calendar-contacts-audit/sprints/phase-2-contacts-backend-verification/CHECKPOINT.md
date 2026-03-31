@@ -1,50 +1,47 @@
-# Sprint 03 — Checkpoint
+# Sprint 04 — Checkpoint
 
 ## Status
 
-- **Sprint:** 03 — Contacts API Endpoint Verification
-- **Last Task Completed:** T-0305 — Add reminder controller tests
-- **Next Task:** Sprint 04 (Contacts Sync & Provider Verification)
-- **Tasks Done:** 5/5
-- **SP Completed:** 12/12
-- **Last Updated:** 2026-03-31 14:30
+- **Sprint:** 04 — Contacts Sync, Import & Encoding
+- **Last Task Completed:** T-0404 — Fix vCard encoding handling
+- **Next Task:** T-0405 — Verify contacts sync on production
+- **Tasks Done:** 4/5
+- **SP Completed:** 11/14
+- **Last Updated:** 2026-03-31 15:45
 
 ## Audit Findings Addressed
 
+- CON-C1: Google sync token 7-day expiry — ✅ FALSE POSITIVE (contacts always does full fetch, no sync tokens)
+- CON-C2: Contact etag not checked on updates — ✅ fixed: etag stored during sync, passed in updates, 409 retry
+- CON-C3: Parallel contact mutations per user — ✅ fixed: Redis write mutex on all provider mutations
 - CON-H2: Contact history endpoint stub — ✅ wired to real Email + CalendarEvent data
+- CON-M1: vCard encoding handling — ✅ fixed: QP decoding, BOM strip, CHARSET removal
 - CON-M4: Bulk delete lacks undo — ⚠️ confirmed: uses soft-delete (isDeleted=true), acceptable
-- CON-M5: Contact search GIN trigram index — ✅ verified: displayName GIN index exists, ILIKE leverages it
-- REM-M1: No reminder controller tests — ✅ added 10 tests, all passing
-
-## Tasks Summary
-
-| Task | SP | Status | Key Finding |
-|------|----|--------|-------------|
-| T-0301 | 3 | ✅ | All CRUD endpoints verified. Missing hasEmail/hasPhone filters in DTO (minor). addresses/socialProfiles not in create/update DTO. |
-| T-0302 | 3 | ✅ | History endpoint wired to Email (sent/received) + CalendarEvent (meetings via attendees JSON). CON-H2 fixed. |
-| T-0303 | 2 | ✅ | All special endpoints verified: counts, relationship-scores, stale, vip/list, lookup-by-emails, photo. |
-| T-0304 | 2 | ✅ | GIN trigram index on displayName confirmed. B-tree indexes on (tenantId, lastName, firstName), (tenantId, company). pg_trgm extension enabled. |
-| T-0305 | 2 | ✅ | reminder.controller.spec.ts: 10 tests covering create (structured + AI), list with filters, get, update, complete, delete, bulk delete, tenant isolation. |
+- CON-M5: Contact search GIN trigram index — ✅ verified
+- REM-M1: No reminder controller tests — ✅ added 10 tests
 
 ## Last Modified Files
 
-- backend/src/modules/contacts/contacts.types.ts (added ContactInteraction type)
-- backend/src/modules/contacts/services/contact-provider-ops.service.ts (added getContactHistory)
-- backend/src/modules/contacts/services/contacts.service.ts (added facade method)
-- backend/src/modules/contacts/controllers/contacts.controller.ts (replaced history stub)
+- backend/src/modules/contacts/services/contact-crud.service.ts (Redis lock on all provider mutations)
+- backend/src/modules/contacts/services/google-contacts-sync.service.ts (etag enforcement + 409 retry)
+- backend/src/modules/contacts/services/base-contacts-sync.service.ts (etag in ExtractedContactData)
+- backend/src/modules/contacts/services/contacts-import.service.ts (vCard encoding normalization)
+- backend/src/modules/contacts/services/contact-provider-ops.service.ts (getContactHistory)
+- backend/src/modules/contacts/controllers/contacts.controller.ts (history endpoint wired)
+- backend/src/modules/contacts/contacts.types.ts (ContactInteraction type)
 - backend/src/modules/reminder/controllers/reminder.controller.spec.ts (NEW)
-- calendar-contacts-audit/sprints/phase-2-contacts-backend-verification/sprint-03.md
 
 ## Key Decisions Made
 
-- Contact history queries Email.from with `contains` (handles "Name <email>" format)
-- Calendar event attendee matching uses raw SQL with jsonb_array_elements for efficiency
-- Reminder DELETE is hard delete (prisma.delete), not soft delete — noted as finding deviation from audit expectation
-- hasEmail/hasPhone filters not added to ListContactsQueryDto — counts endpoint provides these numbers
+- CON-C1 is N/A: contacts sync always does full fetch via fetchAllContacts(), no sync tokens used
+- Etag fetched from stored ProviderContact.eTag first, falls back to Google API fetch
+- Redis lock key: `contact-write:{tenantId}:{providerId}` with 30s TTL
+- Contact history queries Email.from with `contains` (handles "Name email" format)
+- vCard QP decoding interprets bytes as Latin-1 codepoints via String.fromCharCode()
 
 ## Blockers / Notes
 
-- None
+- T-0405 (production validation) pending — requires git push + Railway deploy
 
 ## Validation Status
 
