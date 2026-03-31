@@ -340,6 +340,163 @@ export interface CrmResult {
   averageScore?: number;
 }
 
+// --- CRM Deal Tool Outputs ---
+
+export interface CrmDealItem {
+  id: string;
+  name: string;
+  amount: number | null;
+  currency?: string;
+  stage: string;
+  probability?: number;
+  account?: string | null;
+  score?: number | null;
+  priority?: string | null;
+  expectedClose?: string | null;
+  created?: string;
+}
+
+export interface CrmDealListResult {
+  error?: string;
+  pipeline?: string;
+  deals?: CrmDealItem[];
+  count?: number;
+}
+
+export interface CrmDealMoveResult {
+  error?: string;
+  status?: string;
+  deal?: string;
+  from?: string;
+  to?: string;
+  probability?: number;
+  message?: string;
+}
+
+export interface CrmTimelineActivity {
+  type: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+  date: string;
+}
+
+export interface CrmTimelineResult {
+  error?: string;
+  deal?: string;
+  currentStage?: string;
+  created?: string;
+  activities?: CrmTimelineActivity[];
+  count?: number;
+}
+
+// --- CRM Intelligence Tool Outputs ---
+
+export interface CrmLeadScoreResult {
+  error?: string;
+  contactId?: string;
+  contactName?: string;
+  score?: number;
+  tier?: 'hot' | 'warm' | 'cold';
+  confidence?: number;
+  features?: Record<string, unknown>;
+  computedAt?: string;
+}
+
+export interface CrmTopLead {
+  contactId: string;
+  name: string;
+  email?: string | null;
+  score: number;
+  tier: 'hot' | 'warm' | 'cold';
+  confidence?: number;
+}
+
+export interface CrmTopLeadsResult {
+  error?: string;
+  leads?: CrmTopLead[];
+  count?: number;
+}
+
+export interface CrmForecastPeriod {
+  label: string;
+  predicted: number;
+  confidenceLow?: number | null;
+  confidenceHigh?: number | null;
+  actual?: number | null;
+}
+
+export interface CrmForecastResult {
+  error?: string;
+  pipeline?: string;
+  period?: string;
+  method?: string;
+  mae?: number;
+  forecasts?: CrmForecastPeriod[];
+}
+
+export interface CrmChurnRiskResult {
+  error?: string;
+  message?: string;
+  contactId?: string | null;
+  accountId?: string | null;
+  contactName?: string | null;
+  accountName?: string | null;
+  riskLevel?: string;
+  probability?: number;
+  signals?: unknown[];
+  reasoning?: string;
+  computedAt?: string;
+}
+
+export interface CrmChurnAtRiskItem {
+  contactId?: string | null;
+  accountId?: string | null;
+  name: string;
+  riskLevel: string;
+  probability: number;
+  topSignal?: unknown;
+}
+
+export interface CrmChurnAtRiskResult {
+  error?: string;
+  atRisk?: CrmChurnAtRiskItem[];
+  count?: number;
+}
+
+export interface CrmAiCostFeature {
+  feature: string;
+  cost: string;
+  tokens: number;
+  calls: number;
+}
+
+export interface CrmAiCostsResult {
+  error?: string;
+  range?: string;
+  features?: CrmAiCostFeature[];
+  totalCost?: string;
+  totalTokens?: number;
+}
+
+export interface CrmModelEntry {
+  modelType: string;
+  version: string;
+  isActive: boolean;
+  lastTrained: string;
+  accuracy: number | null;
+}
+
+export interface CrmModelPerformanceResult {
+  error?: string;
+  models?: CrmModelEntry[];
+  recentAccuracy?: Array<{
+    date: string;
+    modelType: string;
+    metric: string;
+    value: number;
+  }>;
+}
+
 // --- Bulk Action / Triage Tool Output ---
 
 export interface BulkActionResult {

@@ -26,6 +26,17 @@ const AskUserRenderer = lazy(() => import('./ConversationToolUI').then(m => ({ d
 const SaveMemoryRenderer = lazy(() => import('./ConversationToolUI').then(m => ({ default: m.SaveMemoryRenderer })));
 const CreateReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.CreateReminderRenderer })));
 const ListRemindersRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.ListRemindersRenderer })));
+// Sprint 14.1: CRM deal + intelligence + governance renderers
+const DealListRenderer = lazy(() => import('./DealsToolUI').then(m => ({ default: m.DealListRenderer })));
+const DealMoveRenderer = lazy(() => import('./DealsToolUI').then(m => ({ default: m.DealMoveRenderer })));
+const DealTimelineRenderer = lazy(() => import('./DealsToolUI').then(m => ({ default: m.DealTimelineRenderer })));
+const LeadScoreRenderer = lazy(() => import('./CrmIntelligenceToolUI').then(m => ({ default: m.LeadScoreRenderer })));
+const TopLeadsRenderer = lazy(() => import('./CrmIntelligenceToolUI').then(m => ({ default: m.TopLeadsRenderer })));
+const ChurnRiskRenderer = lazy(() => import('./CrmIntelligenceToolUI').then(m => ({ default: m.ChurnRiskRenderer })));
+const ChurnAtRiskRenderer = lazy(() => import('./CrmIntelligenceToolUI').then(m => ({ default: m.ChurnAtRiskRenderer })));
+const ForecastRenderer = lazy(() => import('./CrmIntelligenceToolUI').then(m => ({ default: m.ForecastRenderer })));
+const AiCostsRenderer = lazy(() => import('./GovernanceToolUI').then(m => ({ default: m.AiCostsRenderer })));
+const ModelPerformanceRenderer = lazy(() => import('./GovernanceToolUI').then(m => ({ default: m.ModelPerformanceRenderer })));
 
 export { FallbackToolRenderer } from './FallbackToolUI';
 
@@ -50,4 +61,15 @@ export const TOOL_RENDERERS = {
   save_memory: SaveMemoryRenderer,
   create_reminder: CreateReminderRenderer,
   list_reminders: ListRemindersRenderer,
+  // Sprint 14.1: CRM deal + intelligence + governance
+  get_deals_by_pipeline: DealListRenderer,
+  move_deal_stage: DealMoveRenderer,
+  get_deal_timeline: DealTimelineRenderer,
+  get_lead_score: LeadScoreRenderer,
+  list_top_leads: TopLeadsRenderer,
+  get_churn_risk: ChurnRiskRenderer,
+  list_churn_at_risk: ChurnAtRiskRenderer,
+  get_revenue_forecast: ForecastRenderer,
+  get_ai_costs: AiCostsRenderer,
+  get_model_performance: ModelPerformanceRenderer,
 } as const;
