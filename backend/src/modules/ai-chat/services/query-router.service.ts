@@ -160,8 +160,19 @@ export class QueryRouterService {
     }
 
     // ── Default: search (safe fallback — never skip tools by default) ─
-    signals.push('default:no_match');
+    signals.push('default:fallback_to_search');
+    this.logger.debug(
+      `[QueryRouter fallback] No patterns matched for "${trimmed.slice(0, 60)}" — defaulting to search`,
+    );
     return { complexity: 'search', confidence: 0.5, signals };
+  }
+
+  /**
+   * Whether the classification used the default fallback (no patterns matched).
+   * Callers can use this to log fallback events for monitoring.
+   */
+  isFallback(classification: QueryClassification): boolean {
+    return classification.signals.includes('default:fallback_to_search');
   }
 
   /**

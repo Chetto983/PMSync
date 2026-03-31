@@ -207,6 +207,22 @@ export class AiChatService {
       `[QueryRouter] "${message.slice(0, 60)}" → ${classification.complexity} (${classification.confidence.toFixed(2)}) [${classification.signals.join(", ")}]`,
     );
 
+    // CHAT-H2: Log fallback events to ledger for monitoring
+    if (this.queryRouterService.isFallback(classification)) {
+      this.ledgerService
+        ?.recordRun({
+          tenantId,
+          userId,
+          runType: 'query_router_fallback',
+          model: 'heuristic',
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs: 0,
+        })
+        .catch((err) => this.logger.warn(`Ledger fallback log: ${err.message}`));
+    }
+
     // Phase 108: Load HITL sensitivity preference for dynamic needsApproval
     let userPrefs: { hitlSensitivity: string | null } | null = null;
     try {
