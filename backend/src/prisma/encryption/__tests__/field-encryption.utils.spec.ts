@@ -3,7 +3,6 @@ import {
   encryptFieldValue,
   decryptFieldValue,
   isEncrypted,
-  hashForSearch,
   hmacForBlindIndex,
   ENCRYPTION_PREFIX,
 } from '../field-encryption.utils';
@@ -71,32 +70,6 @@ describe('field-encryption.utils', () => {
 
     it('returns false for empty string', () => {
       expect(isEncrypted('')).toBe(false);
-    });
-  });
-
-  describe('hashForSearch', () => {
-    it('produces consistent hash', () => {
-      const h1 = hashForSearch('john@test.com', 'tenant-1', 'salt1');
-      const h2 = hashForSearch('john@test.com', 'tenant-1', 'salt1');
-      expect(h1).toBe(h2);
-    });
-
-    it('produces different hash for different input', () => {
-      const h1 = hashForSearch('john@test.com', 'tenant-1', 'salt1');
-      const h2 = hashForSearch('jane@test.com', 'tenant-1', 'salt1');
-      expect(h1).not.toBe(h2);
-    });
-
-    it('normalizes case', () => {
-      const h1 = hashForSearch('JOHN@TEST.COM', 'tenant-1', 'salt1');
-      const h2 = hashForSearch('john@test.com', 'tenant-1', 'salt1');
-      expect(h1).toBe(h2);
-    });
-
-    it('isolates by tenant', () => {
-      const h1 = hashForSearch('john@test.com', 'tenant-1', 'salt1');
-      const h2 = hashForSearch('john@test.com', 'tenant-2', 'salt1');
-      expect(h1).not.toBe(h2);
     });
   });
 

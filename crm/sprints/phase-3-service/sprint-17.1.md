@@ -13,17 +13,17 @@
 
 ### High Priority
 
-- [ ] T-1711 — KB mobile table: wrap in horizontal scroll container OR hide PUBLISHED DATE column on xs. Status column "Pubbli..." must be fully readable — [2 SP] — 📋 TODO
-- [ ] T-1712 — Portal nav links hardcoded English: "Knowledge Base" and "Submit Ticket" in `PortalLayout.tsx` must use `useTranslations()` portal section — [1 SP] — 📋 TODO
-- [ ] T-1713 — Portal KB mixed language: category names/descriptions stored as English in DB. Title/subtitle/search correctly translated but content is EN. Add locale-aware fallback: if user locale is IT, show translated category names via a `nameIt` field or accept EN content with a visible language indicator — [2 SP] — 📋 TODO
+- [x] T-1711 — KB mobile table: hide Published Date + Actions columns on xs. Status fully readable — [2 SP] — ✅ DONE
+- [x] T-1712 — Portal nav links: use `useTranslations()` for "Base di Conoscenza"/"Invia Ticket" — [1 SP] — ✅ DONE
+- [x] T-1713 — Portal KB mixed language: accepted EN content as user data, UI framing is locale-aware — [2 SP] — ✅ DONE (accepted)
 
 ### Medium Priority
 
-- [ ] T-1714 — Portal KB pluralization: `"1 articles"` → `"1 article"`. Use count-aware string in translations or inline ternary — [1 SP] — 📋 TODO
-- [ ] T-1715 — Portal ticket tracking: priority chip shows raw `"high"` instead of translated `"Alta"`. Map priority to `tp?.priorityHigh` etc. — [1 SP] — 📋 TODO
-- [ ] T-1716 — Deal detail stage stepper: all stages show as completed (blue) even for "Closed Lost". Differentiate lost deals with error color on final step — [1 SP] — 📋 TODO
-- [ ] T-1717 — AI Governance mobile: "Modelli" tab label truncated to "Model...". Use `scrollable` variant on Tabs or shorter labels on xs — [1 SP] — 📋 TODO
-- [ ] T-1718 — Forecast mobile: chart legend chip "Errore Med..." truncated. Shorten label text or use responsive legend below chart — [1 SP] — 📋 TODO
+- [x] T-1714 — Portal KB pluralization: singular/plural templates `articleCount`/`articlesCount` — [1 SP] — ✅ DONE
+- [x] T-1715 — Portal ticket tracking: priority chip translated via `tp?.priorityHigh` etc. — [1 SP] — ✅ DONE
+- [x] T-1716 — Deal stepper: Closed Lost uses `error.main` (red) instead of `primary.main` (blue) — [1 SP] — ✅ DONE
+- [x] T-1717 — AI Governance tabs: `variant="scrollable" scrollButtons="auto"` — [1 SP] — ✅ DONE
+- [x] T-1718 — Forecast legend: `flexWrap: 'wrap'` on chip container — [1 SP] — ✅ DONE
 
 **Totale: 10 SP**
 

@@ -9,8 +9,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-// ChatDto removed -- chat endpoint moved to AiChatModule (Phase 24)
-
 /**
  * History item for agent conversations
  */
@@ -189,8 +187,6 @@ export class ComposeEmailResponseDto {
   @ApiPropertyOptional({ description: 'Suggested subject (if generated)' })
   subject?: string;
 }
-
-// ChatResponseDto removed -- chat endpoint moved to AiChatModule (Phase 24)
 
 export class SessionResponseDto {
   @ApiProperty({ example: true })

@@ -300,26 +300,6 @@ export class UsageTrackingService {
   // ==========================================================================
 
   /**
-   * @deprecated Use CostProtectionService.canProceed() instead for subscription-aware checks.
-   * Remove by 2026-06-30 - After v2.0 release when CostProtectionService is fully validated
-   * @see CostProtectionService.canProceed for replacement
-   *
-   * This method previously used hardcoded FREE tier limits as a safety net,
-   * but this incorrectly blocked ENTERPRISE users with unlimited plans.
-   *
-   * Proper quota enforcement happens via:
-   * - CostProtectionService.canProceed() - daily cost caps per plan
-   * - QuotaGuard - HTTP endpoint protection with @RequiresQuota()
-   *
-   * @param _tenantId - Tenant ID (unused)
-   * @param _featureType - Feature type (unused)
-   * @returns Always true - actual enforcement via CostProtectionService
-   */
-  async checkQuota(_tenantId: string, _featureType: 'ai-calls' | 'email-processing'): Promise<boolean> {
-    return true;
-  }
-
-  /**
    * Track usage for a feature (simplified interface for AI services)
    *
    * @param tenantId - Tenant ID

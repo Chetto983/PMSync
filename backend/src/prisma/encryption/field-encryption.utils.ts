@@ -62,19 +62,6 @@ export function isEncrypted(value: string): boolean {
 }
 
 /**
- * Generate a deterministic SHA-256 hash for exact-match search on encrypted fields.
- * NOTE: Reserved for future Tier 2 implementation (from/subject/displayName).
- * Not used in Phase 14 Tier 1 (body fields don't need search).
- *
- * @deprecated Use {@link hmacForBlindIndex} instead. hmacForBlindIndex uses HMAC-SHA256
- * with per-tenant HKDF-derived keys for cryptographically stronger blind indexes.
- */
-export function hashForSearch(value: string, tenantId: string, salt: string): string {
-  const normalized = `${salt}:${tenantId}:${value.toLowerCase().trim()}`;
-  return createHash('sha256').update(normalized).digest('hex');
-}
-
-/**
  * Compute a deterministic HMAC-SHA256 blind index for exact-match search.
  *
  * Normalizes input (lowercase + trim) before hashing to ensure consistent

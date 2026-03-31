@@ -284,17 +284,6 @@ export class RealtimeEventsService implements OnModuleDestroy {
   }
 
   /**
-   * @deprecated Never called — use emitFolderCountsUpdate() instead.
-   * Folder counts are the single source of truth for unread badges (DASH-C2).
-   */
-  emitUnreadCountUpdate(
-    tenantId: string,
-    payload: RealtimeEventPayloads['email:unread_count_update'],
-  ) {
-    void this.emitToTenant(tenantId, 'email:unread_count_update', payload);
-  }
-
-  /**
    * Canonical real-time count broadcast — single source of truth.
    * Dashboard and sidebar both consume folder counts via useUnifiedEmailCounts().
    */
