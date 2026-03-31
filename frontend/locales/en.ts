@@ -3679,6 +3679,17 @@ export const en: AppTranslations = {
       contact2: 'Contact B',
       noValue: '(empty)',
     },
+    duplicates: {
+      title: 'Possible Duplicates',
+      noDuplicates: 'No duplicates found.',
+      mergeWith: 'Merge',
+      confidence: 'Confidence',
+      matchType: 'Match type',
+      emailExact: 'Exact email',
+      nameFuzzy: 'Similar name',
+      phoneExact: 'Same phone',
+      findDuplicates: 'Find Duplicates',
+    },
     // UI labels
     edit: 'Edit',
     close: 'Close',

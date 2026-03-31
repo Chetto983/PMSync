@@ -1921,6 +1921,17 @@ export interface AppTranslations {
       contact2?: string;
       noValue?: string;
     };
+    duplicates?: {
+      title?: string;
+      noDuplicates?: string;
+      mergeWith?: string;
+      confidence?: string;
+      matchType?: string;
+      emailExact?: string;
+      nameFuzzy?: string;
+      phoneExact?: string;
+      findDuplicates?: string;
+    };
     edit: string;
     close: string;
   };

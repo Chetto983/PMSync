@@ -47,4 +47,7 @@ export const contactsKeys = {
 
   // VIP contacts
   vip: () => [...contactsKeys.all, 'vip'] as const,
+
+  // Duplicate candidates for a contact
+  duplicates: (id: string) => [...contactsKeys.all, 'duplicates', id] as const,
 } as const;

@@ -17,6 +17,7 @@ import {
   Trash2,
   X,
   Star,
+  GitMerge,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { Contact } from '@/lib/api/contacts';
@@ -26,6 +27,8 @@ import { ContactInfoPanel } from './contact-detail/ContactInfoPanel';
 import { ContactActivityFeed } from './contact-detail/ContactActivityFeed';
 import { ContactNotesTab } from './contact-detail/ContactNotesTab';
 import { ChurnRiskBadge } from '../dashboard/crm-churn/ChurnRiskBadge';
+import { ContactDuplicatesDialog } from './ContactDuplicatesDialog';
+import { ContactMergeDialog } from './ContactMergeDialog';
 
 /**
  * Props for ContactDetail component
@@ -51,6 +54,8 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   const contactsCopy = t.contacts || {};
   const detailsCopy = contactsCopy.details || {};
   const [tabValue, setTabValue] = useState(0);
+  const [dupsOpen, setDupsOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<Contact | null>(null);
 
   const toggleVipMutation = useToggleVip();
   const handleToggleVip = useCallback(() => {
@@ -137,6 +142,11 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                 </IconButton>
               </Tooltip>
             )}
+            <Tooltip title={t.contacts?.duplicates?.findDuplicates || 'Find Duplicates'}>
+              <IconButton size="small" onClick={() => setDupsOpen(true)} disabled={isLoading}>
+                <GitMerge size={18} />
+              </IconButton>
+            </Tooltip>
             {/* Mobile close button */}
             {onClose && (
               <IconButton
@@ -195,6 +205,26 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           <ContactNotesTab />
         </TabPanel>
       </Box>
+
+      <ContactDuplicatesDialog
+        open={dupsOpen}
+        onClose={() => setDupsOpen(false)}
+        contact={contact}
+        onMergeRequest={(dup) => {
+          setDupsOpen(false);
+          setMergeTarget(dup);
+        }}
+      />
+
+      {mergeTarget && (
+        <ContactMergeDialog
+          open={!!mergeTarget}
+          onClose={() => setMergeTarget(null)}
+          contactA={contact}
+          contactB={mergeTarget}
+          onMergeComplete={() => setMergeTarget(null)}
+        />
+      )}
     </Box>
   );
 };

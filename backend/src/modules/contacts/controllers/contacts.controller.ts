@@ -21,6 +21,7 @@ import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorato
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { RelationshipScoreService } from '../services/relationship-score.service';
+import { ContactDedupService } from '../services/contact-dedup.service';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
@@ -47,6 +48,7 @@ export class ContactsController {
     private readonly contactsService: ContactsService,
     private readonly contactsSyncQueue: ContactsSyncQueueService,
     private readonly relationshipScoreService: RelationshipScoreService,
+    private readonly contactDedupService: ContactDedupService,
     private readonly prisma: PrismaService,
   ) { }
 
@@ -119,6 +121,47 @@ export class ContactsController {
   async getContactCounts(@Req() req: any) {
     const tenantId = req.user.tenantId;
     return this.contactsService.getContactCounts(tenantId);
+  }
+
+  /**
+   * Find duplicate candidates for a contact
+   * GET /api/contacts/:id/duplicates
+   */
+  @Get(':id/duplicates')
+  @ApiOperation({ summary: 'Find duplicate contacts', description: 'Returns potential duplicates for a contact' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
+  @ApiResponse({ status: 200, description: 'Duplicates returned' })
+  async findDuplicates(@Req() req: any, @Param('id') contactId: string) {
+    const tenantId = req.user.tenantId;
+    const contact = await this.contactsService.getContact(tenantId, contactId);
+    const duplicates = await this.contactDedupService.findDuplicates(
+      tenantId,
+      { emails: contact.emails as any, phoneNumbers: contact.phoneNumbers as any, displayName: contact.displayName },
+      contactId,
+    );
+    return { success: true, duplicates, total: duplicates.length };
+  }
+
+  /**
+   * Merge two contacts
+   * POST /api/contacts/merge
+   */
+  @Post('merge')
+  @Roles('admin', 'super-admin')
+  @RateTierDecorator('destructive-write')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Merge contacts', description: 'Merges secondary into primary contact' })
+  @ApiResponse({ status: 200, description: 'Contacts merged successfully' })
+  async mergeContacts(
+    @Req() req: any,
+    @Body() body: { primaryId: string; secondaryId: string; fieldSelections?: Record<string, 'primary' | 'secondary'> },
+  ) {
+    const tenantId = req.user.tenantId;
+    if (!body.primaryId || !body.secondaryId) {
+      throw new BadRequestException('primaryId and secondaryId are required');
+    }
+    const merged = await this.contactDedupService.mergeContacts(tenantId, body.primaryId, body.secondaryId, body.fieldSelections);
+    return { success: true, contact: merged };
   }
 
   /**

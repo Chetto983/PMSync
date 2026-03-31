@@ -298,6 +298,16 @@ export const contactsApi = {
     const response = await apiClient.get<ListContactsResponse>('/contacts/vip/list');
     return response.data;
   },
+
+  async findDuplicates(contactId: string): Promise<DuplicateCandidatesResponse> {
+    const response = await apiClient.get<DuplicateCandidatesResponse>(`/contacts/${contactId}/duplicates`);
+    return response.data;
+  },
+
+  async mergeContacts(primaryId: string, secondaryId: string, fieldSelections?: Record<string, 'primary' | 'secondary'>): Promise<{ success: boolean; contact: Contact }> {
+    const response = await apiClient.post<{ success: boolean; contact: Contact }>('/contacts/merge', { primaryId, secondaryId, fieldSelections });
+    return response.data;
+  },
 };
 
 /**
@@ -314,6 +324,21 @@ export interface SenderContactInfo {
  * Map of email address -> contact info
  */
 export type SenderContactMap = Record<string, SenderContactInfo>;
+
+export interface DuplicateCandidate {
+  contactId: string;
+  displayName: string | null;
+  emails: ContactEmail[] | null;
+  phoneNumbers: ContactPhone[] | null;
+  matchType: 'email_exact' | 'name_fuzzy' | 'phone_exact';
+  confidence: number;
+}
+
+export interface DuplicateCandidatesResponse {
+  success: boolean;
+  duplicates: DuplicateCandidate[];
+  total: number;
+}
 
 export interface ContactInteraction {
   id: string;

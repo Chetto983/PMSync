@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -21,8 +21,8 @@ import {
   useTheme,
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useUpdateContact, useDeleteContact } from '@/hooks/queries/use-contacts';
-import type { Contact, UpdateContactDto } from '@/lib/api/contacts';
+import { useMergeContacts } from '@/hooks/queries/use-contacts';
+import type { Contact } from '@/lib/api/contacts';
 
 interface ContactMergeDialogProps {
   open: boolean;
@@ -83,8 +83,7 @@ export function ContactMergeDialog({
   const t = useTranslations();
   const mg = t.contacts?.merge;
 
-  const updateContact = useUpdateContact();
-  const deleteContact = useDeleteContact();
+  const mergeContactsMutation = useMergeContacts();
 
   // Track which side is selected for each field: 'a' or 'b'
   const [selections, setSelections] = useState<Record<MergeField, 'a' | 'b'>>(() => {
@@ -99,65 +98,24 @@ export function ContactMergeDialog({
     setSelections((prev) => ({ ...prev, [field]: side }));
   }, []);
 
-  // Build the merged DTO from selections
-  const mergedDto = useMemo((): UpdateContactDto | null => {
-    if (!contactA || !contactB) return null;
-
-    const dto: UpdateContactDto = {};
-    for (const field of MERGE_FIELDS) {
-      const source = selections[field] === 'a' ? contactA : contactB;
-      const val = getFieldValue(source, field);
-      if (val) {
-        (dto as Record<string, string>)[field] = val;
-      }
-    }
-
-    // Merge arrays: combine emails and phones from both contacts (deduplicated)
-    const mergedEmails = [
-      ...(contactA.emails ?? []),
-      ...(contactB.emails ?? []),
-    ];
-    const seenEmails = new Set<string>();
-    dto.emails = mergedEmails.filter((e) => {
-      const key = e.value?.toLowerCase();
-      if (!key || seenEmails.has(key)) return false;
-      seenEmails.add(key);
-      return true;
-    });
-
-    const mergedPhones = [
-      ...(contactA.phoneNumbers ?? []),
-      ...(contactB.phoneNumbers ?? []),
-    ];
-    const seenPhones = new Set<string>();
-    dto.phoneNumbers = mergedPhones.filter((p) => {
-      const key = p.value;
-      if (!key || seenPhones.has(key)) return false;
-      seenPhones.add(key);
-      return true;
-    });
-
-    // Merge tags
-    const allTags = new Set([
-      ...(contactA.tags ?? []),
-      ...(contactB.tags ?? []),
-    ]);
-    if (allTags.size > 0) dto.tags = [...allTags];
-
-    return dto;
-  }, [contactA, contactB, selections]);
-
   const handleMerge = useCallback(async () => {
-    if (!contactA || !contactB || !mergedDto) return;
+    if (!contactA || !contactB) return;
 
     setMerging(true);
     setError(null);
 
     try {
-      // 1. Update the "keep" contact (A) with merged fields
-      await updateContact.mutateAsync({ id: contactA.id, data: mergedDto });
-      // 2. Delete the duplicate contact (B)
-      await deleteContact.mutateAsync(contactB.id);
+      // Build field selections for the backend merge endpoint
+      const fieldSelections: Record<string, 'primary' | 'secondary'> = {};
+      for (const field of MERGE_FIELDS) {
+        fieldSelections[field] = selections[field] === 'a' ? 'primary' : 'secondary';
+      }
+
+      await mergeContactsMutation.mutateAsync({
+        primaryId: contactA.id,
+        secondaryId: contactB.id,
+        fieldSelections,
+      });
 
       onMergeComplete?.();
       onClose();
@@ -170,7 +128,7 @@ export function ContactMergeDialog({
     } finally {
       setMerging(false);
     }
-  }, [contactA, contactB, mergedDto, updateContact, deleteContact, mg, onClose, onMergeComplete]);
+  }, [contactA, contactB, selections, mergeContactsMutation, mg, onClose, onMergeComplete]);
 
   if (!contactA || !contactB) return null;
 

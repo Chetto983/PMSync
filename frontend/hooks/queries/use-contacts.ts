@@ -23,6 +23,7 @@ import {
   type ExtractContactsParams,
   type ExtractContactsResult,
   type VCardImportResult,
+  type DuplicateCandidatesResponse,
 } from '@/lib/api/contacts';
 import { contactsKeys } from './contacts-keys';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
@@ -830,6 +831,38 @@ export function useToggleVip() {
       queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
       queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'search'] });
       queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'provider'] });
+    },
+  });
+}
+
+// ── Duplicates & Merge ─────────────────────────────────────────────
+
+export const contactDuplicatesOptions = (contactId: string) =>
+  queryOptions<DuplicateCandidatesResponse>({
+    queryKey: contactsKeys.duplicates(contactId),
+    queryFn: () => contactsApi.findDuplicates(contactId),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!contactId,
+  });
+
+export function useContactDuplicates(contactId: string) {
+  return useQuery(contactDuplicatesOptions(contactId));
+}
+
+export function useMergeContacts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ primaryId, secondaryId, fieldSelections }: {
+      primaryId: string;
+      secondaryId: string;
+      fieldSelections?: Record<string, 'primary' | 'secondary'>;
+    }) => contactsApi.mergeContacts(primaryId, secondaryId, fieldSelections),
+    onSuccess: (_, { primaryId }) => {
+      queryClient.invalidateQueries({ queryKey: contactsKeys.detail(primaryId) });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.counts() });
     },
   });
 }
