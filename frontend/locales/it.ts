@@ -4007,8 +4007,8 @@ export const it: AppTranslations = {
       redirecting: 'Reindirizzamento al checkout...',
     },
     errors: {
-      loadFailed: 'Impossibile caricare i dettagli abbonamento',
-      updateFailed: 'Impossibile aggiornare l\'abbonamento',
+      loadFailed: 'Impossibile caricare i dettagli abbonamento. Ricarica la pagina.',
+      updateFailed: 'Impossibile aggiornare l\'abbonamento. Riprova o contatta il supporto.',
       cancelFailed: 'Impossibile annullare l\'abbonamento',
       quotaExceeded: 'Quota superata per questa funzionalità',
       featureNotAvailable: 'Questa funzionalità non è disponibile nel tuo piano',

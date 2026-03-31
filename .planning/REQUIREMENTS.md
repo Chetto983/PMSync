@@ -30,7 +30,7 @@ Requirements for Legacy Cleanup, Scalability & Billing Hardening. Each maps to r
 
 ### Billing Hardening
 
-- [ ] **BILL-01**: Frontend billing UI implemented (pricing table, plan upgrade flow, usage dashboard, billing portal redirect)
+- [x] **BILL-01**: Frontend billing UI implemented (pricing table, plan upgrade flow, usage dashboard, billing portal redirect)
 - [ ] **BILL-02**: Webhook endpoint for Autumn/Stripe events with signature verification and idempotent event processing
 - [ ] **BILL-03**: E2E validation scripts for all billing flows on Railway/Vercel (attach, check, track, cancel, billing portal)
 - [ ] **BILL-04**: Edge cases hardened (payment failure handling, mid-cycle plan changes, cancellation flow, usage counter race conditions)
@@ -77,7 +77,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-02 | Phase 130 | Complete |
 | PERF-03 | Phase 129 | Complete |
 | PERF-04 | Phase 129 | Complete |
-| BILL-01 | Phase 131 | Pending |
+| BILL-01 | Phase 131 | Complete |
 | BILL-02 | Phase 132 | Pending |
 | BILL-03 | Phase 133 | Pending |
 | BILL-04 | Phase 132 | Pending |

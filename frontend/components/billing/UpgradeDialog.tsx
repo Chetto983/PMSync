@@ -71,7 +71,7 @@ export function UpgradeDialog({
               py: 8,
             }}
           >
-            <CircularProgress size={48} sx={{ mb: 3 }} />
+            <CircularProgress size={48} sx={{ mb: 2 }} />
             <Typography variant="h6" sx={{ mb: 1 }}>
               {t.billing?.checkout?.redirecting || 'Redirecting to checkout...'}
             </Typography>

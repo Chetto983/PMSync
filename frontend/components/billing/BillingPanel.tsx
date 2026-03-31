@@ -37,7 +37,7 @@ interface TabPanelProps {
 function TabPanel({ children, value, index }: TabPanelProps) {
   return (
     <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
     </div>
   );
 }
@@ -105,7 +105,7 @@ export function BillingPanel() {
           sx={{
             '& .MuiTab-root': {
               textTransform: 'none',
-              fontWeight: 500,
+              fontWeight: 400,
               minHeight: 48,
             },
           }}
@@ -118,7 +118,7 @@ export function BillingPanel() {
       </Box>
 
       <TabPanel value={tab} index={0}>
-        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
           <SubscriptionCard
             subscription={subscription}
             isLoading={isLoading}
@@ -131,8 +131,8 @@ export function BillingPanel() {
         {subscription?.plan === 'FREE' && (
           <Box
             sx={{
-              mt: 3,
-              p: 3,
+              mt: 2,
+              p: 2,
               borderRadius: 3,
               background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
               border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
@@ -148,7 +148,7 @@ export function BillingPanel() {
                 border: 'none',
                 borderRadius: 2,
                 px: 4,
-                py: 1.5,
+                py: 1,
                 fontSize: '1rem',
                 fontWeight: 600,
                 cursor: 'pointer',

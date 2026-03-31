@@ -135,7 +135,7 @@ function PlanCard({ plan, isCurrent, isRecommended, onSelect, isAttaching, t }: 
         <Box sx={{ mb: 2 }}>
           {plan.price !== null ? (
             <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>
                 ${plan.price}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>

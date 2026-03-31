@@ -55,16 +55,16 @@ export function UsageCard({ subscription, isLoading }: UsageCardProps) {
   return (
     <Card sx={{ borderRadius: 3 }}>
       <CardContent sx={{ p: 3 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 3 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
           {t.billing?.usage?.title || 'Usage This Period'}
         </Typography>
 
         {/* Emails Usage */}
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Mail size={16} color={theme.palette.text.secondary} />
-              <Typography variant="body2" fontWeight={500}>
+              <Typography variant="body2" fontWeight={400}>
                 {t.billing?.usage?.emails || 'Emails Processed'}
               </Typography>
             </Box>
@@ -98,7 +98,7 @@ export function UsageCard({ subscription, isLoading }: UsageCardProps) {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Sparkles size={16} color={theme.palette.text.secondary} />
-              <Typography variant="body2" fontWeight={500}>
+              <Typography variant="body2" fontWeight={400}>
                 {t.billing?.usage?.aiCalls || 'AI Calls'}
               </Typography>
             </Box>
