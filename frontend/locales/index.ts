@@ -304,6 +304,7 @@ export interface AppTranslations {
     crmForecast: string;
     crmChurn: string;
     crmGovernance: string;
+    crmTickets: string;
     settings: string;
     profile: string;
     logout: string;
@@ -4812,6 +4813,64 @@ export interface AppTranslations {
       accepted?: string;
       executed?: string;
       dismissed?: string;
+    };
+  };
+  crmTickets?: {
+    title?: string;
+    subtitle?: string;
+    newTicket?: string;
+    noTickets?: string;
+    noTicketsHint?: string;
+    loadError?: string;
+    search?: string;
+    columns?: {
+      subject?: string;
+      status?: string;
+      priority?: string;
+      assignee?: string;
+      contact?: string;
+      account?: string;
+      createdAt?: string;
+    };
+    status?: {
+      open?: string;
+      in_progress?: string;
+      waiting?: string;
+      resolved?: string;
+      closed?: string;
+    };
+    priority?: {
+      low?: string;
+      medium?: string;
+      high?: string;
+      urgent?: string;
+    };
+    form?: {
+      subject?: string;
+      description?: string;
+      priority?: string;
+      assignee?: string;
+      contact?: string;
+      account?: string;
+      slaDeadline?: string;
+      status?: string;
+    };
+    detail?: {
+      title?: string;
+      comments?: string;
+      addComment?: string;
+      commentPlaceholder?: string;
+      internalNote?: string;
+      noComments?: string;
+      linkedEmail?: string;
+      timeline?: string;
+    };
+    actions?: {
+      create?: string;
+      update?: string;
+      delete?: string;
+      changeStatus?: string;
+      confirmDelete?: string;
     };
   };
   aiGovernance?: {

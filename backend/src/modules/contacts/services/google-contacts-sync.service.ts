@@ -34,20 +34,34 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
     const peopleService = this.createPeopleClient(accessToken);
     const allContacts: people_v1.Schema$Person[] = [];
     let pageToken: string | undefined;
+    let pageCount = 0;
 
     do {
-      const response = await withRetry(() => peopleService.people.connections.list({
-        resourceName: 'people/me',
-        pageSize: 1000, // Max page size for efficiency
-        pageToken,
-        personFields:
-          'names,emailAddresses,phoneNumbers,organizations,addresses,birthdays,photos,biographies,urls',
-      }));
+      const response = await withRetry(
+        () => peopleService.people.connections.list({
+          resourceName: 'people/me',
+          pageSize: 1000, // Max page size for efficiency
+          pageToken,
+          personFields:
+            'names,emailAddresses,phoneNumbers,organizations,addresses,birthdays,photos,biographies,urls',
+        }),
+        { provider: 'google', operationName: 'fetchContacts', maxRetries: 3, logger: this.logger },
+      );
 
       const connections = response.data.connections || [];
       allContacts.push(...connections);
       pageToken = response.data.nextPageToken || undefined;
+      pageCount++;
+
+      // T-0503: Inter-page delay to respect Google People API read quota (90 req/min/user)
+      if (pageToken) {
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
     } while (pageToken);
+
+    if (pageCount > 1) {
+      this.logger.log(`Fetched ${allContacts.length} contacts across ${pageCount} pages`);
+    }
 
     return allContacts;
   }
@@ -314,11 +328,12 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
       const peopleService = this.createPeopleClient(accessToken);
 
       // Fetch the contact with photo field
-      const response = await withRetry(() =>
-        peopleService.people.get({
+      const response = await withRetry(
+        () => peopleService.people.get({
           resourceName: externalId,
           personFields: 'photos',
-        })
+        }),
+        { provider: 'google', operationName: 'getContactPhoto', maxRetries: 2, logger: this.logger },
       );
 
       const photoUrl = response.data.photos?.[0]?.url;
