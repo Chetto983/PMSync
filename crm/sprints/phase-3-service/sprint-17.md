@@ -18,9 +18,9 @@
 - [x] T-1705 — KB search API: `GET /kb/search?q=term` con PostgreSQL full-text search (`plainto_tsquery` + `ts_rank`). Restituire titolo, snippet (ts_headline), categoria, relevance score. Limitare a articoli published — [2 SP] — ✅ DONE
 - [x] T-1706 — KB article editor page (`/kb/articles/new`, `/kb/articles/:id/edit`): form MUI con TextField per titolo, select per categoria, editor body con markdown semplice (textarea con preview), chip input per tags, toggle draft/published — [2 SP] — ✅ DONE
 - [x] T-1707 — KB browse page (`/kb`): lista categorie con card MUI, click su categoria mostra articoli. Barra di ricerca in alto con debounce 300ms che chiama search API. Risultati con highlight del termine cercato — [2 SP] — ✅ DONE
-- [ ] T-1708 — Customer portal route group (`/portal`): layout separato senza sidebar PMSync, solo header con logo e navigazione minimale. Nessuna autenticazione richiesta per visualizzare KB. Middleware Next.js per separare layout — [1 SP] — 📋 TODO
-- [ ] T-1709 — Portal ticket submission form (`/portal/tickets/new`): campi nome, email, subject, description, priority (solo low/medium/high). Protezione con captcha semplice (honeypot + timestamp check, no servizi esterni). Creazione ticket via API pubblica dedicata `POST /portal/tickets` — [2 SP] — 📋 TODO
-- [ ] T-1710 — Portal ticket tracking (`/portal/tickets/:token`): generare token univoco (nanoid 21 chars) alla creazione ticket, salvare in campo `portalToken`. Pagina pubblica mostra status, timeline aggiornamenti (solo commenti non-interni), nessun dato sensibile esposto — [2 SP] — 📋 TODO
+- [x] T-1708 — Customer portal route group (`/portal/[tenant]`): PortalLayout, tenant-scoped SaaS routes, @Public() KB controller — [1 SP] — ✅ DONE
+- [x] T-1709 — Portal ticket submission form (`/portal/[tenant]/tickets/new`): honeypot + timestamp anti-spam, PortalTicketController @Public() — [2 SP] — ✅ DONE
+- [x] T-1710 — Portal ticket tracking (`/portal/[tenant]/tickets/:token`): nanoid portalToken, status stepper, non-internal comments — [2 SP] — ✅ DONE
 
 **Totale: 19 SP** _(buffer -2 SP per complessità tsvector = 17 SP effettivi)_
 
