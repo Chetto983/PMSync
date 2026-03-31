@@ -15,12 +15,16 @@ import {
   TICKET_STATUS_TRANSITIONS,
   TicketStatus,
 } from '../dto/ticket.dto';
+import { SlaTimerService } from './sla-timer.service';
 
 @Injectable()
 export class TicketService {
   private readonly logger = new Logger(TicketService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly slaTimer: SlaTimerService,
+  ) {}
 
   // ---- CRUD ----
 
@@ -112,7 +116,7 @@ export class TicketService {
       };
     }
 
-    const ticket = await this.prisma.ticket.create({
+    let ticket = await this.prisma.ticket.create({
       data,
       include: {
         assignee: { select: { id: true, name: true, email: true } },
@@ -120,6 +124,27 @@ export class TicketService {
         account: { select: { id: true, name: true } },
       },
     });
+
+    // Schedule SLA timer based on priority
+    const slaResult = await this.slaTimer.scheduleForTicket(
+      ticket.id,
+      tenantId,
+      ticket.priority,
+    );
+    if (slaResult) {
+      ticket = await this.prisma.ticket.update({
+        where: { id: ticket.id },
+        data: {
+          slaPolicyId: slaResult.slaPolicyId,
+          slaDeadline: slaResult.slaDeadline,
+        },
+        include: {
+          assignee: { select: { id: true, name: true, email: true } },
+          contact: { select: { id: true, tenantId: true, displayName: true } },
+          account: { select: { id: true, name: true } },
+        },
+      });
+    }
 
     this.logger.log(`Ticket created: ${ticket.id} [${ticket.subject}]`);
     return ticket;
@@ -195,6 +220,11 @@ export class TicketService {
       if (!ticket.resolvedAt) {
         data.resolvedAt = new Date();
       }
+    }
+
+    // Cancel SLA timer when ticket reaches terminal state
+    if (['resolved', 'closed'].includes(targetStatus)) {
+      await this.slaTimer.cancelForTicket(id);
     }
 
     return this.prisma.ticket.update({
