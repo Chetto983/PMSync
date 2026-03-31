@@ -10,6 +10,7 @@
 import {
   Controller,
   Get,
+  Header,
   Post,
   Body,
   UseGuards,
@@ -259,6 +260,7 @@ export class AutumnController {
   // ==========================================================================
 
   @Get('components/pricing_table')
+  @Header('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
   @ApiOperation({ summary: 'Get pricing table' })
   @ApiResponse({
     status: 200,
@@ -270,6 +272,7 @@ export class AutumnController {
   }
 
   @Get('components/pricing_table/authenticated')
+  @Header('Cache-Control', 'private, max-age=120, stale-while-revalidate=300')
   @UseGuards(TenantGuard)
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Get pricing table with customer context' })
