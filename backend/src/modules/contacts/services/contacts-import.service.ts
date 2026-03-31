@@ -248,8 +248,11 @@ export class ContactsImportService {
     }
 
     try {
+      // Pre-process: normalize encoding before parsing
+      const normalizedContent = this.normalizeVCardEncoding(vcfContent);
+
       // Parse vCard content - can contain multiple vCards
-      const parsed = vCard.parse(vcfContent);
+      const parsed = vCard.parse(normalizedContent);
 
       // vCard.parse returns a single vCard or array, normalize to array
       const cards = Array.isArray(parsed) ? parsed : [parsed];
@@ -535,5 +538,42 @@ export class ContactsImportService {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Normalize vCard encoding before parsing.
+   * Handles:
+   * - UTF-8 BOM stripping
+   * - vCard 2.1 quoted-printable decoding (=XX sequences)
+   * - CHARSET parameter removal (vcf library doesn't understand it)
+   * @private
+   */
+  private normalizeVCardEncoding(content: string): string {
+    // 1. Strip UTF-8 BOM if present
+    let normalized = content.charCodeAt(0) === 0xFEFF ? content.slice(1) : content;
+
+    // 2. Decode quoted-printable values in vCard 2.1
+    // Match lines with ENCODING=QUOTED-PRINTABLE and decode them
+    normalized = normalized.replace(
+      /^([^:]+;(?:ENCODING=QUOTED-PRINTABLE)[^:]*):(.+)$/gim,
+      (_match, prefix: string, value: string) => {
+        // Remove ENCODING=QUOTED-PRINTABLE from prefix
+        const cleanPrefix = prefix.replace(/;?ENCODING=QUOTED-PRINTABLE/gi, '');
+        // Decode QP: =XX -> character, soft line breaks (=\r\n or =\n) -> continuation
+        const decoded = value
+          .replace(/=\r?\n/g, '') // join soft line breaks
+          .replace(/=([0-9A-Fa-f]{2})/g, (_m: string, hex: string) => {
+            const byte = parseInt(hex, 16);
+            // Interpret as Latin-1 codepoint
+            return String.fromCharCode(byte);
+          });
+        return `${cleanPrefix}:${decoded}`;
+      },
+    );
+
+    // 3. Remove CHARSET=... parameters (vcf library doesn't need them after normalization)
+    normalized = normalized.replace(/;CHARSET=[^;:\s]+/gi, '');
+
+    return normalized;
   }
 }

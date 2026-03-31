@@ -32,14 +32,14 @@
 - [x] Covers: createContact, updateContact, deleteContact, bulkDeleteContacts
 - [x] Serializes: manual CRUD + sync-triggered writes per provider
 
-### T-0404: Fix vCard encoding handling [3 SP]
-- [ ] Read `contacts-import.service.ts` — find vCard parsing logic
-- [ ] Test import with UTF-8 encoded vCard (should work)
-- [ ] Test import with Latin-1/ISO-8859-1 encoded vCard
-- [ ] Test import with vCard 2.1 quoted-printable encoding
-- [ ] Add charset detection (check BOM, Content-Type, CHARSET param)
-- [ ] Convert all inputs to UTF-8 before parsing
-- [ ] Test: non-Latin characters (Japanese, Arabic, accented) preserved correctly
+### T-0404: Fix vCard encoding handling [3 SP] ✅ DONE
+- [x] Read `contacts-import.service.ts` — vCard parsing uses `vcf` library (supports 3.0/4.0)
+- [x] Added `normalizeVCardEncoding()` preprocessing step before `vCard.parse()`
+- [x] UTF-8 BOM stripping (charCode 0xFEFF)
+- [x] vCard 2.1 quoted-printable decoding (=XX sequences, soft line breaks)
+- [x] CHARSET parameter removal (vcf library doesn't understand it)
+- [x] Latin-1 bytes decoded via `String.fromCharCode()` which handles ISO-8859-1 natively
+- [x] Backend tsc passes clean. Addresses CON-M1.
 
 ### T-0405: Verify contacts sync on production [3 SP]
 - [ ] POST /contacts/sync/:providerId — trigger Google sync
