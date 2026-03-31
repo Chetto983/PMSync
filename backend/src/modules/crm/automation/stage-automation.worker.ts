@@ -12,6 +12,7 @@ import {
   getRedisConnectionOptions,
   getSharedRedisConnection,
   releaseSharedRedisConnection,
+  scaleForReplicas,
 } from '../../../common/config';
 import type {
   StageAutomationJobData,
@@ -37,7 +38,7 @@ export class StageAutomationWorker implements OnModuleInit, OnModuleDestroy {
       async (job: Job<StageAutomationJobData>) => this.process(job),
       {
         connection: getRedisConnectionOptions(),
-        concurrency: 3,
+        concurrency: scaleForReplicas(3),
         lockDuration: 30_000,
       },
     );

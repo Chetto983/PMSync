@@ -14,6 +14,7 @@ import {
   QUEUE_NAMES,
   getRedisConnectionOptions,
   getDefaultJobOptions,
+  scaleForReplicas,
 } from '../../../common/config';
 import { ScheduledJobsQueueService, ScheduledJobType } from '../../../common/services/scheduled-jobs.queue';
 
@@ -62,7 +63,7 @@ export class ContactsProviderEventHandlerService implements OnModuleInit, OnModu
         const updated = await this.relationshipScoreService.recalculateAndPersist(tenantId);
         return { tenantId, updated };
       },
-      { connection, concurrency: 2 },
+      { connection, concurrency: scaleForReplicas(2) },
     );
 
     this.scoreWorker.on('failed', (job, err) => {

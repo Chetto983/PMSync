@@ -26,7 +26,7 @@ import { SyncAuthService } from '../services/sync-auth.service';
 import { GoogleSyncService } from '../services/gmail/google-sync.service';
 import { MicrosoftSyncService } from '../services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from '../services/imap/imap-sync.service';
-import { QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES, scaleForReplicas } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { EmailTriageService } from '../../ai/services/email-triage.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -44,9 +44,9 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
 
   // Worker configuration - OPTIMIZED FOR 1000+ TENANTS
   private readonly WORKER_CONFIG = {
-    high: { concurrency: 17 },   // 17 jobs simultaneously
-    normal: { concurrency: 10 }, // 10 jobs simultaneously
-    low: { concurrency: 7 },     // 7 jobs simultaneously
+    high: { concurrency: scaleForReplicas(17) },   // 17 base, scaled for replicas
+    normal: { concurrency: scaleForReplicas(10) }, // 10 base, scaled for replicas
+    low: { concurrency: scaleForReplicas(7) },     // 7 base, scaled for replicas
   };
 
   constructor(

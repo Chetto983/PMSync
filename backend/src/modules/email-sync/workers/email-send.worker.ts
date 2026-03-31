@@ -25,7 +25,7 @@ import {
 } from '../services/email-send-queue.service';
 import { ProviderTokenService } from '../services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES, scaleForReplicas } from '../../../common/config';
 import { EmailDriverFactory } from '../drivers/driver.factory';
 import { DriverCredentials, IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { ComposeMessage, AttachmentData, EmailAddress, ProviderType } from '../drivers/interfaces/canonical.types';
@@ -53,7 +53,7 @@ export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobRe
     return {
       queueName: QUEUE_NAMES.EMAIL_SEND,
       // PHASE 6.4: Increased for 1000+ users scalability
-      concurrency: 10, // Up from 3 - handle more concurrent sends
+      concurrency: scaleForReplicas(10), // Up from 3 - handle more concurrent sends, scaled for replicas
       lockDuration: 120000, // 2 minutes for send operations
       stalledInterval: 60000,
       limiter: {

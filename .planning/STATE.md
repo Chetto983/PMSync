@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
 status: completed
-stopped_at: Completed 128-01-PLAN.md and 128-02-PLAN.md
-last_updated: "2026-03-31T10:28:42.614Z"
+stopped_at: Completed 129-01-PLAN.md
+last_updated: "2026-03-31T13:40:34.200Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
   percent: 66
 ---
 
@@ -64,6 +64,7 @@ Progress: [██████░░░░] 66%
 - [Phase 127]: Strip connection_limit/pool_timeout from URL proactively to prevent developer confusion
 - [Phase 128]: Redis Lua semaphore for triage concurrency (fail-closed, 120s TTL safety net)
 - [Phase 128]: CircuitBreaker stays per-instance by design (industry standard, convergence within 90s)
+- [Phase 129]: scaleForReplicas reads WORKER_REPLICA_COUNT at call time; getWorkerOptions auto-scales preset concurrency; min floor 1
 
 ### Blockers/Concerns
 
@@ -77,6 +78,6 @@ Progress: [██████░░░░] 66%
 
 ## Session Continuity
 
-Last session: 2026-03-31T10:16:19Z
-Stopped at: Completed 128-01-PLAN.md and 128-02-PLAN.md
+Last session: 2026-03-31T13:40:34.196Z
+Stopped at: Completed 129-01-PLAN.md
 Resume file: None

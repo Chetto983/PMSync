@@ -10,6 +10,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import {
   getRedisConnectionOptions,
   QUEUE_NAMES,
+  scaleForReplicas,
 } from '../../../../common/config/queue.config';
 
 /** Job data for SLA escalation */
@@ -58,7 +59,7 @@ export class SlaTimerService implements OnModuleInit, OnModuleDestroy {
       (job) => this.processEscalation(job),
       {
         connection: new Redis(redisOptions),
-        concurrency: 5,
+        concurrency: scaleForReplicas(5),
       },
     );
 

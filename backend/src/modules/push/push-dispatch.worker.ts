@@ -12,6 +12,7 @@ import {
   getRedisConnectionOptions,
   getSharedRedisConnection,
   releaseSharedRedisConnection,
+  scaleForReplicas,
 } from '../../common/config';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
 import type { PushDispatchJob } from './push-dispatch.handler';
@@ -32,7 +33,7 @@ export class PushDispatchWorker implements OnModuleInit, OnModuleDestroy {
       async (job: Job<PushDispatchJob>) => this.process(job),
       {
         connection,
-        concurrency: 5,
+        concurrency: scaleForReplicas(5),
         lockDuration: 30_000,
       },
     );
