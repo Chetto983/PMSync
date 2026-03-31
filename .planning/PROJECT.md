@@ -11,7 +11,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 ## Current State
 
 **Version:** v11.0 in progress (started 2026-03-31)
-**Status:** Phase 126 complete — all @Cron decorators migrated to BullMQ repeatable jobs, @nestjs/schedule removed. LEGC-04 satisfied.
+**Status:** Phase 128 complete — in-memory state externalized to Redis (triage signals, semaphore). Scaling chain 125-128 done, ready for replica activation (129).
 **Previous:** v10.0 shipped (2026-03-30, 13 phases, 49/50 requirements)
 **Known gap:** WRITE-03 (IMAP/SMTP send) — Railway blocks SMTP ports 465/587; code exists and compiles but cannot be live-validated
 
