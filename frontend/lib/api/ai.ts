@@ -196,6 +196,8 @@ type StreamConsumerCallbacks = {
   onChunk?: (chunk: string) => void;
   onDone?: () => void;
   onConversationId?: (conversationId: string) => void;
+  /** Called when the stream is retrying after a failure. */
+  onReconnecting?: (attempt: number, maxRetries: number) => void;
 };
 
 const AI_CHAT_ENDPOINT = `${API_BASE_URL}/api/v1/ai/chat`;
@@ -204,6 +206,10 @@ const AI_CHAT_ENDPOINT = `${API_BASE_URL}/api/v1/ai/chat`;
 export const SSE_TIMEOUT_MS = 120_000;
 /** Keepalive interval (ms). If no data chunk arrives within this window, abort. */
 export const SSE_KEEPALIVE_MS = 30_000;
+/** Max automatic retries on stream failure before giving up. */
+export const SSE_MAX_RETRIES = 3;
+/** Base delay for exponential backoff (ms): 1s, 2s, 4s. */
+export const SSE_RETRY_BASE_MS = 1_000;
 
 function extractSsePayload(frame: string): string | null {
   const lines = frame
@@ -529,24 +535,45 @@ export const aiChatApi = {
     onDone?: () => void,
     onError?: (error: string) => void,
     onConversationId?: (conversationId: string) => void,
+    onReconnecting?: (attempt: number, maxRetries: number) => void,
   ): AbortController {
     const controller = new AbortController();
 
-    consumeChatStream(
-      payload,
-      {
-        onChunk,
-        onDone,
-        onConversationId,
-      },
-      controller.signal,
-    )
-      .catch((error) => {
-        if (error.name !== 'AbortError') {
-          onError?.(error.message || 'Stream failed');
+    const attemptStream = async (attempt: number): Promise<void> => {
+      try {
+        await consumeChatStream(
+          payload,
+          {
+            onChunk,
+            onDone,
+            onConversationId,
+            onReconnecting,
+          },
+          controller.signal,
+        );
+      } catch (error: unknown) {
+        const err = error as Error;
+        // User-initiated abort — never retry
+        if (err.name === 'AbortError' && !err.message?.includes('timeout')) {
+          return;
         }
-      });
+        // Retryable failure (timeout, network error)
+        if (attempt < SSE_MAX_RETRIES && !controller.signal.aborted) {
+          const delay = SSE_RETRY_BASE_MS * Math.pow(2, attempt - 1);
+          onReconnecting?.(attempt, SSE_MAX_RETRIES);
+          await new Promise((r) => setTimeout(r, delay));
+          if (!controller.signal.aborted) {
+            return attemptStream(attempt + 1);
+          }
+        }
+        // Final failure
+        if (err.name !== 'AbortError') {
+          onError?.(err.message || 'Stream failed');
+        }
+      }
+    };
 
+    attemptStream(1);
     return controller;
   },
 
