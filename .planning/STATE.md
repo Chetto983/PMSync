@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
-status: completed
-stopped_at: Completed 129-01-PLAN.md and 129-02-PLAN.md
-last_updated: "2026-03-31T13:46:15.783Z"
+status: verifying
+stopped_at: Completed 130-01-PLAN.md
+last_updated: "2026-03-31T14:33:32.357Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 9
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 6
+  total_plans: 12
+  completed_plans: 12
   percent: 66
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 128 — state-externalization
+**Current focus:** Phase 130 — frontend-performance
 
 ## Current Position
 
-Phase: 130
-Plan: Not started
-Status: Plans 128-01 and 128-02 complete
+Phase: 130 (frontend-performance) — EXECUTING
+Plan: 2 of 2
+Status: Phase complete — ready for verification
 Last activity: 2026-03-31
 
 Progress: [██████░░░░] 66%
@@ -68,6 +68,8 @@ Progress: [██████░░░░] 66%
 - [Phase 129]: 25s shutdown timeout (env-configurable) fits within Railway 30s grace period
 - [Phase 129]: WebSocket adapter closes before app.close() to prevent orphaned pub/sub
 - [Phase 129]: PrismaService uses OnModuleDestroy lifecycle instead of manual signal handlers
+- [Phase 130]: Cache-Control: labels 60s, folders 30s, pricing 300s/120s (public/private); stale-while-revalidate on all
+- [Phase 130]: Followed analytics.tsx dynamic import pattern for Calendar page consistency
 
 ### Blockers/Concerns
 
@@ -81,6 +83,6 @@ Progress: [██████░░░░] 66%
 
 ## Session Continuity
 
-Last session: 2026-03-31T13:41:00.000Z
-Stopped at: Completed 129-01-PLAN.md and 129-02-PLAN.md
+Last session: 2026-03-31T14:33:32.353Z
+Stopped at: Completed 130-01-PLAN.md
 Resume file: None

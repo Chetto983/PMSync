@@ -140,7 +140,7 @@
 - [x] **Phase 128: State Externalization** - Externalize in-memory state to Redis for multi-instance correctness
  (completed 2026-03-31)
 - [x] **Phase 129: Replica Activation** - Enable multi-replica deployment with tuned workers and per-replica observability (completed 2026-03-31)
-- [ ] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints
+- [x] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints (completed 2026-03-31)
 - [ ] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect
 - [ ] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening
 - [ ] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel
@@ -227,7 +227,7 @@ Plans:
   4. No functionality regressions from dynamic imports (lazy-loaded components render correctly with loading fallbacks)
 **Plans**: 2 plans
 Plans:
-- [ ] 130-01-PLAN.md — Dynamic import Calendar page component (FullCalendar code-split)
+- [x] 130-01-PLAN.md — Dynamic import Calendar page component (FullCalendar code-split)
 - [x] 130-02-PLAN.md — Add Cache-Control headers to labels, folders, and pricing GET endpoints
 **UI hint**: yes
 
@@ -277,7 +277,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 127. Transport & Connection Hardening | v11.0 | 1/1 | Complete    | 2026-03-31 |
 | 128. State Externalization | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 129. Replica Activation | v11.0 | 1/2 | Complete    | 2026-03-31 |
-| 130. Frontend Performance | v11.0 | 1/2 | In Progress|  |
+| 130. Frontend Performance | v11.0 | 2/2 | Complete   | 2026-03-31 |
 | 131. Billing Frontend | v11.0 | 0/TBD | Not started | - |
 | 132. Billing Backend Hardening | v11.0 | 0/TBD | Not started | - |
 | 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
