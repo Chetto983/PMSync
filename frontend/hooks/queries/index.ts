@@ -6,6 +6,7 @@
 export * from './use-folders';
 export * from './dashboard-keys';
 export * from './use-dashboard';
+export * from './use-unified-email-counts';
 export * from './settings-keys';
 export * from './use-settings';
 export * from './follow-up-keys';

@@ -313,43 +313,10 @@ export function staleContactsOptions(params?: { limit?: number }) {
 // ============================================================================
 
 /**
- * Query options for dashboard stats
+ * @deprecated Removed — email counts now come from useUnifiedEmailCounts() (folder-based).
+ * Calendar events and contacts have their own dedicated hooks (useTodayEvents, useRecentContacts).
+ * This function was never consumed by any component.
  */
-export function dashboardStatsOptions() {
-  return queryOptions({
-    queryKey: dashboardKeys.stats(),
-    queryFn: async (): Promise<{
-      unreadEmails: number;
-      todayEvents: number;
-      pendingTasks: number;
-      totalContacts: number;
-    }> => {
-      const [emailStats, contacts, events] = await Promise.allSettled([
-        apiClient.get('/emails/stats'),
-        contactsApi.getContactCounts(),
-        (() => {
-          const today = new Date();
-          const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-          const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-          return calendarApi.listEvents({
-            startTime: startOfDay.toISOString(),
-            endTime: endOfDay.toISOString(),
-          });
-        })(),
-      ]);
-
-      return {
-        unreadEmails: emailStats.status === 'fulfilled' ? emailStats.value.data?.unread || 0 : 0,
-        todayEvents: events.status === 'fulfilled' ? events.value.data?.events?.length || 0 : 0,
-        pendingTasks: 0,
-        totalContacts: contacts.status === 'fulfilled' ? contacts.value?.total || 0 : 0,
-      };
-    },
-    staleTime: 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000,
-    retry: 1,
-  });
-}
 
 export interface Email {
   id: string;
@@ -609,11 +576,9 @@ export function useStaleContacts(params?: { limit?: number }) {
 }
 
 /**
- * Hook for dashboard stats
+ * @deprecated Removed — use useUnifiedEmailCounts() for email counts,
+ * useTodayEvents() for calendar, useRecentContacts() for contacts.
  */
-export function useDashboardStats() {
-  return useQuery(dashboardStatsOptions());
-}
 
 /**
  * Hook for important emails (starred OR flagged)

@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { computeFolderCounts } from '@/hooks/queries/use-unified-email-counts';
 import { useFolderMetadata } from '@/hooks/queries/use-folder-metadata';
 import type { Folder as FolderType, FoldersResponse } from '@/lib/api/folders';
 import type { SpecialFolder } from '@/stores/email-ui-store';
@@ -57,13 +58,7 @@ export interface FolderManagementState {
  * } = useFolderManagement();
  * ```
  */
-// Folders where an unread badge is semantically meaningless.
-// Trash/Sent/Drafts emails may technically be "unread" in the DB but users
-// don't expect a badge there — it's noise, not signal.
-const NO_BADGE_FOLDERS = new Set([
-  'TRASH', 'SENT', 'DRAFTS', 'ARCHIVE', 'ALL',
-  'STARRED', 'FLAGGED', 'CHAT', 'UNREAD',
-]);
+// NO_BADGE_FOLDERS moved to use-unified-email-counts.ts (computeFolderCounts)
 
 interface UseFolderManagementOptions {
   foldersData?: FoldersResponse;
@@ -88,29 +83,11 @@ export function useFolderManagement({ foldersData }: UseFolderManagementOptions 
     [t]
   );
 
-  // Calculate unread counts per folder from API data.
-  // Uses backend displayMapping to avoid duplication (e.g., CATEGORY_PERSONAL → INBOX).
-  const folderCounts = useMemo(() => {
-    const counts: Partial<Record<SpecialFolder, number>> = {};
-
-    if (foldersData?.foldersByProvider) {
-      Object.values(foldersData.foldersByProvider).forEach((folders) => {
-        folders.forEach((folder) => {
-          if (folder.specialUse) {
-            const rawSpecialUse = folder.specialUse.toUpperCase();
-            // Skip folders where unread badge makes no sense
-            if (NO_BADGE_FOLDERS.has(rawSpecialUse)) return;
-            // Map using backend displayMapping (e.g., CATEGORY_PERSONAL → INBOX)
-            const displayAs = metadata?.displayMapping?.[rawSpecialUse] || rawSpecialUse;
-            const specialUse = displayAs as SpecialFolder;
-            counts[specialUse] = (counts[specialUse] || 0) + (folder.unreadCount || 0);
-          }
-        });
-      });
-    }
-
-    return counts;
-  }, [foldersData, metadata]);
+  // Unified email counts — single source of truth shared with dashboard widgets.
+  const folderCounts = useMemo(
+    () => computeFolderCounts(foldersData, metadata?.displayMapping),
+    [foldersData, metadata],
+  );
 
   // ==========================================================================
   // Dialog Handlers
