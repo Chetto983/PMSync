@@ -366,6 +366,34 @@ export class ConversationService {
   }
 
   /**
+   * Get messages with offset-based pagination (chronological order).
+   * Returns { messages, total } so callers can implement "Load older" UI.
+   */
+  async getMessagesPaginated(
+    conversationId: string,
+    limit: number,
+    offset: number,
+    tenantId?: string,
+  ): Promise<{ messages: AiMessage[]; total: number }> {
+    const where = {
+      conversationId,
+      ...(tenantId ? { conversation: { tenantId } } : {}),
+    };
+
+    const [messages, total] = await Promise.all([
+      this.prisma.aiMessage.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.aiMessage.count({ where }),
+    ]);
+
+    return { messages, total };
+  }
+
+  /**
    * Get total message count for a conversation (used for summary trigger).
    */
   async getMessageCount(conversationId: string, tenantId?: string): Promise<number> {

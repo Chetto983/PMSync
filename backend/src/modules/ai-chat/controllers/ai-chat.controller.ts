@@ -253,18 +253,24 @@ export class AiChatController {
 
   /**
    * Get a single conversation with its messages.
+   * Supports offset-based pagination via `offset` and `limit` query params.
+   * When omitted, returns the most recent 50 messages (backward-compatible).
    */
   @Get('chat/conversations/:id')
   @ApiOperation({
     summary: 'Get AI chat conversation with messages',
-    description: 'Returns a conversation and its messages for the current user',
+    description: 'Returns a conversation and its messages for the current user. Supports pagination.',
   })
   @ApiParam({ name: 'id', description: 'Conversation ID' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max messages to return (default 50, max 100)' })
+  @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Number of messages to skip from oldest (default: returns most recent)' })
   @ApiResponse({ status: 200, description: 'Conversation with messages' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
   async getConversation(
     @Req() req: Request & { user: AuthenticatedRequest['user'] },
     @Param('id') conversationId: string,
+    @Query('limit') limitParam?: string,
+    @Query('offset') offsetParam?: string,
   ) {
     const conversation = await this.conversationService.getConversation(
       conversationId,
@@ -277,11 +283,37 @@ export class AiChatController {
       );
     }
 
-    const rawMessages = await this.conversationService.getRecentMessages(
-      conversationId,
-      CONVERSATION_HISTORY_MESSAGE_LIMIT,
-      req.user.tenantId,
+    const limit = Math.min(
+      Math.max(parseInt(limitParam || String(CONVERSATION_HISTORY_MESSAGE_LIMIT), 10) || CONVERSATION_HISTORY_MESSAGE_LIMIT, 1),
+      100,
     );
+    const hasExplicitOffset = offsetParam !== undefined && offsetParam !== '';
+    const offset = hasExplicitOffset
+      ? Math.max(parseInt(offsetParam, 10) || 0, 0)
+      : undefined;
+
+    let rawMessages;
+    let totalMessages: number | undefined;
+
+    if (offset !== undefined) {
+      // Explicit pagination — return slice from offset
+      const result = await this.conversationService.getMessagesPaginated(
+        conversationId,
+        limit,
+        offset,
+        req.user.tenantId,
+      );
+      rawMessages = result.messages;
+      totalMessages = result.total;
+    } else {
+      // Default: most recent N messages (backward-compatible)
+      rawMessages = await this.conversationService.getRecentMessages(
+        conversationId,
+        limit,
+        req.user.tenantId,
+      );
+    }
+
     const messages = await Promise.all(
       rawMessages.map(async (message) => {
         if (message.role === 'user') return message;
@@ -299,6 +331,7 @@ export class AiChatController {
     return {
       success: true,
       conversation: { ...conversation, messages },
+      ...(totalMessages !== undefined ? { totalMessages } : {}),
     };
   }
 
