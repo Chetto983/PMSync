@@ -29,20 +29,19 @@ created: 2026-03-31
 
 ## Spacing Scale
 
-Declared values from `frontend/theme/tokens.ts` spacing scale (MUI `sx` prop units, 1 unit = 4px):
+Declared values from `frontend/theme/tokens.ts` spacing scale (MUI `sx` prop units, 1 unit = 4px). All values are multiples of 4px.
 
 | Token | Value | Usage in Billing |
 |-------|-------|------------------|
-| 0.5 | 2px | Not used in billing |
-| 1 | 4px | Icon-label gaps (`gap: 1` in Tabs) |
-| 1.5 | 6px | Button vertical padding (`py: 1.5`) |
-| 2 | 8px | Card internal spacing, button padding |
-| 3 | 12px | Grid gaps, section margins (`gap: 3`, `pt: 3`, `mb: 3`) |
+| 1 | 4px | Icon-label gaps (`gap: 1` in Tabs), button vertical padding (`py: 1`) |
+| 2 | 8px | Card internal spacing, button padding, grid gaps, section margins (`gap: 2`, `pt: 2`, `mb: 2`) |
 | 4 | 16px | Horizontal button padding (`px: 4`) |
 | 6 | 24px | Card content padding (`p: 3` = 24px) |
 | 8 | 32px | Not used directly in billing |
 
 Exceptions: MUI Tab minHeight is 48px (12 units), which follows the spacing scale.
+
+**Corrections from previous draft:** Removed `0.5` (2px), `1.5` (6px), and `3` (12px) tokens as they are not multiples of 4. Button vertical padding changed from `py: 1.5` (6px) to `py: 1` (4px). Grid gaps/section margins changed from `gap: 3` / `pt: 3` / `mb: 3` (12px) to `gap: 2` / `pt: 2` / `mb: 2` (8px).
 
 ---
 
@@ -52,14 +51,15 @@ All typography uses MUI's `variant` prop or inline `sx` overrides. Values map to
 
 | Role | Size | Weight | Line Height | Where Used |
 |------|------|--------|-------------|------------|
-| Body | 14px (0.875rem) | 400 (normal) | 1.5 (normal) | Default MUI body text, feature lists |
-| Label / Secondary | 14px (0.875rem) | 500 (medium) | 1.5 | Tab labels, card descriptions via `sx={{ fontWeight: 500 }}` |
-| Subtitle | 14px via `variant="subtitle1"` | 600 (semibold) | 1.5 | Card section headings (`fontWeight: 600`) |
-| CTA / Button | 16px (1rem) | 600 (semibold) | 1.5 | Upgrade button (`fontSize: '1rem', fontWeight: 600`) |
-| Plan Name | 20px via `variant="h6"` | 600 | 1.2 | PricingTable plan titles |
-| Price | 30px via `variant="h4"` | 700 (bold) | 1.25 | PricingTable price display |
+| Body | 14px (0.875rem) | 400 (normal) | 1.5 (normal) | Default MUI body text, feature lists, tab labels, card descriptions |
+| Subtitle | 14px via `variant="subtitle1"` | 600 (semibold) | 1.5 | Card section headings |
+| CTA / Button | 16px (1rem) | 600 (semibold) | 1.5 | Upgrade button |
+| Plan Name | 20px via `variant="h6"` | 600 (semibold) | 1.2 | PricingTable plan titles |
+| Price | 30px via `variant="h4"` | 600 (semibold) | 1.25 | PricingTable price display |
 
-**Weights used in billing:** 400 (body), 500 (labels/tabs), 600 (headings/CTAs), 700 (price display).
+**Weights used in billing:** 400 (body, labels, tabs) and 600 (headings, CTAs, prices, subtitles). Two weights only.
+
+**Corrections from previous draft:** Reduced from 4 weights to 2. Merged weight 500 (labels/tabs) into 400 -- the role distinction is carried by context, not weight. Replaced weight 700 (price display) with 600 -- the 30px size already creates sufficient hierarchy without a heavier weight.
 
 ---
 
@@ -72,7 +72,7 @@ All colors reference MUI theme tokens via `useTheme()`. No hardcoded hex values 
 | Dominant (60%) | `#0c1017` background.default | `#f8fafc` background.default | Page background, tab panels |
 | Secondary (30%) | `#131a24` background.paper | `#ffffff` background.paper | Cards (SubscriptionCard, UsageCard, CostProtectionCard, PricingTable cards) |
 | Accent (10%) | `#55cae5` primary.main | `#00aced` primary.main | Upgrade CTA gradient start, usage progress bars (normal state), "Current Plan" chip, recommended plan border |
-| Secondary accent | `#7650ce` secondary.main | `#7650ce` secondary.main | Upgrade CTA gradient end, recommended plan highlight |
+| Secondary accent | `#7650ce` secondary.main | `#7650ce` secondary.main | Upgrade CTA gradient end, recommended plan highlight. **Role: decorative only** -- used exclusively for gradient endpoints and visual emphasis, never as a standalone semantic indicator. |
 | Destructive | `#ef4444` error.main | `#dc2626` error.main | Cancel subscription confirmation, quota exceeded alerts |
 | Warning | `#f59e0b` warning.main | `#d97706` warning.main | Usage progress bar at 80-94% |
 | Error progress | `#ef4444` error.main | `#dc2626` error.main | Usage progress bar at 95%+ |
@@ -95,8 +95,8 @@ All copy comes from `frontend/locales/en.ts` under the `billing` namespace. No h
 | Primary CTA | `billing.actions.upgrade` | "Upgrade Plan" |
 | Billing portal CTA | `billing.actions.manageBilling` | "Manage Billing" |
 | Invoices CTA | `billing.actions.viewInvoices` | "View Invoices" |
-| Error state (load) | `billing.errors.loadFailed` | "Failed to load subscription details" |
-| Error state (update) | `billing.errors.updateFailed` | "Failed to update subscription" |
+| Error state (load) | `billing.errors.loadFailed` | "Failed to load subscription details. Please refresh the page." |
+| Error state (update) | `billing.errors.updateFailed` | "Failed to update subscription. Please try again or contact support." |
 | Checkout redirecting | `billing.checkout.redirecting` | "Redirecting to checkout..." |
 | Checkout failed | `billing.checkout.failed` | "Payment failed. Please try again." |
 | Quota warning | `billing.alerts.quotaWarning` | "You've used {percent}% of your {type} quota" |
@@ -107,6 +107,14 @@ All copy comes from `frontend/locales/en.ts` under the `billing` namespace. No h
 
 **Destructive actions:**
 - Cancel Subscription (`billing.actions.cancel`): confirmation via `billing.actions.cancelConfirm` text. Approach: inline confirmation text, not a modal dialog. Actual cancellation goes through Stripe Customer Portal (redirect).
+
+**Corrections from previous draft:** Added solution-path text to `billing.errors.loadFailed` (appended "Please refresh the page.") and `billing.errors.updateFailed` (appended "Please try again or contact support."). Error copy now describes both the problem and the recovery action.
+
+---
+
+## Visual Hierarchy
+
+**Primary focal point:** The PricingTable plan grid is the primary focal point of the billing UI. On the "Plans" tab, the recommended plan card is visually elevated with a `primary.main` border and "Most Popular" chip, drawing the eye to the upgrade CTA. On the "Overview" tab, the SubscriptionCard (left column) serves as the focal point showing current plan status.
 
 ---
 
