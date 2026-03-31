@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { Headset, UserCheck, AlertTriangle } from 'lucide-react';
 import NextLink from 'next/link';
+import { Layout } from '@/components/layout/Layout';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useTickets, useAssignTicket } from '@/hooks/queries/use-crm-tickets';
 import { useTicketRealtime } from '@/hooks/use-ticket-realtime';
@@ -131,94 +132,96 @@ export default function AgentDashboardPage() {
   };
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 3 } }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={600}>
-          {ta?.title ?? 'Agent Dashboard'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {ta?.subtitle ?? 'Your tickets and queue overview'}
-        </Typography>
+    <Layout>
+      <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 3 } }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h5" fontWeight={600}>
+            {ta?.title ?? 'Agent Dashboard'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {ta?.subtitle ?? 'Your tickets and queue overview'}
+          </Typography>
+        </Box>
+
+        <Grid container spacing={2}>
+          {/* My Tickets */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Paper variant="outlined" sx={{ p: 2, minHeight: 400 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <UserCheck size={20} />
+                <Typography variant="h6">
+                  {ta?.myTickets ?? 'My Tickets'}
+                </Typography>
+                <Chip label={myTickets.length} size="small" />
+              </Box>
+              {isLoading ? (
+                <ColumnSkeleton />
+              ) : myTickets.length === 0 ? (
+                <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
+                  {ta?.noTickets ?? 'No tickets'}
+                </Typography>
+              ) : (
+                myTickets.map((ticket) => (
+                  <TicketCard key={ticket.id} ticket={ticket} />
+                ))
+              )}
+            </Paper>
+          </Grid>
+
+          {/* Unassigned */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Paper variant="outlined" sx={{ p: 2, minHeight: 400 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Headset size={20} />
+                <Typography variant="h6">
+                  {ta?.unassigned ?? 'Unassigned'}
+                </Typography>
+                <Chip label={unassigned.length} size="small" />
+              </Box>
+              {isLoading ? (
+                <ColumnSkeleton />
+              ) : unassigned.length === 0 ? (
+                <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
+                  {ta?.noTickets ?? 'No tickets'}
+                </Typography>
+              ) : (
+                unassigned.map((ticket) => (
+                  <TicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    showAssign
+                    onAssign={handleAssignToMe}
+                  />
+                ))
+              )}
+            </Paper>
+          </Grid>
+
+          {/* SLA at Risk */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Paper variant="outlined" sx={{ p: 2, minHeight: 400 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <AlertTriangle size={20} />
+                <Typography variant="h6" color="error.main">
+                  {ta?.slaAtRisk ?? 'SLA at Risk'}
+                </Typography>
+                <Chip label={slaAtRisk.length} size="small" color="error" />
+              </Box>
+              {isLoading ? (
+                <ColumnSkeleton />
+              ) : slaAtRisk.length === 0 ? (
+                <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
+                  {ta?.noTickets ?? 'No tickets'}
+                </Typography>
+              ) : (
+                slaAtRisk.map((ticket) => (
+                  <TicketCard key={ticket.id} ticket={ticket} />
+                ))
+              )}
+            </Paper>
+          </Grid>
+        </Grid>
       </Box>
-
-      <Grid container spacing={2}>
-        {/* My Tickets */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Paper variant="outlined" sx={{ p: 2, minHeight: 400 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <UserCheck size={20} />
-              <Typography variant="h6">
-                {ta?.myTickets ?? 'My Tickets'}
-              </Typography>
-              <Chip label={myTickets.length} size="small" />
-            </Box>
-            {isLoading ? (
-              <ColumnSkeleton />
-            ) : myTickets.length === 0 ? (
-              <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
-                {ta?.noTickets ?? 'No tickets'}
-              </Typography>
-            ) : (
-              myTickets.map((ticket) => (
-                <TicketCard key={ticket.id} ticket={ticket} />
-              ))
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Unassigned */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Paper variant="outlined" sx={{ p: 2, minHeight: 400 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Headset size={20} />
-              <Typography variant="h6">
-                {ta?.unassigned ?? 'Unassigned'}
-              </Typography>
-              <Chip label={unassigned.length} size="small" />
-            </Box>
-            {isLoading ? (
-              <ColumnSkeleton />
-            ) : unassigned.length === 0 ? (
-              <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
-                {ta?.noTickets ?? 'No tickets'}
-              </Typography>
-            ) : (
-              unassigned.map((ticket) => (
-                <TicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  showAssign
-                  onAssign={handleAssignToMe}
-                />
-              ))
-            )}
-          </Paper>
-        </Grid>
-
-        {/* SLA at Risk */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Paper variant="outlined" sx={{ p: 2, minHeight: 400 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <AlertTriangle size={20} />
-              <Typography variant="h6" color="error.main">
-                {ta?.slaAtRisk ?? 'SLA at Risk'}
-              </Typography>
-              <Chip label={slaAtRisk.length} size="small" color="error" />
-            </Box>
-            {isLoading ? (
-              <ColumnSkeleton />
-            ) : slaAtRisk.length === 0 ? (
-              <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
-                {ta?.noTickets ?? 'No tickets'}
-              </Typography>
-            ) : (
-              slaAtRisk.map((ticket) => (
-                <TicketCard key={ticket.id} ticket={ticket} />
-              ))
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+    </Layout>
   );
 }
