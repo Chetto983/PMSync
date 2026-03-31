@@ -110,7 +110,7 @@ export function LabelDialog({
           labelId: label.id,
           dto: {
             name: trimmedName,
-            color,
+            color: { backgroundColor: color.backgroundColor, textColor: color.textColor },
             parentId: parentId ?? null,
             aiPrompt: aiPrompt.trim() || null,
           },
@@ -119,7 +119,7 @@ export function LabelDialog({
       } else {
         const response = await createLabel.mutateAsync({
           name: trimmedName,
-          color,
+          color: { backgroundColor: color.backgroundColor, textColor: color.textColor },
           parentId: parentId ?? undefined,
           aiPrompt: aiPrompt.trim() || undefined,
         });
