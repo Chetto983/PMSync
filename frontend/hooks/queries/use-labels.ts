@@ -176,20 +176,8 @@ export function useBulkDeleteLabels() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (labelIds: string[]) => {
-      const results = await Promise.allSettled(
-        labelIds.map((id) => labelsApi.deleteLabel(id)),
-      );
-      const failed = results.filter((r) => r.status === 'rejected').length;
-      if (failed > 0) {
-        throw new Error(`Failed to delete ${failed} of ${labelIds.length} labels`);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
-    },
-    onError: () => {
-      // Still invalidate — some may have succeeded
+    mutationFn: (labelIds: string[]) => labelsApi.bulkDeleteLabels(labelIds),
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
   });

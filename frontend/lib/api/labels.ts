@@ -162,6 +162,15 @@ export const labelsApi = {
   },
 
   /**
+   * Bulk delete labels
+   * POST /labels/bulk-delete
+   */
+  async bulkDeleteLabels(labelIds: string[]): Promise<{ deleted: number }> {
+    const response = await apiClient.post('/labels/bulk-delete', { labelIds });
+    return response.data;
+  },
+
+  /**
    * Add emails to a label
    * POST /labels/:id/emails
    */

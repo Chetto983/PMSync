@@ -15,6 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth, ApiParam, ApiBody } 
 import { LabelsService } from '../services/labels.service';
 import {
   AddEmailsToLabelDto,
+  BulkDeleteLabelsDto,
   CreateLabelDto,
   ReorderLabelsDto,
   UpdateLabelDto,
@@ -130,6 +131,17 @@ export class LabelsController {
   async getEmails(@Req() req: AuthenticatedRequest, @Param('id') labelId: string) {
     const emails = await this.labelsService.getEmailsForLabel(req.user.tenantId, labelId);
     return { emails };
+  }
+
+  @Post('bulk-delete')
+  @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('destructive-write')
+  @ApiOperation({ summary: 'Bulk delete labels', description: 'Soft-deletes multiple labels at once' })
+  @ApiBody({ type: BulkDeleteLabelsDto })
+  @ApiResponse({ status: 200, description: 'Labels deleted successfully' })
+  async bulkDelete(@Req() req: AuthenticatedRequest, @Body() dto: BulkDeleteLabelsDto) {
+    const result = await this.labelsService.bulkDelete(req.user.tenantId, dto.labelIds);
+    return result;
   }
 
   @Post('reorder')

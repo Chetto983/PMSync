@@ -81,3 +81,10 @@ export class ReorderLabelsDto {
   @IsString({ each: true })
   labelIds!: string[];
 }
+
+export class BulkDeleteLabelsDto {
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  labelIds!: string[];
+}

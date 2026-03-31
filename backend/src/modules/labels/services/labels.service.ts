@@ -346,6 +346,72 @@ export class LabelsService {
     });
   }
 
+  async bulkDelete(tenantId: string, labelIds: string[]) {
+    if (labelIds.length === 0) return { deleted: 0 };
+
+    // Verify all labels belong to this tenant and are not system labels
+    const labels = await this.prisma.userLabel.findMany({
+      where: {
+        id: { in: labelIds },
+        tenantId,
+        type: 'USER',
+        isArchived: false,
+      },
+      select: { id: true, slug: true },
+    });
+
+    const validIds = labels.map((l) => l.id);
+    if (validIds.length === 0) return { deleted: 0 };
+
+    const now = Date.now();
+
+    await this.prisma.$transaction(async (tx) => {
+      // Soft-delete all matching labels
+      await tx.userLabel.updateMany({
+        where: { id: { in: validIds } },
+        data: { isArchived: true },
+      });
+
+      // Append timestamp to slugs to free them up (individually to avoid collision)
+      for (const label of labels) {
+        await tx.userLabel.update({
+          where: { id: label.id },
+          data: { slug: `${label.slug}-deleted-${now}` },
+        });
+      }
+
+      // Also archive all descendants of deleted labels
+      const descendants = await tx.userLabel.findMany({
+        where: { tenantId, parentId: { in: validIds }, isArchived: false },
+        select: { id: true, slug: true },
+      });
+      if (descendants.length > 0) {
+        await tx.userLabel.updateMany({
+          where: { id: { in: descendants.map((d) => d.id) } },
+          data: { isArchived: true },
+        });
+        for (const desc of descendants) {
+          await tx.userLabel.update({
+            where: { id: desc.id },
+            data: { slug: `${desc.slug}-deleted-${now}` },
+          });
+        }
+      }
+    });
+
+    // Emit WS events
+    for (const id of validIds) {
+      this.realtimeEvents.emitLabelDelete(tenantId, {
+        labelId: id,
+        reason: 'label-deleted',
+        label: { id } as any,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return { deleted: validIds.length };
+  }
+
   async addEmailsToLabel(tenantId: string, labelId: string, dto: AddEmailsToLabelDto) {
     await this.findOne(tenantId, labelId);
 
