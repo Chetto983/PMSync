@@ -136,9 +136,7 @@ export type MessagePart = {
 
 export type ConversationMessage = {
   role: 'user' | 'assistant' | 'system';
-  /** @deprecated Remove by 2026-06-01: Use parts instead */
-  content: string;
-  parts?: MessagePart[];
+  parts: MessagePart[];
   toolCalls?: Array<{ tool: string; args: Record<string, unknown> }>;
   toolResults?: Array<{ tool: string; result: unknown }>;
   tokenCount?: number;
