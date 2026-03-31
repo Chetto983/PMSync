@@ -21,6 +21,7 @@ import {
   ContactDetail,
   ContactBulkActionBar,
   VCardImportDialog,
+  ContactMergeDialog,
 } from '@/components/contacts';
 import { useContactsPageData } from './contacts-page/useContactsPageData';
 import { useContactsPageHandlers } from './contacts-page/useContactsPageHandlers';
@@ -99,6 +100,7 @@ export function Contacts() {
   const [exportingContacts, setExportingContacts] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [vcardDialogOpen, setVcardDialogOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 
   // Lead score sorting: null = off, 'desc' = high to low, 'asc' = low to high
   const [scoreSort, setScoreSort] = useState<'asc' | 'desc' | null>(null);
@@ -238,6 +240,7 @@ export function Contacts() {
           onSelectAll={handleSelectAll}
           onClearSelection={clearSelection}
           onDelete={handleBulkDeleteRequest}
+          onMerge={() => setMergeDialogOpen(true)}
         />
       )}
 
@@ -343,6 +346,23 @@ export function Contacts() {
       <VCardImportDialog
         open={vcardDialogOpen}
         onClose={() => setVcardDialogOpen(false)}
+      />
+
+      <ContactMergeDialog
+        open={mergeDialogOpen}
+        onClose={() => setMergeDialogOpen(false)}
+        contactA={(() => {
+          const ids = [...selectedIds];
+          return scoreSortedContacts.find((c) => c.id === ids[0]) ?? null;
+        })()}
+        contactB={(() => {
+          const ids = [...selectedIds];
+          return scoreSortedContacts.find((c) => c.id === ids[1]) ?? null;
+        })()}
+        onMergeComplete={() => {
+          clearSelection();
+          setMergeDialogOpen(false);
+        }}
       />
     </>
   );

@@ -1910,6 +1910,20 @@ export interface AppTranslations {
       duplicatesFound?: string;
       duplicate?: string;
     };
+    merge?: {
+      title?: string;
+      description?: string;
+      keepLeft?: string;
+      keepRight?: string;
+      preview?: string;
+      confirm?: string;
+      success?: string;
+      error?: string;
+      field?: string;
+      contact1?: string;
+      contact2?: string;
+      noValue?: string;
+    };
     edit: string;
     close: string;
   };

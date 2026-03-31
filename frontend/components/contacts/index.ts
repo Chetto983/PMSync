@@ -6,6 +6,7 @@ export { ContactBulkActionBar } from './ContactBulkActionBar';
 export { ContactSidebar } from './ContactSidebar';
 export { ContactDetail } from './ContactDetail';
 export { VCardImportDialog } from './VCardImportDialog';
+export { ContactMergeDialog } from './ContactMergeDialog';
 
 // Re-export types
 export type { ContactBulkActionBarProps } from './ContactBulkActionBar';

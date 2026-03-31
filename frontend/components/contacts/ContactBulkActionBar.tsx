@@ -10,7 +10,7 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Merge } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface ContactBulkActionBarProps {
@@ -19,6 +19,7 @@ export interface ContactBulkActionBarProps {
   onSelectAll: () => void;
   onClearSelection: () => void;
   onDelete: () => Promise<void>;
+  onMerge?: () => void;
 }
 
 /**
@@ -36,6 +37,7 @@ export const ContactBulkActionBar: React.FC<ContactBulkActionBarProps> = ({
   onSelectAll,
   onClearSelection,
   onDelete,
+  onMerge,
 }) => {
   const t = useTranslations();
   const [loading, setLoading] = useState<string | null>(null);
@@ -120,6 +122,25 @@ export const ContactBulkActionBar: React.FC<ContactBulkActionBarProps> = ({
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {/* Merge (only when exactly 2 selected) */}
+          {selectedCount === 2 && onMerge && (
+            <Tooltip title={t.contacts?.merge?.title || 'Merge Contacts'}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onMerge}
+                  disabled={loading !== null}
+                  sx={{
+                    color: 'inherit',
+                    width: { xs: 44, sm: 'auto' },
+                    height: { xs: 44, sm: 'auto' },
+                  }}
+                >
+                  <Merge size={20} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           {/* Delete */}
           <Tooltip title={t.common?.delete || 'Delete'}>
             <span>
