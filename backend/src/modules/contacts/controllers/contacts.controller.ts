@@ -35,6 +35,7 @@ import {
   VCardImportBodyDto,
   LookupContactsByEmailsDto,
   BulkDeleteContactsDto,
+  BulkRestoreContactsDto,
 } from '../dto/contact.dto';
 
 @ApiTags('Contacts')
@@ -242,7 +243,24 @@ export class ContactsController {
   async bulkDeleteContacts(@Req() req: any, @Body() data: BulkDeleteContactsDto) {
     const tenantId = req.user.tenantId;
     const deleted = await this.contactsService.bulkDeleteContacts(tenantId, data.contactIds);
-    return { success: true, deleted };
+    return { success: true, deleted, contactIds: data.contactIds };
+  }
+
+  /**
+   * Restore bulk-deleted contacts (undo window — within 30 days)
+   * POST /api/contacts/bulk/restore
+   */
+  @Post('bulk/restore')
+  @Roles('admin', 'super-admin')
+  @RateTierDecorator('safe-write')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Restore bulk-deleted contacts', description: 'Undo soft-delete within 30-day window' })
+  @ApiBody({ type: BulkRestoreContactsDto })
+  @ApiResponse({ status: 200, description: 'Contacts restored successfully' })
+  async bulkRestoreContacts(@Req() req: any, @Body() data: BulkRestoreContactsDto) {
+    const tenantId = req.user.tenantId;
+    const restored = await this.contactsService.bulkRestoreContacts(tenantId, data.contactIds);
+    return { success: true, restored };
   }
 
   /**
