@@ -19,8 +19,8 @@
 - [x] T-1806 — Canned responses: API CRUD `TicketTemplate` (`POST /ticket-templates`, `GET /ticket-templates`, `PATCH`, `DELETE`). Nel form risposta ticket, bottone "Inserisci risposta rapida" con menu dropdown che lista template e inserisce body nel campo commento — [2 SP] — ✅ DONE
 - [x] T-1807 — Bug fixes Phase 3: riservare capacity per fix di bug scoperti durante sprint 15-17. Prioritizzare: crash bloccanti > dati corrotti > UX broken > cosmetici — [2 SP] — ✅ DONE
 - [x] T-1808 — Integration test suite per ticketing: testare flusso completo email→ticket→assign→SLA→resolve→CSAT. Verificare routing rules, state machine transitions, portal tracking. Usare test database separato — [2 SP] — ✅ DONE
-- [ ] T-1809 — Smoke test end-to-end: test manuale di tutti i flussi critici su ambiente di staging. Checklist: creazione ticket, assegnazione, SLA escalation, risoluzione, CSAT survey, KB search, portal submit, portal tracking — [1 SP] — 📋 TODO
-- [ ] T-1810 — Beta release preparation: aggiornare seed data con ticket, KB articles e SLA policies di esempio. Verificare migrazioni in sequenza da zero. Tag git `v0.3.0-beta`. Deploy su Railway staging — [1 SP] — 📋 TODO
+- [x] T-1809 — Smoke test end-to-end: test manuale di tutti i flussi critici su ambiente di staging. Checklist: creazione ticket, assegnazione, SLA escalation, risoluzione, CSAT survey, KB search, portal submit, portal tracking — [1 SP] — ✅ DONE
+- [x] T-1810 — Beta release preparation: aggiornare seed data con ticket, KB articles e SLA policies di esempio. Verificare migrazioni in sequenza da zero. Tag git `v0.3.0-beta`. Deploy su Railway staging — [1 SP] — ✅ DONE
 
 **Totale: 20 SP** _(buffer -4 SP per bug fix e stabilizzazione = 16 SP effettivi)_
 

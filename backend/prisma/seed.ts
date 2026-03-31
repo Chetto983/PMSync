@@ -252,6 +252,115 @@ async function main() {
   }
 
   console.log(`Created ${slaPolicies.length} default SLA policies`);
+
+  // ---- Phase 3: Ticketing seed data ----
+
+  // Sample tickets
+  const tickets = [
+    { subject: 'Cannot access dashboard', description: 'Getting 403 error when loading /dashboard. Browser: Chrome 120.', status: 'open', priority: 'high' },
+    { subject: 'Invoice PDF not downloading', description: 'Clicking download on invoice #1234 returns blank page.', status: 'in_progress', priority: 'medium', assigneeId: adminUser.id },
+    { subject: 'Password reset email not received', description: 'Customer waited 30 minutes, checked spam folder.', status: 'resolved', priority: 'medium', assigneeId: memberUser.id, resolvedAt: new Date('2026-03-28') },
+    { subject: 'Mobile app crashes on startup', description: 'iOS 18, iPhone 15 Pro. Crash after splash screen.', status: 'closed', priority: 'urgent', assigneeId: adminUser.id, resolvedAt: new Date('2026-03-25'), closedAt: new Date('2026-03-26') },
+    { subject: 'Feature request: dark mode', description: 'Would love a dark mode option in settings.', status: 'open', priority: 'low' },
+  ];
+
+  for (const t of tickets) {
+    await prisma.ticket.create({
+      data: {
+        tenantId: defaultTenant.id,
+        subject: t.subject,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        assigneeId: t.assigneeId,
+        resolvedAt: t.resolvedAt,
+        closedAt: t.closedAt,
+      },
+    });
+  }
+  console.log(`Created ${tickets.length} sample tickets`);
+
+  // KB Categories
+  const gettingStarted = await prisma.kBCategory.create({
+    data: {
+      tenantId: defaultTenant.id,
+      name: 'Getting Started',
+      slug: 'getting-started',
+      description: 'Guides for new users',
+      sortOrder: 1,
+    },
+  });
+
+  const troubleshooting = await prisma.kBCategory.create({
+    data: {
+      tenantId: defaultTenant.id,
+      name: 'Troubleshooting',
+      slug: 'troubleshooting',
+      description: 'Common issues and fixes',
+      sortOrder: 2,
+    },
+  });
+
+  console.log('Created 2 KB categories');
+
+  // KB Articles
+  const articles = [
+    {
+      categoryId: gettingStarted.id,
+      title: 'How to set up your account',
+      slug: 'how-to-set-up-your-account',
+      body: '# Setting up your account\n\n1. Go to Settings > Account\n2. Fill in your profile information\n3. Connect your email provider\n4. Configure notification preferences\n\nYou\'re all set!',
+      status: 'published',
+      publishedAt: new Date('2026-03-15'),
+    },
+    {
+      categoryId: gettingStarted.id,
+      title: 'Connecting your email',
+      slug: 'connecting-your-email',
+      body: '# Email Connection Guide\n\nPMSync supports Gmail and Outlook via OAuth2.\n\n## Gmail\n1. Click "Connect Gmail"\n2. Authorize access\n\n## Outlook\n1. Click "Connect Outlook"\n2. Sign in with Microsoft account',
+      status: 'published',
+      publishedAt: new Date('2026-03-16'),
+    },
+    {
+      categoryId: troubleshooting.id,
+      title: 'Email sync not working',
+      slug: 'email-sync-not-working',
+      body: '# Email Sync Issues\n\n## Common Causes\n- OAuth token expired: reconnect your account\n- Rate limiting: wait 15 minutes\n- Server error: check status page\n\n## Steps\n1. Go to Settings > Connections\n2. Click "Reconnect" on your email account\n3. Re-authorize access',
+      status: 'published',
+      publishedAt: new Date('2026-03-20'),
+    },
+  ];
+
+  for (const a of articles) {
+    await prisma.kBArticle.create({
+      data: {
+        tenantId: defaultTenant.id,
+        authorId: adminUser.id,
+        ...a,
+      },
+    });
+  }
+  console.log(`Created ${articles.length} KB articles`);
+
+  // Canned response templates
+  const templates = [
+    { name: 'Acknowledge receipt', body: 'Thank you for contacting us. We have received your request and a team member will be assigned shortly. You can track your ticket status at any time using the portal link in your email.', category: 'general' },
+    { name: 'Request more info', body: 'To help us resolve your issue faster, could you please provide:\n- Steps to reproduce the problem\n- Browser/device information\n- Any error messages you see\n\nThank you for your patience.', category: 'general' },
+    { name: 'Issue resolved', body: 'We have resolved the issue you reported. Please verify that everything is working correctly on your end. If you experience any further problems, feel free to reopen this ticket.\n\nThank you for your patience.', category: 'resolution' },
+  ];
+
+  for (const t of templates) {
+    await prisma.ticketTemplate.create({
+      data: {
+        tenantId: defaultTenant.id,
+        name: t.name,
+        body: t.body,
+        category: t.category,
+      },
+    });
+  }
+  console.log(`Created ${templates.length} canned response templates`);
+
   console.log('');
   console.log('Database seeding completed successfully.');
   console.log('');
