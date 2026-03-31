@@ -284,7 +284,8 @@ export class RealtimeEventsService implements OnModuleDestroy {
   }
 
   /**
-   * Emette evento per aggiornamento contatore non lette
+   * @deprecated Never called — use emitFolderCountsUpdate() instead.
+   * Folder counts are the single source of truth for unread badges (DASH-C2).
    */
   emitUnreadCountUpdate(
     tenantId: string,
@@ -294,7 +295,8 @@ export class RealtimeEventsService implements OnModuleDestroy {
   }
 
   /**
-   * Emette evento per aggiornamento conteggio cartelle (totale + non lette)
+   * Canonical real-time count broadcast — single source of truth.
+   * Dashboard and sidebar both consume folder counts via useUnifiedEmailCounts().
    */
   emitFolderCountsUpdate(
     tenantId: string,
