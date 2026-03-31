@@ -19,6 +19,29 @@ import { getRedisConnectionOptions, RedisConnectionOptions } from '../../config/
 const logger = new Logger('QueueConfig');
 
 /**
+ * Get the number of replicas this instance shares work with.
+ * Set WORKER_REPLICA_COUNT in Railway env vars to match numReplicas.
+ * Defaults to 1 (single instance behavior).
+ */
+export function getReplicaCount(): number {
+  const raw = process.env.WORKER_REPLICA_COUNT;
+  const parsed = parseInt(raw ?? '1', 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+}
+
+/**
+ * Scale a base concurrency value for multi-replica deployment.
+ * Divides by replica count with a minimum floor of 1.
+ *
+ * Example: scaleForReplicas(17) with 2 replicas = Math.floor(17/2) = 8
+ * Total across 2 replicas: 16 (close to original 17, safe)
+ */
+export function scaleForReplicas(baseConcurrency: number): number {
+  const replicas = getReplicaCount();
+  return Math.max(1, Math.floor(baseConcurrency / replicas));
+}
+
+/**
  * Shared Redis connection singleton for BullMQ
  * Prevents connection sprawl by reusing a single ioredis instance
  * across all queue services.
@@ -362,7 +385,7 @@ export function getWorkerOptions(
 ): Partial<WorkerOptions> {
   const config = WORKER_PRESETS[preset];
   const result: Partial<WorkerOptions> = {
-    concurrency: config.concurrency,
+    concurrency: scaleForReplicas(config.concurrency),
     lockDuration: config.lockDuration,
     stalledInterval: config.stalledInterval,
   };
