@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { RealtimeGateway } from './gateways/realtime.gateway';
 import { RealtimeController } from './controllers/realtime.controller';
 import { RealtimeEventsService } from './services/realtime-events.service';
@@ -15,6 +15,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
  * - User active status validation in handshake
  * - Lifecycle cleanup for timers/buffers
  */
+@Global()
 @Module({
   imports: [PrismaModule],
   controllers: [RealtimeController],
