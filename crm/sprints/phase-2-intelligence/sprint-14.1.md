@@ -100,7 +100,7 @@
 
 ### Validation (1 SP)
 
-- [ ] T-1423 — E2E validation: test each new tool via AI chat on production — 1 SP
+- [x] T-1423 — E2E validation: test each new tool via AI chat on production — 1 SP — ✅ DONE
   - Open AI chat → ask CRM questions → verify tools are invoked
   - Verify renderers display correctly (not just fallback JSON)
   - Verify system prompt guides LLM to use correct tools
