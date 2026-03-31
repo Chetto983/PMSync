@@ -21,6 +21,9 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
     PrometheusModule.register({
       path: '/metrics',
       defaultMetrics: { enabled: true },
+      defaultLabels: {
+        instance: process.env.RAILWAY_REPLICA_ID || 'local',
+      },
     }),
   ],
   providers: [

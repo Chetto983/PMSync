@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v11.0
 milestone_name: Legacy Cleanup, Scalability & Billing Hardening
 status: completed
-stopped_at: Completed 129-01-PLAN.md
-last_updated: "2026-03-31T13:40:34.200Z"
+stopped_at: Completed 129-01-PLAN.md and 129-02-PLAN.md
+last_updated: "2026-03-31T13:41:00.000Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 9
@@ -65,6 +65,9 @@ Progress: [██████░░░░] 66%
 - [Phase 128]: Redis Lua semaphore for triage concurrency (fail-closed, 120s TTL safety net)
 - [Phase 128]: CircuitBreaker stays per-instance by design (industry standard, convergence within 90s)
 - [Phase 129]: scaleForReplicas reads WORKER_REPLICA_COUNT at call time; getWorkerOptions auto-scales preset concurrency; min floor 1
+- [Phase 129]: 25s shutdown timeout (env-configurable) fits within Railway 30s grace period
+- [Phase 129]: WebSocket adapter closes before app.close() to prevent orphaned pub/sub
+- [Phase 129]: PrismaService uses OnModuleDestroy lifecycle instead of manual signal handlers
 
 ### Blockers/Concerns
 
@@ -78,6 +81,6 @@ Progress: [██████░░░░] 66%
 
 ## Session Continuity
 
-Last session: 2026-03-31T13:40:34.196Z
-Stopped at: Completed 129-01-PLAN.md
+Last session: 2026-03-31T13:41:00.000Z
+Stopped at: Completed 129-01-PLAN.md and 129-02-PLAN.md
 Resume file: None

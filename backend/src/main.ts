@@ -659,22 +659,37 @@ async function bootstrap() {
     );
     trap.stop('[startup] application bootstrap completed');
 
-    // Graceful shutdown handlers
+    // Graceful shutdown with timeout safety net
+    const SHUTDOWN_TIMEOUT_MS = parseInt(
+      process.env.SHUTDOWN_TIMEOUT_MS ?? '25000', 10,
+    );
+
     const gracefulShutdown = async (signal: string) => {
-      logger.log(`\n🛑 Received ${signal}, starting graceful shutdown...`);
+      logger.log(`Received ${signal}, starting graceful shutdown...`);
+
+      const forceExit = setTimeout(() => {
+        logger.error('Shutdown timeout exceeded, forcing exit');
+        process.exit(1);
+      }, SHUTDOWN_TIMEOUT_MS);
+      forceExit.unref(); // Don't keep process alive just for this timer
+
       try {
+        // 1. Close WebSocket adapter first (stops accepting new WS connections, disconnects pub/sub)
+        await redisIoAdapter.close();
+        // 2. Close NestJS app (triggers onModuleDestroy on all providers: BaseWorker drain, Prisma disconnect)
         await app.close();
-        logger.log('✅ Application closed gracefully');
+        logger.log('Application closed gracefully');
+        clearTimeout(forceExit);
         process.exit(0);
       } catch (error) {
-        // Properly serialize error for Pino logger
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         logger.error(
           { err: { message: errorMessage, stack: errorStack } },
-          '❌ Error during shutdown',
+          'Error during shutdown',
         );
+        clearTimeout(forceExit);
         process.exit(1);
       }
     };

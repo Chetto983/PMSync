@@ -214,7 +214,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 129-01-PLAN.md -- BullMQ worker concurrency scaling with scaleForReplicas() helper
-- [ ] 129-02-PLAN.md -- Graceful shutdown hardening + Prometheus per-replica labels + numReplicas=2
+- [x] 129-02-PLAN.md -- Graceful shutdown hardening + Prometheus per-replica labels + numReplicas=2
 
 ### Phase 130: Frontend Performance
 **Goal**: Frontend loads faster with smaller bundles and smarter caching
