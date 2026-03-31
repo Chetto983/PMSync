@@ -8,6 +8,7 @@ import { CalendarModule } from '../calendar/calendar.module';
 import { ContactsModule } from '../contacts/contacts.module';
 import { AiModule } from '../ai/ai.module';
 import { ReminderModule } from '../reminder/reminder.module';
+import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { NBAModule } from '../crm/nba/nba.module';
 import { ForecastingModule } from '../crm/forecasting/forecasting.module';
 import { GovernanceModule } from '../crm/governance/governance.module';
@@ -61,6 +62,7 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     AuditModule, // AuditService
     // Phase 32: Direct imports (no circular-ref wrappers) -- domain modules for ToolsService DI
     EmailModule, // EmailSearchService, EmailCrudService, EmailSendService, etc.
+    EmailSyncModule, // FolderOperationsQueueService for provider-backed folder mutations
     CalendarModule, // CalendarEventsService
     ContactsModule, // ContactsService
     AiModule, // EmbeddingsService, KnowledgeBaseService

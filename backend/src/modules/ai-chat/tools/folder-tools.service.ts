@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { FolderOperationsQueueService } from '../../email-sync/services/folder-operations-queue.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
 import {
   TOOL_REGISTRY_SERVICE,
@@ -36,6 +37,7 @@ export class FolderToolsService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly folderQueue: FolderOperationsQueueService,
     @Inject(TOOL_REGISTRY_SERVICE)
     private readonly toolRegistry: IToolRegistryService,
   ) {}
@@ -117,6 +119,7 @@ export class FolderToolsService implements OnModuleInit {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
         )) as typeof args;
+        const requestedAt = new Date(Date.now() - 5000);
 
         // Get default email provider for the tenant
         const provider = await this.prisma.providerConfig.findFirst({
@@ -128,21 +131,76 @@ export class FolderToolsService implements OnModuleInit {
           throw new Error('No active email provider found for tenant');
         }
 
-        const folder = await this.prisma.folder.create({
-          data: {
+        const providerType = provider.providerType === 'imap'
+          ? 'generic'
+          : provider.providerType as 'google' | 'microsoft' | 'generic';
+
+        const jobId = await this.folderQueue.addCreateFolderJob(
+          tenantId,
+          provider.id,
+          providerType,
+          provider.email,
+          resolved.name.trim(),
+        );
+
+        const result = await this.folderQueue.waitForJob(jobId, 30000);
+
+        if (!result) {
+          const fallbackFolder = await this.findCreatedFolderFallback(
             tenantId,
-            providerId: provider.id,
-            name: resolved.name,
-            path: resolved.name,
-          },
-        });
+            provider.id,
+            resolved.name,
+            requestedAt,
+          );
+
+          if (!fallbackFolder) {
+            throw new Error('Failed to create folder: job did not complete');
+          }
+
+          return truncateToolResult({
+            id: fallbackFolder.id,
+            name: fallbackFolder.name,
+            path: fallbackFolder.path,
+            status: 'created',
+          });
+        }
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create folder');
+        }
 
         return truncateToolResult({
-          id: folder.id,
-          name: folder.name,
-          path: folder.path,
+          id: result.folderId || '',
+          name: result.folderName || resolved.name.trim(),
+          path: result.folderPath || resolved.name.trim(),
           status: 'created',
         });
+      },
+    });
+  }
+
+  private async findCreatedFolderFallback(
+    tenantId: string,
+    providerId: string,
+    folderName: string,
+    requestedAt: Date,
+  ) {
+    const trimmedName = folderName.trim();
+    return this.prisma.folder.findFirst({
+      where: {
+        tenantId,
+        providerId,
+        updatedAt: { gte: requestedAt },
+        OR: [
+          { path: trimmedName },
+          { name: trimmedName },
+        ],
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        path: true,
+        name: true,
       },
     });
   }
