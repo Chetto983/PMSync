@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Post,
   Patch,
   Delete,
@@ -296,6 +297,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Get()
+  @Header('Cache-Control', 'private, max-age=30, stale-while-revalidate=60')
   @ApiOperation({ summary: 'Get all folders for current user' })
   @ApiResponse({ status: 200, description: 'Returns list of folders' })
   async getFolders(@Request() req: AuthenticatedRequest) {

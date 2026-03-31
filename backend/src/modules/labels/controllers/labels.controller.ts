@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -37,6 +38,7 @@ export class LabelsController {
   constructor(private readonly labelsService: LabelsService) {}
 
   @Get()
+  @Header('Cache-Control', 'private, max-age=60, stale-while-revalidate=120')
   @ApiOperation({ summary: 'List all labels', description: 'Returns all user labels for the tenant' })
   @ApiResponse({ status: 200, description: 'Labels returned successfully' })
   async listLabels(@Req() req: AuthenticatedRequest) {
