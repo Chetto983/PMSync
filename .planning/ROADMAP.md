@@ -256,7 +256,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 125. Dead Code Removal | v11.0 | 3/3 | Complete   | 2026-03-31 |
+| 125. Dead Code Removal | v11.0 | 3/3 | Complete    | 2026-03-31 |
 | 126. Cron-to-BullMQ Migration | v11.0 | 0/TBD | Not started | - |
 | 127. Transport & Connection Hardening | v11.0 | 0/TBD | Not started | - |
 | 128. State Externalization | v11.0 | 0/TBD | Not started | - |
