@@ -132,7 +132,7 @@ export function CostProtectionCard({ costStatus, isLoading }: CostProtectionCard
                 bgcolor: alpha(theme.palette.grey[500], 0.15),
               }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               {percentUsed.toFixed(0)}% {t.billing?.usage?.percentUsed || 'used'}
             </Typography>
           </>

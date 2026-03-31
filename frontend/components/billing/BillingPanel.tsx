@@ -186,7 +186,7 @@ export function BillingPanel() {
               '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
             }}
           >
-            <Box sx={{ fontWeight: 600, mb: 0.5 }}>{t.billing?.actions?.manageBilling || 'Manage Billing'}</Box>
+            <Box sx={{ fontWeight: 600, mb: 1 }}>{t.billing?.actions?.manageBilling || 'Manage Billing'}</Box>
             <Box sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
               {t.billing?.manage?.billingDescription || 'Update payment method, view invoices, manage subscription'}
             </Box>
@@ -207,7 +207,7 @@ export function BillingPanel() {
               '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
             }}
           >
-            <Box sx={{ fontWeight: 600, mb: 0.5 }}>{t.billing?.actions?.viewInvoices || 'View Invoices'}</Box>
+            <Box sx={{ fontWeight: 600, mb: 1 }}>{t.billing?.actions?.viewInvoices || 'View Invoices'}</Box>
             <Box sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
               {t.billing?.manage?.invoicesDescription || 'Download and view past invoices'}
             </Box>

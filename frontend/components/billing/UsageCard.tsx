@@ -87,7 +87,7 @@ export function UsageCard({ subscription, isLoading }: UsageCardProps) {
             }}
           />
           {monthlyEmailLimit !== -1 && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               {usage.emailsRemaining.toLocaleString()} {t.billing?.usage?.remaining || 'remaining'}
             </Typography>
           )}
@@ -121,7 +121,7 @@ export function UsageCard({ subscription, isLoading }: UsageCardProps) {
             }}
           />
           {monthlyAICallLimit !== -1 && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               {usage.aiCallsRemaining.toLocaleString()} {t.billing?.usage?.remaining || 'remaining'}
             </Typography>
           )}

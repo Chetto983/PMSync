@@ -138,7 +138,7 @@ function PlanCard({ plan, isCurrent, isRecommended, onSelect, isAttaching, t }: 
               <Typography variant="h4" sx={{ fontWeight: 600 }}>
                 ${plan.price}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
                 {t.billing?.pricing?.perMonth || '/month'}
               </Typography>
             </Box>
@@ -160,7 +160,7 @@ function PlanCard({ plan, isCurrent, isRecommended, onSelect, isAttaching, t }: 
             const localeKey = featureKeyMap[feature] || feature;
             const featureLabel = (t.billing?.features as Record<string, string>)?.[localeKey] || feature;
             return (
-              <ListItem key={idx} sx={{ px: 0, py: 0.25 }}>
+              <ListItem key={idx} sx={{ px: 0, py: 0 }}>
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <Check size={16} color={theme.palette.success.main} />
                 </ListItemIcon>
