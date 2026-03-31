@@ -42,6 +42,7 @@ import { useCalendarPreferences } from './calendar/useCalendarPreferences';
 import { useCalendarData } from './calendar/useCalendarData';
 import { useCalendarHandlers } from './calendar/useCalendarHandlers';
 import { useGlobalToast } from '@/lib/context/toast-context';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
 
 export function Calendar() {
   const theme = useTheme();
@@ -52,10 +53,11 @@ export function Calendar() {
 
   const { data: session } = useSession();
   const currentUserEmail = session?.user?.email;
+  const userTimezone = useUserTimezone();
 
   const prefs = useCalendarPreferences(calendarCopy);
   const data = useCalendarData(prefs.calendarPrefs, prefs.loadCalendars, prefs.setSnackbar, calendarCopy);
-  const handlers = useCalendarHandlers(data, prefs.calendarPrefs, calendarCopy, prefs.setSnackbar);
+  const handlers = useCalendarHandlers(data, prefs.calendarPrefs, calendarCopy, prefs.setSnackbar, userTimezone);
 
   const {
     calendarPrefs,

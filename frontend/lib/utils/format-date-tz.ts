@@ -98,6 +98,60 @@ export function formatScheduleDateInTz(
 }
 
 /**
+ * Parse a datetime-local input value (YYYY-MM-DDTHH:mm) as wall-clock time in the
+ * given timezone and return a UTC ISO string.
+ * Inverse of formatDateTimeLocalInTz.
+ */
+export function parseDateTimeLocalInTz(
+  datetimeLocal: string,
+  timezone: string,
+): string {
+  if (!datetimeLocal) return '';
+  try {
+    // datetimeLocal is "YYYY-MM-DDTHH:mm" — wall-clock in the target timezone.
+    // We need to find the UTC instant that corresponds to this wall-clock time.
+    // Strategy: parse as UTC, then adjust by the offset difference.
+    const naive = new Date(datetimeLocal + ':00Z'); // treat as UTC first
+    if (Number.isNaN(naive.getTime())) return new Date(datetimeLocal).toISOString();
+
+    // Get the UTC offset at this instant for the target timezone
+    // by formatting the naive UTC date in the target tz and computing the delta.
+    const inTz = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(naive);
+
+    const get = (type: Intl.DateTimeFormatPartTypes) =>
+      inTz.find((p) => p.type === type)?.value ?? '00';
+
+    const tzWallMs = Date.UTC(
+      Number(get('year')),
+      Number(get('month')) - 1,
+      Number(get('day')),
+      Number(get('hour')),
+      Number(get('minute')),
+      Number(get('second')),
+    );
+
+    // offset = tzWallMs - naive.getTime() (both in ms)
+    const offsetMs = tzWallMs - naive.getTime();
+
+    // The desired UTC instant = naive - offset
+    // (because wall-clock = UTC + offset, so UTC = wall-clock - offset)
+    const targetMs = naive.getTime() - offsetMs;
+    return new Date(targetMs).toISOString();
+  } catch {
+    return new Date(datetimeLocal).toISOString();
+  }
+}
+
+/**
  * Format a datetime-local input value (YYYY-MM-DDTHH:mm) in the given timezone.
  * Used for <input type="datetime-local"> which needs local wall-clock values.
  */

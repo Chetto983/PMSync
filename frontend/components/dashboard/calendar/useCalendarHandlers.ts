@@ -29,6 +29,7 @@ import {
   resolveSelectedCalendarPreference,
 } from './calendar-event-form';
 import { formatDateTimeLocalInput } from './calendar-date-time';
+import { parseDateTimeLocalInTz } from '@/lib/utils/format-date-tz';
 import type { RSVPResponse } from '@/components/calendar/RSVPButtons';
 
 type CalendarData = ReturnType<typeof useCalendarData>;
@@ -63,6 +64,7 @@ export function useCalendarHandlers(
   calendarPrefs: Map<string, CalendarPreference>,
   calendarCopy: CalendarCopy,
   setSnackbar: (s: { open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }) => void,
+  userTimezone?: string,
 ) {
   const {
     calendarRef,
@@ -91,6 +93,17 @@ export function useCalendarHandlers(
   const defaultCalendarSelection = useMemo(
     () => getDefaultCalendarSelection(calendarPrefs),
     [calendarPrefs],
+  );
+
+  // Convert datetime-local wall-clock to UTC ISO, respecting user timezone
+  const toUtcIso = useCallback(
+    (datetimeLocal: string): string => {
+      if (userTimezone) {
+        return parseDateTimeLocalInTz(datetimeLocal, userTimezone);
+      }
+      return new Date(datetimeLocal).toISOString();
+    },
+    [userTimezone],
   );
 
   // Quick event state
@@ -178,8 +191,8 @@ export function useCalendarHandlers(
 
     setNewEvent({
       title: quickEventText,
-      start: formatDateTimeLocalInput(start),
-      end: formatDateTimeLocalInput(end),
+      start: formatDateTimeLocalInput(start, userTimezone),
+      end: formatDateTimeLocalInput(end, userTimezone),
       calendar: defaultCalendarSelection,
       description: '',
     });
@@ -194,8 +207,8 @@ export function useCalendarHandlers(
 
     setNewEvent({
       title: '',
-      start: formatDateTimeLocalInput(start),
-      end: formatDateTimeLocalInput(end),
+      start: formatDateTimeLocalInput(start, userTimezone),
+      end: formatDateTimeLocalInput(end, userTimezone),
       calendar: defaultCalendarSelection,
       description: '',
     });
@@ -214,8 +227,8 @@ export function useCalendarHandlers(
           title: event.title,
           description: event.description || '',
           location: event.location || '',
-          start: formatDateTimeLocalInput(event.startTime),
-          end: formatDateTimeLocalInput(event.endTime),
+          start: formatDateTimeLocalInput(event.startTime, userTimezone),
+          end: formatDateTimeLocalInput(event.endTime, userTimezone),
         });
         setEventDetailsOpen(true);
 
@@ -331,8 +344,8 @@ export function useCalendarHandlers(
       const createDto: CreateEventDto = {
         providerId: selectedCalendar.providerId,
         title: newEvent.title,
-        startTime: new Date(newEvent.start).toISOString(),
-        endTime: new Date(newEvent.end).toISOString(),
+        startTime: toUtcIso(newEvent.start),
+        endTime: toUtcIso(newEvent.end),
         description: newEvent.description,
         calendarId: selectedCalendar.calendarId,
         calendarName: selectedCalendar.calendarName,
@@ -389,8 +402,8 @@ export function useCalendarHandlers(
         title: editedEvent.title,
         description: editedEvent.description,
         location: editedEvent.location,
-        startTime: new Date(editedEvent.start).toISOString(),
-        endTime: new Date(editedEvent.end).toISOString(),
+        startTime: toUtcIso(editedEvent.start),
+        endTime: toUtcIso(editedEvent.end),
       };
 
       await updateEventMutation.mutateAsync({ id: selectedEvent.id, data: updateDto });

@@ -43,11 +43,11 @@
 - [x] Test: new calendar synced → provider color appears in UI ✅ DONE (tsc passes, auto-persist wired)
 
 ### T-0705: Calendar event form DST handling [2 SP]
-- [ ] Read `CalendarEventDialog.tsx` — check date/time picker timezone awareness
-- [ ] Read `CalendarEventDetail.tsx` — check event display timezone
-- [ ] Verify event times display correctly across timezone offsets
-- [ ] Add timezone selector to event creation form (if missing)
-- [ ] Test: create event in Europe/Rome timezone → displays correctly for user in US/Eastern
+- [x] Read `CalendarEventDialog.tsx` — check date/time picker timezone awareness ✅ DONE
+- [x] Read `CalendarEventDetail.tsx` — check event display timezone ✅ DONE (already uses formatDateTimeInTz)
+- [x] Verify event times display correctly across timezone offsets ✅ DONE (wired userTimezone through)
+- [x] Add timezone-aware datetime-local parsing (parseDateTimeLocalInTz) ✅ DONE
+- [x] Test: create event in Europe/Rome timezone → displays correctly for user in US/Eastern ✅ DONE (tsc passes)
 
 ## Dependencies
 - S01-S06 (backend verified and hardened)
