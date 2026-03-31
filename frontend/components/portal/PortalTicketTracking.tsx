@@ -126,7 +126,7 @@ export function PortalTicketTracking({ tenantSlug, token }: PortalTicketTracking
           size="small"
         />
         <Chip
-          label={ticket.priority}
+          label={tp?.[`priority${ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}` as keyof typeof tp] ?? ticket.priority}
           color={priorityColor(ticket.priority) as any}
           size="small"
           variant="outlined"

@@ -4,6 +4,7 @@ import React from 'react';
 import { Box, AppBar, Toolbar, Typography, Container, Link as MuiLink } from '@mui/material';
 import NextLink from 'next/link';
 import { BookOpen, Ticket } from 'lucide-react';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface PortalLayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,9 @@ interface PortalLayoutProps {
 }
 
 export function PortalLayout({ children, tenantSlug }: PortalLayoutProps) {
+  const t = useTranslations();
+  const tk = t.kb;
+  const tp = t.portal;
   const base = `/portal/${tenantSlug}`;
 
   return (
@@ -36,7 +40,7 @@ export function PortalLayout({ children, tenantSlug }: PortalLayoutProps) {
               sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
             >
               <BookOpen size={16} />
-              Knowledge Base
+              {tk?.title ?? 'Knowledge Base'}
             </MuiLink>
             <MuiLink
               component={NextLink}
@@ -46,7 +50,7 @@ export function PortalLayout({ children, tenantSlug }: PortalLayoutProps) {
               sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
             >
               <Ticket size={16} />
-              Submit Ticket
+              {tp?.submitTicket ?? 'Submit Ticket'}
             </MuiLink>
           </Box>
         </Toolbar>

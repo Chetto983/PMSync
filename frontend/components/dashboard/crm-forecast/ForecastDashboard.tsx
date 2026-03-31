@@ -202,7 +202,7 @@ export function ForecastDashboard() {
       {forecast && forecast.forecasts.length > 0 && (
         <>
           <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
               <Typography variant="subtitle1" fontWeight={600}>
                 {tf?.chart?.title ?? 'Revenue Projection'}
               </Typography>

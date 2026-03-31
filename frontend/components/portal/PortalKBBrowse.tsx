@@ -40,6 +40,7 @@ interface PortalKBBrowseProps {
 export function PortalKBBrowse({ tenantSlug }: PortalKBBrowseProps) {
   const t = useTranslations();
   const tk = t.kb;
+  const tb = tk?.browse;
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -186,7 +187,13 @@ export function PortalKBBrowse({ tenantSlug }: PortalKBBrowseProps) {
                   </Typography>
                 )}
                 <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
-                  {cat._count?.articles ?? 0} articles
+                  {(() => {
+                    const n = cat._count?.articles ?? 0;
+                    const tpl = n === 1
+                      ? (tb?.articleCount ?? '{count} article')
+                      : (tb?.articlesCount ?? '{count} articles');
+                    return tpl.replace('{count}', String(n));
+                  })()}
                 </Typography>
               </Paper>
             ))

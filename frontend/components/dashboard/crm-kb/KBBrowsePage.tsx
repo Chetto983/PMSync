@@ -226,8 +226,8 @@ export function KBBrowsePage() {
                 <TableCell sx={{ fontWeight: 600 }}>{tf?.title ?? 'Title'}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{tf?.category ?? 'Category'}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{tf?.status ?? 'Status'}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{tb?.publishedOn ?? 'Published'}</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 100 }} />
+                <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>{tb?.publishedOn ?? 'Published'}</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 80, display: { xs: 'none', sm: 'table-cell' } }} />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -237,8 +237,8 @@ export function KBBrowsePage() {
                     <TableCell><Skeleton variant="text" /></TableCell>
                     <TableCell><Skeleton variant="text" width={80} /></TableCell>
                     <TableCell><Skeleton variant="text" width={70} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={60} /></TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}><Skeleton variant="text" width={80} /></TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Skeleton variant="text" width={60} /></TableCell>
                   </TableRow>
                 ))
               ) : articles.length === 0 ? (
@@ -292,8 +292,8 @@ export function KBBrowsePage() {
                         color={STATUS_COLORS[article.status] ?? 'default'}
                       />
                     </TableCell>
-                    <TableCell>{formatDate(article.publishedAt)}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{formatDate(article.publishedAt)}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }} onClick={(e) => e.stopPropagation()}>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <IconButton
                           size="small"

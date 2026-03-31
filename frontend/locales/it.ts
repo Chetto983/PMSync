@@ -5200,6 +5200,7 @@ export const it: AppTranslations = {
     },
     browse: {
       allCategories: 'Tutte le Categorie',
+      articleCount: '{count} articolo',
       articlesCount: '{count} articoli',
       readMore: 'Leggi di più',
       publishedOn: 'Pubblicato il',

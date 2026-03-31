@@ -5020,6 +5020,7 @@ export interface AppTranslations {
     };
     browse?: {
       allCategories?: string;
+      articleCount?: string;
       articlesCount?: string;
       readMore?: string;
       publishedOn?: string;

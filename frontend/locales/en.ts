@@ -5223,6 +5223,7 @@ export const en: AppTranslations = {
     },
     browse: {
       allCategories: 'All Categories',
+      articleCount: '{count} article',
       articlesCount: '{count} articles',
       readMore: 'Read more',
       publishedOn: 'Published on',

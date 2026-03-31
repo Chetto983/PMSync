@@ -138,10 +138,18 @@ export function PipelineProgressBar({
         sx={{
           '& .MuiStepConnector-line': { borderTopWidth: 3 },
           '& .MuiStepLabel-label': { fontSize: '0.75rem' },
-          '& .MuiStepConnector-root.Mui-completed .MuiStepConnector-line': { borderColor: 'primary.main' },
-          '& .MuiStepConnector-root.Mui-active .MuiStepConnector-line': { borderColor: 'primary.main' },
-          '& .MuiStepIcon-root.Mui-completed': { color: (t) => `${t.palette.primary.main} !important` },
-          '& .MuiStepIcon-root.Mui-active': { color: (t) => `${t.palette.primary.main} !important` },
+          '& .MuiStepConnector-root.Mui-completed .MuiStepConnector-line': {
+            borderColor: currentStage?.isLost ? 'error.main' : 'primary.main',
+          },
+          '& .MuiStepConnector-root.Mui-active .MuiStepConnector-line': {
+            borderColor: currentStage?.isLost ? 'error.main' : 'primary.main',
+          },
+          '& .MuiStepIcon-root.Mui-completed': {
+            color: (t) => `${currentStage?.isLost ? t.palette.error.main : t.palette.primary.main} !important`,
+          },
+          '& .MuiStepIcon-root.Mui-active': {
+            color: (t) => `${currentStage?.isLost ? t.palette.error.main : t.palette.primary.main} !important`,
+          },
         }}
       >
         {stages.map((stage) => (
@@ -149,9 +157,11 @@ export function PipelineProgressBar({
             <StepLabel
               StepIconProps={{
                 sx: {
-                  ...(stage.id === currentStageId && stage.color
-                    ? { color: `${stage.color} !important` }
-                    : {}),
+                  ...(stage.id === currentStageId && stage.isLost
+                    ? { color: (t: any) => `${t.palette.error.main} !important` }
+                    : stage.id === currentStageId && stage.color
+                      ? { color: `${stage.color} !important` }
+                      : {}),
                 },
               }}
             >
