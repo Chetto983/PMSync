@@ -46,6 +46,27 @@ jest.mock('@/hooks/queries/use-dashboard', () => ({
   }),
 }));
 
+jest.mock('@/hooks/queries/use-follow-ups', () => ({
+  usePendingFollowUps: () => ({
+    data: {
+      followUps: [
+        {
+          id: 'fu-1',
+          emailId: 'email-1',
+          followUpType: 'TODO',
+          dueDate: '2026-03-31T12:00:00.000Z',
+          status: 'PENDING',
+          reason: 'Need to reply before the customer deadline.',
+        },
+      ],
+      count: 1,
+    },
+    isLoading: false,
+    error: undefined,
+    refetch: jest.fn(),
+  }),
+}));
+
 jest.mock('@/lib/hooks/use-translations', () => ({
   useTranslations: () => ({
     dashboard: {
@@ -103,7 +124,9 @@ describe('AiTriageWidget', () => {
     expect(screen.getByText('Renewal at risk')).toBeInTheDocument();
     expect(screen.getByText('Renewal')).toBeInTheDocument();
     expect(screen.getByText('Negative')).toBeInTheDocument();
-    expect(screen.getByText('Customer mentioned a contract deadline this afternoon.')).toBeInTheDocument();
+    expect(screen.getByText('Action now')).toBeInTheDocument();
+    expect(screen.getByText('To do')).toBeInTheDocument();
+    expect(screen.getByText('Need to reply before the customer deadline.')).toBeInTheDocument();
   });
 
   it('navigates to the email detail and triaged inbox view', () => {

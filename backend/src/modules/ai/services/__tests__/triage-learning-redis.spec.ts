@@ -71,6 +71,22 @@ describe('TriageLearningService (Redis externalization)', () => {
     await service.onModuleDestroy();
   });
 
+  describe('shutdown safety', () => {
+    it('should no-op on destroy when module init never ran', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TriageLearningService,
+          { provide: RedisConnectionService, useValue: mockRedisConnection },
+        ],
+      }).compile();
+
+      const uninitializedService = module.get<TriageLearningService>(TriageLearningService);
+
+      await expect(uninitializedService.onModuleDestroy()).resolves.toBeUndefined();
+      expect(mockRedis.scan).not.toHaveBeenCalled();
+    });
+  });
+
   // -----------------------------------------------------------------------
   // 1. recordSignal pushes to Redis list
   // -----------------------------------------------------------------------

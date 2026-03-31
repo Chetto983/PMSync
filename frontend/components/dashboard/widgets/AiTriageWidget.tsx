@@ -11,8 +11,10 @@
 'use client';
 
 import { useTriagedEmails, useImportantEmails } from '@/hooks/queries/use-dashboard';
+import { usePendingFollowUps } from '@/hooks/queries/use-follow-ups';
 import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { getLaneLabel, groupEmailsByTriageLane, type TriageLane } from '@/lib/email-triage/triage-lanes';
 import { BaseWidget } from './BaseWidget';
 import {
   Typography,
@@ -44,6 +46,13 @@ const SENTIMENT_CONFIG: Record<string, { color: 'success' | 'error' | 'warning' 
   neutral: { color: 'default' },
 };
 
+const LANE_CONFIG: Record<TriageLane, { color: 'error' | 'warning' | 'info' | 'default'; variant?: 'filled' | 'outlined' }> = {
+  'action-now': { color: 'error', variant: 'filled' },
+  'waiting-on-reply': { color: 'warning', variant: 'outlined' },
+  'system-alerts': { color: 'info', variant: 'outlined' },
+  'review-later': { color: 'default', variant: 'outlined' },
+};
+
 export function AiTriageWidget() {
   const t = useTranslations();
   const router = useRouter();
@@ -52,9 +61,10 @@ export function AiTriageWidget() {
     consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
   const { data: triageData, isLoading: triageLoading, error: triageError, refetch: refetchTriage } = useTriagedEmails({ limit: 5 }, hasAiConsent);
   const { data: starredData, isLoading: starredLoading, error: starredError, refetch: refetchStarred } = useImportantEmails({ limit: 3 }, hasAiConsent);
+  const { data: followUpData, isLoading: followUpsLoading, error: followUpsError, refetch: refetchFollowUps } = usePendingFollowUps(20, false, hasAiConsent);
 
-  const isLoading = consentLoading || triageLoading || starredLoading;
-  const error = hasAiConsent ? (triageError || starredError) : undefined;
+  const isLoading = consentLoading || triageLoading || starredLoading || followUpsLoading;
+  const error = hasAiConsent ? (triageError || starredError || followUpsError) : undefined;
   const totalBadge = (triageData?.total || 0) + (starredData?.total || 0);
 
   const handleViewAll = () => {
@@ -84,9 +94,22 @@ export function AiTriageWidget() {
     return t.threadMessage?.ai?.[sentiment as 'positive' | 'negative' | 'neutral' | 'mixed'] || sentiment;
   };
 
+  const getLaneConfig = (lane: TriageLane) => {
+    return LANE_CONFIG[lane];
+  };
+
+  const formatDueLabel = (dueDate?: string | null) => {
+    if (!dueDate) return null;
+    const parsed = new Date(dueDate);
+    if (Number.isNaN(parsed.getTime())) return null;
+    if (parsed.getTime() < Date.now()) return 'Overdue';
+    return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+
   const handleRefresh = () => {
     refetchTriage();
     refetchStarred();
+    refetchFollowUps();
   };
 
   const noConsentMessage =
@@ -95,6 +118,16 @@ export function AiTriageWidget() {
 
   const hasTriaged = triageData && triageData.emails.length > 0;
   const hasStarred = starredData && starredData.emails.length > 0;
+  const triageLaneGroups = groupEmailsByTriageLane(
+    triageData?.emails || [],
+    (followUpData?.followUps || []).map((followUp) => ({
+      emailId: followUp.emailId,
+      followUpType: followUp.followUpType,
+      dueDate: followUp.dueDate,
+      status: followUp.status,
+      reason: followUp.reason,
+    })),
+  ).filter((group) => group.items.length > 0);
   const hasAny = hasTriaged || hasStarred;
 
   return (
@@ -119,89 +152,133 @@ export function AiTriageWidget() {
     >
       {hasAny ? (
         <>
-          {/* Section 1: AI-triaged by priority */}
+          {/* Section 1: AI-triaged by lane */}
           {hasTriaged && (
             <>
-              <Typography variant="caption" color="text.secondary" sx={{ px: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                {t.dashboard.widgets.aiTriage?.aiTriagedSection || 'AI Priority'}
-              </Typography>
-              <List dense disablePadding sx={{ mb: 1 }}>
-                {triageData.emails.map((email) => {
-                  const priorityConfig = getPriorityConfig(email.aiPriority);
-                  const sentimentConfig = getSentimentConfig(email.aiSentiment);
-                  const sentimentLabel = getSentimentLabel(email.aiSentiment);
-                  return (
-                    <ListItem
-                      key={email.id}
-                      disablePadding
-                      sx={{
-                        mb: 0.5,
-                        cursor: 'pointer',
-                        borderRadius: 1,
-                        '&:hover': { bgcolor: 'action.hover' },
-                        px: 1,
-                        py: 0.5,
-                      }}
-                      onClick={() => handleEmailClick(email.id)}
-                    >
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <Chip
-                          size="small"
-                          label={email.aiPriority}
-                          color={priorityConfig.color}
-                          sx={{ width: 24, height: 24, fontSize: '0.7rem', fontWeight: 600 }}
-                        />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2" noWrap sx={{ fontWeight: email.isRead ? 400 : 600, flex: 1 }}>
-                              {email.subject || t.dashboard.widgets.aiTriage?.noSubject}
-                            </Typography>
-                            {email.aiLabels && email.aiLabels.length > 0 && (
-                              <Chip label={email.aiLabels[0]} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.6rem' }} />
-                            )}
-                          </Box>
-                        }
-                        secondary={
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.25 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                              <Typography variant="caption" noWrap color="text.secondary" sx={{ minWidth: 0 }}>
-                                {getFromDisplay(email.from)}
-                              </Typography>
-                              {email.aiSentiment && sentimentConfig && sentimentLabel && (
-                                <Chip
-                                  label={sentimentLabel}
-                                  size="small"
-                                  color={sentimentConfig.color}
-                                  variant="outlined"
-                                  sx={{ height: 18, fontSize: '0.6rem' }}
-                                />
-                              )}
-                            </Box>
-                            {email.aiPriorityReason && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                title={email.aiPriorityReason}
-                                sx={{
-                                  lineHeight: 1.35,
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                }}
-                              >
-                                {email.aiPriorityReason}
-                              </Typography>
-                            )}
-                          </Box>
-                        }
+              <Box sx={{ px: 1, mb: 1.5 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {t.dashboard.widgets.aiTriage?.aiTriagedSection || 'AI Triage'}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
+                  {triageLaneGroups.map((group) => {
+                    const laneConfig = getLaneConfig(group.lane);
+                    return (
+                      <Chip
+                        key={group.lane}
+                        size="small"
+                        color={laneConfig.color}
+                        variant={laneConfig.variant || 'outlined'}
+                        label={`${getLaneLabel(group.lane)} · ${group.items.length}`}
+                        sx={{ fontWeight: 600 }}
                       />
-                    </ListItem>
-                  );
-                })}
-              </List>
+                    );
+                  })}
+                </Box>
+              </Box>
+
+              {triageLaneGroups.map((group) => (
+                <Box key={group.lane} sx={{ mb: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ px: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {getLaneLabel(group.lane)}
+                  </Typography>
+                  <List dense disablePadding sx={{ mt: 0.5 }}>
+                    {group.items.map(({ email, followUp }) => {
+                      const priorityConfig = getPriorityConfig(email.aiPriority);
+                      const sentimentConfig = getSentimentConfig(email.aiSentiment);
+                      const sentimentLabel = getSentimentLabel(email.aiSentiment);
+                      const dueLabel = formatDueLabel(followUp?.dueDate);
+                      return (
+                        <ListItem
+                          key={email.id}
+                          disablePadding
+                          sx={{
+                            mb: 0.5,
+                            cursor: 'pointer',
+                            borderRadius: 1,
+                            '&:hover': { bgcolor: 'action.hover' },
+                            px: 1,
+                            py: 0.5,
+                          }}
+                          onClick={() => handleEmailClick(email.id)}
+                        >
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <Chip
+                              size="small"
+                              label={email.aiPriority}
+                              color={priorityConfig.color}
+                              sx={{ width: 24, height: 24, fontSize: '0.7rem', fontWeight: 600 }}
+                            />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" noWrap sx={{ fontWeight: email.isRead ? 400 : 600, flex: 1 }}>
+                                  {email.subject || t.dashboard.widgets.aiTriage?.noSubject}
+                                </Typography>
+                                {email.aiLabels && email.aiLabels.length > 0 && (
+                                  <Chip label={email.aiLabels[0]} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.6rem' }} />
+                                )}
+                                {followUp?.followUpType && (
+                                  <Chip
+                                    label={followUp.followUpType === 'WAITING_FOR' ? 'Waiting' : 'To do'}
+                                    size="small"
+                                    variant="outlined"
+                                    color={followUp.followUpType === 'WAITING_FOR' ? 'warning' : 'error'}
+                                    sx={{ height: 18, fontSize: '0.6rem' }}
+                                  />
+                                )}
+                                {dueLabel && (
+                                  <Chip
+                                    label={dueLabel}
+                                    size="small"
+                                    variant="outlined"
+                                    color={dueLabel === 'Overdue' ? 'error' : 'default'}
+                                    sx={{ height: 18, fontSize: '0.6rem' }}
+                                  />
+                                )}
+                              </Box>
+                            }
+                            secondary={
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.25 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                                  <Typography variant="caption" noWrap color="text.secondary" sx={{ minWidth: 0 }}>
+                                    {getFromDisplay(email.from)}
+                                  </Typography>
+                                  {email.aiSentiment && sentimentConfig && sentimentLabel && (
+                                    <Chip
+                                      label={sentimentLabel}
+                                      size="small"
+                                      color={sentimentConfig.color}
+                                      variant="outlined"
+                                      sx={{ height: 18, fontSize: '0.6rem' }}
+                                    />
+                                  )}
+                                </Box>
+                                {(followUp?.reason || email.aiPriorityReason) && (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    title={followUp?.reason || email.aiPriorityReason || undefined}
+                                    sx={{
+                                      lineHeight: 1.35,
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    {followUp?.reason || email.aiPriorityReason}
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                          />
+                        </ListItem>
+                      );
+                    })}
+                  </List>
+                </Box>
+              ))}
             </>
           )}
 

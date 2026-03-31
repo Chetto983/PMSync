@@ -321,7 +321,7 @@ describe('aiChatApi (AI Chat)', () => {
 
       const result = await aiChatApi.getWritingStyle();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/ai/stats/writing-style');
+      expect(apiClient.get).toHaveBeenCalledWith('/ai/stats/writing-style', undefined);
       expect(result.data.success).toBe(true);
     });
   });
@@ -494,14 +494,57 @@ describe('aiChatApi (AI Chat)', () => {
   });
 
   describe('generateReplyDraft', () => {
-    it('should call correct endpoint with params', async () => {
-      const mockResponse = { data: { draftId: 'draft-1', body: 'Hello...', subject: 'Re: Test' } };
+    it('should call correct endpoint with normalized draft response', async () => {
+      const mockResponse = {
+        data: {
+          success: true,
+          draft: { draftId: 'draft-1', body: 'Hello...', subject: 'Re: Test' },
+          meta: {
+            operation: 'draft-generation',
+            version: 'draft-generation-v1',
+            source: 'live',
+            status: 'ok',
+            generatedAt: '2026-03-31T10:00:00.000Z',
+          },
+        },
+      };
       (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
 
       const params = { emailId: 'email-1', tone: 'formal', locale: 'en' };
-      await aiChatApi.generateReplyDraft(params);
+      const result = await aiChatApi.generateReplyDraft(params);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/drafts/generate', params);
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/drafts/generate', {
+        emailId: 'email-1',
+        tone: 'formal',
+        locale: 'en',
+        instruction: 'Draft an appropriate professional reply to this email.',
+      });
+      expect(result.data).toEqual({
+        success: true,
+        draftId: 'draft-1',
+        body: 'Hello...',
+        subject: 'Re: Test',
+        meta: mockResponse.data.meta,
+      });
+    });
+
+    it('should map user instructions to backend instruction field', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValue({
+        data: {
+          success: true,
+          draft: { draftId: 'draft-1', body: 'Hello...', subject: 'Re: Test' },
+        },
+      });
+
+      await aiChatApi.generateReplyDraft({
+        emailId: 'email-1',
+        instructions: 'Reply briefly and confirm tomorrow.',
+      });
+
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/drafts/generate', {
+        emailId: 'email-1',
+        instruction: 'Reply briefly and confirm tomorrow.',
+      });
     });
   });
 

@@ -4,9 +4,16 @@
 
 'use client';
 
-import { useBriefing, useRecentUnreadEmails } from '@/hooks/queries/use-dashboard';
+import { useBriefing, useRecentUnreadEmails, useTriagedEmails } from '@/hooks/queries/use-dashboard';
+import { usePendingFollowUps } from '@/hooks/queries/use-follow-ups';
 import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import {
+  buildFallbackBriefingSummary,
+  buildFallbackHighlights,
+  groupEmailsByTriageLane,
+  isWeakBriefingSummary,
+} from '@/lib/email-triage/triage-lanes';
 import { BaseWidget } from './BaseWidget';
 import { Box, Typography, Chip, Stack } from '@mui/material';
 import { Sparkles, AlertCircle, Calendar, Mail, Users } from 'lucide-react';
@@ -17,23 +24,43 @@ export function BriefingWidget() {
   const hasAiConsent =
     consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
   const { data, isLoading, error, refetch } = useBriefing(hasAiConsent);
+  const { data: triageData, isLoading: triageLoading } = useTriagedEmails({ limit: 6 }, hasAiConsent);
+  const { data: followUpData, isLoading: followUpsLoading } = usePendingFollowUps(10, false, hasAiConsent);
   const { data: recentEmails } = useRecentUnreadEmails({ limit: 3 }, hasAiConsent);
   const noConsentMessage =
     t.settings?.consentPanel?.features?.ai_email_processing?.description ||
     'Enable AI email processing in Settings to see your daily briefing.';
-  const loading = consentLoading || isLoading;
+  const loading = consentLoading || isLoading || triageLoading || followUpsLoading;
   const emptyText = hasAiConsent
     ? t.dashboard?.widgets?.common?.noItems || 'No items'
     : noConsentMessage;
-
-  // Generate highlights from recent emails if briefing highlights are empty
+  const triageFollowUps = (followUpData?.followUps || []).map((followUp) => ({
+    emailId: followUp.emailId,
+    followUpType: followUp.followUpType,
+    dueDate: followUp.dueDate,
+    status: followUp.status,
+    reason: followUp.reason,
+  }));
+  const laneGroups = groupEmailsByTriageLane(triageData?.emails || [], triageFollowUps);
+  const laneCount = (lane: 'action-now' | 'waiting-on-reply' | 'system-alerts' | 'review-later') =>
+    laneGroups.find((group) => group.lane === lane)?.items.length || 0;
+  const weakSummary = isWeakBriefingSummary(data?.summary);
+  const summary = weakSummary
+    ? buildFallbackBriefingSummary(triageData?.emails || [], triageFollowUps)
+    : data?.summary || '';
   const highlights = data?.highlights?.length
     ? data.highlights
-    : recentEmails?.emails?.slice(0, 3).map((email) => {
-        const senderName = email.from?.name || email.from?.email || '';
-        const subject = email.subject || t.common?.noSubject || '(No subject)';
-        return `${senderName}: ${subject}`;
-      }) || [];
+    : buildFallbackHighlights(triageData?.emails || [], triageFollowUps, 3).length
+      ? buildFallbackHighlights(triageData?.emails || [], triageFollowUps, 3)
+      : recentEmails?.emails?.slice(0, 3).map((email) => {
+          const senderName = email.from?.name || email.from?.email || '';
+          const subject = email.subject || t.common?.noSubject || '(No subject)';
+          return `${senderName}: ${subject}`;
+        }) || [];
+  const urgentEmails = weakSummary ? laneCount('action-now') + laneCount('system-alerts') : (data?.urgentEmails || 0);
+  const pendingFollowUps = weakSummary ? (followUpData?.count || 0) : (data?.pendingFollowUps || 0);
+  const deadlinesToday = data?.deadlinesToday || 0;
+  const staleContacts = data?.staleContacts || 0;
 
   return (
     <BaseWidget
@@ -44,13 +71,13 @@ export function BriefingWidget() {
       rawError={error}
       onRefresh={hasAiConsent ? () => refetch() : undefined}
       icon={<Sparkles size={18} />}
-      isEmpty={!loading && (!hasAiConsent || !data)}
+      isEmpty={!loading && (!hasAiConsent || (!data && (triageData?.emails?.length || 0) === 0))}
       emptyText={emptyText}
     >
-      {data && (
+      {(data || triageData?.emails?.length) && (
         <Stack spacing={2.5}>
           {/* AI Summary - only show if backend provided one */}
-          {data.summary && (
+          {summary && (
             <Typography
               variant="body1"
               sx={{
@@ -59,42 +86,42 @@ export function BriefingWidget() {
                 lineHeight: 1.6,
               }}
             >
-              {data.summary}
+              {summary}
             </Typography>
           )}
 
           {/* Stats Chips */}
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {data.urgentEmails > 0 && (
+            {urgentEmails > 0 && (
               <Chip
                 icon={<Mail size={14} />}
-                label={`${data.urgentEmails} ${t.dashboard?.widgets?.briefing?.urgent || 'urgent'}`}
+                label={`${urgentEmails} ${t.dashboard?.widgets?.briefing?.urgent || 'urgent'}`}
                 size="small"
                 color="error"
                 sx={{ fontWeight: 600 }}
               />
             )}
-            {data.deadlinesToday > 0 && (
+            {deadlinesToday > 0 && (
               <Chip
                 icon={<AlertCircle size={14} />}
-                label={`${data.deadlinesToday} ${t.dashboard?.widgets?.briefing?.deadlines || 'deadlines'}`}
+                label={`${deadlinesToday} ${t.dashboard?.widgets?.briefing?.deadlines || 'deadlines'}`}
                 size="small"
                 color="warning"
                 sx={{ fontWeight: 600 }}
               />
             )}
-            {data.pendingFollowUps > 0 && (
+            {pendingFollowUps > 0 && (
               <Chip
                 icon={<Calendar size={14} />}
-                label={`${data.pendingFollowUps} ${t.dashboard?.widgets?.briefing?.followUps || 'follow-ups'}`}
+                label={`${pendingFollowUps} ${t.dashboard?.widgets?.briefing?.followUps || 'follow-ups'}`}
                 size="small"
                 sx={{ fontWeight: 600 }}
               />
             )}
-            {data.staleContacts > 0 && (
+            {staleContacts > 0 && (
               <Chip
                 icon={<Users size={14} />}
-                label={`${data.staleContacts} ${t.dashboard?.widgets?.briefing?.staleContacts || 'stale contacts'}`}
+                label={`${staleContacts} ${t.dashboard?.widgets?.briefing?.staleContacts || 'stale contacts'}`}
                 size="small"
                 sx={{ fontWeight: 600 }}
               />

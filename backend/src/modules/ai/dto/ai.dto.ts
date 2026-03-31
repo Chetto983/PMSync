@@ -179,6 +179,32 @@ export class ComposeEmailDto {
   signature?: string;
 }
 
+export class AiResponseMetaDto {
+  @ApiProperty({ example: 'email-unified-analysis' })
+  operation: string;
+
+  @ApiProperty({ example: 'unified-email-v1' })
+  version: string;
+
+  @ApiProperty({ enum: ['live', 'cache', 'fallback'], example: 'cache' })
+  source: 'live' | 'cache' | 'fallback';
+
+  @ApiProperty({ enum: ['ok', 'degraded'], example: 'ok' })
+  status: 'ok' | 'degraded';
+
+  @ApiProperty({ example: '2026-03-31T12:34:56.000Z' })
+  generatedAt: string;
+
+  @ApiPropertyOptional({ example: 'it' })
+  locale?: string;
+
+  @ApiPropertyOptional({ example: 'mistralai/mistral-small-3.1-24b-instruct' })
+  model?: string;
+
+  @ApiPropertyOptional({ type: [String], example: ['structured_output_unavailable'] })
+  warnings?: string[];
+}
+
 export class ComposeEmailResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
@@ -479,32 +505,6 @@ export class PriorityRequestDto {
   @IsOptional()
   @IsString()
   locale?: string;
-}
-
-export class AiResponseMetaDto {
-  @ApiProperty({ example: 'email-unified-analysis' })
-  operation: string;
-
-  @ApiProperty({ example: 'unified-email-v1' })
-  version: string;
-
-  @ApiProperty({ enum: ['live', 'cache', 'fallback'], example: 'cache' })
-  source: 'live' | 'cache' | 'fallback';
-
-  @ApiProperty({ enum: ['ok', 'degraded'], example: 'ok' })
-  status: 'ok' | 'degraded';
-
-  @ApiProperty({ example: '2026-03-31T12:34:56.000Z' })
-  generatedAt: string;
-
-  @ApiPropertyOptional({ example: 'it' })
-  locale?: string;
-
-  @ApiPropertyOptional({ example: 'mistralai/mistral-small-3.1-24b-instruct' })
-  model?: string;
-
-  @ApiPropertyOptional({ type: [String], example: ['structured_output_unavailable'] })
-  warnings?: string[];
 }
 
 export class UpdateFollowUpStatusDto {

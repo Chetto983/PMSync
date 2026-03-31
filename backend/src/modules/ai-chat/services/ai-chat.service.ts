@@ -346,9 +346,6 @@ export class AiChatService {
         contextMessages,
       );
 
-      // 6. Save original message to conversation
-      await this.conversationService.saveUserMessage(conversation.id, message);
-
       // Append current user message with runtime context (redacted)
       const runtimeContext = buildExtendedRuntimeContext(runtimeContextMeta);
       messages.push({
@@ -361,6 +358,12 @@ export class AiChatService {
 
       // Sanitize message sequence for model compatibility
       this.sanitizeMessages(messages);
+
+      // CHAT-L1: Parallelize message save with graph seed search.
+      // saveUserMessage doesn't affect context assembly — safe to overlap.
+      const saveMessagePromise = this.conversationService
+        .saveUserMessage(conversation.id, message)
+        .catch((err) => this.logger.warn(`Failed to save user message: ${err.message}`));
 
       // Phase 109: Proactive graph context assembly (breadth context for system prompt)
       if (this.entityGraphService && this.contextAssemblyService) {
@@ -439,6 +442,9 @@ export class AiChatService {
         );
         if (memoryBlock) systemPromptWithMemory += "\n\n" + memoryBlock;
       }
+
+      // CHAT-L1: Ensure message save completes before agent starts
+      await saveMessagePromise;
     }
 
     // 7. Audit log (fire-and-forget)

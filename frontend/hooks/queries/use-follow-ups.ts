@@ -114,8 +114,11 @@ export function followUpStatsOptions() {
 // ============================================================================
 
 /** Hook for pending follow-ups */
-export function usePendingFollowUps(limit = 20, includeResolved = false) {
-  return useQuery(pendingFollowUpsOptions(limit, includeResolved));
+export function usePendingFollowUps(limit = 20, includeResolved = false, enabled = true) {
+  return useQuery({
+    ...pendingFollowUpsOptions(limit, includeResolved),
+    enabled,
+  });
 }
 
 /** Hook for follow-up stats (counts by status) */

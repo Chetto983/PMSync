@@ -188,6 +188,10 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
       this.flushIntervalHandle = null;
     }
 
+    if (!this.redis) {
+      return;
+    }
+
     // Flush all remaining buffered signals
     await this.flushAllBuffers();
 
@@ -362,6 +366,10 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
    * Flush all buffered signals across all senders using Redis SCAN.
    */
   private async flushAllBuffers(): Promise<void> {
+    if (!this.redis) {
+      return;
+    }
+
     let cursor = '0';
     let totalDrained = 0;
 

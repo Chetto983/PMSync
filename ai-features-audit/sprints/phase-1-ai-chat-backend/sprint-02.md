@@ -13,24 +13,24 @@
 ## Sprint Backlog
 
 ### T-0201: Implement sliding window memory eviction [3 SP]
-- [ ] Read `ai-chat/memory.service.ts` — understand current memory model
-- [ ] Add max conversation context window (configurable, default 20 messages)
-- [ ] Implement summarization of evicted messages (lightweight LLM call)
-- [ ] Store summary as system message in conversation history
-- [ ] Addresses: **CHAT-M1**
+- [x] Read `ai-chat/memory.service.ts` — understand current memory model ✅ DONE
+- [x] Add max conversation context window (configurable, default 20 messages) ✅ DONE
+- [x] Implement summarization of evicted messages (lightweight LLM call) ✅ DONE (already existed)
+- [x] Store summary as system message in conversation history ✅ DONE (already existed)
+- [x] Addresses: **CHAT-M1** ✅ DONE
 
 ### T-0202: Add reranking bypass for simple keyword queries [3 SP]
-- [ ] Read `ai-chat/reranking.service.ts` — trace when reranking is triggered
-- [ ] Add heuristic: if query is < 5 tokens and matches exact keyword, skip reranking
-- [ ] Add `skipReranking` flag to search options for explicit control
-- [ ] Measure latency improvement with bypass (log to AiRunLedger)
-- [ ] Addresses: **CHAT-M2**
+- [x] Read `ai-chat/reranking.service.ts` — trace when reranking is triggered ✅ DONE
+- [x] Add heuristic: if query is < 5 tokens and matches exact keyword, skip reranking ✅ DONE
+- [x] Add `skipReranking` flag to search options for explicit control ✅ DONE
+- [x] Measure latency improvement with bypass (log to AiRunLedger) ✅ N/A — reranker is heuristic (<1ms), not LLM-based
+- [x] Addresses: **CHAT-M2** ✅ DONE
 
 ### T-0203: Make entity graph traversal depth configurable [2 SP]
-- [ ] Read `ai-chat/entity-graph.service.ts` — locate depth constant
-- [ ] Extract to config: `AI_GRAPH_MAX_DEPTH` env var (default 2)
-- [ ] Add depth param to graph traversal methods
-- [ ] Addresses: **CHAT-M3**
+- [x] Read `ai-chat/entity-graph.service.ts` — locate depth constant ✅ DONE
+- [x] Extract to config: `AI_GRAPH_MAX_DEPTH` env var (default 2) ✅ DONE
+- [x] Add depth param to graph traversal methods ✅ DONE (already parameterized, now uses env default)
+- [x] Addresses: **CHAT-M3** ✅ DONE
 
 ### T-0204: Parallelize chat enrichment with main LLM call [3 SP]
 - [ ] Read `ai-chat/chat-enrichment.service.ts` — trace call timing
