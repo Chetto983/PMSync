@@ -1,22 +1,29 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ForecastService } from './forecast.service';
+import { ScheduledJobsQueueService, ScheduledJobType } from '../../../common/services/scheduled-jobs.queue';
 
 /**
  * Weekly cron job to refresh forecast snapshots for all active pipelines.
  * Runs every Sunday at 02:00 UTC.
  */
 @Injectable()
-export class ForecastRefreshCron {
+export class ForecastRefreshCron implements OnModuleInit {
   private readonly logger = new Logger(ForecastRefreshCron.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly forecastService: ForecastService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
   ) {}
 
-  @Cron('0 2 * * 0') // Sunday 02:00 UTC
+  onModuleInit() {
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.FORECAST_REFRESH,
+      async () => this.refreshAllForecasts(),
+    );
+  }
+
   async refreshAllForecasts(): Promise<void> {
     this.logger.log('Starting weekly forecast refresh...');
 

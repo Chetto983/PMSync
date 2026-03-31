@@ -1,22 +1,29 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ChurnAssessmentService } from './churn-assessment.service';
+import { ScheduledJobsQueueService, ScheduledJobType } from '../../../common/services/scheduled-jobs.queue';
 
 /**
  * Weekly cron job to recompute churn probability for all active contacts.
  * Runs every Sunday at 03:00 UTC (after forecast refresh at 02:00).
  */
 @Injectable()
-export class ChurnRecomputeCron {
+export class ChurnRecomputeCron implements OnModuleInit {
   private readonly logger = new Logger(ChurnRecomputeCron.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly assessmentService: ChurnAssessmentService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
   ) {}
 
-  @Cron('0 3 * * 0') // Sunday 03:00 UTC
+  onModuleInit() {
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.CHURN_RECOMPUTE,
+      async () => this.recomputeAll(),
+    );
+  }
+
   async recomputeAll(): Promise<void> {
     this.logger.log('Starting weekly churn recompute...');
 
