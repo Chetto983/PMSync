@@ -172,7 +172,7 @@ Plans:
   3. Running two backend instances simultaneously produces no duplicate job executions (verified via BullMQ job logs)
 **Plans**: 2 plans
 Plans:
-- [ ] 126-01-PLAN.md — Migrate 8 @Cron decorators to BullMQ registerHandler across 4 service files
+- [x] 126-01-PLAN.md — Migrate 8 @Cron decorators to BullMQ registerHandler across 4 service files
 - [ ] 126-02-PLAN.md — Remove ScheduleModule.forRoot() and uninstall @nestjs/schedule
 
 ### Phase 127: Transport & Connection Hardening
@@ -261,7 +261,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 125. Dead Code Removal | v11.0 | 3/3 | Complete    | 2026-03-31 |
-| 126. Cron-to-BullMQ Migration | v11.0 | 0/2 | Planning complete | - |
+| 126. Cron-to-BullMQ Migration | v11.0 | 1/2 | In Progress|  |
 | 127. Transport & Connection Hardening | v11.0 | 0/TBD | Not started | - |
 | 128. State Externalization | v11.0 | 0/TBD | Not started | - |
 | 129. Replica Activation | v11.0 | 0/TBD | Not started | - |
