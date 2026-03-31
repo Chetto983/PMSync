@@ -217,67 +217,36 @@ export function staleContactsOptions(params?: { limit?: number }) {
     queryFn: async (): Promise<{ contacts: StaleContact[]; total: number; averageScore: number }> => {
       const limit = params?.limit || 5;
 
-      try {
-        const response = await crmApi.getStaleContacts({ limit });
-        const items = response.data?.staleContacts || [];
+      const response = await crmApi.getStaleContacts({ limit });
+      const items = response.data?.staleContacts || [];
 
-        const contacts: StaleContact[] = items.map((c: ContactRelationshipStats) => ({
-          id: c.contactId,
-          name: c.displayName || c.email || 'Unknown',
-          email: c.email || '',
-          company: undefined,
-          lastInteraction: c.lastInteraction || '',
-          relationshipScore: c.relationshipScore || 0,
-          daysSinceContact: c.daysSinceLastContact || 0,
-          previousFrequency: c.previousFrequency,
-          suggestedAction: c.suggestedAction,
-          trend: c.trend,
-          totalInteractions: c.totalInteractions,
-        }));
+      const contacts: StaleContact[] = items.map((c: ContactRelationshipStats) => ({
+        id: c.contactId,
+        name: c.displayName || c.email || 'Unknown',
+        email: c.email || '',
+        company: undefined,
+        lastInteraction: c.lastInteraction || '',
+        relationshipScore: c.relationshipScore || 0,
+        daysSinceContact: c.daysSinceLastContact || 0,
+        previousFrequency: c.previousFrequency,
+        suggestedAction: c.suggestedAction,
+        trend: c.trend,
+        totalInteractions: c.totalInteractions,
+      }));
 
-        const avgScore = contacts.length > 0
-          ? Math.round(contacts.reduce((sum, c) => sum + c.relationshipScore, 0) / contacts.length)
-          : 0;
+      const avgScore = contacts.length > 0
+        ? Math.round(contacts.reduce((sum, c) => sum + c.relationshipScore, 0) / contacts.length)
+        : 0;
 
-        return {
-          contacts,
-          total: response.data?.count || contacts.length,
-          averageScore: avgScore,
-        };
-      } catch {
-        // Fallback: Get contacts and calculate manually -- if this also fails, TanStack Query catches it
-        const response = await contactsApi.listContacts({ limit: limit * 2 });
-        const allContacts = response?.contacts || [];
-        const now = new Date();
-
-        const contacts: StaleContact[] = allContacts
-          .map((c) => {
-            const createdAt = c.createdAt ? new Date(c.createdAt) : now;
-            const daysSinceContact = Math.floor((now.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000));
-
-            return {
-              id: c.id,
-              name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.emails?.[0]?.value || 'Unknown',
-              email: c.emails?.[0]?.value || '',
-              company: c.company || undefined,
-              lastInteraction: c.createdAt || '',
-              relationshipScore: Math.max(0, 100 - daysSinceContact * 2),
-              daysSinceContact,
-            };
-          })
-          .filter((c) => c.daysSinceContact > 30)
-          .slice(0, limit);
-
-        const avgScore = contacts.length > 0
-          ? Math.round(contacts.reduce((sum, c) => sum + c.relationshipScore, 0) / contacts.length)
-          : 0;
-
-        return { contacts, total: contacts.length, averageScore: avgScore };
-      }
+      return {
+        contacts,
+        total: response.data?.count || contacts.length,
+        averageScore: avgScore,
+      };
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    retry: 0,
+    retry: 1,
   });
 }
 
