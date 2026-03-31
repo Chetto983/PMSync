@@ -76,6 +76,8 @@ model Tenant {
   tickets                  Ticket[]
   slaPolicies              SlaPolicy[]
   routingRules             RoutingRule[]
+  kbCategories             KBCategory[]
+  kbArticles               KBArticle[]
 
   @@map("tenants")
 }
@@ -130,6 +132,7 @@ model User {
   pushSubscriptions   PushSubscription[]
   assignedTickets     Ticket[]
   ticketComments      TicketComment[]
+  kbArticles          KBArticle[]
 
   /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
   @@unique([tenantId, email])
@@ -2295,4 +2298,51 @@ model RoutingRule {
 
   @@index([tenantId, active])
   @@map("routing_rules")
+}
+
+model KBCategory {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String
+  description String?
+  parentId    String?
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      KBCategory?  @relation("KBCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    KBCategory[] @relation("KBCategoryTree")
+  articles    KBArticle[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, parentId])
+  @@map("kb_categories")
+}
+
+model KBArticle {
+  id          String      @id @default(cuid())
+  tenantId    String
+  categoryId  String?
+  title       String
+  slug        String
+  body        String
+  tags        String[]    @default([])
+  status      String      @default("draft") // draft, published, archived
+  authorId    String
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category    KBCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, authorId])
+  @@index([tenantId, createdAt])
+  @@map("kb_articles")
 }
