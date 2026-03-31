@@ -545,6 +545,104 @@ async function main() {
   // Reset viewport
   await page.setViewportSize({ width: 1280, height: 800 });
 
+  // ---- Validate: Service Analytics Page (Sprint 18) ----
+  const analyticsResult = await validatePage(page, '/dashboard/crm/service-analytics', [
+    {
+      name: 'Analytics title visible',
+      fn: async (p) => {
+        const heading = p.locator('h5, h4, h3').filter({ hasText: /analytics|service|analitiche/i });
+        return (await heading.count()) > 0;
+      },
+    },
+    {
+      name: 'KPI cards render (4 expected)',
+      fn: async (p) => {
+        const papers = p.locator('[class*="MuiPaper"]');
+        return (await papers.count()) >= 4;
+      },
+    },
+    {
+      name: 'Date range filter exists',
+      fn: async (p) => {
+        const select = p.locator('label, [role="combobox"]').filter({ hasText: /period|periodo|range/i });
+        const btn = p.locator('button').filter({ hasText: /30|90|6m|all|tutto/i });
+        return (await select.count()) > 0 || (await btn.count()) > 0;
+      },
+    },
+    {
+      name: 'Chart renders',
+      fn: async (p) => {
+        const chart = p.locator('.recharts-wrapper, .recharts-responsive-container, svg');
+        return (await chart.count()) > 0;
+      },
+    },
+  ]);
+
+  // ---- Validate: Knowledge Base Page (Sprint 17) ----
+  const kbResult = await validatePage(page, '/dashboard/crm/kb', [
+    {
+      name: 'KB title visible',
+      fn: async (p) => {
+        const heading = p.locator('h5, h4, h3').filter({ hasText: /knowledge|base|kb/i });
+        return (await heading.count()) > 0;
+      },
+    },
+    {
+      name: 'New Article button exists',
+      fn: async (p) => {
+        const btn = p.locator('button').filter({ hasText: /new|nuovo|article|articolo/i });
+        return (await btn.count()) > 0;
+      },
+    },
+    {
+      name: 'Search field exists',
+      fn: async (p) => {
+        const input = p.locator('input[placeholder*="earch" i], input[placeholder*="erca" i]');
+        return (await input.count()) > 0;
+      },
+    },
+  ]);
+
+  // ---- Validate: Backend Phase 3 API endpoints ----
+  log('\n◆', 'Validating Phase 3 API endpoints (expect 401 = auth guard active)...');
+  const endpoints = [
+    '/api/v1/crm/tickets',
+    '/api/v1/crm/ticket-templates',
+    '/api/v1/crm/analytics/csat',
+    '/api/v1/crm/analytics/service',
+    '/api/v1/crm/kb/articles',
+    '/api/v1/crm/kb/categories',
+  ];
+  const endpointResults = [];
+  for (const ep of endpoints) {
+    try {
+      const resp = await fetch(`${API_URL}${ep}`, { method: 'GET' });
+      const status = resp.status;
+      const pass = status === 401 || status === 200;
+      log(pass ? '✓' : '✗', `${ep} → ${status} ${pass ? 'OK' : 'UNEXPECTED'}`);
+      endpointResults.push({ ep, status, pass });
+    } catch (err) {
+      log('✗', `${ep} → FETCH ERROR: ${err.message}`);
+      endpointResults.push({ ep, status: 0, pass: false });
+    }
+  }
+
+  // ---- Mobile validation: Service Analytics at 375x812 ----
+  log('\n◆', 'Mobile validation: Service Analytics (375x812)...');
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(`${APP_URL}/dashboard/crm/service-analytics`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${SCREENSHOT_DIR}/crm_service_analytics_mobile.png`, fullPage: true });
+  log('📸', `Mobile screenshot: ${SCREENSHOT_DIR}/crm_service_analytics_mobile.png`);
+
+  const analyticsMobileOverflow = await page.evaluate(() => {
+    return document.documentElement.scrollWidth > document.documentElement.clientWidth;
+  });
+  log(analyticsMobileOverflow ? '✗' : '✓', `No horizontal overflow (analytics): ${!analyticsMobileOverflow ? 'PASS' : 'FAIL'}`);
+
+  // Reset viewport
+  await page.setViewportSize({ width: 1280, height: 800 });
+
   // ---- Summary ----
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(' Validation Summary');
@@ -553,9 +651,14 @@ async function main() {
   log('📋', `Forecast page: ${forecastResult.status}`);
   log('📋', `Governance page: ${governanceResult.status}`);
   log('📋', `Tickets page: ${ticketsResult.status}`);
+  log('📋', `Service Analytics page: ${analyticsResult.status}`);
+  log('📋', `Knowledge Base page: ${kbResult.status}`);
   log('📱', `Mobile overflow (forecast): ${!hasOverflow ? 'PASS' : 'FAIL'}`);
   log('📱', `Mobile overflow (governance): ${!govMobileOverflow ? 'PASS' : 'FAIL'}`);
   log('📱', `Mobile overflow (tickets): ${!ticketsMobileOverflow ? 'PASS' : 'FAIL'}`);
+  log('📱', `Mobile overflow (analytics): ${!analyticsMobileOverflow ? 'PASS' : 'FAIL'}`);
+  const epPassed = endpointResults.filter(e => e.pass).length;
+  log('🔗', `API endpoints: ${epPassed}/${endpointResults.length} OK`);
   log('🌐', `Target: ${APP_URL}`);
   log('🔧', `API: ${API_URL}`);
 

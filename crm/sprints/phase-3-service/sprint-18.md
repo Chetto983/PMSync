@@ -17,8 +17,8 @@
 - [x] T-1804 — CSAT aggregation API: `GET /analytics/csat` con filtri dateRange, assigneeId. Restituire: media voto, conteggio risposte, distribuzione per stella, trend mensile (ultimi 6 mesi). Query aggregate Prisma, filtrate per tenantId — [2 SP] — ✅ DONE
 - [x] T-1805 — Service analytics page (`/analytics/service`): dashboard con 4 card KPI (first response time medio, resolution time medio, SLA compliance rate %, CSAT medio). Grafico trend CSAT con MUI/Recharts. Tabella top 10 ticket per tempo di risoluzione. Filtro periodo — [3 SP] — ✅ DONE
 - [x] T-1806 — Canned responses: API CRUD `TicketTemplate` (`POST /ticket-templates`, `GET /ticket-templates`, `PATCH`, `DELETE`). Nel form risposta ticket, bottone "Inserisci risposta rapida" con menu dropdown che lista template e inserisce body nel campo commento — [2 SP] — ✅ DONE
-- [ ] T-1807 — Bug fixes Phase 3: riservare capacity per fix di bug scoperti durante sprint 15-17. Prioritizzare: crash bloccanti > dati corrotti > UX broken > cosmetici — [2 SP] — 📋 TODO
-- [ ] T-1808 — Integration test suite per ticketing: testare flusso completo email→ticket→assign→SLA→resolve→CSAT. Verificare routing rules, state machine transitions, portal tracking. Usare test database separato — [2 SP] — 📋 TODO
+- [x] T-1807 — Bug fixes Phase 3: riservare capacity per fix di bug scoperti durante sprint 15-17. Prioritizzare: crash bloccanti > dati corrotti > UX broken > cosmetici — [2 SP] — ✅ DONE
+- [x] T-1808 — Integration test suite per ticketing: testare flusso completo email→ticket→assign→SLA→resolve→CSAT. Verificare routing rules, state machine transitions, portal tracking. Usare test database separato — [2 SP] — ✅ DONE
 - [ ] T-1809 — Smoke test end-to-end: test manuale di tutti i flussi critici su ambiente di staging. Checklist: creazione ticket, assegnazione, SLA escalation, risoluzione, CSAT survey, KB search, portal submit, portal tracking — [1 SP] — 📋 TODO
 - [ ] T-1810 — Beta release preparation: aggiornare seed data con ticket, KB articles e SLA policies di esempio. Verificare migrazioni in sequenza da zero. Tag git `v0.3.0-beta`. Deploy su Railway staging — [1 SP] — 📋 TODO
 
