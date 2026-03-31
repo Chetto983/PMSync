@@ -4,8 +4,9 @@
  * Tracks implicit user behavior signals (reply, archive, flag, etc.)
  * and aggregates per-sender behavior scores for triage recalculation.
  *
- * Storage: In-memory Map + Redis hash (triage:sender-scores:{tenantId}).
- * 30-day TTL on Redis hashes. Zero DB writes.
+ * Storage: Redis lists for signal buffering + Redis hash (triage:sender-scores:{tenantId}).
+ * Atomic Lua drain script for buffer flush. No in-memory state.
+ * 30-day TTL on Redis score hashes. 10-min TTL on buffer lists. Zero DB writes.
  *
  * @see AttentionScoreService - consumes sender behavior during scoring
  * @see TriageBackfillSchedulerService - triggers recalculation using learned weights
@@ -54,6 +55,12 @@ export interface SenderBehaviorScore {
 
 /** Redis key prefix for sender score hashes */
 const REDIS_KEY_PREFIX = 'triage:sender-scores';
+
+/** Redis key prefix for signal buffer lists */
+const REDIS_BUFFER_PREFIX = 'triage:signal-buffer';
+
+/** TTL for signal buffer lists (seconds) — safety expiry */
+const BUFFER_TTL_SECONDS = 600; // 10 minutes
 
 /** Flush buffer when sender accumulates this many signals */
 const FLUSH_THRESHOLD = 5;
@@ -144,14 +151,17 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   /** Redis client for persistent storage */
   private redis!: Redis;
 
-  /** In-memory buffer keyed by `${tenantId}:${senderEmail}` */
-  private readonly signalBuffer = new Map<string, TriageSignal[]>();
-
-  /** In-memory cache of computed scores, populated from Redis on first access */
-  private readonly scoreCache = new Map<string, SenderBehaviorScore>();
-
   /** Periodic flush interval handle */
   private flushIntervalHandle: ReturnType<typeof setInterval> | null = null;
+
+  /** Lua script: atomically drain a Redis list (LRANGE + DEL) */
+  private readonly DRAIN_SCRIPT = `
+    local items = redis.call("LRANGE", KEYS[1], 0, -1)
+    if #items > 0 then
+      redis.call("DEL", KEYS[1])
+    end
+    return items
+  `;
 
   constructor(private readonly redisConnection: RedisConnectionService) {}
 
@@ -190,25 +200,25 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Record an implicit user action as a triage signal.
-   * Signals are buffered and flushed in batches to avoid per-signal writes.
+   * Signals are buffered in Redis lists and flushed in batches at threshold.
    */
-  recordSignal(signal: TriageSignal): void {
-    const key = `${signal.tenantId}:${signal.senderEmail.toLowerCase()}`;
+  async recordSignal(signal: TriageSignal): Promise<void> {
+    const senderEmail = signal.senderEmail.toLowerCase();
+    const bufferKey = `${REDIS_BUFFER_PREFIX}:${signal.tenantId}:${senderEmail}`;
 
-    let buffer = this.signalBuffer.get(key);
-    if (!buffer) {
-      buffer = [];
-      this.signalBuffer.set(key, buffer);
-    }
-    buffer.push(signal);
+    await this.redis.rpush(bufferKey, JSON.stringify(signal));
+    await this.redis.expire(bufferKey, BUFFER_TTL_SECONDS);
 
-    // Flush when buffer reaches threshold
-    if (buffer.length >= FLUSH_THRESHOLD) {
-      const signals = buffer.splice(0);
-      this.signalBuffer.delete(key);
-      this.flushSenderSignals(key, signals).catch((err) => {
+    // Check if buffer reached flush threshold
+    const len = await this.redis.llen(bufferKey);
+    if (len >= FLUSH_THRESHOLD) {
+      await this.drainAndFlush(
+        bufferKey,
+        signal.tenantId,
+        senderEmail,
+      ).catch((err) => {
         this.logger.error(
-          `Flush failed for ${key}: ${err instanceof Error ? err.message : String(err)}`,
+          `Drain failed for ${bufferKey}: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
     }
@@ -216,32 +226,23 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Get sender behavior score for a specific sender.
-   * Checks in-memory cache first, then falls back to Redis.
+   * Reads directly from Redis HGET (sub-ms on small hashes).
    */
   async getSenderBehavior(
     tenantId: string,
     senderEmail: string,
   ): Promise<SenderBehaviorScore | null> {
-    const key = `${tenantId}:${senderEmail.toLowerCase()}`;
-
-    // Check in-memory cache
-    const cached = this.scoreCache.get(key);
-    if (cached) return cached;
-
-    // Fall back to Redis
     try {
       const raw = await this.redis.hget(
         `${REDIS_KEY_PREFIX}:${tenantId}`,
         senderEmail.toLowerCase(),
       );
       if (raw) {
-        const score = JSON.parse(raw) as SenderBehaviorScore;
-        this.scoreCache.set(key, score);
-        return score;
+        return JSON.parse(raw) as SenderBehaviorScore;
       }
     } catch (error) {
       this.logger.warn(
-        `Redis lookup failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+        `Redis lookup failed for ${tenantId}:${senderEmail}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 
@@ -270,8 +271,6 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
         try {
           const score = JSON.parse(raw) as SenderBehaviorScore;
           entries.push({ senderEmail, score });
-          // Populate cache while we're at it
-          this.scoreCache.set(`${tenantId}:${senderEmail}`, score);
         } catch {
           this.logger.warn(
             `Invalid score data for sender ${senderEmail} in tenant ${tenantId}`,
@@ -295,6 +294,29 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   // --------------------------------------------------------------------------
 
   /**
+   * Atomically drain a Redis buffer list and flush signals to score hash.
+   */
+  private async drainAndFlush(
+    bufferKey: string,
+    tenantId: string,
+    senderEmail: string,
+  ): Promise<void> {
+    const rawSignals = (await this.redis.eval(
+      this.DRAIN_SCRIPT,
+      1,
+      bufferKey,
+    )) as string[];
+    if (!rawSignals || rawSignals.length === 0) return;
+    const signals = rawSignals.map(
+      (raw) => JSON.parse(raw) as TriageSignal,
+    );
+    await this.flushSenderSignals(
+      `${tenantId}:${senderEmail}`,
+      signals,
+    );
+  }
+
+  /**
    * Flush signals for a single sender: compute score, EMA-blend, persist.
    */
   private async flushSenderSignals(
@@ -313,9 +335,6 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
     const blended = prevScore
       ? blendScores(prevScore, newScore, EMA_PREV_WEIGHT)
       : newScore;
-
-    // Update in-memory cache
-    this.scoreCache.set(key, blended);
 
     // Persist to Redis hash
     try {
@@ -340,18 +359,38 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Flush all buffered signals across all senders.
+   * Flush all buffered signals across all senders using Redis SCAN.
    */
   private async flushAllBuffers(): Promise<void> {
-    const entries = Array.from(this.signalBuffer.entries());
-    this.signalBuffer.clear();
+    let cursor = '0';
+    let totalDrained = 0;
 
-    if (entries.length === 0) return;
+    do {
+      const [nextCursor, keys] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        `${REDIS_BUFFER_PREFIX}:*`,
+        'COUNT',
+        100,
+      );
+      cursor = nextCursor;
 
-    this.logger.debug(`Flushing ${entries.length} buffered sender signal groups`);
+      for (const key of keys) {
+        const suffix = key.replace(`${REDIS_BUFFER_PREFIX}:`, '');
+        const firstColon = suffix.indexOf(':');
+        if (firstColon === -1) continue;
 
-    for (const [key, signals] of entries) {
-      await this.flushSenderSignals(key, signals);
+        const tenantId = suffix.substring(0, firstColon);
+        const senderEmail = suffix.substring(firstColon + 1);
+        await this.drainAndFlush(key, tenantId, senderEmail);
+        totalDrained++;
+      }
+    } while (cursor !== '0');
+
+    if (totalDrained > 0) {
+      this.logger.debug(
+        `Flushed ${totalDrained} buffered sender signal groups via SCAN`,
+      );
     }
   }
 
