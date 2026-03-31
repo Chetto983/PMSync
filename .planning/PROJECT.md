@@ -11,7 +11,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 ## Current State
 
 **Version:** v11.0 in progress (started 2026-03-31)
-**Status:** Phase 129 complete — scaling chain 125-129 done. Production at numReplicas=2 with env-driven BullMQ concurrency scaling, graceful shutdown (25s), per-replica Prometheus labels. Awaiting live Railway validation (3 human UAT items).
+**Status:** Phase 130 complete — frontend performance quick-wins shipped. Calendar page code-split via next/dynamic (~150KB gzip saved from initial bundle). Cache-Control headers on labels/folders/pricing endpoints. Scaling chain 125-129 done. Production at numReplicas=2 with env-driven BullMQ concurrency scaling, graceful shutdown (25s), per-replica Prometheus labels.
 **Previous:** v10.0 shipped (2026-03-30, 13 phases, 49/50 requirements)
 **Known gap:** WRITE-03 (IMAP/SMTP send) — Railway blocks SMTP ports 465/587; code exists and compiles but cannot be live-validated
 
@@ -325,4 +325,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after phase 126 (cron-to-bullmq-migration) complete*
+*Last updated: 2026-03-31 after phase 130 (frontend-performance) complete*
