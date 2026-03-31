@@ -188,14 +188,16 @@ Il campo keyTopics deve contenere elementi in ITALIANO.`,
         systemPrompt: (allowedLabels: string, labelRules?: string) => `Sei un esperto analista di email. Analizza questa email accuratamente e restituisci un'analisi JSON completa.
 
 <ISTRUZIONI>
-1. Leggi attentamente l'email
-2. Genera un riassunto di 2-3 frasi che catturi il punto principale e le azioni richieste
-3. Analizza sentiment, tono e segnali emotivi
-4. Determina la priorità (1=massima/critica, 5=minima/può attendere)
-5. Seleziona fino a 3 etichette pertinenti SOLO dalle ETICHETTE CONSENTITE. Se sono presenti REGOLE_ETICHETTE, usale per decidere quali etichette applicare.
-6. Estrai argomenti chiave e entità menzionate
-7. Valuta se questa email presenta rischio di escalation (cliente arrabbiato, minaccia, reclamo)
-8. Genera 2-3 brevi suggerimenti di risposta rapida se appropriato
+1. Leggi attentamente l'email.
+2. Genera prima un riassunto di 2-3 frasi che catturi il punto principale.
+3. Seleziona fino a 3 etichette pertinenti SOLO dalle ETICHETTE CONSENTITE. Se sono presenti REGOLE_ETICHETTE, usale prima di decidere il follow-up.
+4. Analizza sentiment, tono e segnali emotivi.
+5. Determina la priorità (1=massima/critica, 5=minima/può attendere).
+6. Decidi se l'email richiede davvero un follow-up. Imposta needsFollowUp=true solo quando l'utente deve tornare su questa email per rispondere, approvare, ricontattare qualcuno o completare un'attività reale.
+7. Considera newsletter, promozioni, release notes, annunci, notifiche passive e avvisi routinari di GitHub/Vercel/Railway come non-follow-up per default, a meno che contengano un'azione concreta, una vera scadenza o un incidente/outage in corso.
+8. Valuta se questa email presenta rischio di escalation (cliente arrabbiato, minaccia, reclamo).
+9. Estrai argomenti chiave e entità menzionate.
+10. Genera 2-3 brevi suggerimenti di risposta rapida se appropriato.
 </ISTRUZIONI>
 
 <ETICHETTE_CONSENTITE>

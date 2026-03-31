@@ -84,37 +84,50 @@ export class EmailAnalysisService {
       const latencyMs = Date.now() - startTime;
       const parsed = this.parseJsonResponse(raw);
 
-      const priority = Math.min(5, Math.max(1, Number(parsed.priority) || 3)) as 1 | 2 | 3 | 4 | 5;
-      const urgency = this.validateUrgency(parsed.urgency);
+      const rawPriority = Math.min(5, Math.max(1, Number(parsed.priority) || 3)) as 1 | 2 | 3 | 4 | 5;
+      const rawUrgency = this.validateUrgency(parsed.urgency);
       const intent = typeof parsed.intent === 'string' ? parsed.intent : 'fyi';
       const escalationRisk = Boolean(parsed.escalationRisk);
       const hasDeadline = Boolean(parsed.hasDeadline);
-      const needsFollowUp = Boolean(parsed.needsFollowUp);
+      const rawNeedsFollowUp = Boolean(parsed.needsFollowUp);
       const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning : '';
-      const labels = this.resolveLabels(email, parsed, allowedLabels, {
-        priority,
-        urgency,
+      const rawFollowUpDate = parsed.followUpDate ? new Date(parsed.followUpDate as string) : null;
+      const rawFollowUpReason = typeof parsed.followUpReason === 'string' ? parsed.followUpReason : null;
+      const labels = this.resolveLabels(email, this.normalizeLabels(parsed.labels, allowedLabels), allowedLabels, {
+        priority: rawPriority,
+        urgency: rawUrgency,
         intent,
         escalationRisk,
         hasDeadline,
-        needsFollowUp,
+        needsFollowUp: rawNeedsFollowUp,
+      });
+      const normalizedSignals = this.normalizeTriageSignals(email, labels, {
+        priority: rawPriority,
+        urgency: rawUrgency,
+        intent,
+        escalationRisk,
+        hasDeadline,
+        deadlineDate: parsed.deadlineDate ? new Date(parsed.deadlineDate as string) : null,
+        needsFollowUp: rawNeedsFollowUp,
+        followUpDate: rawFollowUpDate,
+        followUpReason: rawFollowUpReason,
       });
 
       const result: UnifiedEmailAnalysis = {
         summary: typeof parsed.summary === 'string' ? parsed.summary : '',
         sentiment: this.validateSentiment(parsed.sentiment),
         tone: typeof parsed.tone === 'string' ? parsed.tone : 'neutral',
-        priority,
-        urgency,
+        priority: normalizedSignals.priority,
+        urgency: normalizedSignals.urgency,
         labels,
         keyTopics: Array.isArray(parsed.keyTopics) ? (parsed.keyTopics as string[]).slice(0, 5) : [],
         intent,
         escalationRisk,
         hasDeadline,
-        deadlineDate: parsed.deadlineDate ? new Date(parsed.deadlineDate as string) : null,
-        needsFollowUp,
-        followUpDate: parsed.followUpDate ? new Date(parsed.followUpDate as string) : null,
-        followUpReason: typeof parsed.followUpReason === 'string' ? parsed.followUpReason : null,
+        deadlineDate: normalizedSignals.deadlineDate,
+        needsFollowUp: normalizedSignals.needsFollowUp,
+        followUpDate: normalizedSignals.followUpDate,
+        followUpReason: normalizedSignals.followUpReason,
         smartReplies: options?.includeSmartReplies && Array.isArray(parsed.smartReplies) ? (parsed.smartReplies as string[]).slice(0, 3) : undefined,
         confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.7)),
         reasoning,
@@ -268,12 +281,15 @@ export class EmailAnalysisService {
     persistedLabels: string[] = [],
   ): UnifiedEmailAnalysis {
     const actions = (analysis.suggestedActions as Record<string, unknown>) || {};
+    const actionLabels = Array.isArray(actions.labels)
+      ? (actions.labels as string[]).slice(0, 3)
+      : [];
     return {
       summary: analysis.summary || '', sentiment: this.validateSentiment(analysis.sentiment),
       tone: (actions.tone as string) || 'neutral', priority: this.mapEnumToPriority(analysis.priority),
       urgency: this.validateUrgency(actions.urgency),
-      labels: Array.isArray(actions.labels)
-        ? (actions.labels as string[]).slice(0, 3)
+      labels: actionLabels.length > 0
+        ? actionLabels
         : (persistedLabels || []).slice(0, 3),
       keyTopics: analysis.keyPoints || [],
       intent: (actions.intent as string) || 'fyi', escalationRisk: Boolean(actions.escalationRisk),
@@ -301,7 +317,7 @@ export class EmailAnalysisService {
 
   private resolveLabels(
     email: EmailRecord,
-    parsed: Record<string, unknown>,
+    modelLabels: string[],
     allowedLabels: string[],
     signals: {
       priority: 1 | 2 | 3 | 4 | 5;
@@ -312,9 +328,11 @@ export class EmailAnalysisService {
       needsFollowUp: boolean;
     },
   ): string[] {
-    const modelLabels = this.normalizeLabels(parsed.labels, allowedLabels);
-    const heuristicLabels = this.inferLabels(email, allowedLabels, signals);
-    return [...new Set([...modelLabels, ...heuristicLabels])].slice(0, 3);
+    if (modelLabels.length > 0) {
+      return modelLabels;
+    }
+
+    return this.inferLabels(email, allowedLabels, signals);
   }
 
   private inferLabels(
@@ -348,10 +366,18 @@ export class EmailAnalysisService {
     if (/\b(update|release|feature|announcement|introducing|launch|changelog|workflow|deploy|build failed|github|vercel|railway|notification)\b/.test(sample)) {
       pushAllowed('Updates');
     }
-    if (signals.priority <= 2 || ['critical', 'high'].includes(signals.urgency) || signals.escalationRisk) {
+    if (
+      signals.escalationRisk ||
+      signals.priority === 1 ||
+      signals.urgency === 'critical' ||
+      (
+        signals.priority <= 2 &&
+        (signals.intent === 'action_required' || signals.intent === 'question' || signals.hasDeadline)
+      )
+    ) {
       pushAllowed('Important');
     }
-    if (signals.intent === 'follow_up' || signals.needsFollowUp) {
+    if (signals.intent === 'follow_up' || (signals.needsFollowUp && signals.intent !== 'fyi')) {
       pushAllowed('Follow-up');
     }
     if (signals.intent === 'action_required' || signals.intent === 'question' || signals.intent === 'meeting_request' || signals.hasDeadline) {
@@ -363,6 +389,71 @@ export class EmailAnalysisService {
     }
 
     return inferred.slice(0, 3);
+  }
+
+  private normalizeTriageSignals(
+    email: EmailRecord,
+    labels: string[],
+    signals: {
+      priority: 1 | 2 | 3 | 4 | 5;
+      urgency: 'critical' | 'high' | 'medium' | 'low';
+      intent: string;
+      escalationRisk: boolean;
+      hasDeadline: boolean;
+      deadlineDate: Date | null;
+      needsFollowUp: boolean;
+      followUpDate: Date | null;
+      followUpReason: string | null;
+    },
+  ): {
+    priority: 1 | 2 | 3 | 4 | 5;
+    urgency: 'critical' | 'high' | 'medium' | 'low';
+    deadlineDate: Date | null;
+    needsFollowUp: boolean;
+    followUpDate: Date | null;
+    followUpReason: string | null;
+  } {
+    const labelSet = new Set(labels.map((label) => label.trim().toLowerCase()));
+    const sample = `${email.from}\n${email.subject || ''}\n${email.snippet || ''}\n${email.bodyText || ''}`.toLowerCase();
+
+    const hasActionLabel = labelSet.has('action items') || labelSet.has('follow-up');
+    const hasPassiveLabel = labelSet.has('updates') || labelSet.has('promotions') || labelSet.has('info');
+    const explicitActionIntent = ['action_required', 'question', 'meeting_request', 'follow_up'].includes(signals.intent);
+    const promotionalCue = /\b(newsletter|unsubscribe|promotion|promo|sale|discount|offer|coupon|marketing campaign)\b/.test(sample);
+    const routineNotificationCue = /\b(release notes?|changelog|announcement|digest|weekly update|monthly update|product update|new feature|notification)\b/.test(sample);
+    const deliverySenderCue = /\b(no-?reply|noreply|do-not-reply|donotreply|notification|notifications|alerts?)\b/.test(sample);
+    const systemSourceCue = /\b(github|vercel|railway|gitlab|bitbucket|jira|linear|buildkite)\b/.test(sample);
+    const criticalIncidentCue = /\b(failed|failure|outage|incident|breach|security alert|data loss|broken|degraded|down|sev[0-9]|urgent|asap|immediately|action required|approval required|reply required|response needed)\b/.test(sample);
+    const passiveNotification = !signals.hasDeadline
+      && !signals.escalationRisk
+      && !explicitActionIntent
+      && !hasActionLabel
+      && !criticalIncidentCue
+      && (promotionalCue || (hasPassiveLabel && (routineNotificationCue || deliverySenderCue || systemSourceCue)));
+
+    if (!passiveNotification) {
+      return signals;
+    }
+
+    if (promotionalCue) {
+      return {
+        priority: Math.max(signals.priority, 4) as 1 | 2 | 3 | 4 | 5,
+        urgency: 'low',
+        deadlineDate: signals.deadlineDate,
+        needsFollowUp: false,
+        followUpDate: null,
+        followUpReason: null,
+      };
+    }
+
+    return {
+      priority: Math.max(signals.priority, 3) as 1 | 2 | 3 | 4 | 5,
+      urgency: signals.urgency === 'critical' || signals.urgency === 'high' ? 'medium' : signals.urgency,
+      deadlineDate: signals.deadlineDate,
+      needsFollowUp: false,
+      followUpDate: null,
+      followUpReason: null,
+    };
   }
 
   private normaliseLabel(label: string, allowedLabels: string[]): string {

@@ -200,14 +200,16 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
         systemPrompt: (allowedLabels: string, labelRules?: string) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
 
 <INSTRUCTIONS>
-1. Read the email carefully
-2. Generate a 2-3 sentence summary capturing the main point and any action items
-3. Analyze sentiment, tone, and emotional signals
-4. Determine priority (1=highest/critical, 5=lowest/can wait)
-5. Select up to 3 relevant labels from the ALLOWED LABELS only. If LABEL_RULES are provided, follow them to decide which labels apply.
-6. Extract key topics and entities mentioned
-7. Assess if this email poses escalation risk (angry customer, threat, complaint)
-8. Generate 2-3 short smart reply suggestions if appropriate
+1. Read the email carefully.
+2. Generate a 2-3 sentence summary capturing the main point before making any decision.
+3. Select up to 3 relevant labels from the ALLOWED LABELS only. If LABEL_RULES are provided, follow them before any follow-up decision.
+4. Analyze sentiment, tone, and emotional signals.
+5. Determine priority (1=highest/critical, 5=lowest/can wait).
+6. Decide whether the email truly needs follow-up. Set needsFollowUp=true only when the user should come back to this email later to reply, approve, check in, or complete a real task.
+7. Treat newsletters, promotions, release notes, announcements, passive notifications, and routine GitHub/Vercel/Railway alerts as non-follow-up by default unless they contain a concrete action, a real deadline, or a live incident/outage.
+8. Assess if this email poses escalation risk (angry customer, threat, complaint).
+9. Extract key topics and entities mentioned.
+10. Generate 2-3 short smart reply suggestions if appropriate.
 </INSTRUCTIONS>
 
 <ALLOWED_LABELS>

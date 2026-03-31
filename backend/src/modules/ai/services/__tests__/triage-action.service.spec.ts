@@ -98,6 +98,25 @@ describe('TriageActionService', () => {
       );
     });
 
+    it('should skip passive notifications even if the model flagged follow-up', async () => {
+      const analysis = makeAnalysis({
+        labels: ['Updates'],
+        intent: 'fyi',
+        needsFollowUp: true,
+        followUpReason: 'Review changelog later',
+      });
+      const notificationCtx = {
+        ...ctx,
+        from: 'Notifications <noreply@github.com>',
+        subject: 'Weekly release notes digest',
+      };
+
+      const result = await service.processTriageSignals(notificationCtx, analysis);
+
+      expect(result.followUpCreated).toBe(false);
+      expect(mockPrisma.emailFollowUp.upsert).not.toHaveBeenCalled();
+    });
+
     it('should create follow-up when hasDeadline is true', async () => {
       const deadline = new Date('2026-04-01T10:00:00Z');
       mockPrisma.providerConfig.findMany.mockResolvedValue([]);
@@ -142,6 +161,34 @@ describe('TriageActionService', () => {
       const result = await service.processTriageSignals(ctx, analysis);
 
       expect(result.dueDate).toEqual(followUpDate);
+    });
+
+    it('should still create follow-up for actionable update emails', async () => {
+      const followUpDate = new Date('2026-04-05T09:00:00Z');
+      mockPrisma.providerConfig.findMany.mockResolvedValue([]);
+      mockPrisma.emailFollowUp.upsert.mockResolvedValue({
+        id: 'fu-3b',
+        followUpType: FollowUpType.TODO,
+      });
+
+      const analysis = makeAnalysis({
+        labels: ['Updates', 'Action Items'],
+        intent: 'action_required',
+        needsFollowUp: true,
+        followUpDate,
+        followUpReason: 'Confirm deployment ETA',
+      });
+      const notificationCtx = {
+        ...ctx,
+        from: 'Alerts <alerts@buildkite.com>',
+        subject: 'Deployment failed - confirm ETA',
+      };
+
+      const result = await service.processTriageSignals(notificationCtx, analysis);
+
+      expect(result.followUpCreated).toBe(true);
+      expect(result.dueDate).toEqual(followUpDate);
+      expect(mockPrisma.emailFollowUp.upsert).toHaveBeenCalled();
     });
 
     it('should use default 3 business day due date when no dates provided', async () => {

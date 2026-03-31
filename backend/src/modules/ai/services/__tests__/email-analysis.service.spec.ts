@@ -97,4 +97,121 @@ describe('EmailAnalysisService', () => {
     expect(result.labels).toEqual(['Updates']);
     expect(mistral.completePrompt).not.toHaveBeenCalled();
   });
+
+  it('does not append heuristic urgency labels when the model already classified a routine update', async () => {
+    prisma.email.findFirst.mockResolvedValue({
+      id: 'email-2',
+      subject: 'Weekly product digest',
+      from: 'Notifications <noreply@github.com>',
+      to: ['davide@example.com'],
+      bodyText: 'This week in GitHub: release notes and changelog updates.',
+      bodyHtml: null,
+      snippet: 'Release notes and changelog updates.',
+      receivedAt: new Date('2026-03-31T10:00:00Z'),
+    });
+    mistral.completePrompt.mockResolvedValueOnce(JSON.stringify({
+      summary: 'Weekly product digest.',
+      sentiment: 'neutral',
+      tone: 'formal',
+      priority: 2,
+      urgency: 'high',
+      labels: ['Updates'],
+      keyTopics: ['release notes'],
+      intent: 'fyi',
+      escalationRisk: false,
+      hasDeadline: false,
+      deadlineDate: null,
+      needsFollowUp: false,
+      followUpDate: null,
+      followUpReason: null,
+      smartReplies: [],
+      confidence: 0.8,
+      reasoning: 'Routine product update.',
+    }));
+
+    const result = await service.analyzeEmailUnified('tenant-1', 'email-2', 'en');
+
+    expect(result.labels).toEqual(['Updates']);
+    expect(result.labels).not.toContain('Important');
+    expect(result.labels).not.toContain('Follow-up');
+  });
+
+  it('downgrades passive notifications so they do not create urgent follow-up noise', async () => {
+    prisma.email.findFirst.mockResolvedValue({
+      id: 'email-3',
+      subject: 'Release notes digest',
+      from: 'Platform Notifications <noreply@vercel.com>',
+      to: ['davide@example.com'],
+      bodyText: 'Here is your weekly changelog and release notes digest.',
+      bodyHtml: null,
+      snippet: 'Weekly changelog digest.',
+      receivedAt: new Date('2026-03-31T10:00:00Z'),
+    });
+    mistral.completePrompt.mockResolvedValueOnce(JSON.stringify({
+      summary: 'Weekly release digest.',
+      sentiment: 'neutral',
+      tone: 'formal',
+      priority: 1,
+      urgency: 'critical',
+      labels: ['Updates'],
+      keyTopics: ['release notes'],
+      intent: 'fyi',
+      escalationRisk: false,
+      hasDeadline: false,
+      deadlineDate: null,
+      needsFollowUp: true,
+      followUpDate: '2026-04-01T09:00:00.000Z',
+      followUpReason: 'Check release notes later',
+      smartReplies: [],
+      confidence: 0.74,
+      reasoning: 'A platform update email.',
+    }));
+
+    const result = await service.analyzeEmailUnified('tenant-1', 'email-3', 'en');
+
+    expect(result.priority).toBeGreaterThanOrEqual(3);
+    expect(result.urgency).toBe('medium');
+    expect(result.needsFollowUp).toBe(false);
+    expect(result.followUpDate).toBeNull();
+    expect(result.followUpReason).toBeNull();
+  });
+
+  it('preserves follow-up when an update contains a real action or deadline', async () => {
+    prisma.email.findFirst.mockResolvedValue({
+      id: 'email-4',
+      subject: 'Production deployment failed - reply with ETA by 5pm',
+      from: 'Buildkite Alerts <alerts@buildkite.com>',
+      to: ['davide@example.com'],
+      bodyText: 'The deployment failed and the team needs an ETA response by 17:00 today.',
+      bodyHtml: null,
+      snippet: 'Deployment failed and needs ETA.',
+      receivedAt: new Date('2026-03-31T10:00:00Z'),
+    });
+    mistral.completePrompt.mockResolvedValueOnce(JSON.stringify({
+      summary: 'Deployment failed and the team needs an ETA today.',
+      sentiment: 'negative',
+      tone: 'urgent',
+      priority: 2,
+      urgency: 'high',
+      labels: ['Updates', 'Action Items'],
+      keyTopics: ['deployment', 'ETA'],
+      intent: 'action_required',
+      escalationRisk: true,
+      hasDeadline: true,
+      deadlineDate: '2026-03-31T17:00:00.000Z',
+      needsFollowUp: true,
+      followUpDate: '2026-03-31T16:00:00.000Z',
+      followUpReason: 'Provide ETA to the team',
+      smartReplies: [],
+      confidence: 0.91,
+      reasoning: 'Critical failure with an explicit deadline.',
+    }));
+
+    const result = await service.analyzeEmailUnified('tenant-1', 'email-4', 'en');
+
+    expect(result.labels).toEqual(['Updates', 'Action Items']);
+    expect(result.needsFollowUp).toBe(true);
+    expect(result.hasDeadline).toBe(true);
+    expect(result.followUpReason).toBe('Provide ETA to the team');
+  });
 });

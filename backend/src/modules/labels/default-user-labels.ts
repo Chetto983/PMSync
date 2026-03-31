@@ -8,17 +8,17 @@ export const DEFAULT_AI_USER_LABELS: Array<{
 }> = [
   {
     name: 'Important',
-    aiPrompt: 'Use for urgent or business-critical emails that require prompt attention.',
+    aiPrompt: 'Use only for urgent or business-critical emails that require prompt attention. Do not use for routine notifications, release notes, newsletters, or passive alerts.',
     color: { backgroundColor: '#FEE2E2', textColor: '#991B1B' },
   },
   {
     name: 'Follow-up',
-    aiPrompt: 'Use when the message needs a reply later, a check-in, or a waiting-state reminder.',
+    aiPrompt: 'Use only when the user should revisit the email later to reply, check in, or wait for a response. Do not use for passive informational notifications.',
     color: { backgroundColor: '#FEF3C7', textColor: '#92400E' },
   },
   {
     name: 'Action Items',
-    aiPrompt: 'Use when the email contains concrete tasks, deliverables, approvals, or deadlines.',
+    aiPrompt: 'Use when the email contains concrete tasks, deliverables, approvals, or deadlines that require someone to act.',
     color: { backgroundColor: '#FFEDD5', textColor: '#9A3412' },
   },
   {
@@ -38,12 +38,12 @@ export const DEFAULT_AI_USER_LABELS: Array<{
   },
   {
     name: 'Promotions',
-    aiPrompt: 'Use for marketing emails, sales offers, newsletters, discounts, and promotional campaigns.',
+    aiPrompt: 'Use for marketing emails, sales offers, newsletters, discounts, and promotional campaigns. These are usually low priority and do not need follow-up.',
     color: { backgroundColor: '#FCE7F3', textColor: '#9D174D' },
   },
   {
     name: 'Updates',
-    aiPrompt: 'Use for product updates, announcements, release notes, changelogs, system alerts, and GitHub/Vercel/Railway notifications.',
+    aiPrompt: 'Use for product updates, announcements, release notes, changelogs, system alerts, and GitHub/Vercel/Railway notifications. Do not combine with Important or Follow-up unless the email clearly requires action, a reply, or a real deadline.',
     color: { backgroundColor: '#E0E7FF', textColor: '#3730A3' },
   },
 ];

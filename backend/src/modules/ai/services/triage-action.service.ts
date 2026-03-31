@@ -67,8 +67,8 @@ export class TriageActionService {
       dueDate: null,
     };
 
-    // Skip if no actionable signals
-    if (!analysis.needsFollowUp && !analysis.hasDeadline) {
+    // Skip if triage did not surface a real user action.
+    if (!this.shouldCreateFollowUp(context, analysis)) {
       return empty;
     }
 
@@ -204,5 +204,31 @@ export class TriageActionService {
     }
 
     return parts.join(' — ') || 'Detected by auto-triage';
+  }
+
+  private shouldCreateFollowUp(
+    context: TriageEmailContext,
+    analysis: UnifiedEmailAnalysis,
+  ): boolean {
+    if (!analysis.needsFollowUp && !analysis.hasDeadline) {
+      return false;
+    }
+
+    if (analysis.hasDeadline) {
+      return true;
+    }
+
+    const labelSet = new Set(analysis.labels.map((label) => label.trim().toLowerCase()));
+    const explicitActionIntent = ['action_required', 'question', 'meeting_request', 'follow_up'].includes(analysis.intent);
+    const explicitActionLabel = labelSet.has('action items') || labelSet.has('follow-up');
+    const senderSubject = `${context.from}\n${context.subject || ''}`.toLowerCase();
+    const passiveNotificationCue = /\b(newsletter|unsubscribe|promotion|promo|sale|discount|offer|release notes?|changelog|announcement|digest|notification|update|no-?reply|noreply|github|vercel|railway|gitlab|alerts?)\b/.test(senderSubject);
+    const criticalCue = /\b(failed|failure|outage|incident|breach|urgent|asap|immediately|action required|approval required|reply required|deadline|due|confirm)\b/.test(senderSubject);
+
+    if (!explicitActionIntent && !explicitActionLabel && !analysis.escalationRisk && passiveNotificationCue && !criticalCue) {
+      return false;
+    }
+
+    return true;
   }
 }
