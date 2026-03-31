@@ -17,6 +17,7 @@ import {
 } from '../dto/ticket.dto';
 import { SlaTimerService } from './sla-timer.service';
 import { RoutingRuleService } from './routing-rule.service';
+import { CsatService } from './csat.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import type { CrmTicketEventPayload } from '../../../realtime/types/realtime.types';
 
@@ -29,6 +30,7 @@ export class TicketService {
     private readonly slaTimer: SlaTimerService,
     private readonly routingRules: RoutingRuleService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly csatService: CsatService,
   ) {}
 
   private buildTicketPayload(ticket: { id: string; subject: string; status: string; priority: string; assigneeId: string | null; slaDeadline: Date | string | null }): CrmTicketEventPayload {
@@ -268,6 +270,14 @@ export class TicketService {
     });
 
     this.realtimeEvents.emitTicketUpdated(tenantId, this.buildTicketPayload(updated));
+
+    // Schedule CSAT survey email when ticket is resolved (fire-and-forget)
+    if (targetStatus === 'resolved') {
+      this.csatService.scheduleForTicket(id, tenantId).catch((err) => {
+        this.logger.warn(`Failed to schedule CSAT for ticket ${id}: ${err.message}`);
+      });
+    }
+
     return updated;
   }
 
