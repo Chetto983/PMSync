@@ -409,13 +409,16 @@ export class IcsParserService {
       rawTz = (start as any).tz;
     }
 
+    // Fallback: Apple Calendar embeds IANA timezone in X-LIC-LOCATION
+    if (!rawTz && typeof (event as any)['x-lic-location'] === 'string') {
+      rawTz = (event as any)['x-lic-location'];
+    }
+
     if (!rawTz) {
       return undefined; // No timezone info → UTC implied by caller
     }
 
-    // Normalize Windows timezone names and non-standard IDs
-    const resolved = resolveCalendarTimeZone(rawTz);
-    return resolved !== 'UTC' || rawTz.toUpperCase() === 'UTC' ? resolved : resolved;
+    return resolveCalendarTimeZone(rawTz);
   }
 
   /**

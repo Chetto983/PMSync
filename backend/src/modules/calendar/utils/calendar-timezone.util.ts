@@ -13,6 +13,8 @@ const WINDOWS_TIMEZONE_ALIASES: Record<string, string> = {
   'Russian Standard Time': 'Europe/Moscow',
   'Turkey Standard Time': 'Europe/Istanbul',
   'Israel Standard Time': 'Asia/Jerusalem',
+  'Greenwich Standard Time': 'Atlantic/Reykjavik',
+  'Belarus Standard Time': 'Europe/Minsk',
   // Americas
   'Eastern Standard Time': 'America/New_York',
   'US Eastern Standard Time': 'America/Indianapolis',
@@ -29,6 +31,9 @@ const WINDOWS_TIMEZONE_ALIASES: Record<string, string> = {
   'Argentina Standard Time': 'America/Buenos_Aires',
   'Canada Central Standard Time': 'America/Regina',
   'Central Standard Time (Mexico)': 'America/Mexico_City',
+  'Newfoundland Standard Time': 'America/St_Johns',
+  'Venezuela Standard Time': 'America/Caracas',
+  'Paraguay Standard Time': 'America/Asuncion',
   // Asia-Pacific
   'China Standard Time': 'Asia/Shanghai',
   'Taipei Standard Time': 'Asia/Taipei',
@@ -39,6 +44,12 @@ const WINDOWS_TIMEZONE_ALIASES: Record<string, string> = {
   'Singapore Standard Time': 'Asia/Singapore',
   'Arabian Standard Time': 'Asia/Dubai',
   'Pakistan Standard Time': 'Asia/Karachi',
+  'Sri Lanka Standard Time': 'Asia/Colombo',
+  'Nepal Standard Time': 'Asia/Kathmandu',
+  'Bangladesh Standard Time': 'Asia/Dhaka',
+  'Myanmar Standard Time': 'Asia/Yangon',
+  'Iran Standard Time': 'Asia/Tehran',
+  'Afghanistan Standard Time': 'Asia/Kabul',
   // Australia/NZ
   'AUS Eastern Standard Time': 'Australia/Sydney',
   'AUS Central Standard Time': 'Australia/Darwin',
@@ -46,6 +57,77 @@ const WINDOWS_TIMEZONE_ALIASES: Record<string, string> = {
   'W. Australia Standard Time': 'Australia/Perth',
   'New Zealand Standard Time': 'Pacific/Auckland',
   'Tonga Standard Time': 'Pacific/Tongatapu',
+  'Fiji Standard Time': 'Pacific/Fiji',
+  'Samoa Standard Time': 'Pacific/Apia',
+  // Africa
+  'South Africa Standard Time': 'Africa/Johannesburg',
+  'Egypt Standard Time': 'Africa/Cairo',
+  'E. Africa Standard Time': 'Africa/Nairobi',
+  'W. Central Africa Standard Time': 'Africa/Lagos',
+};
+
+// Non-standard aliases from Apple Calendar, IBM Notes, Lotus, and legacy systems
+const LEGACY_TIMEZONE_ALIASES: Record<string, string> = {
+  // Deprecated POSIX-style IDs (still seen in old .ics files)
+  'US/Eastern': 'America/New_York',
+  'US/Central': 'America/Chicago',
+  'US/Mountain': 'America/Denver',
+  'US/Pacific': 'America/Los_Angeles',
+  'US/Hawaii': 'Pacific/Honolulu',
+  'US/Alaska': 'America/Anchorage',
+  'US/Arizona': 'America/Phoenix',
+  'Canada/Eastern': 'America/Toronto',
+  'Canada/Central': 'America/Winnipeg',
+  'Canada/Pacific': 'America/Vancouver',
+  'Brazil/East': 'America/Sao_Paulo',
+  'Mexico/General': 'America/Mexico_City',
+  // European legacy
+  'Europe/Belfast': 'Europe/London',
+  'GB': 'Europe/London',
+  'GB-Eire': 'Europe/London',
+  'Eire': 'Europe/Dublin',
+  'W-SU': 'Europe/Moscow',
+  'Poland': 'Europe/Warsaw',
+  'Portugal': 'Europe/Lisbon',
+  'Turkey': 'Europe/Istanbul',
+  // Asian legacy
+  'Hongkong': 'Asia/Hong_Kong',
+  'ROC': 'Asia/Taipei',
+  'ROK': 'Asia/Seoul',
+  'Japan': 'Asia/Tokyo',
+  'Singapore': 'Asia/Singapore',
+  'Iran': 'Asia/Tehran',
+  'Israel': 'Asia/Jerusalem',
+  // Oceania legacy
+  'NZ': 'Pacific/Auckland',
+  'NZ-CHAT': 'Pacific/Chatham',
+  'Australia/ACT': 'Australia/Sydney',
+  'Australia/NSW': 'Australia/Sydney',
+  'Australia/Queensland': 'Australia/Brisbane',
+  'Australia/Victoria': 'Australia/Melbourne',
+  'Australia/South': 'Australia/Adelaide',
+  'Australia/West': 'Australia/Perth',
+  'Australia/North': 'Australia/Darwin',
+  'Australia/Tasmania': 'Australia/Hobart',
+  // Africa legacy
+  'Egypt': 'Africa/Cairo',
+  'Libya': 'Africa/Tripoli',
+  // UTC variants
+  'GMT': 'UTC',
+  'GMT+0': 'UTC',
+  'GMT-0': 'UTC',
+  'GMT0': 'UTC',
+  'Etc/GMT': 'UTC',
+  'Etc/UTC': 'UTC',
+  'Etc/UCT': 'UTC',
+  'Etc/Universal': 'UTC',
+  'Etc/Zulu': 'UTC',
+  'Zulu': 'UTC',
+  'Universal': 'UTC',
+  'UCT': 'UTC',
+  // Apple Calendar X-LIC-LOCATION and custom VTIMEZONE IDs
+  'Customized Time Zone': 'UTC',
+  'tzone://Microsoft/Custom': 'UTC',
 };
 
 type DateTimeParts = {
@@ -70,7 +152,11 @@ export function resolveCalendarTimeZone(timeZone?: string | null): string {
     return 'UTC';
   }
 
-  const normalized = WINDOWS_TIMEZONE_ALIASES[timeZone] || timeZone;
+  const trimmed = timeZone.trim();
+  const normalized =
+    WINDOWS_TIMEZONE_ALIASES[trimmed] ||
+    LEGACY_TIMEZONE_ALIASES[trimmed] ||
+    trimmed;
 
   try {
     Intl.DateTimeFormat('en-US', { timeZone: normalized }).format(new Date());
