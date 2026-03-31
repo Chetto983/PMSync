@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 125 (dead-code-removal) — EXECUTING
-Plan: 2 of 3
-Status: Ready to execute
+Plan: 3 of 3 (125-01 + 125-02 complete)
+Status: Wave 1 complete, Wave 2 pending
 Last activity: 2026-03-31
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████░░░░] 66%
 
 ## Performance Metrics
 
@@ -43,9 +43,9 @@ Progress: [░░░░░░░░░░] 0%
 
 **v11.0 Velocity:**
 
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+- Total plans completed: 2
+- Average duration: ~27min
+- Total execution time: ~0.9 hours
 
 ## Accumulated Context
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 - v11.0 roadmap: Frontend perf (130) and billing frontend (131) can run parallel to scaling chain
 - v11.0 roadmap: Billing E2E (133) last — depends on frontend UI + backend webhook
 - [Phase 125]: Included ticket.controller.ts (39th file) in ApiBearerAuth cleanup -- added after research
+- 125-02: Tailwind fully removed; MUI CssBaseline provides CSS reset, native @layer base for custom properties
 
 ### Blockers/Concerns
 
@@ -64,6 +65,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-31T07:24:47.187Z
-Stopped at: Completed 125-01-PLAN.md
+Last session: 2026-03-31
+Stopped at: Wave 1 complete (125-01 + 125-02)
 Resume file: None

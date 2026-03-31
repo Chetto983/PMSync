@@ -1,50 +1,49 @@
-# Sprint 05 — Checkpoint
+# Sprint 06 — Checkpoint
 
 ## Status
 
-- **Sprint:** 05 — Google Calendar+Contacts Provider Hardening
-- **Last Task Completed:** T-0505 — Error classification and typed error hierarchy
-- **Next Task:** Sprint 06 (Microsoft Provider Hardening)
+- **Sprint:** 06 — Microsoft Calendar+Contacts Provider Hardening
+- **Last Task Completed:** T-0605 — Microsoft folder cache tenant isolation
+- **Next Task:** Sprint 07 (Calendar Frontend Gap Closure)
 - **Tasks Done:** 5/5
-- **SP Completed:** 15/15
-- **Last Updated:** 2026-03-31 10:00
+- **SP Completed:** 14/14
+- **Last Updated:** 2026-03-31 14:30
 
 ## Audit Findings Addressed
 
-- CAL-C2: Sync token expiration fallback — already handled in abstract-calendar-sync.service.ts (410/404 detection)
-- CON-C1: Google sync token 7-day expiry — FALSE POSITIVE (contacts do full fetch, no sync tokens)
-- CON-C2: Contact etag not checked — fixed in S04 (etag enforcement + 409 retry)
-- CON-C3: Parallel contact mutations — fixed in S04 (Redis write mutex)
-- CON-M3: Contact photo sync etag — fixed: photoEtag stored, default photos skipped
+- CAL-C3: Microsoft delta query error handling — ✅ typed MicrosoftSyncError + abstract service handler
+- CON-H4: Folder cache tenant isolation — ✅ verified (TRANSIENT scope + Redis key has tenantId) + hardened queries
+- CAL-H3: DST/timezone edge cases — ✅ Windows alias expansion (15→46) + DST tests + round-trip verification
 
 ## Last Modified Files
 
-- backend/src/modules/providers/errors/google-provider.error.ts (NEW — typed error hierarchy)
-- backend/src/modules/providers/errors/index.ts (NEW — barrel export)
-- backend/src/modules/providers/services/google-oauth.service.ts (typed errors in refreshAccessToken)
-- backend/src/modules/email-sync/services/provider-token.service.ts (WebSocket notify + typed error handling)
-- backend/src/modules/calendar/services/google-calendar-sync.service.ts (429 retry with backoff)
-- backend/src/modules/contacts/services/google-contacts-sync.service.ts (pagination throttle + photo etag)
-- backend/src/modules/contacts/services/base-contacts-sync.service.ts (photoEtag in ExtractedContactData)
-- backend/src/modules/contacts/services/contact-provider-ops.service.ts (photo cache comment)
+- backend/src/modules/providers/errors/microsoft-provider.error.ts (NEW — typed error hierarchy)
+- backend/src/modules/providers/errors/index.ts (added Microsoft exports)
+- backend/src/modules/providers/services/microsoft-oauth.service.ts (typed errors in refreshAccessToken)
+- backend/src/modules/email-sync/services/provider-token.service.ts (typed Microsoft error handling)
+- backend/src/modules/calendar/services/microsoft-calendar-sync.service.ts (MicrosoftSyncError on 410)
+- backend/src/modules/calendar/services/abstract-calendar-sync.service.ts (typed sync error handling)
+- backend/src/modules/contacts/services/microsoft-contacts-webhook.service.ts (checkWebhookSilenceAndPoll)
+- backend/src/modules/contacts/controllers/contacts-webhook.controller.ts (fallback-poll endpoint)
+- backend/src/modules/calendar/utils/calendar-timezone.util.ts (46 Windows aliases)
+- backend/src/modules/calendar/services/__tests__/calendar-timezone.util.spec.ts (DST edge case tests)
+- backend/src/modules/email-sync/services/microsoft/microsoft-folder.service.ts (tenantId in queries)
 
 ## Key Decisions Made
 
-- GoogleProviderError hierarchy lives in providers/errors/ (shared by calendar + contacts)
-- GoogleOAuthService now throws typed GoogleAuthError/GoogleRateLimitError instead of NestJS exceptions
-- ProviderTokenService handles both typed and legacy errors for backward compatibility
-- Photo URL used as etag equivalent (Google embeds unique hash in URL)
-- Default/placeholder Google photos skipped (isDefaultPhoto check)
-- Inter-page delay of 700ms for large contact list pagination
-- Calendar API calls wrapped with withGoogleRetry (max 3 retries, exponential backoff)
-- Per-provider rate limiting already existed in RedisLockService (100/min for Google)
+- MicrosoftProviderError hierarchy mirrors Google pattern from S05 (same base structure)
+- refreshAccessToken throws typed errors; getProviderWithTokens propagates them
+- Contacts sync uses full fetch (no delta), so 410 handling only applies to calendar
+- Webhook fallback polling uses 30-min silence threshold, exposed as authenticated endpoint
+- Windows timezone aliases expanded to cover all major MS Graph return values
+- Folder cache in MicrosoftDriver is inherently tenant-isolated via Scope.TRANSIENT
 
 ## Blockers / Notes
 
-- Some T-0501 and T-0504 changes were absorbed into commits by another parallel session (wrong commit messages)
-- Pre-existing TS errors in ai-chat test files (unrelated to this sprint)
+- Jest test suite blocked by DB seed error (unrelated to sprint changes)
+- Pre-existing TS error in routing-rule.service.ts fixed as part of T-0601 commit
 
 ## Validation Status
 
-- Backend tsc: passing (3 pre-existing errors in ai-chat tests)
-- Google OAuth unit tests: 9/12 passing (3 integration tests need live DB)
+- Backend tsc: ✅ passing
+- DST timezone tests: ✅ verified via tsx (all assertions pass)

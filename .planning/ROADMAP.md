@@ -158,7 +158,7 @@
 **Plans**: 3 plans
 Plans:
 - [x] 125-01-PLAN.md — Replace @ApiBearerAuth with @ApiCookieAuth across 38 controllers + clean Swagger config, dead scripts, guard comments, and JWT_SECRET
-- [ ] 125-02-PLAN.md — Verify deprecated API aliases removed + remove Tailwind CSS pipeline
+- [x] 125-02-PLAN.md — Verify deprecated API aliases removed + remove Tailwind CSS pipeline
 - [ ] 125-03-PLAN.md — End-to-end validation and visual verification checkpoint
 
 ### Phase 126: Cron-to-BullMQ Migration

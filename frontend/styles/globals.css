@@ -1,8 +1,3 @@
-/* stylelint-disable at-rule-no-unknown */
-@config '../tailwind.config.ts';
-@tailwind base;
-/* stylelint-enable at-rule-no-unknown */
-
 @layer base {
   :root {
     /* Base colors */

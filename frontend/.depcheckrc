@@ -1,6 +1,5 @@
 {
   "ignores": [
-    "@tailwindcss/postcss",
     "autoprefixer",
     "postcss",
     "@types/jest",

@@ -63,10 +63,10 @@
 - Mitigation: Use fixed dates known to cross DST boundaries (e.g., 2026-03-08 US, 2026-03-29 EU)
 
 ## Definition of Done
-- [ ] MSAL token refresh handles expiry and revocation
-- [ ] Delta 410 triggers full resync for both calendar and contacts
-- [ ] Contacts webhook fallback polling operational
-- [ ] DST edge cases handled in event creation and recurring events
-- [ ] Folder cache tenant-isolated (security verified)
-- [ ] `npx tsc --noEmit` passes
-- [ ] Tests pass: `npx jest --testPathPattern="microsoft.*calendar|microsoft.*contacts"`
+- [x] MSAL token refresh handles expiry and revocation (typed MicrosoftAuthError)
+- [x] Delta 410 triggers full resync for calendar (contacts has no delta)
+- [x] Contacts webhook fallback polling operational (checkWebhookSilenceAndPoll)
+- [x] DST edge cases handled + 46 Windows timezone aliases + tests
+- [x] Folder cache tenant-isolated (security verified + hardened)
+- [x] `npx tsc --noEmit` passes
+- [ ] Tests pass: `npx jest` (blocked by DB seed, unrelated)
