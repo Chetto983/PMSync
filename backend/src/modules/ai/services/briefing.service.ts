@@ -20,6 +20,11 @@ import { AiRunLedgerService } from './ai-run-ledger.service';
 import { parseJsonOutput } from '../utils/parse-json-output';
 import { promptHash } from '../utils/prompt-hash';
 import { buildAiResponseMeta, type AiServiceResult } from '../utils/ai-response-meta';
+import {
+  getLocale as resolveAiLocale,
+  getTranslations as getAiTranslations,
+  type SupportedLocale,
+} from '../locales';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -177,15 +182,83 @@ Confidence calibration for urgency ratings:
 - medium: General action item, no hard deadline, within the week
 - low: FYI email, newsletter, or optional action`;
 
-const LOCALE_LANGUAGE_MAP: Record<string, string> = {
-  en: 'English',
-  it: 'Italian',
+type BriefingFallbackCopy = {
+  noSubject: string;
+  unknown: string;
+  pendingReason: (followUpType: string) => string;
+  staleContactAction: (name: string) => string;
+  draftReason: string;
+  systemAlertReason: string;
+  deadlineReason: string;
+  responseReason: string;
+  highRankReason: string;
+  nextBlockReason: string;
+  executiveSummary: (priorityEmails: number, pendingFollowUps: number, meetings: number) => string;
+  topAttention: (subject: string) => string;
+  approaching: (deadlines: number, actionItems: number) => string;
+  focusBlockReason: string;
 };
 
+const BRIEFING_FALLBACK_COPY: Record<SupportedLocale, BriefingFallbackCopy> = {
+  en: {
+    noSubject: 'No subject',
+    unknown: 'Unknown',
+    pendingReason: (followUpType) =>
+      followUpType === 'WAITING_FOR'
+        ? 'Waiting on a response or external update.'
+        : followUpType === 'TODO'
+          ? 'Pending task or reply to complete.'
+          : 'Pending follow-up item.',
+    staleContactAction: (name) => `Send a short reconnect note to ${name}.`,
+    draftReason: 'Unread email likely needs a response or review.',
+    systemAlertReason: 'System alert or delivery signal detected in an unread email.',
+    deadlineReason: 'Unread email includes deadline or urgency signals that need review.',
+    responseReason: 'Unread email appears to require a response or decision.',
+    highRankReason: 'Unread email ranks high based on urgency and recency.',
+    nextBlockReason: 'Unread email should be reviewed in the next work block.',
+    executiveSummary: (priorityEmails, pendingFollowUps, meetings) =>
+      `You have ${priorityEmails} priority unread emails, ${pendingFollowUps} pending follow-ups, and ${meetings} meetings today.`,
+    topAttention: (subject) => `Top attention item: "${subject}".`,
+    approaching: (deadlines, actionItems) =>
+      `${deadlines} deadlines and ${actionItems} action items are approaching.`,
+    focusBlockReason: 'Open calendar gap suitable for focused email or follow-up work.',
+  },
+  it: {
+    noSubject: 'Nessun oggetto',
+    unknown: 'Sconosciuto',
+    pendingReason: (followUpType) =>
+      followUpType === 'WAITING_FOR'
+        ? 'In attesa di una risposta o di un aggiornamento esterno.'
+        : followUpType === 'TODO'
+          ? 'Attivita o risposta da completare.'
+          : 'Follow-up in sospeso.',
+    staleContactAction: (name) => `Invia un breve messaggio di ricontatto a ${name}.`,
+    draftReason: 'Email non letta che probabilmente richiede una risposta o una revisione.',
+    systemAlertReason: 'Rilevato un avviso di sistema o un segnale di delivery in un email non letta.',
+    deadlineReason: 'L email non letta contiene segnali di scadenza o urgenza da rivedere.',
+    responseReason: 'L email non letta sembra richiedere una risposta o una decisione.',
+    highRankReason: 'L email non letta e alta in priorita per urgenza e recenza.',
+    nextBlockReason: 'L email non letta dovrebbe essere rivista nel prossimo blocco di lavoro.',
+    executiveSummary: (priorityEmails, pendingFollowUps, meetings) =>
+      `Hai ${priorityEmails} email prioritarie non lette, ${pendingFollowUps} follow-up in sospeso e ${meetings} riunioni oggi.`,
+    topAttention: (subject) => `Massima attenzione: "${subject}".`,
+    approaching: (deadlines, actionItems) =>
+      `Si avvicinano ${deadlines} scadenze e ${actionItems} attivita operative.`,
+    focusBlockReason: 'Finestra libera in calendario adatta a email o follow-up concentrati.',
+  },
+};
+
+function resolveBriefingLocale(locale?: string): SupportedLocale {
+  return resolveAiLocale(locale);
+}
+
+function getBriefingFallbackCopy(locale?: string): BriefingFallbackCopy {
+  return BRIEFING_FALLBACK_COPY[resolveBriefingLocale(locale)];
+}
+
 function buildBriefingSystemPrompt(locale?: string): string {
-  const lang = LOCALE_LANGUAGE_MAP[locale ?? 'en'] ?? 'English';
-  if (lang === 'English') return SYSTEM_PROMPT;
-  return SYSTEM_PROMPT + `\n\nIMPORTANT: Write all free-text fields (executiveSummary, reason, suggestedAction, suggestedResponse) in ${lang}. JSON keys must remain in English.`;
+  const briefingTranslations = getAiTranslations(resolveBriefingLocale(locale)).briefing;
+  return SYSTEM_PROMPT + `\n\n${briefingTranslations.aiPromptLanguage} JSON keys must remain in English.`;
 }
 
 @Injectable()
@@ -332,7 +405,7 @@ export class BriefingService {
       currentTime: now,
     };
 
-    const deterministicFallback = this.buildDeterministicFallback(contextData);
+    const deterministicFallback = this.buildDeterministicFallback(contextData, locale);
     const dataContext = JSON.stringify({
       unreadEmails: contextData.unreadEmails.map(e => ({
         id: e.id,
@@ -373,7 +446,8 @@ export class BriefingService {
     return this.generateWithFallback(dataContext, deterministicFallback, tenantId, locale);
   }
 
-  private buildDeterministicFallback(context: BriefingContext): BriefingOutput {
+  private buildDeterministicFallback(context: BriefingContext, locale?: string): BriefingOutput {
+    const copy = getBriefingFallbackCopy(locale);
     const rankedEmails = [...context.unreadEmails]
       .map((email) => ({ email, score: this.scorePriorityEmail(email) }))
       .sort((a, b) => b.score - a.score)
@@ -381,10 +455,10 @@ export class BriefingService {
 
     const priorityEmails: BriefingOutput['priorityEmails'] = rankedEmails.map(({ email, score }) => ({
       emailId: email.id,
-      subject: email.subject || 'No subject',
-      sender: this.extractSenderName(email.from),
+      subject: email.subject || copy.noSubject,
+      sender: this.extractSenderName(email.from, copy.unknown),
       urgency: this.scoreToUrgency(score),
-      reason: email.aiPriorityReason || this.buildPriorityReason(email, score),
+      reason: email.aiPriorityReason || this.buildPriorityReason(email, score, locale),
     }));
 
     const calendarSnapshot: BriefingOutput['calendarSnapshot'] = context.todayEvents
@@ -404,8 +478,8 @@ export class BriefingService {
       .slice(0, 8)
       .map((followUp) => ({
         emailId: followUp.emailId,
-        contactName: this.extractSenderName(followUp.email?.from),
-        reason: followUp.reason || `Pending ${followUp.followUpType.toLowerCase().replace('_', ' ')} item`,
+        contactName: this.extractSenderName(followUp.email?.from, copy.unknown),
+        reason: followUp.reason || copy.pendingReason(followUp.followUpType),
         suggestedDueDate: followUp.dueDate?.toISOString() ?? null,
         urgency: followUp.dueDate && followUp.dueDate.getTime() < Date.now() + 24 * 60 * 60 * 1000
           ? 'high'
@@ -418,11 +492,11 @@ export class BriefingService {
       .slice(0, 5)
       .map((contact) => ({
         contactId: contact.id,
-        name: contact.displayName || 'Unknown',
+        name: contact.displayName || copy.unknown,
         daysSinceContact: contact.lastInteractedAt
           ? Math.max(0, Math.round((Date.now() - contact.lastInteractedAt.getTime()) / 86_400_000))
           : 0,
-        suggestedAction: `Send a short reconnect note to ${contact.displayName || 'this contact'}.`,
+        suggestedAction: copy.staleContactAction(contact.displayName || copy.unknown),
       }));
 
     const draftSuggestions: BriefingOutput['draftSuggestions'] = rankedEmails
@@ -430,18 +504,18 @@ export class BriefingService {
       .slice(0, 3)
       .map(({ email }) => ({
         emailId: email.id,
-        subject: email.subject || 'No subject',
-        reason: email.aiPriorityReason || 'Unread email likely needs a response or review.',
+        subject: email.subject || copy.noSubject,
+        reason: email.aiPriorityReason || copy.draftReason,
       }));
 
-    const focusTimeRecommendations = this.buildFocusBlocks(context.todayEvents, context.currentTime);
+    const focusTimeRecommendations = this.buildFocusBlocks(context.todayEvents, context.currentTime, locale);
     const trend = this.computeVolumeTrend(context.emailVolume.todayReceived, context.emailVolume.weeklyAvgReceived);
 
     return {
       priorityEmails,
       calendarSnapshot,
       pendingFollowUps,
-      executiveSummary: this.buildExecutiveSummary(priorityEmails, calendarSnapshot, pendingFollowUps, context),
+      executiveSummary: this.buildExecutiveSummary(priorityEmails, calendarSnapshot, pendingFollowUps, context, locale),
       staleContactsAlert,
       draftSuggestions,
       emailVolumeTrends: {
@@ -479,24 +553,25 @@ export class BriefingService {
     return 'low';
   }
 
-  private buildPriorityReason(email: BriefingContext['unreadEmails'][number], score: number): string {
+  private buildPriorityReason(email: BriefingContext['unreadEmails'][number], score: number, locale?: string): string {
+    const copy = getBriefingFallbackCopy(locale);
     const sample = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
     if (/\b(github|vercel|railway|deploy|build)\b/.test(sample)) {
-      return 'System alert or delivery signal detected in an unread email.';
+      return copy.systemAlertReason;
     }
     if (/\b(deadline|overdue|tomorrow|today|asap|urgent)\b/.test(sample)) {
-      return 'Unread email includes deadline or urgency signals that need review.';
+      return copy.deadlineReason;
     }
     if (/\b(question|please|review|reply)\b/.test(sample)) {
-      return 'Unread email appears to require a response or decision.';
+      return copy.responseReason;
     }
     return score >= 4
-      ? 'Unread email ranks high based on urgency and recency.'
-      : 'Unread email should be reviewed in the next work block.';
+      ? copy.highRankReason
+      : copy.nextBlockReason;
   }
 
-  private extractSenderName(value?: string | null): string {
-    if (!value) return 'Unknown';
+  private extractSenderName(value?: string | null, fallback = 'Unknown'): string {
+    if (!value) return fallback;
     const match = value.match(/^([^<]+)/);
     return (match?.[1] || value).trim().replace(/^"+|"+$/g, '');
   }
@@ -513,18 +588,18 @@ export class BriefingService {
     calendarSnapshot: BriefingOutput['calendarSnapshot'],
     pendingFollowUps: BriefingOutput['pendingFollowUps'],
     context: BriefingContext,
+    locale?: string,
   ): string {
+    const copy = getBriefingFallbackCopy(locale);
     const topSubject = priorityEmails[0]?.subject;
-    const parts = [
-      `You have ${priorityEmails.length} priority unread emails, ${pendingFollowUps.length} pending follow-ups, and ${calendarSnapshot.length} meetings today.`,
-    ];
+    const parts = [copy.executiveSummary(priorityEmails.length, pendingFollowUps.length, calendarSnapshot.length)];
 
     if (topSubject) {
-      parts.push(`Top attention item: "${topSubject}".`);
+      parts.push(copy.topAttention(topSubject));
     }
 
     if (context.upcomingDeadlines > 0 || context.pendingActionItems > 0) {
-      parts.push(`${context.upcomingDeadlines} deadlines and ${context.pendingActionItems} action items are approaching.`);
+      parts.push(copy.approaching(context.upcomingDeadlines, context.pendingActionItems));
     }
 
     return parts.join(' ');
@@ -533,7 +608,9 @@ export class BriefingService {
   private buildFocusBlocks(
     events: BriefingContext['todayEvents'],
     currentTime: Date,
+    locale?: string,
   ): BriefingOutput['focusTimeRecommendations'] {
+    const copy = getBriefingFallbackCopy(locale);
     if (events.length === 0) return [];
 
     const sorted = [...events].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
@@ -547,7 +624,7 @@ export class BriefingService {
         blocks.push({
           startTime: pointer.toISOString(),
           endTime: end.toISOString(),
-          reason: 'Open calendar gap suitable for focused email or follow-up work.',
+          reason: copy.focusBlockReason,
         });
       }
       if (event.endTime > pointer) {

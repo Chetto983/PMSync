@@ -13,6 +13,7 @@
 import { useTriagedEmails, useImportantEmails } from '@/hooks/queries/use-dashboard';
 import { usePendingFollowUps } from '@/hooks/queries/use-follow-ups';
 import { useConsent } from '@/hooks/queries/use-consent';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { getLaneLabel, groupEmailsByTriageLane, type TriageLane } from '@/lib/email-triage/triage-lanes';
 import { BaseWidget } from './BaseWidget';
@@ -55,6 +56,7 @@ const LANE_CONFIG: Record<TriageLane, { color: 'error' | 'warning' | 'info' | 'd
 
 export function AiTriageWidget() {
   const t = useTranslations();
+  const { locale } = useLocale();
   const router = useRouter();
   const { data: consentList, isLoading: consentLoading } = useConsent();
   const hasAiConsent =
@@ -102,8 +104,18 @@ export function AiTriageWidget() {
     if (!dueDate) return null;
     const parsed = new Date(dueDate);
     if (Number.isNaN(parsed.getTime())) return null;
-    if (parsed.getTime() < Date.now()) return 'Overdue';
-    return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (parsed.getTime() < Date.now()) return locale === 'it' ? 'Scaduto' : 'Overdue';
+    return parsed.toLocaleDateString(locale === 'it' ? 'it-IT' : 'en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getFollowUpTypeLabel = (followUpType?: string | null) => {
+    if (followUpType === 'WAITING_FOR') {
+      return locale === 'it' ? 'In attesa' : 'Waiting';
+    }
+    if (followUpType === 'TODO') {
+      return locale === 'it' ? 'Da fare' : 'To do';
+    }
+    return null;
   };
 
   const handleRefresh = () => {
@@ -168,7 +180,7 @@ export function AiTriageWidget() {
                         size="small"
                         color={laneConfig.color}
                         variant={laneConfig.variant || 'outlined'}
-                        label={`${getLaneLabel(group.lane)} · ${group.items.length}`}
+                        label={`${getLaneLabel(group.lane, locale)} · ${group.items.length}`}
                         sx={{ fontWeight: 600 }}
                       />
                     );
@@ -179,7 +191,7 @@ export function AiTriageWidget() {
               {triageLaneGroups.map((group) => (
                 <Box key={group.lane} sx={{ mb: 1.5 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ px: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {getLaneLabel(group.lane)}
+                    {getLaneLabel(group.lane, locale)}
                   </Typography>
                   <List dense disablePadding sx={{ mt: 0.5 }}>
                     {group.items.map(({ email, followUp }) => {
@@ -218,9 +230,9 @@ export function AiTriageWidget() {
                                 {email.aiLabels && email.aiLabels.length > 0 && (
                                   <Chip label={email.aiLabels[0]} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.6rem' }} />
                                 )}
-                                {followUp?.followUpType && (
+                                {getFollowUpTypeLabel(followUp?.followUpType) && (
                                   <Chip
-                                    label={followUp.followUpType === 'WAITING_FOR' ? 'Waiting' : 'To do'}
+                                    label={getFollowUpTypeLabel(followUp?.followUpType)}
                                     size="small"
                                     variant="outlined"
                                     color={followUp.followUpType === 'WAITING_FOR' ? 'warning' : 'error'}
@@ -232,7 +244,7 @@ export function AiTriageWidget() {
                                     label={dueLabel}
                                     size="small"
                                     variant="outlined"
-                                    color={dueLabel === 'Overdue' ? 'error' : 'default'}
+                                    color={dueLabel === (locale === 'it' ? 'Scaduto' : 'Overdue') ? 'error' : 'default'}
                                     sx={{ height: 18, fontSize: '0.6rem' }}
                                   />
                                 )}

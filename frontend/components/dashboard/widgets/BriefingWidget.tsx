@@ -7,6 +7,7 @@
 import { useBriefing, useRecentUnreadEmails, useTriagedEmails } from '@/hooks/queries/use-dashboard';
 import { usePendingFollowUps } from '@/hooks/queries/use-follow-ups';
 import { useConsent } from '@/hooks/queries/use-consent';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   buildFallbackBriefingSummary,
@@ -20,6 +21,7 @@ import { Sparkles, AlertCircle, Calendar, Mail, Users } from 'lucide-react';
 
 export function BriefingWidget() {
   const t = useTranslations();
+  const { locale } = useLocale();
   const { data: consentList, isLoading: consentLoading } = useConsent();
   const hasAiConsent =
     consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
@@ -45,13 +47,14 @@ export function BriefingWidget() {
   const laneCount = (lane: 'action-now' | 'waiting-on-reply' | 'system-alerts' | 'review-later') =>
     laneGroups.find((group) => group.lane === lane)?.items.length || 0;
   const weakSummary = isWeakBriefingSummary(data?.summary);
+  const fallbackHighlights = buildFallbackHighlights(triageData?.emails || [], triageFollowUps, 3, locale);
   const summary = weakSummary
-    ? buildFallbackBriefingSummary(triageData?.emails || [], triageFollowUps)
+    ? buildFallbackBriefingSummary(triageData?.emails || [], triageFollowUps, locale)
     : data?.summary || '';
   const highlights = data?.highlights?.length
     ? data.highlights
-    : buildFallbackHighlights(triageData?.emails || [], triageFollowUps, 3).length
-      ? buildFallbackHighlights(triageData?.emails || [], triageFollowUps, 3)
+    : fallbackHighlights.length
+      ? fallbackHighlights
       : recentEmails?.emails?.slice(0, 3).map((email) => {
           const senderName = email.from?.name || email.from?.email || '';
           const subject = email.subject || t.common?.noSubject || '(No subject)';

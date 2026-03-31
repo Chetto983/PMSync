@@ -30,6 +30,8 @@ export interface TriageLaneGroup<TEmail extends TriageEmailCandidate> {
   items: Array<{ email: TEmail; followUp?: TriageFollowUpSignal }>;
 }
 
+type TriageLocale = 'en' | 'it';
+
 const SYSTEM_ALERT_PATTERN = /\b(github|vercel|railway|deploy(ment)?|build failed|workflow|ci|incident|status page|uptime|monitoring|notification)\b/i;
 const ACTION_PATTERN = /\b(urgent|asap|deadline|today|customer|client|complaint|invoice|payment|contract|proposal|approve|approval|review needed|action required)\b/i;
 
@@ -40,6 +42,73 @@ const LANE_ORDER: TriageLane[] = [
   'review-later',
 ];
 
+const TRIAGE_COPY: Record<TriageLocale, {
+  laneLabels: Record<TriageLane, string>;
+  summary: {
+    actionNow: (count: number) => string;
+    waitingOnReply: (count: number) => string;
+    systemAlerts: (count: number) => string;
+    idle: string;
+    intro: (fragments: string[]) => string;
+  };
+  highlights: {
+    waitingOnReply: string;
+    followUpDue: string;
+    byLane: Record<TriageLane, string>;
+  };
+}> = {
+  en: {
+    laneLabels: {
+      'action-now': 'Action now',
+      'waiting-on-reply': 'Waiting on reply',
+      'system-alerts': 'System alerts',
+      'review-later': 'Review later',
+    },
+    summary: {
+      actionNow: (count) => `${count} need action now`,
+      waitingOnReply: (count) => `${count} are waiting on a reply`,
+      systemAlerts: (count) => `${count} are system alerts`,
+      idle: 'Your triaged inbox is under control. Review later items remain, but nothing urgent is surfacing right now.',
+      intro: (fragments) => `Inbox summary: ${fragments.join(', ')}. Focus first on action items, then clear waiting threads and alerts.`,
+    },
+    highlights: {
+      waitingOnReply: 'waiting on reply',
+      followUpDue: 'follow-up due',
+      byLane: {
+        'action-now': 'action now',
+        'waiting-on-reply': 'waiting on reply',
+        'system-alerts': 'system alerts',
+        'review-later': 'review later',
+      },
+    },
+  },
+  it: {
+    laneLabels: {
+      'action-now': 'Da fare subito',
+      'waiting-on-reply': 'In attesa di risposta',
+      'system-alerts': 'Avvisi di sistema',
+      'review-later': 'Rivedi dopo',
+    },
+    summary: {
+      actionNow: (count) => `${count} richiedono azione subito`,
+      waitingOnReply: (count) => `${count} sono in attesa di risposta`,
+      systemAlerts: (count) => `${count} sono avvisi di sistema`,
+      idle: 'La tua inbox triagiata è sotto controllo. Restano elementi da rivedere più tardi, ma nulla di urgente sta emergendo adesso.',
+      intro: (fragments) => `Riepilogo inbox: ${fragments.join(', ')}. Parti prima dagli elementi operativi, poi smaltisci attese e avvisi.`,
+    },
+    highlights: {
+      waitingOnReply: 'in attesa di risposta',
+      followUpDue: 'follow-up in scadenza',
+      byLane: {
+        'action-now': 'da fare subito',
+        'waiting-on-reply': 'in attesa di risposta',
+        'system-alerts': 'avvisi di sistema',
+        'review-later': 'rivedi dopo',
+      },
+    },
+  },
+};
+
 function flattenFrom(from: TriageEmailCandidate['from']): string {
   if (!from) return '';
   if (typeof from === 'string') return from;
@@ -48,6 +117,10 @@ function flattenFrom(from: TriageEmailCandidate['from']): string {
 
 function normalize(value: string | null | undefined): string {
   return String(value || '').toLowerCase();
+}
+
+function resolveTriageLocale(locale?: string | null): TriageLocale {
+  return String(locale || '').toLowerCase().startsWith('it') ? 'it' : 'en';
 }
 
 function combinedEmailText(email: TriageEmailCandidate): string {
@@ -62,7 +135,12 @@ function combinedEmailText(email: TriageEmailCandidate): string {
 export function isWeakBriefingSummary(summary?: string | null): boolean {
   const normalized = normalize(summary);
   if (!normalized) return true;
-  return normalized.includes('unable to generate briefing') || normalized.includes('briefing at this time');
+  return [
+    'unable to generate briefing',
+    'briefing at this time',
+    'impossibile generare il briefing',
+    'briefing non disponibile',
+  ].some((fragment) => normalized.includes(fragment));
 }
 
 export function deriveTriageLane(
@@ -114,43 +192,38 @@ export function groupEmailsByTriageLane<TEmail extends TriageEmailCandidate>(
   }));
 }
 
-export function getLaneLabel(lane: TriageLane): string {
-  switch (lane) {
-    case 'action-now':
-      return 'Action now';
-    case 'waiting-on-reply':
-      return 'Waiting on reply';
-    case 'system-alerts':
-      return 'System alerts';
-    case 'review-later':
-      return 'Review later';
-  }
+export function getLaneLabel(lane: TriageLane, locale?: string): string {
+  return TRIAGE_COPY[resolveTriageLocale(locale)].laneLabels[lane];
 }
 
 export function buildFallbackBriefingSummary(
   emails: TriageEmailCandidate[],
   followUps: TriageFollowUpSignal[] = [],
+  locale?: string,
 ): string {
+  const copy = TRIAGE_COPY[resolveTriageLocale(locale)];
   const grouped = groupEmailsByTriageLane(emails, followUps);
   const counts = Object.fromEntries(grouped.map((group) => [group.lane, group.items.length])) as Record<TriageLane, number>;
   const fragments = [
-    counts['action-now'] > 0 ? `${counts['action-now']} need action now` : null,
-    counts['waiting-on-reply'] > 0 ? `${counts['waiting-on-reply']} are waiting on a reply` : null,
-    counts['system-alerts'] > 0 ? `${counts['system-alerts']} are system alerts` : null,
-  ].filter(Boolean);
+    counts['action-now'] > 0 ? copy.summary.actionNow(counts['action-now']) : null,
+    counts['waiting-on-reply'] > 0 ? copy.summary.waitingOnReply(counts['waiting-on-reply']) : null,
+    counts['system-alerts'] > 0 ? copy.summary.systemAlerts(counts['system-alerts']) : null,
+  ].filter(Boolean) as string[];
 
   if (fragments.length === 0) {
-    return 'Your triaged inbox is under control. Review later items remain, but nothing urgent is surfacing right now.';
+    return copy.summary.idle;
   }
 
-  return `Inbox summary: ${fragments.join(', ')}. Focus first on action items, then clear waiting threads and alerts.`;
+  return copy.summary.intro(fragments);
 }
 
 export function buildFallbackHighlights(
   emails: TriageEmailCandidate[],
   followUps: TriageFollowUpSignal[] = [],
   limit = 3,
+  locale?: string,
 ): string[] {
+  const copy = TRIAGE_COPY[resolveTriageLocale(locale)];
   const grouped = groupEmailsByTriageLane(emails, followUps);
   const highlights: string[] = [];
 
@@ -159,15 +232,14 @@ export function buildFallbackHighlights(
       if (highlights.length >= limit) break;
       const subject = item.email.subject || '(No subject)';
       const followUpNote = item.followUp?.followUpType === 'WAITING_FOR'
-        ? 'waiting on reply'
+        ? copy.highlights.waitingOnReply
         : item.followUp?.followUpType === 'TODO'
-          ? 'follow-up due'
-          : getLaneLabel(group.lane).toLowerCase();
-      highlights.push(`${subject} — ${followUpNote}`);
+          ? copy.highlights.followUpDue
+          : copy.highlights.byLane[group.lane];
+      highlights.push(`${subject} - ${followUpNote}`);
     }
     if (highlights.length >= limit) break;
   }
 
   return highlights;
 }
-
