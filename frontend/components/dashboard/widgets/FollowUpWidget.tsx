@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import { useFollowUps, useSnoozeFollowUp } from '@/hooks/queries';
+import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
@@ -34,6 +35,9 @@ export function FollowUpWidget() {
   const timezone = useUserTimezone();
   const dl = locale === 'it' ? { locale: itLocale } : undefined;
   const router = useRouter();
+  const { data: consentList, isLoading: consentLoading } = useConsent();
+  const hasAiConsent =
+    consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
   const { data, isLoading, error, refetch } = useFollowUps({ limit: 5 });
   const snoozeMutation = useSnoozeFollowUp();
 
@@ -75,6 +79,11 @@ export function FollowUpWidget() {
     handleMenuClose();
   }, [selectedId, snoozeMutation, refetch, handleMenuClose]);
 
+  const noConsentMessage =
+    t.settings?.consentPanel?.features?.ai_email_processing?.description ||
+    'Enable AI email processing in Settings to see follow-ups.';
+  const loading = consentLoading || isLoading;
+
   const wt = t.dashboard.widgets.followUps;
   const snoozeText = t.ai?.followUpTracker?.snooze || {
     title: 'Snooze',
@@ -88,10 +97,12 @@ export function FollowUpWidget() {
     <BaseWidget
       id="follow-ups"
       title={wt.title}
-      loading={isLoading}
-      error={error?.message}
-      rawError={error}
-      onRefresh={() => refetch()}
+      loading={loading}
+      error={hasAiConsent ? error?.message : undefined}
+      rawError={hasAiConsent ? error : undefined}
+      onRefresh={hasAiConsent ? () => refetch() : undefined}
+      isEmpty={!loading && !hasAiConsent}
+      emptyText={noConsentMessage}
       actions={
         data?.overdueCount ? (
           <Chip label={`${data.overdueCount} ${t.dashboard.widgets.common.overdue}`} size="small" color="error" />

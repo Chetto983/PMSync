@@ -525,8 +525,8 @@ export function useStaleContacts(params?: { limit?: number }) {
 /**
  * Hook for important emails (starred OR flagged)
  */
-export function useImportantEmails(params?: { limit?: number }) {
-  return useQuery(importantEmailsOptions(params));
+export function useImportantEmails(params?: { limit?: number }, enabled = true) {
+  return useQuery({ ...importantEmailsOptions(params), enabled });
 }
 
 /**
@@ -698,6 +698,6 @@ export function triagedEmailsOptions(params?: { limit?: number; priority?: numbe
 /**
  * Hook for AI-triaged emails
  */
-export function useTriagedEmails(params?: { limit?: number; priority?: number }) {
-  return useQuery(triagedEmailsOptions(params));
+export function useTriagedEmails(params?: { limit?: number; priority?: number }, enabled = true) {
+  return useQuery({ ...triagedEmailsOptions(params), enabled });
 }

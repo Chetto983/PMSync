@@ -11,6 +11,7 @@
 'use client';
 
 import { useTriagedEmails, useImportantEmails } from '@/hooks/queries/use-dashboard';
+import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import {
@@ -39,11 +40,14 @@ const PRIORITY_CONFIG: Record<number, { color: 'error' | 'warning' | 'info' | 's
 export function AiTriageWidget() {
   const t = useTranslations();
   const router = useRouter();
-  const { data: triageData, isLoading: triageLoading, error: triageError, refetch: refetchTriage } = useTriagedEmails({ limit: 5 });
-  const { data: starredData, isLoading: starredLoading, error: starredError, refetch: refetchStarred } = useImportantEmails({ limit: 3 });
+  const { data: consentList, isLoading: consentLoading } = useConsent();
+  const hasAiConsent =
+    consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
+  const { data: triageData, isLoading: triageLoading, error: triageError, refetch: refetchTriage } = useTriagedEmails({ limit: 5 }, hasAiConsent);
+  const { data: starredData, isLoading: starredLoading, error: starredError, refetch: refetchStarred } = useImportantEmails({ limit: 3 }, hasAiConsent);
 
-  const isLoading = triageLoading || starredLoading;
-  const error = triageError || starredError;
+  const isLoading = consentLoading || triageLoading || starredLoading;
+  const error = hasAiConsent ? (triageError || starredError) : undefined;
   const totalBadge = (triageData?.total || 0) + (starredData?.total || 0);
 
   const handleViewAll = () => {
@@ -68,6 +72,10 @@ export function AiTriageWidget() {
     refetchStarred();
   };
 
+  const noConsentMessage =
+    t.settings?.consentPanel?.features?.ai_email_processing?.description ||
+    'Enable AI email processing in Settings to see triaged emails.';
+
   const hasTriaged = triageData && triageData.emails.length > 0;
   const hasStarred = starredData && starredData.emails.length > 0;
   const hasAny = hasTriaged || hasStarred;
@@ -79,9 +87,11 @@ export function AiTriageWidget() {
       loading={isLoading}
       error={error?.message}
       rawError={error}
-      onRefresh={handleRefresh}
+      onRefresh={hasAiConsent ? handleRefresh : undefined}
       icon={<Zap size={18} />}
-      badge={totalBadge || undefined}
+      badge={hasAiConsent ? (totalBadge || undefined) : undefined}
+      isEmpty={!isLoading && !hasAiConsent}
+      emptyText={noConsentMessage}
       actions={
         hasAny ? (
           <Button size="small" onClick={handleViewAll}>

@@ -8,6 +8,7 @@
 'use client';
 
 import { useEmailTrends } from '@/hooks/queries/use-dashboard';
+import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import { Box, Typography, useTheme } from '@mui/material';
@@ -26,7 +27,14 @@ import {
 export function TrendChartsWidget() {
   const t = useTranslations();
   const theme = useTheme();
+  const { data: consentList, isLoading: consentLoading } = useConsent();
+  const hasAnalyticsConsent =
+    consentList?.some((consent) => consent.feature === 'email_analytics' && consent.granted) ?? false;
   const { data, isLoading, error, refetch } = useEmailTrends();
+  const noConsentMessage =
+    t.settings?.consentPanel?.features?.email_analytics?.description ||
+    'Enable email analytics in Settings to see trends.';
+  const loading = consentLoading || isLoading;
 
   const receivedColor = theme.palette.primary.main;
   const sentColor = theme.palette.success.main;
@@ -36,10 +44,12 @@ export function TrendChartsWidget() {
       id="trend-charts"
       title={t.dashboard.widgets.trendCharts.title}
       subtitle={t.dashboard.widgets.trendCharts.subtitle}
-      loading={isLoading}
-      error={error?.message}
-      rawError={error}
-      onRefresh={() => refetch()}
+      loading={loading}
+      error={hasAnalyticsConsent ? error?.message : undefined}
+      rawError={hasAnalyticsConsent ? error : undefined}
+      onRefresh={hasAnalyticsConsent ? () => refetch() : undefined}
+      isEmpty={!loading && !hasAnalyticsConsent}
+      emptyText={noConsentMessage}
       icon={<TrendingUp size={18} />}
     >
       {data && data.trends.length > 0 ? (
