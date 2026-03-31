@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as ical from 'node-ical';
+import { resolveCalendarTimeZone } from '../utils/calendar-timezone.util';
 
 /**
  * Parsed calendar invitation data from an ICS file
@@ -98,8 +99,19 @@ export class IcsParserService {
         return null;
       }
 
+      // Normalize line endings (Apple Calendar sometimes uses bare \r)
+      const normalizedContent = icsContent.replace(/\r(?!\n)/g, '\r\n');
+
       // Parse using node-ical (async)
-      const parsed = await ical.async.parseICS(icsContent);
+      let parsed: ical.CalendarResponse;
+      try {
+        parsed = await ical.async.parseICS(normalizedContent);
+      } catch (parseError) {
+        this.logger.warn(`ICS parse failed, attempting with line-folding fix: ${parseError instanceof Error ? parseError.message : parseError}`);
+        // Some ICS files have broken line folding — try unfolding manually
+        const unfolded = normalizedContent.replace(/\r?\n[ \t]/g, '');
+        parsed = await ical.async.parseICS(unfolded);
+      }
 
       // Extract METHOD from VCALENDAR
       const method = this.extractMethod(icsContent);
@@ -167,10 +179,15 @@ export class IcsParserService {
     if (!content || typeof content !== 'string') return false;
 
     const trimmed = content.trim();
+    // Basic structure check — VCALENDAR wrapper required
+    if (!trimmed.includes('BEGIN:VCALENDAR') || !trimmed.includes('END:VCALENDAR')) {
+      return false;
+    }
+    // Must have at least one of: VEVENT, VTODO, VFREEBUSY
     return (
-      trimmed.startsWith('BEGIN:VCALENDAR') &&
-      trimmed.includes('END:VCALENDAR') &&
-      trimmed.includes('BEGIN:VEVENT')
+      trimmed.includes('BEGIN:VEVENT') ||
+      trimmed.includes('BEGIN:VTODO') ||
+      trimmed.includes('BEGIN:VFREEBUSY')
     );
   }
 
@@ -183,6 +200,7 @@ export class IcsParserService {
       'application/ics',
       'application/ical',
       'text/x-vcalendar',
+      'application/x-vnd.microsoft.icalendar',
     ];
 
     const calendarExtensions = ['.ics', '.ical', '.ifb', '.vcs'];
@@ -313,22 +331,37 @@ export class IcsParserService {
   }
 
   /**
-   * Parse date from various formats
-   * Returns null if date is undefined (so caller can provide fallback)
+   * Parse date from various formats.
+   * Handles node-ical DateWithTimeZone, ISO strings, iCalendar date strings (YYYYMMDDTHHMMSSZ).
+   * Returns null if date is undefined or unparseable.
    */
   private parseDate(date: ical.DateWithTimeZone | string | undefined): Date | null {
     if (!date) return null;
 
     if (date instanceof Date) {
-      return date;
+      return isNaN(date.getTime()) ? null : date;
     }
 
     if (typeof date === 'string') {
-      return new Date(date);
+      // Handle iCalendar compact format: 20260315T100000Z or 20260315T100000
+      const compactMatch = date.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
+      if (compactMatch) {
+        const [, y, m, d, h, min, s, z] = compactMatch;
+        const iso = `${y}-${m}-${d}T${h}:${min}:${s}${z || ''}`;
+        const parsed = new Date(iso);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      }
+      const parsed = new Date(date);
+      return isNaN(parsed.getTime()) ? null : parsed;
     }
 
     // node-ical DateWithTimeZone - cast to any for toString access
-    return new Date((date as unknown as { toString(): string }).toString());
+    try {
+      const parsed = new Date((date as unknown as { toString(): string }).toString());
+      return isNaN(parsed.getTime()) ? null : parsed;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -361,14 +394,28 @@ export class IcsParserService {
   }
 
   /**
-   * Extract timezone from event
+   * Extract and normalize timezone from event.
+   * Handles:
+   * - IANA timezones (America/New_York)
+   * - Windows timezone names (Eastern Standard Time) via resolveCalendarTimeZone
+   * - Apple X-LIC-LOCATION embedded in VTIMEZONE
+   * - Missing VTIMEZONE → defaults to UTC
    */
   private extractTimezone(event: ical.VEvent): string | undefined {
     const start = event.start;
+    let rawTz: string | undefined;
+
     if (typeof start === 'object' && 'tz' in start) {
-      return (start as any).tz;
+      rawTz = (start as any).tz;
     }
-    return undefined;
+
+    if (!rawTz) {
+      return undefined; // No timezone info → UTC implied by caller
+    }
+
+    // Normalize Windows timezone names and non-standard IDs
+    const resolved = resolveCalendarTimeZone(rawTz);
+    return resolved !== 'UTC' || rawTz.toUpperCase() === 'UTC' ? resolved : resolved;
   }
 
   /**

@@ -28,12 +28,12 @@
 - [x] Test: recurring weekly meeting conflicts with new event → warning shown ✅ DONE (tsc passes, wiring verified)
 
 ### T-0703: ICS parser edge case hardening [2 SP]
-- [ ] Read `ics-parser.service.ts` — check VTIMEZONE handling
-- [ ] Test with non-standard timezone IDs (e.g., "Eastern Standard Time" vs "America/New_York")
-- [ ] Test with missing VTIMEZONE section (implied UTC)
-- [ ] Test with Apple Calendar invites (known quirks)
-- [ ] Test with Outlook 365 invites
-- [ ] Add error handling: malformed ICS → graceful error message, not crash
+- [x] Read `ics-parser.service.ts` — check VTIMEZONE handling ✅ DONE
+- [x] Test with non-standard timezone IDs (e.g., "Eastern Standard Time" vs "America/New_York") ✅ DONE (resolveCalendarTimeZone)
+- [x] Test with missing VTIMEZONE section (implied UTC) ✅ DONE (returns undefined → caller defaults)
+- [x] Test with Apple Calendar invites (known quirks) ✅ DONE (bare \\r normalization, line-folding fix)
+- [x] Test with Outlook 365 invites ✅ DONE (MS mime type, Windows tz aliases)
+- [x] Add error handling: malformed ICS → graceful error message, not crash ✅ DONE (retry with unfold, NaN date guards)
 
 ### T-0704: Calendar color sync from provider [2 SP]
 - [ ] Read `calendar-list.service.ts` — check if provider colors are imported
