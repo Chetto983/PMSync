@@ -142,6 +142,34 @@ export class ContactsWebhookController {
   }
 
   /**
+   * T-0603: Fallback polling for Microsoft contacts webhook silence
+   *
+   * Checks all active Microsoft contacts subscriptions for webhook delivery gaps.
+   * If no notification received for 30 minutes, queues a fallback contacts sync.
+   * Intended to be called periodically (e.g., every 15 minutes via cron/scheduler).
+   */
+  @Post('microsoft/fallback-poll')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Microsoft contacts fallback poll',
+    description: 'Triggers fallback sync for providers with silent webhooks (>30 min without notification)',
+  })
+  @ApiHeader({ name: 'x-webhook-token', description: 'Webhook authentication token', required: false })
+  @ApiResponse({ status: 200, description: 'Fallback poll results' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async triggerMicrosoftFallbackPoll(
+    @Headers('x-webhook-token') webhookToken?: string,
+  ) {
+    this.syncAuth.validateWebhookToken(webhookToken);
+
+    const result = await withoutTenantScopingAsync(() =>
+      this.microsoftContactsWebhook.checkWebhookSilenceAndPoll(),
+    );
+
+    return { success: true, ...result };
+  }
+
+  /**
    * Health check endpoint for contacts webhook service
    */
   @Get('health')

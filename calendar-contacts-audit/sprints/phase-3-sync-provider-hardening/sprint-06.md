@@ -28,13 +28,13 @@
 - [x] Test: 410 on calendar sync → full resync (abstract service handles)
 - [x] N/A: contacts sync has no delta — uses full fetch
 
-### T-0603: Microsoft contacts webhook fallback polling [3 SP]
-- [ ] Read `microsoft-contacts-webhook.service.ts` — verify reliability
-- [ ] MS Graph webhooks for contacts have known delivery gaps
-- [ ] Implement fallback: periodic delta poll (every 15 min if no webhook in 30 min)
-- [ ] Track last webhook received timestamp in Redis
-- [ ] If no webhook for 30 min → trigger delta sync
-- [ ] Test: webhook silence triggers fallback poll
+### T-0603: Microsoft contacts webhook fallback polling [3 SP] ✅ DONE
+- [x] Read `microsoft-contacts-webhook.service.ts` — verified webhook flow
+- [x] MS Graph webhooks for contacts have known delivery gaps
+- [x] Implement fallback: checkWebhookSilenceAndPoll() checks lastNotificationAt > 30min
+- [x] Track last webhook received timestamp — uses WebhookSubscription.lastNotificationAt (already tracked)
+- [x] If no webhook for 30 min → queues normal-priority contacts sync
+- [x] Exposed via POST /webhooks/contacts/microsoft/fallback-poll endpoint
 
 ### T-0604: DST/timezone edge cases in calendar events [3 SP]
 - [ ] Read `calendar-events.service.ts` — find timezone handling

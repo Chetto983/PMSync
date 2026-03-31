@@ -393,6 +393,88 @@ export class MicrosoftContactsWebhookService {
   }
 
   /**
+   * T-0603: Fallback polling for webhook silence
+   *
+   * MS Graph webhooks for contacts have known delivery gaps.
+   * If no webhook notification received for 30 minutes on an active subscription,
+   * trigger a fallback contacts sync to prevent stale data.
+   *
+   * Intended to be called periodically (e.g., every 15 minutes via cron/scheduler).
+   */
+  async checkWebhookSilenceAndPoll(): Promise<{ checked: number; polled: number }> {
+    if (!this.contactsEnabled) {
+      return { checked: 0, polled: 0 };
+    }
+
+    const SILENCE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+    const silenceThreshold = new Date(Date.now() - SILENCE_THRESHOLD_MS);
+
+    // Find active Microsoft contacts subscriptions that are "silent"
+    // Silent = lastNotificationAt is null OR older than 30 minutes
+    const silentSubscriptions = await this.prisma.webhookSubscription.findMany({
+      where: {
+        providerType: 'microsoft',
+        resourcePath: MICROSOFT_CONTACTS_RESOURCE,
+        isActive: true,
+        OR: [
+          { lastNotificationAt: null },
+          { lastNotificationAt: { lt: silenceThreshold } },
+        ],
+      },
+      select: {
+        providerId: true,
+        lastNotificationAt: true,
+      },
+    });
+
+    let polled = 0;
+
+    for (const sub of silentSubscriptions) {
+      try {
+        const provider = await this.prisma.providerConfig.findUnique({
+          where: { id: sub.providerId },
+          select: { tenantId: true, email: true, isActive: true, supportsContacts: true },
+        });
+
+        if (!provider || !provider.isActive || !provider.supportsContacts) {
+          continue;
+        }
+
+        const silenceMinutes = sub.lastNotificationAt
+          ? Math.round((Date.now() - sub.lastNotificationAt.getTime()) / 60000)
+          : 'never';
+
+        this.logger.log(
+          `Webhook silence detected for Microsoft contacts provider ${sub.providerId} ` +
+          `(last notification: ${silenceMinutes === 'never' ? 'never' : `${silenceMinutes}m ago`}). Triggering fallback poll.`,
+        );
+
+        await this.contactsSyncQueue.addSyncJob({
+          tenantId: provider.tenantId,
+          providerId: sub.providerId,
+          providerType: 'microsoft',
+          email: provider.email,
+          priority: 'normal', // Normal priority for fallback polling
+        });
+
+        polled++;
+      } catch (error) {
+        this.logger.warn(
+          `Failed to queue fallback poll for provider ${sub.providerId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    if (polled > 0) {
+      this.logger.log(
+        `Webhook silence check: ${silentSubscriptions.length} checked, ${polled} fallback polls queued`,
+      );
+    }
+
+    return { checked: silentSubscriptions.length, polled };
+  }
+
+  /**
    * Get webhook statistics
    */
   async getStats(): Promise<any> {
