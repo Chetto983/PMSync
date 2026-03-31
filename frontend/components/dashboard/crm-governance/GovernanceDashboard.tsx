@@ -150,10 +150,10 @@ export function GovernanceDashboard() {
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-          <Tab label={tg?.tabs?.accuracy ?? 'Accuracy'} />
-          <Tab label={tg?.tabs?.costs ?? 'Costs'} />
-          <Tab label={tg?.tabs?.drift ?? 'Drift'} />
-          <Tab label={tg?.tabs?.models ?? 'Models'} />
+          <Tab label={tg?.tabs?.accuracy ?? 'Accuracy'} sx={{ minWidth: 'auto', px: 2 }} />
+          <Tab label={tg?.tabs?.costs ?? 'Costs'} sx={{ minWidth: 'auto', px: 2 }} />
+          <Tab label={tg?.tabs?.drift ?? 'Drift'} sx={{ minWidth: 'auto', px: 2 }} />
+          <Tab label={tg?.tabs?.models ?? 'Models'} sx={{ minWidth: 'auto', px: 2 }} />
         </Tabs>
       </Box>
 
