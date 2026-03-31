@@ -213,7 +213,7 @@ Plans:
   4. Railway deployment at numReplicas=2 operates correctly with real traffic (WebSocket, API, BullMQ all functional)
 **Plans**: 2 plans
 Plans:
-- [ ] 129-01-PLAN.md -- BullMQ worker concurrency scaling with scaleForReplicas() helper
+- [x] 129-01-PLAN.md -- BullMQ worker concurrency scaling with scaleForReplicas() helper
 - [ ] 129-02-PLAN.md -- Graceful shutdown hardening + Prometheus per-replica labels + numReplicas=2
 
 ### Phase 130: Frontend Performance
@@ -273,7 +273,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 126. Cron-to-BullMQ Migration | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 127. Transport & Connection Hardening | v11.0 | 1/1 | Complete    | 2026-03-31 |
 | 128. State Externalization | v11.0 | 2/2 | Complete    | 2026-03-31 |
-| 129. Replica Activation | v11.0 | 0/2 | Not started | - |
+| 129. Replica Activation | v11.0 | 1/2 | In Progress|  |
 | 130. Frontend Performance | v11.0 | 0/TBD | Not started | - |
 | 131. Billing Frontend | v11.0 | 0/TBD | Not started | - |
 | 132. Billing Backend Hardening | v11.0 | 0/TBD | Not started | - |
