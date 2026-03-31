@@ -11,7 +11,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 ## Current State
 
 **Version:** v11.0 in progress (started 2026-03-31)
-**Status:** Phase 128 complete — in-memory state externalized to Redis (triage signals, semaphore). Scaling chain 125-128 done, ready for replica activation (129).
+**Status:** Phase 129 complete — scaling chain 125-129 done. Production at numReplicas=2 with env-driven BullMQ concurrency scaling, graceful shutdown (25s), per-replica Prometheus labels. Awaiting live Railway validation (3 human UAT items).
 **Previous:** v10.0 shipped (2026-03-30, 13 phases, 49/50 requirements)
 **Known gap:** WRITE-03 (IMAP/SMTP send) — Railway blocks SMTP ports 465/587; code exists and compiles but cannot be live-validated
 
