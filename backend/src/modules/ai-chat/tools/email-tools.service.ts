@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
+﻿import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -140,10 +140,10 @@ export class EmailToolsService implements OnModuleInit {
   private buildSendEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
-        'Send an email on behalf of the user. The email is QUEUED for delivery, not sent instantly. ' +
-        'Use when the user explicitly says "send" — if they say "write" or "draft", use draft_email instead. ' +
+        'Send an email on behalf of the user. The email is sent immediately after approval. ' +
+        'Use when the user explicitly says "send" â€” if they say "write" or "draft", use draft_email instead. ' +
         'Always verify the recipient address first via search_contacts if you only have a name. ' +
-        'Returns: { jobId, to, subject, status: "queued" }. ' +
+        'Returns: { messageId, to, subject, status: "sent" }. ' +
         'Requires user approval before execution.',
       inputSchema: schemas.send_email,
       needsApproval: () => sensitivity !== 'NONE',
@@ -154,7 +154,7 @@ export class EmailToolsService implements OnModuleInit {
         const ccAddresses = resolved.cc?.split(',').map((e) => e.trim());
         const bccAddresses = resolved.bcc?.split(',').map((e) => e.trim());
 
-        const result = await this.emailSendService.queueSend({
+        const result = await this.emailSendService.sendEmail({
           tenantId,
           providerId: provider.id,
           to: toAddresses,
@@ -166,10 +166,10 @@ export class EmailToolsService implements OnModuleInit {
         });
 
         return truncateToolResult({
-          jobId: result.jobId,
+          messageId: result.messageId,
           to: toAddresses,
           subject: resolved.subject,
-          status: 'queued',
+          status: 'sent',
         });
       },
     });
@@ -180,7 +180,7 @@ export class EmailToolsService implements OnModuleInit {
       description:
         'Search emails by keyword, sender name, subject text, or date. ' +
         'Use for SPECIFIC lookups: "emails from John", "invoices", "emails about the budget". ' +
-        'Do NOT use for vague/meaning-based queries — use semantic_search instead. ' +
+        'Do NOT use for vague/meaning-based queries â€” use semantic_search instead. ' +
         'Returns: array of { id, from, subject, date, snippet, labels, aiPriority, aiSentiment, aiLabels }. ' +
         'Max 50 results. Default 20.',
       inputSchema: schemas.search_emails,
@@ -215,7 +215,7 @@ export class EmailToolsService implements OnModuleInit {
     return tool({
       description:
         'Fetch the full content of a specific email by its ID. ' +
-        'ALWAYS search first (search_emails or semantic_search) to get the ID — never guess IDs. ' +
+        'ALWAYS search first (search_emails or semantic_search) to get the ID â€” never guess IDs. ' +
         'Returns: { id, from, to, cc, subject, date, bodyText (max 2000 chars), labels, isRead, isStarred, ' +
         'aiPriority, aiSentiment, aiLabels, analysis: { summary, keyPoints, sentiment, priority, category, ' +
         'hasDeadline, deadlineDate, needsFollowUp, followUpDate, suggestedActions } }.',
@@ -273,7 +273,7 @@ export class EmailToolsService implements OnModuleInit {
     return tool({
       description:
         'Move an email to the Archive folder, removing it from the Inbox. ' +
-        'This does NOT delete the email — it can still be found via search. ' +
+        'This does NOT delete the email â€” it can still be found via search. ' +
         'Use when user says "archive", "clean up", or "done with this". ' +
         'Returns: { id, archived: true }.',
       inputSchema: schemas.archive_email,
@@ -375,7 +375,7 @@ export class EmailToolsService implements OnModuleInit {
         'Reply to an email. The original sender becomes the recipient automatically. ' +
         'ALWAYS use read_email first to understand what you are replying to. ' +
         'Set replyAll: true to include all original recipients (CC). ' +
-        'Returns: { jobId, repliedToEmailId, to, subject, status: "queued" }. ' +
+        'Returns: { messageId, repliedToEmailId, to, subject, status: "sent" }. ' +
         'Requires user approval before execution.',
       inputSchema: schemas.reply_email,
       needsApproval: () => sensitivity !== 'NONE',
@@ -403,7 +403,7 @@ export class EmailToolsService implements OnModuleInit {
             )
           : undefined;
 
-        const result = await this.emailSendService.queueSend({
+        const result = await this.emailSendService.sendEmail({
           tenantId,
           providerId: provider.id,
           to: [toAddress],
@@ -416,11 +416,11 @@ export class EmailToolsService implements OnModuleInit {
         });
 
         return truncateToolResult({
-          jobId: result.jobId,
+          messageId: result.messageId,
           repliedToEmailId: resolved.emailId,
           to: toAddress,
           subject: `Re: ${original.subject}`,
-          status: 'queued',
+          status: 'sent',
         });
       },
     });
@@ -430,7 +430,7 @@ export class EmailToolsService implements OnModuleInit {
     return tool({
       description:
         'Create a draft email saved in the Drafts folder WITHOUT sending it. ' +
-        'Use when user says "write", "draft", "compose", or "prepare" — NOT when they say "send". ' +
+        'Use when user says "write", "draft", "compose", or "prepare" â€” NOT when they say "send". ' +
         'The user can review and send the draft later from Gmail/Outlook. ' +
         'Returns: { id, subject, to, status: "draft" }.',
       inputSchema: schemas.draft_email,
@@ -439,7 +439,7 @@ export class EmailToolsService implements OnModuleInit {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const provider = await this.getDefaultProvider(tenantId, resolved.from);
 
-        // Save draft via EmailCrudService — syncs to Google/IMAP provider
+        // Save draft via EmailCrudService â€” syncs to Google/IMAP provider
         const draft = await this.emailCrudService.saveDraft(tenantId, {
           providerId: provider.id,
           to: [resolved.to],
@@ -491,3 +491,5 @@ export class EmailToolsService implements OnModuleInit {
     return provider;
   }
 }
+
+

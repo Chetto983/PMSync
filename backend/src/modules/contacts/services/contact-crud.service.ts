@@ -40,17 +40,93 @@ export class ContactCrudService {
   async listContacts(tenantId: string, filters: ListContactsFilters = {}): Promise<{ contacts: ContactWithProviders[]; total: number }> {
     const limit = filters.limit && filters.limit > 0 && filters.limit <= this.maxContactsLimit ? filters.limit : CONTACTS_DEFAULTS.DEFAULT_PAGE_SIZE;
     const offset = filters.offset && filters.offset >= 0 ? filters.offset : 0;
+
+    // Prisma cannot reliably search inside our JSON email/phone arrays using the
+    // same predicate shape we use for text fields, so use a raw query when free-text
+    // search is present. This keeps search_contacts usable for exact email lookups.
+    const search = filters.search?.trim();
+    if (search) {
+      const searchPattern = `%${search}%`;
+      const companyPattern = filters.company ? `%${filters.company}%` : null;
+      const providerClause = filters.providerId
+        ? Prisma.sql`
+            and exists (
+              select 1
+              from "provider_contacts" pc
+              where pc."contactId" = c.id
+                and pc."tenantId" = c."tenantId"
+                and pc."providerId" = ${filters.providerId}
+            )
+          `
+        : Prisma.empty;
+      const companyClause = companyPattern
+        ? Prisma.sql`and c.company ilike ${companyPattern}`
+        : Prisma.empty;
+
+      const baseWhere = Prisma.sql`
+        where c."tenantId" = ${tenantId}
+          and c."isDeleted" = false
+          ${providerClause}
+          ${companyClause}
+          and (
+            c."firstName" ilike ${searchPattern}
+            or c."lastName" ilike ${searchPattern}
+            or c."displayName" ilike ${searchPattern}
+            or c.company ilike ${searchPattern}
+            or cast(c.emails as text) ilike ${searchPattern}
+            or cast(c."phoneNumbers" as text) ilike ${searchPattern}
+          )
+      `;
+
+      const [contactRows, totalRows] = await Promise.all([
+        this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          select c.id
+          from "unified_contacts" c
+          ${baseWhere}
+          order by c."lastName" asc nulls last, c."firstName" asc nulls last, c."displayName" asc nulls last
+          offset ${offset}
+          limit ${limit}
+        `),
+        this.prisma.$queryRaw<Array<{ total: bigint }>>(Prisma.sql`
+          select count(*)::bigint as total
+          from "unified_contacts" c
+          ${baseWhere}
+        `),
+      ]);
+
+      const ids = contactRows.map((row) => row.id);
+      if (!ids.length) {
+        return { contacts: [], total: Number(totalRows[0]?.total ?? 0n) };
+      }
+
+      const contacts = await this.prisma.contact.findMany({
+        where: { tenantId, id: { in: ids }, isDeleted: false },
+        include: {
+          providerContacts: {
+            select: {
+              id: true,
+              providerId: true,
+              externalId: true,
+              provider: {
+                select: { id: true, email: true, providerType: true, displayName: true },
+              },
+            },
+          },
+        },
+      });
+
+      const order = new Map(ids.map((id, index) => [id, index]));
+      contacts.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+
+      return {
+        contacts,
+        total: Number(totalRows[0]?.total ?? 0n),
+      };
+    }
+
     const where: Prisma.ContactWhereInput = { tenantId, isDeleted: false };
     if (filters.providerId) { where.providerContacts = { some: { providerId: filters.providerId } }; }
     if (filters.company) { where.company = { contains: filters.company, mode: 'insensitive' }; }
-    if (filters.search) {
-      where.OR = [
-        { firstName: { contains: filters.search, mode: 'insensitive' } },
-        { lastName: { contains: filters.search, mode: 'insensitive' } },
-        { displayName: { contains: filters.search, mode: 'insensitive' } },
-        { company: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
     const [contacts, total] = await Promise.all([
       this.prisma.contact.findMany({ where, orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }], skip: offset, take: limit, include: { providerContacts: { select: { id: true, providerId: true, externalId: true, provider: { select: { id: true, email: true, providerType: true, displayName: true } } } } } }),
       this.prisma.contact.count({ where }),

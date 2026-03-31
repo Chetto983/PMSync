@@ -193,7 +193,8 @@ export class ContactToolsService implements OnModuleInit {
     return tool({
       description:
         'Update an existing contact. Provide the contact ID and only the fields to change. ' +
-        'ALWAYS use search_contacts first to find the contact and confirm the ID. ' +
+        'If the user already provided an exact contact ID, use it directly. ' +
+        'Only use search_contacts first when you do not yet have the contact ID. ' +
         'Returns: { id, name, company, jobTitle, status: "updated" }.',
       inputSchema: schemas.update_contact,
       needsApproval: () => sensitivity === 'ALL_MUTATIONS',
@@ -239,7 +240,8 @@ export class ContactToolsService implements OnModuleInit {
       description:
         'Permanently delete a contact from the address book. This action CANNOT be undone. ' +
         'Use ONLY when the user explicitly asks to delete a contact. ' +
-        'ALWAYS use search_contacts first to confirm the contact exists and get the ID. ' +
+        'If the user already provided an exact contact ID, call delete_contact directly with that ID. ' +
+        'Only use search_contacts first when you do not yet have the contact ID. ' +
         'Returns: { contactId, deleted: true }. Requires user approval before execution.',
       inputSchema: schemas.delete_contact,
       needsApproval: () => sensitivity !== 'NONE',
