@@ -133,7 +133,7 @@
 
 **Milestone Goal:** Remove all transitional legacy code, optimize for Railway horizontal scaling, improve frontend performance, and harden the billing system end-to-end.
 
-- [ ] **Phase 125: Dead Code Removal** - Remove JWT dual-stack, deprecated API aliases, and Tailwind CSS package
+- [x] **Phase 125: Dead Code Removal** - Remove JWT dual-stack, deprecated API aliases, and Tailwind CSS package (completed 2026-03-31)
 - [ ] **Phase 126: Cron-to-BullMQ Migration** - Migrate all @Cron decorators to BullMQ repeatable jobs for multi-instance safety
 - [ ] **Phase 127: Transport & Connection Hardening** - Force WebSocket-only transport and size DB connection pool for replicas
 - [ ] **Phase 128: State Externalization** - Externalize in-memory state to Redis for multi-instance correctness
@@ -159,7 +159,7 @@
 Plans:
 - [x] 125-01-PLAN.md — Replace @ApiBearerAuth with @ApiCookieAuth across 38 controllers + clean Swagger config, dead scripts, guard comments, and JWT_SECRET
 - [x] 125-02-PLAN.md — Verify deprecated API aliases removed + remove Tailwind CSS pipeline
-- [ ] 125-03-PLAN.md — End-to-end validation and visual verification checkpoint
+- [x] 125-03-PLAN.md — End-to-end validation and visual verification checkpoint
 
 ### Phase 126: Cron-to-BullMQ Migration
 **Goal**: All scheduled jobs run exactly once across any number of backend instances
@@ -256,7 +256,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 125. Dead Code Removal | v11.0 | 1/3 | In Progress|  |
+| 125. Dead Code Removal | v11.0 | 3/3 | Complete   | 2026-03-31 |
 | 126. Cron-to-BullMQ Migration | v11.0 | 0/TBD | Not started | - |
 | 127. Transport & Connection Hardening | v11.0 | 0/TBD | Not started | - |
 | 128. State Externalization | v11.0 | 0/TBD | Not started | - |
