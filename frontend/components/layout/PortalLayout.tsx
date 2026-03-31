@@ -7,9 +7,12 @@ import { BookOpen, Ticket } from 'lucide-react';
 
 interface PortalLayoutProps {
   children: React.ReactNode;
+  tenantSlug: string;
 }
 
-export function PortalLayout({ children }: PortalLayoutProps) {
+export function PortalLayout({ children, tenantSlug }: PortalLayoutProps) {
+  const base = `/portal/${tenantSlug}`;
+
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       {/* Header */}
@@ -19,7 +22,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             variant="h6"
             fontWeight={700}
             component={NextLink}
-            href="/portal"
+            href={base}
             sx={{ textDecoration: 'none', color: 'text.primary', mr: 4 }}
           >
             PMSync
@@ -27,7 +30,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
           <Box sx={{ display: 'flex', gap: 3 }}>
             <MuiLink
               component={NextLink}
-              href="/portal"
+              href={base}
               underline="hover"
               color="text.secondary"
               sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
@@ -37,7 +40,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             </MuiLink>
             <MuiLink
               component={NextLink}
-              href="/portal/tickets/new"
+              href={`${base}/tickets/new`}
               underline="hover"
               color="text.secondary"
               sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}

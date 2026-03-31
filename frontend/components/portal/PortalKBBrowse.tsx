@@ -32,7 +32,11 @@ interface PortalCategory {
   _count?: { articles: number };
 }
 
-export function PortalKBBrowse() {
+interface PortalKBBrowseProps {
+  tenantSlug: string;
+}
+
+export function PortalKBBrowse({ tenantSlug }: PortalKBBrowseProps) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -43,26 +47,31 @@ export function PortalKBBrowse() {
     setDebounceTimer(setTimeout(() => setDebouncedSearch(value), 300));
   };
 
-  // Public portal endpoints (T-1709 will add backend routes)
+  const base = `/portal/${tenantSlug}`;
+  const apiBase = `/portal/${tenantSlug}/kb`;
+
   const { data: categories, isLoading: catLoading } = useQuery({
-    queryKey: ['portal', 'kb', 'categories'],
-    queryFn: () => apiClient.get<PortalCategory[]>('/portal/kb/categories').then((r) => r.data),
+    queryKey: ['portal', tenantSlug, 'kb', 'categories'],
+    queryFn: () => apiClient.get<PortalCategory[]>(`${apiBase}/categories`).then((r) => r.data),
     staleTime: 5 * 60 * 1000,
     retry: 1,
+    enabled: !!tenantSlug,
   });
 
   const { data: searchResults, isLoading: searchLoading } = useQuery({
-    queryKey: ['portal', 'kb', 'search', debouncedSearch],
+    queryKey: ['portal', tenantSlug, 'kb', 'search', debouncedSearch],
     queryFn: () =>
       apiClient
-        .get<{ data: PortalArticle[] }>('/portal/kb/search', { params: { q: debouncedSearch } })
+        .get<{ data: PortalArticle[] }>(`${apiBase}/search`, { params: { q: debouncedSearch } })
         .then((r) => r.data.data),
-    enabled: debouncedSearch.trim().length > 0,
+    enabled: !!tenantSlug && debouncedSearch.trim().length > 0,
     staleTime: 2 * 60 * 1000,
     retry: 1,
   });
 
   const isSearchMode = debouncedSearch.trim().length > 0;
+
+  if (!tenantSlug) return null;
 
   return (
     <Box>
@@ -114,7 +123,7 @@ export function PortalKBBrowse() {
                 key={result.id}
                 variant="outlined"
                 component={NextLink}
-                href={`/portal/kb/${result.slug}`}
+                href={`${base}/kb/${result.slug}`}
                 sx={{
                   p: 2,
                   mb: 1,
@@ -157,7 +166,7 @@ export function PortalKBBrowse() {
                 key={cat.id}
                 variant="outlined"
                 component={NextLink}
-                href={`/portal/kb?category=${cat.slug}`}
+                href={`${base}?category=${cat.slug}`}
                 sx={{
                   p: 3,
                   textDecoration: 'none',
