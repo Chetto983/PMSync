@@ -20,6 +20,7 @@
 - ✅ **CRM Pro 360 Phase 2 — Intelligence Layer** — Sprints 09-14, 61 tasks, 106 SP (shipped 2026-03-30)
 - [ ] **CRM Pro 360 Phase 3 — Customer Service** — Sprints 15-18 (next)
 - ✅ **v10.0 Email & Sync Production Validation** — Phases 112-124 (shipped 2026-03-30)
+- [ ] **v11.0 Legacy Cleanup, Scalability & Billing Hardening** — Phases 125-133 (in progress)
 
 ## Phases
 
@@ -128,6 +129,140 @@
 
 </details>
 
+### v11.0 Legacy Cleanup, Scalability & Billing Hardening (In Progress)
+
+**Milestone Goal:** Remove all transitional legacy code, optimize for Railway horizontal scaling, improve frontend performance, and harden the billing system end-to-end.
+
+- [ ] **Phase 125: Dead Code Removal** - Remove JWT dual-stack, deprecated API aliases, and Tailwind CSS package
+- [ ] **Phase 126: Cron-to-BullMQ Migration** - Migrate all @Cron decorators to BullMQ repeatable jobs for multi-instance safety
+- [ ] **Phase 127: Transport & Connection Hardening** - Force WebSocket-only transport and size DB connection pool for replicas
+- [ ] **Phase 128: State Externalization** - Externalize in-memory state to Redis for multi-instance correctness
+- [ ] **Phase 129: Replica Activation** - Enable multi-replica deployment with tuned workers and per-replica observability
+- [ ] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints
+- [ ] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect
+- [ ] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening
+- [ ] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel
+
+## Phase Details
+
+### Phase 125: Dead Code Removal
+**Goal**: Codebase is free of all transitional legacy artifacts from previous auth and CSS migrations
+**Depends on**: Nothing (first phase of v11.0)
+**Requirements**: LEGC-01, LEGC-02, LEGC-03
+**Success Criteria** (what must be TRUE):
+  1. No JWT-related dead code remains in backend (no @ApiBearerAuth decorators, no addBearerAuth config, no JWT key gen script, no guard comments referencing JWT) while Google Pub/Sub OIDC, Microsoft OAuth, and sandbox JWT are preserved
+  2. Swagger docs show cookie-based auth exclusively (no Bearer auth option visible in /api/docs)
+  3. voltAgentApi and multiAgentApi aliases are confirmed absent from all frontend source files
+  4. tailwindcss, postcss, and tailwind.config are fully removed from the project; all CSS variables previously injected via @tailwind base work identically via plain CSS
+  5. Frontend builds and renders correctly with no missing styles or broken layouts after Tailwind removal
+**Plans**: TBD
+
+### Phase 126: Cron-to-BullMQ Migration
+**Goal**: All scheduled jobs run exactly once across any number of backend instances
+**Depends on**: Phase 125
+**Requirements**: LEGC-04
+**Success Criteria** (what must be TRUE):
+  1. Zero @Cron decorators remain in backend source code (grep returns nothing)
+  2. All previously cron-scheduled jobs (cache prewarming, data cleanup, churn recompute, forecast refresh) are registered as BullMQ repeatable jobs with identical schedules
+  3. Running two backend instances simultaneously produces no duplicate job executions (verified via BullMQ job logs)
+**Plans**: TBD
+
+### Phase 127: Transport & Connection Hardening
+**Goal**: WebSocket connections and database pool are safe for multi-replica Railway deployment
+**Depends on**: Phase 126
+**Requirements**: SCAL-01, SCAL-02
+**Success Criteria** (what must be TRUE):
+  1. Socket.IO server config forces transports: ['websocket'] and HTTP long-polling is disabled
+  2. Socket.IO client config matches server (websocket-only); real-time features work on Railway without sticky sessions
+  3. DB connection pool is configurable via environment variable with a formula that respects Railway PostgreSQL max_connections across N replicas
+  4. Connection pool exhaustion does not occur during rolling deploys (old + new instances co-existing)
+**Plans**: TBD
+
+### Phase 128: State Externalization
+**Goal**: No in-memory state diverges across backend replicas
+**Depends on**: Phase 126
+**Requirements**: SCAL-04
+**Success Criteria** (what must be TRUE):
+  1. TriageLearningService signal buffer reads/writes from Redis instead of an in-memory Map
+  2. CircuitBreaker state is either shared via Redis or explicitly documented as per-instance with tradeoff analysis
+  3. EmailTriageService concurrency semaphore uses Redis-based distributed locking, preventing N-times-limit AI concurrency across replicas
+**Plans**: TBD
+
+### Phase 129: Replica Activation
+**Goal**: Production runs on 2+ Railway replicas with tuned workers and per-replica observability
+**Depends on**: Phase 127, Phase 128
+**Requirements**: SCAL-03, PERF-03, PERF-04
+**Success Criteria** (what must be TRUE):
+  1. BullMQ worker concurrency is tuned per-instance so that N replicas do not exceed safe total concurrency (no duplicate job processing observed)
+  2. SIGTERM triggers graceful shutdown: HTTP connections drain, WebSocket disconnects cleanly, BullMQ workers stop accepting new jobs and finish in-progress ones
+  3. Prometheus metrics include RAILWAY_REPLICA_ID label, enabling per-replica Grafana dashboards
+  4. Railway deployment at numReplicas=2 operates correctly with real traffic (WebSocket, API, BullMQ all functional)
+**Plans**: TBD
+
+### Phase 130: Frontend Performance
+**Goal**: Frontend loads faster with smaller bundles and smarter caching
+**Depends on**: Nothing (parallel track, no dependency on scaling phases)
+**Requirements**: PERF-01, PERF-02
+**Success Criteria** (what must be TRUE):
+  1. Bundle analysis identifies and dynamically imports heavy dependencies (TipTap, recharts, FullCalendar, @xyflow/react) reducing initial JS payload
+  2. Lighthouse performance score does not regress; LCP and TTI metrics improve or hold
+  3. Cache-Control headers are set on read-heavy GET endpoints (folders, labels, pricing) with appropriate max-age values
+  4. No functionality regressions from dynamic imports (lazy-loaded components render correctly with loading fallbacks)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 131: Billing Frontend
+**Goal**: Users can view plans, upgrade/downgrade, see usage, and access billing portal
+**Depends on**: Nothing (parallel track)
+**Requirements**: BILL-01
+**Success Criteria** (what must be TRUE):
+  1. Pricing table page displays available plans with feature comparison
+  2. User can initiate a plan upgrade from the pricing page and complete checkout via Autumn/Stripe
+  3. Usage dashboard shows current plan limits and consumption (AI calls, storage, etc.)
+  4. Billing portal redirect opens Stripe customer portal for invoice history and payment method management
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 132: Billing Backend Hardening
+**Goal**: Billing system handles real-world payment events reliably and idempotently
+**Depends on**: Phase 131
+**Requirements**: BILL-02, BILL-04
+**Success Criteria** (what must be TRUE):
+  1. Webhook endpoint receives Autumn/Stripe events, verifies signatures, and processes them idempotently (duplicate events produce no side effects)
+  2. Payment failure triggers appropriate user notification and grace period before feature restriction
+  3. Mid-cycle plan changes prorate correctly without double-charging
+  4. Usage counter race conditions are eliminated (concurrent track() calls produce correct totals)
+  5. Cancellation flow works end-to-end: user cancels, access continues until period end, then features restrict
+**Plans**: TBD
+
+### Phase 133: Billing E2E Validation
+**Goal**: All billing flows verified end-to-end against real Autumn test mode on Railway/Vercel
+**Depends on**: Phase 132
+**Requirements**: BILL-03
+**Success Criteria** (what must be TRUE):
+  1. Validation scripts exercise attach (customer creation), check (entitlement gating), track (usage metering), cancel, and billing portal flows against Autumn test mode
+  2. All scripts pass against Railway backend + Vercel frontend deployment
+  3. Subscription state remains consistent after payment failure simulation and retry
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run in parallel with 127-129. Phases 132-133 are sequential after 131.
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 125. Dead Code Removal | v11.0 | 0/TBD | Not started | - |
+| 126. Cron-to-BullMQ Migration | v11.0 | 0/TBD | Not started | - |
+| 127. Transport & Connection Hardening | v11.0 | 0/TBD | Not started | - |
+| 128. State Externalization | v11.0 | 0/TBD | Not started | - |
+| 129. Replica Activation | v11.0 | 0/TBD | Not started | - |
+| 130. Frontend Performance | v11.0 | 0/TBD | Not started | - |
+| 131. Billing Frontend | v11.0 | 0/TBD | Not started | - |
+| 132. Billing Backend Hardening | v11.0 | 0/TBD | Not started | - |
+| 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
+
 ---
 *Roadmap created: 2026-02-09*
 *v10.0 completed: 2026-03-30 -- 13 phases, 27 plans, 49/50 requirements*
+*v11.0 roadmap added: 2026-03-31 -- 9 phases, 16 requirements mapped*

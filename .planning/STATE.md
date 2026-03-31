@@ -1,59 +1,50 @@
----
-gsd_state_version: 1.0
-milestone: v11.0
-milestone_name: Legacy Cleanup, Scalability & Billing Hardening
-status: Defining requirements
-last_updated: "2026-03-31T00:00:00.000Z"
-progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
----
-
 # Project State
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-03-31)
+See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Defining requirements for v11.0
+**Current focus:** Phase 125 — Dead Code Removal (v11.0)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-31 — Milestone v11.0 started
+Phase: 125 — first of 9 in v11.0 (Phases 125-133)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-31 — v11.0 roadmap created with 9 phases, 16 requirements mapped
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **v10.0 Velocity (previous):**
-
 - 13 phases, 27 plans completed
 - ~158 commits, 533 files changed
-- +57,697 / -2,636 lines
 - Timeline: 5 days (2026-03-26 -> 2026-03-30)
-- Requirements: 49/50 satisfied (WRITE-03 infrastructure-blocked)
+- Requirements: 49/50 satisfied
+
+**v11.0 Velocity:**
+- Total plans completed: 0
+- Average duration: —
+- Total execution time: 0 hours
 
 ## Accumulated Context
 
 ### Decisions
 
-(None yet)
-
-### Research Flags
-
-(None)
+- v11.0 roadmap: Legacy cleanup (125-126) must complete before scaling (127-129) due to @Cron multi-fire risk
+- v11.0 roadmap: Frontend perf (130) and billing frontend (131) can run parallel to scaling chain
+- v11.0 roadmap: Billing E2E (133) last — depends on frontend UI + backend webhook
 
 ### Blockers/Concerns
 
-(None)
+- Research: Autumn webhook contract needs verification before Phase 132 (SDK at 0.1.x)
+- Research: TriageLearningService flush threshold must be read from source before Phase 128
+- Research: CircuitBreaker Redis vs per-instance decision needed in Phase 128 planning
 
 ## Session Continuity
 
 Last session: 2026-03-31
-Completed: v11.0 milestone initialization
-Next action: Define requirements
+Stopped at: v11.0 roadmap created, ready to plan Phase 125
 Resume file: None

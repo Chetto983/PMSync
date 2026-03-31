@@ -65,28 +65,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LEGC-01 | — | Pending |
-| LEGC-02 | — | Pending |
-| LEGC-03 | — | Pending |
-| LEGC-04 | — | Pending |
-| SCAL-01 | — | Pending |
-| SCAL-02 | — | Pending |
-| SCAL-03 | — | Pending |
-| SCAL-04 | — | Pending |
-| PERF-01 | — | Pending |
-| PERF-02 | — | Pending |
-| PERF-03 | — | Pending |
-| PERF-04 | — | Pending |
-| BILL-01 | — | Pending |
-| BILL-02 | — | Pending |
-| BILL-03 | — | Pending |
-| BILL-04 | — | Pending |
+| LEGC-01 | Phase 125 | Pending |
+| LEGC-02 | Phase 125 | Pending |
+| LEGC-03 | Phase 125 | Pending |
+| LEGC-04 | Phase 126 | Pending |
+| SCAL-01 | Phase 127 | Pending |
+| SCAL-02 | Phase 127 | Pending |
+| SCAL-03 | Phase 129 | Pending |
+| SCAL-04 | Phase 128 | Pending |
+| PERF-01 | Phase 130 | Pending |
+| PERF-02 | Phase 130 | Pending |
+| PERF-03 | Phase 129 | Pending |
+| PERF-04 | Phase 129 | Pending |
+| BILL-01 | Phase 131 | Pending |
+| BILL-02 | Phase 132 | Pending |
+| BILL-03 | Phase 133 | Pending |
+| BILL-04 | Phase 132 | Pending |
 
 **Coverage:**
 - v11.0 requirements: 16 total
-- Mapped to phases: 0
-- Unmapped: 16
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 after initial definition*
+*Last updated: 2026-03-31 after roadmap creation — all 16 requirements mapped*
