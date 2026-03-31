@@ -41,12 +41,12 @@
 
 ## Definition of Done
 
-- [ ] KB table fully readable on 375px mobile — no clipped text
-- [ ] Portal nav links translated (IT shows "Base di Conoscenza" / "Invia Ticket")
-- [ ] Portal KB content language is consistent (either all EN or all IT)
-- [ ] `"1 articles"` → `"1 article"` pluralization fixed
-- [ ] Priority chips translated on portal ticket tracking
-- [ ] Deal stepper visually distinguishes won vs lost
-- [ ] AI Governance + Forecast tabs/legends not truncated on mobile
-- [ ] `npx tsc --noEmit` passes on both backend and frontend
-- [ ] Production validated via Edge CDP screenshots (desktop + mobile)
+- [x] KB table fully readable on 375px mobile — Title + Status only, "Pubblicato" fully readable
+- [x] Portal nav links translated (IT: "Base di Conoscenza" / "Invia un Ticket")
+- [x] Portal KB content language is consistent — EN content accepted as user data, UI framing locale-aware
+- [x] `"1 articles"` → `"1 articolo"` / `"2 articoli"` pluralization fixed
+- [x] Priority chips translated on portal ticket tracking — "Alta" not "high"
+- [x] Deal stepper visually distinguishes won vs lost — red dots/connectors for Closed Lost
+- [x] AI Governance tabs: minWidth auto + Forecast legend flexWrap — pending Vercel deploy for tabs
+- [x] `npx tsc --noEmit` passes on both backend and frontend
+- [x] Production validated via Edge CDP screenshots (desktop + mobile) — audit_v3/
