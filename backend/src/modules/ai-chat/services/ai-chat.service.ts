@@ -106,6 +106,16 @@ const CHAT_RATE_LIMIT_MAX = 30;
 const CHAT_RATE_LIMIT_WINDOW = 60;
 
 /**
+ * CHAT-M1: Configurable conversation context window.
+ * Controls how many recent messages are loaded verbatim for the LLM.
+ * Older messages are summarized and prepended as a system message.
+ */
+const CHAT_CONTEXT_WINDOW = Math.max(
+  10,
+  parseInt(process.env.AI_CHAT_CONTEXT_WINDOW ?? '20', 10) || 20,
+);
+
+/**
  * AiChatService -- Core chat orchestration with AI SDK v6.
  *
  * Pipeline: rate limit -> circuit breaker -> PII tokenize -> ToolLoopAgent
@@ -314,7 +324,7 @@ export class AiChatService {
         [
           this.conversationService.getMessagesForContext(
             conversation.id,
-            20,
+            CHAT_CONTEXT_WINDOW,
             tenantId,
           ),
           this.chatEnrichmentService.getRuntimeContextMetadata(

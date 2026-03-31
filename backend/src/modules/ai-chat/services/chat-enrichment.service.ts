@@ -3,7 +3,7 @@
  *
  * Handles conversation enrichment tasks:
  * - Smart title generation (LLM-based, triggers at 4 messages)
- * - Summary generation (LLM-based, triggers at 20-message intervals)
+ * - Summary generation (LLM-based, triggers at context window intervals)
  * - Runtime context metadata (user preferences, provider, locale)
  *
  * Phase 87 Plan 04: Split from ai-chat.service.ts to stay under 500 lines.
@@ -194,11 +194,20 @@ export class ChatEnrichmentService {
   }
 
   /**
+   * CHAT-M1: Configurable context window for summary trigger.
+   * Aligns with AI_CHAT_CONTEXT_WINDOW in ai-chat.service.ts.
+   */
+  private static readonly CONTEXT_WINDOW = Math.max(
+    10,
+    parseInt(process.env.AI_CHAT_CONTEXT_WINDOW ?? '20', 10) || 20,
+  );
+
+  /**
    * Async summary generation for long conversations.
    *
-   * Triggers at 20-message intervals (20, 40, 60, ...) with a +/-2 tolerance
-   * window for multi-step tool call bursts. Summarizes older messages
-   * (all except the last 10) and stores in AiConversation.summary.
+   * Triggers at context-window intervals with a tolerance window for
+   * multi-step tool call bursts. Summarizes older messages (all except
+   * the recent half of the context window) and stores in AiConversation.summary.
    *
    * Fire-and-forget from onFinish callback -- failures are logged, not thrown.
    */
@@ -207,18 +216,22 @@ export class ChatEnrichmentService {
     tenantId: string,
     messageCount?: number,
   ): Promise<void> {
+    const contextWindow = ChatEnrichmentService.CONTEXT_WINDOW;
+    const recentKeep = Math.floor(contextWindow / 2);
+    const summaryInterval = recentKeep;
+
     // Use provided count from save operation to avoid TOCTOU race (RACE-2).
     // Falls back to DB query only if count not provided (backward compat).
     const count = messageCount ??
       await this.conversationService.getMessageCount(conversationId, tenantId);
 
-    // Only at 20-message intervals (+/-2 tolerance for multi-step bursts).
-    // Prevents redundant LLM summary calls on every message after 20.
-    if (count < 20 || (count - 20) % 10 !== 0) return;
+    // Only at context-window intervals (e.g., 20, 30, 40 for window=20).
+    // Prevents redundant LLM summary calls on every message after threshold.
+    if (count < contextWindow || (count - contextWindow) % summaryInterval !== 0) return;
 
-    // Load older messages to summarize
+    // Load older messages to summarize (keep recent half verbatim)
     const olderMessages =
-      await this.conversationService.getOlderMessages(conversationId, 10, tenantId);
+      await this.conversationService.getOlderMessages(conversationId, recentKeep, tenantId);
 
     if (olderMessages.length === 0) return;
 
