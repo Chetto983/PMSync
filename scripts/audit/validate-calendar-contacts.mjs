@@ -108,13 +108,13 @@ async function checkOrphanContacts() {
 async function checkInvalidTimezones() {
   // Valid IANA timezone pattern (simplified)
   const result = await pool.query(`
-    SELECT id, "tenantId", title, timezone, "startTime"
+    SELECT id, "tenantId", title, "timeZone", "startTime"
     FROM "calendar_events"
     WHERE "isDeleted" = false
       AND (
-        timezone IS NULL
-        OR timezone = ''
-        OR (timezone NOT LIKE '%/%' AND timezone != 'UTC' AND timezone NOT LIKE 'Etc/%')
+        "timeZone" IS NULL
+        OR "timeZone" = ''
+        OR ("timeZone" NOT LIKE '%/%' AND "timeZone" != 'UTC' AND "timeZone" NOT LIKE 'Etc/%')
       )
     ORDER BY "startTime" DESC
     LIMIT 20
@@ -126,7 +126,7 @@ async function checkInvalidTimezones() {
     samples: result.rows.slice(0, 5).map((r) => ({
       id: r.id.substring(0, 12) + '...',
       title: (r.title || '').substring(0, 40),
-      timezone: r.timezone || 'NULL',
+      timezone: r.timeZone || 'NULL',
       startTime: r.startTime,
     })),
   };
@@ -139,12 +139,12 @@ async function checkExpiredSyncTokens() {
 
   const result = await pool.query(
     `
-    SELECT css.id, css."tenantId", css."calendarId", css."providerType",
-           css."lastSyncedAt", css."syncToken" IS NOT NULL AS has_token,
+    SELECT css.id, css."tenantId", css."calendarId", css."providerId",
+           css."updatedAt", css."syncToken" IS NOT NULL AS has_token,
            css."deltaLink" IS NOT NULL AS has_delta
     FROM "calendar_sync_states" css
-    WHERE css."lastSyncedAt" < $1
-    ORDER BY css."lastSyncedAt" ASC
+    WHERE css."updatedAt" < $1
+    ORDER BY css."updatedAt" ASC
     LIMIT 20
   `,
     [sevenDaysAgo],
@@ -155,8 +155,8 @@ async function checkExpiredSyncTokens() {
     count: result.rows.length,
     samples: result.rows.slice(0, 5).map((r) => ({
       id: r.id.substring(0, 12) + '...',
-      provider: r.providerType,
-      lastSynced: r.lastSyncedAt,
+      provider: r.providerId,
+      lastUpdated: r.updatedAt,
       hasToken: r.has_token,
       hasDelta: r.has_delta,
     })),
