@@ -16,7 +16,7 @@
 - [ ] T-1813 — Add auto-advance between sprints: when the last task in a sprint is marked done, read `crm/docs/01-ROADMAP-SOLO.md` to find the next sprint number, open it, announce completion ("Sprint N complete — N/N tasks, N SP. Advancing to Sprint N+1."), and continue picking the first unchecked task. If all sprints in a phase are done, announce "Phase X complete." — [2 SP]
 - [ ] T-1814 — Extract static content to reference docs: move UI/UX Design System (~150 lines) to `crm/docs/UI-DESIGN-SYSTEM.md` and production validation details (~80 lines) to `crm/docs/PRODUCTION-VALIDATION.md`. Replace inline content with "Read `crm/docs/UI-DESIGN-SYSTEM.md` before building frontend components" and "Read `crm/docs/PRODUCTION-VALIDATION.md` at sprint end." Saves ~5K tokens per invocation. — [1 SP]
 - [ ] T-1815 — Add dirty-tree check at session start: insert a step in Phase 0 that runs `git status --short` and warns if non-CRM staged files exist. Guidance: "Unstage non-CRM files with `git reset HEAD <file>` before proceeding, or commit them separately first." Prevents accidental cross-contamination like today's billing-frontend leak. — [1 SP]
-- [ ] T-1816 — Remove Graphviz diagram: replace the `dot` digraph (24 lines, not renderable in CLI context) with a 5-line plain-text flow summary. Example: "Checkpoint exists? → restore context → pick next task → execute → commit → checkpoint → repeat or end session." — [1 SP]
+- [x] T-1816 — Remove Graphviz diagram: replace the `dot` digraph (24 lines, not renderable in CLI context) with a 5-line plain-text flow summary. Example: "Checkpoint exists? → restore context → pick next task → execute → commit → checkpoint → repeat or end session." — [1 SP] — ✅ DONE
 
 **Totale: 8 SP**
 
