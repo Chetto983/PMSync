@@ -272,6 +272,9 @@ function buildBriefingSystemPrompt(locale?: string): string {
   return SYSTEM_PROMPT + `\n\n${briefingTranslations.aiPromptLanguage} JSON keys must remain in English.`;
 }
 
+// ~4 chars per token is a conservative estimate for English text
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+
 @Injectable()
 export class BriefingService {
   private readonly logger = new Logger(BriefingService.name);
@@ -279,6 +282,8 @@ export class BriefingService {
   private readonly briefingVersion = 'briefing-v2';
   private readonly briefingSlotsPerDay = 3;
   private readonly briefingSlotHours = 24 / this.briefingSlotsPerDay;
+  private readonly maxInputTokenBudget: number;
+  private readonly llmTimeoutMs: number;
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
@@ -290,6 +295,8 @@ export class BriefingService {
   ) {
     // Use fast/simple model for structured JSON — M2.7's Interleaved Thinking breaks JSON.
     this.briefingModelId = this.configService.get<string>('AI_MODEL_SIMPLE', 'mistralai/mistral-small-3.1-24b-instruct');
+    this.maxInputTokenBudget = this.configService.get<number>('BRIEFING_MAX_INPUT_TOKENS', 4000);
+    this.llmTimeoutMs = this.configService.get<number>('BRIEFING_LLM_TIMEOUT_MS', 60_000);
   }
 
   /**
@@ -519,8 +526,58 @@ export class BriefingService {
       currentTime: contextData.currentTime.toISOString(),
     }, null, 0);
 
-    // 3. Generate briefing with graceful fallback
-    return this.generateWithFallback(dataContext, deterministicFallback, tenantId, locale);
+    // 3. Enforce input token budget — truncate sections by priority if needed
+    const budgetEnforced = this.enforceTokenBudget(dataContext);
+
+    // 4. Generate briefing with graceful fallback
+    return this.generateWithFallback(budgetEnforced, deterministicFallback, tenantId, locale);
+  }
+
+  /**
+   * Enforce max input token budget by progressively trimming lower-priority sections.
+   * Priority order (highest first): unreadEmails > pendingFollowUps > todayEvents > staleContacts > emailVolume
+   * If the full context exceeds budget, trim arrays from lowest priority upward.
+   */
+  private enforceTokenBudget(dataContext: string): string {
+    const maxChars = this.maxInputTokenBudget * CHARS_PER_TOKEN_ESTIMATE;
+    if (dataContext.length <= maxChars) return dataContext;
+
+    this.logger.warn(
+      `Briefing context exceeds token budget: ${Math.ceil(dataContext.length / CHARS_PER_TOKEN_ESTIMATE)} est. tokens vs ${this.maxInputTokenBudget} budget. Truncating.`,
+    );
+
+    const parsed = JSON.parse(dataContext);
+
+    // Trim in priority order (lowest first)
+    const trimOrder: Array<{ key: string; minItems: number }> = [
+      { key: 'staleContacts', minItems: 0 },
+      { key: 'todayEvents', minItems: 3 },
+      { key: 'pendingFollowUps', minItems: 3 },
+      { key: 'unreadEmails', minItems: 5 },
+    ];
+
+    for (const { key, minItems } of trimOrder) {
+      const arr = parsed[key];
+      if (!Array.isArray(arr) || arr.length <= minItems) continue;
+
+      // Halve the array (but keep at least minItems)
+      const newLen = Math.max(minItems, Math.floor(arr.length / 2));
+      parsed[key] = arr.slice(0, newLen);
+
+      const result = JSON.stringify(parsed, null, 0);
+      if (result.length <= maxChars) return result;
+    }
+
+    // Final pass: truncate email snippets further
+    if (Array.isArray(parsed.unreadEmails)) {
+      for (const email of parsed.unreadEmails) {
+        if (email.snippet && email.snippet.length > 80) {
+          email.snippet = email.snippet.slice(0, 80) + '...';
+        }
+      }
+    }
+
+    return JSON.stringify(parsed, null, 0);
   }
 
   private getSlotWindow(
@@ -879,7 +936,7 @@ export class BriefingService {
         prompt,
         temperature: 0.1,
         maxOutputTokens: 1500,
-        abortSignal: AbortSignal.timeout(45_000),
+        abortSignal: AbortSignal.timeout(this.llmTimeoutMs),
       });
       this.ledgerService?.recordRun({
         tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
@@ -911,7 +968,7 @@ export class BriefingService {
         system: systemPrompt,
         prompt: prompt + '\n\nReturn valid JSON.',
         maxOutputTokens: 1200,
-        abortSignal: AbortSignal.timeout(45_000),
+        abortSignal: AbortSignal.timeout(this.llmTimeoutMs),
       });
       this.ledgerService?.recordRun({
         tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
