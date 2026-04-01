@@ -540,6 +540,10 @@ model Email {
   aiLabels             String[]                @default([]) // AI-suggested labels
   isAutoTriaged        Boolean                 @default(false) // Flag if auto-triaged
   autoTriagedAt        DateTime? // When auto-triage ran
+  // Label-first triage fields
+  aiLane               String? // action-now, waiting-on-reply, customer-vip, system-alerts, review-later
+  aiIntent             String? // request, update, alert, sales, billing, personal, fyi
+  aiActionability      String? // none, todo, waiting
   analysis             EmailAnalysis?
   attachments          EmailAttachment[]
   followUp             EmailFollowUp?
@@ -567,6 +571,7 @@ model Email {
   @@index([tenantId, isBodyFetched])
   @@index([tenantId, isFlagged])
   @@index([tenantId, aiPriority])
+  @@index([tenantId, aiLane])
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([providerId, folder, isRead, isDeleted])
@@ -1325,6 +1330,10 @@ model EmailAnalysis {
   suggestedActions Json          @default("[]")
   summary          String?
   keyPoints        String[]      @default([])
+  // Label-first triage fields
+  lane             String? // action-now, waiting-on-reply, customer-vip, system-alerts, review-later
+  intent           String? // request, update, alert, sales, billing, personal, fyi
+  actionability    String? // none, todo, waiting
   processedAt      DateTime      @default(now())
   modelUsed        String        @default("gpt-4o-mini")
   tokensUsed       Int           @default(0)
@@ -1337,6 +1346,7 @@ model EmailAnalysis {
   @@index([tenantId, processedAt])
   @@index([tenantId, priority])
   @@index([tenantId, needsFollowUp])
+  @@index([tenantId, lane])
   @@map("email_analyses")
 }
 
