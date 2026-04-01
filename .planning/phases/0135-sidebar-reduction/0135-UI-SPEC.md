@@ -52,9 +52,10 @@ This phase has minimal text. Only tooltips and one placeholder page use type.
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Body | 14px (0.875rem) | 400 | 1.5 | Placeholder "Coming soon" body text |
-| Label | 13px (0.8125rem) | 500 | 1.25 | Tooltip text (MUI default), bottom tab labels (hidden by default) |
+| Body | 14px (0.875rem) | 400 | 1.5 | Placeholder body text, tooltip text (MUI Tooltip renders its own internal styling), bottom tab labels (hidden by default) |
 | Heading | 20px (1.25rem) | 600 | 1.25 | Placeholder page heading |
+
+2 sizes, 2 weights. MUI Tooltip handles its own internal font-size and weight; no spec override needed.
 
 Source: Existing `fontSize` and `fontWeight` tokens in `frontend/theme/tokens.ts`.
 
@@ -140,7 +141,7 @@ Inactive icon color: `theme.palette.text.secondary` (`#94a3b8` dark, `#475569` l
 | Route | `/dashboard/tasks` |
 | Layout | Centered vertically and horizontally in content area |
 | Icon | `CheckSquare` from lucide-react, 48px, `text.secondary` color |
-| Heading | `t.tasks.comingSoon` ("Coming soon") at 20px/600 weight |
+| Heading | `t.tasks.comingSoon` ("Tasks — Coming Soon") at 20px/600 weight |
 | Body | `t.tasks.comingSoonBody` ("We're building a unified task experience. Check back soon.") at 14px/400 weight, `text.secondary` color |
 | Max width | 320px for text block |
 | Note | Per RESEARCH.md Pitfall 6 analysis: if existing `tasks.tsx` already renders functional content, keep it as-is. Only apply placeholder if the page is truly empty. |
@@ -159,7 +160,7 @@ All copy uses existing i18n keys or new keys added to `frontend/locales/en.ts` a
 | Contacts tooltip | `nav.contacts` | Contacts | Contatti |
 | Tasks tooltip | `nav.tasks` | Tasks | Attivita |
 | Settings tooltip | `nav.settings` | Settings | Impostazioni |
-| Tasks placeholder heading | `tasks.comingSoon` | Coming soon | In arrivo |
+| Tasks placeholder heading | `tasks.comingSoon` | Tasks — Coming Soon | Attivita — In arrivo |
 | Tasks placeholder body | `tasks.comingSoonBody` (NEW) | We're building a unified task experience. Check back soon. | Stiamo costruendo un'esperienza unificata per le attivita. Torna presto. |
 | DnD aria label | `nav.dragToReorder` | Drag to reorder | Trascina per riordinare |
 

@@ -12,14 +12,11 @@ import {
   Divider,
   Checkbox,
   FormControlLabel,
-  Breadcrumbs,
-  Link as MuiLink,
   Menu,
   MenuItem,
   ListItemText,
 } from '@mui/material';
 import { ArrowLeft, Ticket as TicketIcon, Send, FileText } from 'lucide-react';
-import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
@@ -28,6 +25,7 @@ import {
   useAddTicketComment,
 } from '@/hooks/queries/use-crm-tickets';
 import { useTicketTemplates } from '@/hooks/queries/use-crm-ticket-templates';
+import { CrmBreadcrumb } from '@/components/common';
 
 const STATUS_COLORS: Record<string, 'default' | 'primary' | 'warning' | 'success' | 'error'> = {
   open: 'primary',
@@ -115,15 +113,11 @@ export function TicketDetail() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
       {/* Breadcrumb */}
-      <Breadcrumbs sx={{ mb: 1 }}>
-        <MuiLink component={NextLink} href="/dashboard" underline="hover" color="text.secondary">
-          Dashboard
-        </MuiLink>
-        <MuiLink component={NextLink} href="/dashboard/crm/tickets" underline="hover" color="text.secondary">
-          {tt?.title ?? 'Tickets'}
-        </MuiLink>
-        <Typography color="text.primary" variant="body2">{ticket.subject}</Typography>
-      </Breadcrumbs>
+      <CrmBreadcrumb
+        section={tt?.title ?? 'Tickets'}
+        sectionHref="/dashboard/crm/tickets"
+        entityName={ticket.subject}
+      />
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
