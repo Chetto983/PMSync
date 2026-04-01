@@ -82,6 +82,7 @@ model Tenant {
   ticketTemplates          TicketTemplate[]
   inAppNotifications       InAppNotification[]
   crmSuggestions           CrmSuggestion[]
+  triageRules              Json                      @default("[]") // TriageRule[] — onboarding triage rules
 
   @@map("tenants")
 }
@@ -657,8 +658,12 @@ model UserLabel {
   type        LabelType    @default(USER)
   color       Json?
   icon        String?
-  aiPrompt    String?      /// Natural language instruction for AI triage (e.g. "Urgent client requests needing response within 24h")
-  parentId    String?
+  aiPrompt              String?      /// Natural language instruction for AI triage (e.g. "Urgent client requests needing response within 24h")
+  category              String       @default("custom") // workflow, semantic, suppression, custom
+  suppressUrgency       Boolean      @default(false) // if true, urgency capped to low
+  mutuallyExclusiveWith String[]     @default([]) // label names that cannot coexist
+  defaultLane           String? // preferred lane when this label is primary
+  parentId              String?
   level       Int          @default(0)
   orderIndex  Int          @default(0)
   isArchived  Boolean      @default(false)
