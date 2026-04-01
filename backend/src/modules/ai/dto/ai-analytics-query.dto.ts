@@ -1,6 +1,8 @@
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+export type TimeSeriesGranularity = 'hourly' | 'daily' | 'weekly';
 
 /**
  * Query parameters for GET /ai/runs/analytics.
@@ -14,4 +16,13 @@ export class AiAnalyticsQueryDto {
   @Max(90)
   @Type(() => Number)
   days?: number;
+
+  @ApiPropertyOptional({
+    description: 'Time-series bucket granularity',
+    enum: ['hourly', 'daily', 'weekly'],
+    default: 'daily',
+  })
+  @IsOptional()
+  @IsIn(['hourly', 'daily', 'weekly'])
+  granularity?: TimeSeriesGranularity;
 }

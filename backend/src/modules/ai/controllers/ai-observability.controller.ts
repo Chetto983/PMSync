@@ -95,6 +95,7 @@ export class AiObservabilityController {
     return this.analyticsService.getAnalytics(
       req.user.tenantId,
       query.days ?? 30,
+      query.granularity ?? 'daily',
     );
   }
 

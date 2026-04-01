@@ -11,6 +11,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { TimeSeriesGranularity } from '../dto/ai-analytics-query.dto';
 
 // ── Response Types ──────────────────────────────────────────────────
 
@@ -85,10 +86,14 @@ export class AiAnalyticsService {
     this.costAlertThreshold = this.configService.get<number>('AI_COST_ALERT_THRESHOLD') || 0.8;
   }
 
-  async getAnalytics(tenantId: string, days = 30): Promise<AnalyticsResponse> {
+  async getAnalytics(
+    tenantId: string,
+    days = 30,
+    granularity: TimeSeriesGranularity = 'daily',
+  ): Promise<AnalyticsResponse> {
     const [dailySeries, modelBreakdown, runTypeBreakdown, burnRate] =
       await Promise.all([
-        this.getDailyTimeSeries(tenantId, days),
+        this.getTimeSeries(tenantId, days, granularity),
         this.getModelBreakdown(tenantId, days),
         this.getRunTypeBreakdown(tenantId, days),
         this.getBurnRate(tenantId),
@@ -97,12 +102,21 @@ export class AiAnalyticsService {
     return { dailySeries, modelBreakdown, runTypeBreakdown, burnRate };
   }
 
-  // ── Daily Time Series ───────────────────────────────────────────
+  // ── Time Series (OBS-L1: configurable granularity) ──────────────
 
-  private async getDailyTimeSeries(
+  /** Map granularity param to Postgres DATE_TRUNC unit. */
+  private static readonly TRUNC_MAP: Record<TimeSeriesGranularity, string> = {
+    hourly: 'hour',
+    daily: 'day',
+    weekly: 'week',
+  };
+
+  private async getTimeSeries(
     tenantId: string,
     days: number,
+    granularity: TimeSeriesGranularity,
   ): Promise<DailySeriesEntry[]> {
+    const truncUnit = AiAnalyticsService.TRUNC_MAP[granularity];
     const rows = await this.prisma.$queryRaw<
       Array<{
         date: Date;
@@ -112,7 +126,7 @@ export class AiAnalyticsService {
         error_count: bigint;
       }>
     >`
-      SELECT DATE_TRUNC('day', "createdAt") AS date,
+      SELECT DATE_TRUNC(${truncUnit}, "createdAt") AS date,
              COALESCE(SUM("estimatedCostUsd"), 0) AS total_cost,
              COALESCE(SUM("totalTokens"), 0)      AS total_tokens,
              COUNT(*)                              AS run_count,
@@ -125,7 +139,7 @@ export class AiAnalyticsService {
     `;
 
     return rows.map((r) => ({
-      date: r.date.toISOString().slice(0, 10),
+      date: r.date.toISOString().slice(0, granularity === 'hourly' ? 16 : 10),
       totalCost: Number(r.total_cost),
       totalTokens: Number(r.total_tokens),
       runCount: Number(r.run_count),
