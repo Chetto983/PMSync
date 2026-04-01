@@ -50,8 +50,8 @@ created: 2026-04-01
 
 ## Wave 0 Requirements
 
-- [ ] `backend/src/modules/subscription/__tests__/autumn-webhook.service.spec.ts` — stubs for BILL-02
-- [ ] `backend/src/modules/subscription/__tests__/subscription-lifecycle.service.spec.ts` — stubs for BILL-04
+- [ ] `backend/src/modules/subscription/services/__tests__/autumn-webhook.service.spec.ts` — stubs for BILL-02
+- [ ] `backend/src/modules/subscription/services/__tests__/subscription-lifecycle.service.spec.ts` — stubs for BILL-04
 
 *Existing infrastructure covers framework and fixtures.*
 
