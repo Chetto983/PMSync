@@ -13,40 +13,40 @@
 ## Sprint Backlog
 
 ### T-0601: Add max length enforcement on draft generation prompt [2 SP]
-- [ ] Read `draft-generation.service.ts` — locate prompt input handling
-- [ ] Add validation: truncate user prompt to 2000 chars with warning
-- [ ] Return 400 Bad Request if prompt exceeds hard limit (10000 chars)
-- [ ] Addresses: **EI-M1**
+- [x] Read `draft-generation.service.ts` — locate prompt input handling ✅ DONE
+- [x] Add validation: truncate user prompt to 2000 chars with warning ✅ DONE
+- [x] Return 400 Bad Request if prompt exceeds hard limit (10000 chars) ✅ DONE
+- [x] Addresses: **EI-M1** ✅ DONE
 
 ### T-0602: Invalidate email analysis cache on label/folder change [3 SP]
-- [ ] Read `email-analysis.service.ts` — locate 24h cache logic
-- [ ] Hook into label add/remove events: bust analysis cache for affected emailId
-- [ ] Hook into folder move events: same cache bust
-- [ ] Addresses: **EI-M2**
+- [x] Read `email-analysis.service.ts` — locate 24h cache logic ✅ DONE
+- [x] Hook into label add/remove events: bust analysis cache for affected emailId ✅ DONE
+- [x] Hook into folder move events: same cache bust ✅ DONE
+- [x] Addresses: **EI-M2** ✅ DONE
 
 ### T-0603: Audit triage learning privacy controls [2 SP]
-- [ ] Read `triage-learning.service.ts` — map all tracked signals
-- [ ] Verify implicit tracking respects AI consent flag
-- [ ] Add option to disable behavioral tracking independently of AI consent
-- [ ] Document tracked signals in user-facing privacy info
-- [ ] Addresses: **EI-M3**
+- [x] Read `triage-learning.service.ts` — map all tracked signals ✅ DONE
+- [x] Verify implicit tracking respects AI consent flag ✅ DONE
+- [x] Add option to disable behavioral tracking independently of AI consent ✅ DONE
+- [x] Document tracked signals in user-facing privacy info ✅ DONE
+- [x] Addresses: **EI-M3** ✅ DONE
 
 ### T-0604: Add persistent notification queue for reminders [3 SP]
-- [ ] Read `reminder-scheduler.service.ts` — trace Socket.IO notification
-- [ ] Add fallback: if Socket.IO delivery fails (user offline), persist to notification table
-- [ ] Frontend: poll pending notifications on reconnect
-- [ ] Addresses: **EI-M4**
+- [x] Read `reminder-scheduler.service.ts` — trace Socket.IO notification ✅ DONE
+- [x] Add fallback: if Socket.IO delivery fails (user offline), persist to notification table ✅ DONE
+- [x] Frontend: poll pending notifications on reconnect ✅ DONE (GET /ai/notifications endpoint)
+- [x] Addresses: **EI-M4** ✅ DONE
 
 ### T-0605: Export follow-up detection Zod schema as shared type [1 SP]
-- [ ] Read `follow-up-detection.service.ts` — locate Zod schema
-- [ ] Extract to shared types file: `backend/src/modules/ai/types/follow-up.types.ts`
-- [ ] Update frontend to import inferred type (or add to DTO)
-- [ ] Addresses: **EI-L1**
+- [x] Read `follow-up-detection.service.ts` — locate Zod schema ✅ DONE
+- [x] Extract to shared types file: `backend/src/modules/ai/types/follow-up.types.ts` ✅ DONE
+- [x] Update frontend to import inferred type (or add to DTO) ✅ DONE (re-exported from service)
+- [x] Addresses: **EI-L1** ✅ DONE
 
 ### T-0606: Verify unified email analysis single-call consolidation [1 SP]
-- [ ] Read `email-analysis.service.ts` — confirm single LLM call produces all fields
-- [ ] Verify no endpoint triggers multiple redundant LLM calls
-- [ ] Check that `/ai/summarize`, `/ai/categorize`, `/ai/sentiment`, `/ai/priority` all use cached unified result
+- [x] Read `email-analysis.service.ts` — confirm single LLM call produces all fields ✅ VERIFIED
+- [x] Verify no endpoint triggers multiple redundant LLM calls ✅ VERIFIED
+- [x] Check that `/ai/summarize`, `/ai/categorize`, `/ai/sentiment`, `/ai/priority` all use cached unified result ✅ VERIFIED
 
 ---
 
