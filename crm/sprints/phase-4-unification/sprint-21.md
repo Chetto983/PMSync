@@ -33,8 +33,8 @@
 ### Theme Compliance (3 SP)
 
 - [x] T-2111 — **Replace hardcoded hex colors.** Audit all files in `frontend/components/dashboard/crm-*/**/*.tsx`. Replace hardcoded hex values (#1976d2, #2e7d32, #ed6c02, #0097a7, etc.) with MUI theme tokens (theme.palette.info.main, success.main, warning.main, primary.main). Use `useTheme()` hook where needed. — [1 SP] — ✅ DONE
-- [ ] T-2112 — **Fix hardcoded fallback strings.** Replace all `|| 'English Fallback'` patterns in CRM components with proper translation keys. Add missing keys to `frontend/locales/en.ts` and `it.ts`. — [1 SP]
-- [ ] T-2113 — **Add missing aria-labels.** TicketDetail back button: add `aria-label`. Audit all CRM IconButtons for missing labels. — [1 SP]
+- [x] T-2112 — **Fix hardcoded fallback strings.** Replace all `|| 'English Fallback'` patterns in CRM components with proper translation keys. Add missing keys to `frontend/locales/en.ts` and `it.ts`. — [1 SP] — ✅ DONE
+- [x] T-2113 — **Add missing aria-labels.** TicketDetail back button: add `aria-label`. Audit all CRM IconButtons for missing labels. — [1 SP] — ✅ DONE
 
 **Totale: 15 SP**
 

@@ -12,6 +12,8 @@ import { Roles } from '../../../common/auth/roles.decorator';
 import { MistralService } from '../services/mistral.service';
 import { CacheService } from '../../../common/services/cache.service';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
+import { EmailEmbeddingQueueService } from '../services/email-embedding.queue';
+import { ContactEmbeddingQueueService } from '../services/contact-embedding.queue';
 
 /**
  * Detailed AI health status response (admin only)
@@ -35,16 +37,26 @@ export interface AiHealthDetailedResponse {
       totalFailed: number;
       byQueue: Record<string, number>;
     };
+    /** OBS-M2: Embedding queue depth metrics */
+    embeddingQueues?: {
+      email: { waiting: number; active: number; failed: number };
+      contact: { waiting: number; active: number; failed: number };
+    };
   };
 }
 
 @ApiTags('AI')
 @Controller('ai')
 export class AiHealthController {
+  /** OBS-M2: DLQ items above this count trigger degraded status. */
+  private static readonly DLQ_DEGRADED_THRESHOLD = 100;
+
   constructor(
     private readonly mistralService: MistralService,
     private readonly cacheService: CacheService,
     private readonly dlqService: DeadLetterQueueService,
+    private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
+    private readonly contactEmbeddingQueue: ContactEmbeddingQueueService,
   ) { }
 
   /**
@@ -147,8 +159,24 @@ export class AiHealthController {
     try {
       const stats = await this.dlqService.getStats();
       dlq = { totalFailed: stats.totalFailed, byQueue: stats.byQueue };
+      // OBS-M2: DLQ > threshold downgrades overall status
+      if (stats.totalFailed > AiHealthController.DLQ_DEGRADED_THRESHOLD && overallStatus === 'healthy') {
+        overallStatus = 'degraded';
+      }
     } catch {
       // DLQ stats are non-critical — omit on failure
+    }
+
+    // OBS-M2: Embedding queue depth metrics
+    let embeddingQueues: AiHealthDetailedResponse['services']['embeddingQueues'];
+    try {
+      const [emailStats, contactStats] = await Promise.all([
+        this.emailEmbeddingQueue.getQueueStats(),
+        this.contactEmbeddingQueue.getQueueStats(),
+      ]);
+      embeddingQueues = { email: emailStats, contact: contactStats };
+    } catch {
+      // Queue stats are non-critical — omit on failure
     }
 
     return {
@@ -166,6 +194,7 @@ export class AiHealthController {
           connected: cacheConnected,
         },
         dlq,
+        embeddingQueues,
       },
     };
   }

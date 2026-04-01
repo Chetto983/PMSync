@@ -398,4 +398,18 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
     this.knowledgeBaseService = knowledgeBaseService;
     return knowledgeBaseService;
   }
+
+  /** OBS-M2: Queue health metrics for /ai/health/detailed. */
+  async getQueueStats(): Promise<{
+    waiting: number;
+    active: number;
+    failed: number;
+  }> {
+    const [waiting, active, failed] = await Promise.all([
+      this.queue.getWaitingCount(),
+      this.queue.getActiveCount(),
+      this.queue.getFailedCount(),
+    ]);
+    return { waiting, active, failed };
+  }
 }
