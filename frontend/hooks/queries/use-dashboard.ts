@@ -211,13 +211,14 @@ export function followUpsOptions(params?: { status?: string; limit?: number }) {
  * Query options for stale contacts
  * Uses crmApi.getStaleContacts()
  */
-export function staleContactsOptions(params?: { limit?: number }) {
+export function staleContactsOptions(params?: { limit?: number; days?: number }) {
   return queryOptions({
     queryKey: dashboardKeys.staleContacts(params),
     queryFn: async (): Promise<{ contacts: StaleContact[]; total: number; averageScore: number }> => {
       const limit = params?.limit || 5;
+      const days = params?.days;
 
-      const response = await crmApi.getStaleContacts({ limit });
+      const response = await crmApi.getStaleContacts({ limit, days });
       const items = response.data?.staleContacts || [];
 
       const contacts: StaleContact[] = items.map((c: ContactRelationshipStats) => ({
@@ -504,7 +505,7 @@ export function useFollowUps(params?: { status?: string; limit?: number }) {
 /**
  * Hook for stale contacts
  */
-export function useStaleContacts(params?: { limit?: number }) {
+export function useStaleContacts(params?: { limit?: number; days?: number }) {
   return useQuery(staleContactsOptions(params));
 }
 

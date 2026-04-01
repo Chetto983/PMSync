@@ -41,6 +41,11 @@ import { TriageBackfillSchedulerService } from '../services/triage-backfill-sche
 // Phase 26: Non-chat AI services
 import { BriefingService } from '../services/briefing.service';
 import { RelationshipScoreService } from '../../contacts/services/relationship-score.service';
+import {
+  DEFAULT_STALE_CONTACT_DAYS,
+  MAX_STALE_CONTACT_DAYS,
+  MIN_STALE_CONTACT_DAYS,
+} from '../../contacts/constants/relationship-score.constants';
 import { FollowUpDetectionService } from '../services/follow-up-detection.service';
 import { DraftGenerationService } from '../services/draft-generation.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
@@ -874,7 +879,10 @@ export class AiController {
     @Query('days') daysParam?: string,
     @Query('limit') limitParam?: string,
   ) {
-    const thresholdDays = Math.min(Math.max(parseInt(daysParam || '60', 10) || 60, 7), 365);
+    const thresholdDays = Math.min(
+      Math.max(parseInt(daysParam || String(DEFAULT_STALE_CONTACT_DAYS), 10) || DEFAULT_STALE_CONTACT_DAYS, MIN_STALE_CONTACT_DAYS),
+      MAX_STALE_CONTACT_DAYS,
+    );
     const limit = Math.min(Math.max(parseInt(limitParam || '20', 10) || 20, 1), 100);
 
     // Use RelationshipScoreService for intelligent scoring

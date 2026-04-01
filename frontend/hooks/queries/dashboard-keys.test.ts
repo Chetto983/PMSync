@@ -8,4 +8,12 @@ describe('dashboardKeys briefing locale handling', () => {
   it('falls back to a stable default briefing key when locale is missing', () => {
     expect(dashboardKeys.briefing()).toEqual(['dashboard', 'briefing', 'default']);
   });
+
+  it('includes stale contact threshold days in the query key', () => {
+    expect(dashboardKeys.staleContacts({ limit: 5, days: 30 })).toEqual([
+      'dashboard',
+      'staleContacts',
+      { limit: 5, days: 30 },
+    ]);
+  });
 });

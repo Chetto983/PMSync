@@ -22,6 +22,11 @@ import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { RelationshipScoreService } from '../services/relationship-score.service';
 import { ContactDedupService } from '../services/contact-dedup.service';
+import {
+  DEFAULT_STALE_CONTACT_DAYS,
+  MAX_STALE_CONTACT_DAYS,
+  MIN_STALE_CONTACT_DAYS,
+} from '../constants/relationship-score.constants';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
@@ -100,15 +105,21 @@ export class ContactsController {
   @ApiResponse({ status: 200, description: 'Stale contacts returned successfully' })
   async getStaleContacts(
     @Req() req: any,
+    @Query('days') days?: string,
     @Query('daysSince') daysSince?: string,
     @Query('limit') limit?: string,
   ) {
     const tenantId = req.user.tenantId;
+    const rawDays = days ?? daysSince;
+    const thresholdDays = Math.min(
+      Math.max(parseInt(rawDays || String(DEFAULT_STALE_CONTACT_DAYS), 10) || DEFAULT_STALE_CONTACT_DAYS, MIN_STALE_CONTACT_DAYS),
+      MAX_STALE_CONTACT_DAYS,
+    );
     const contacts = await this.relationshipScoreService.getStaleContacts(
       tenantId,
-      { daysSince: daysSince ? parseInt(daysSince, 10) : 30, limit: limit ? parseInt(limit, 10) : 10 },
+      { daysSince: thresholdDays, limit: limit ? parseInt(limit, 10) : 10 },
     );
-    return { success: true, contacts, total: contacts.length };
+    return { success: true, contacts, total: contacts.length, thresholdDays };
   }
 
   /**

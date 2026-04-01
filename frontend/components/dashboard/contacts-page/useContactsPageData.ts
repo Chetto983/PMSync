@@ -13,6 +13,7 @@ import {
   contactDetailOptions,
 } from '@/hooks/queries/use-contacts';
 import { useStaleContacts } from '@/hooks/queries/use-dashboard';
+import { DEFAULT_STALE_CONTACT_DAYS } from '@/lib/crm/stale-contacts';
 import { logger } from '@/lib/logger';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useContactStore } from '@/stores/contact-store';
@@ -63,7 +64,7 @@ export function useContactsPageData() {
   const selectedProviderId = (router.query.provider as string) || null;
   const selectedFilter = (router.query.filter as string) || null;
   const selectedContactId = (router.query.id as string) || null;
-  const { data: staleContactsData } = useStaleContacts({ limit: 200 });
+  const { data: staleContactsData } = useStaleContacts({ limit: 200, days: DEFAULT_STALE_CONTACT_DAYS });
 
   const setSelectedProviderId = useCallback(
     (value: SetStateAction<string | null>) => {

@@ -11,7 +11,7 @@ export const dashboardKeys = {
     [...dashboardKeys.all, 'deadlines', params] as const,
   followUps: (params?: { status?: string; limit?: number }) =>
     [...dashboardKeys.all, 'followUps', params] as const,
-  staleContacts: (params?: { limit?: number }) =>
+  staleContacts: (params?: { limit?: number; days?: number }) =>
     [...dashboardKeys.all, 'staleContacts', params] as const,
   emailTrends: () => [...dashboardKeys.all, 'emailTrends'] as const,
   triagedEmails: (params?: { limit?: number; priority?: number }) =>

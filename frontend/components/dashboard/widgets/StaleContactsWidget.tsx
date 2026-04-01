@@ -6,6 +6,7 @@
 
 import { useStaleContacts } from '@/hooks/queries/use-dashboard';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { DEFAULT_STALE_CONTACT_DAYS } from '@/lib/crm/stale-contacts';
 import { BaseWidget } from './BaseWidget';
 import {
   Typography,
@@ -36,7 +37,7 @@ export function StaleContactsWidget() {
   const t = useTranslations();
   const theme = useTheme();
   const router = useRouter();
-  const { data, isLoading, error, refetch } = useStaleContacts({ limit: 5 });
+  const { data, isLoading, error, refetch } = useStaleContacts({ limit: 5, days: DEFAULT_STALE_CONTACT_DAYS });
 
   const crm = t.dashboard.widgets.crm;
 

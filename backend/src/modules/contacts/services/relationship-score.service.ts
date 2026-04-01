@@ -11,6 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { HashSearchService } from '../../../common/services/hash-search.service';
+import { DEFAULT_STALE_CONTACT_DAYS } from '../constants/relationship-score.constants';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -220,7 +221,7 @@ export class RelationshipScoreService {
     tenantId: string,
     options?: StaleContactOptions,
   ): Promise<StaleContact[]> {
-    const daysSince = options?.daysSince ?? 30;
+    const daysSince = options?.daysSince ?? DEFAULT_STALE_CONTACT_DAYS;
     const limit = options?.limit ?? 10;
 
     const cutoffDate = new Date(

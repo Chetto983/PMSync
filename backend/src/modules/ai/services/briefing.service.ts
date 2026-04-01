@@ -21,6 +21,7 @@ import { parseJsonOutput } from '../utils/parse-json-output';
 import { promptHash } from '../utils/prompt-hash';
 import { buildAiResponseMeta, type AiServiceResult } from '../utils/ai-response-meta';
 import { CacheNamespace, CacheService } from '../../../common/services/cache.service';
+import { DEFAULT_STALE_CONTACT_DAYS } from '../../contacts/constants/relationship-score.constants';
 import {
   getLocale as resolveAiLocale,
   getTranslations as getAiTranslations,
@@ -383,7 +384,7 @@ export class BriefingService {
     const offsetMs = probe.getTime() - naive.getTime();
     const startOfDay = new Date(naive.getTime() - offsetMs);
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const staleContactsCutoff = new Date(now.getTime() - DEFAULT_STALE_CONTACT_DAYS * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -436,7 +437,7 @@ export class BriefingService {
           where: {
             tenantId,
             isDeleted: false,
-            lastInteractedAt: { lt: thirtyDaysAgo },
+            lastInteractedAt: { lt: staleContactsCutoff },
           },
           orderBy: { lastInteractedAt: 'asc' },
           take: 5,
