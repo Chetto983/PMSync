@@ -8,7 +8,7 @@ import { Injectable, Inject, Logger, NotFoundException, Optional } from '@nestjs
 import { Prisma, ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ReminderAiParserService } from './reminder-ai-parser.service';
-import { ReminderNotifyQueueService } from '../../telegram/services/reminder-notify.queue';
+import { REMINDER_NOTIFY_QUEUE, type IReminderNotifyQueue } from '../../../common/interfaces/reminder-notify.interface';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
@@ -29,7 +29,7 @@ export class ReminderService {
     private readonly prisma: PrismaService,
     private readonly aiParser: ReminderAiParserService,
     private readonly realtimeEvents: RealtimeEventsService,
-    @Optional() private readonly reminderNotifyQueue?: ReminderNotifyQueueService,
+    @Optional() @Inject(REMINDER_NOTIFY_QUEUE) private readonly reminderNotifyQueue?: IReminderNotifyQueue,
   ) {}
 
   /**

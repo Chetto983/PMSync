@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AiChatModule } from '../ai-chat/ai-chat.module';
 import { AuditModule } from '../audit/audit.module';
@@ -7,6 +7,7 @@ import { TelegramSchedulerService } from './services/telegram-scheduler.service'
 import { TelegramWebhookService } from './services/telegram-webhook.service';
 import { ReminderEmailMonitorService } from './services/reminder-email-monitor.service';
 import { ReminderNotifyQueueService } from './services/reminder-notify.queue';
+import { REMINDER_NOTIFY_QUEUE } from '../../common/interfaces/reminder-notify.interface';
 import { TelegramWebhookController } from './controllers/telegram-webhook.controller';
 import { TelegramSettingsController } from './controllers/telegram-settings.controller';
 
@@ -14,15 +15,16 @@ import { TelegramSettingsController } from './controllers/telegram-settings.cont
 // AiChatModule: for relaying Telegram messages to the AI chat pipeline
 // AuditModule: for HITL decision audit logging
 @Module({
-  imports: [PrismaModule, forwardRef(() => AiChatModule), AuditModule],
+  imports: [PrismaModule, AiChatModule, AuditModule],
   controllers: [TelegramWebhookController, TelegramSettingsController],
   providers: [
     TelegramBotService,
     ReminderNotifyQueueService,
+    { provide: REMINDER_NOTIFY_QUEUE, useExisting: ReminderNotifyQueueService },
     TelegramSchedulerService,
     TelegramWebhookService,
     ReminderEmailMonitorService,
   ],
-  exports: [TelegramBotService, ReminderNotifyQueueService],
+  exports: [TelegramBotService, ReminderNotifyQueueService, REMINDER_NOTIFY_QUEUE],
 })
 export class TelegramModule {}
