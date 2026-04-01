@@ -144,7 +144,7 @@
 - [x] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect (completed 2026-03-31)
 - [x] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening (completed 2026-04-01)
 - [x] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel (completed 2026-04-01)
-- [ ] **Phase 134: Ops Hardening & Env Var Documentation** - Document production env vars, commit untracked code, remove dead exports (gap closure)
+- [x] **Phase 134: Ops Hardening & Env Var Documentation** - Document production env vars, commit untracked code, remove dead exports (gap closure) (completed 2026-04-01)
 
 ## Phase Details
 
@@ -284,7 +284,7 @@ Plans:
   3. Unused `cancelViaAutumn` export removed from frontend billing API
 **Plans**: 1 plan
 Plans:
-- [ ] 134-01-PLAN.md — Document env vars, commit crm/context/, remove dead cancelViaAutumn export
+- [x] 134-01-PLAN.md — Document env vars, commit crm/context/, remove dead cancelViaAutumn export
 
 ## Progress
 
@@ -302,7 +302,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 131. Billing Frontend | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 132. Billing Backend Hardening | v11.0 | 2/2 | Complete    | 2026-04-01 |
 | 133. Billing E2E Validation | v11.0 | 1/1 | Complete    | 2026-04-01 |
-| 134. Ops Hardening & Env Var Documentation | v11.0 | 0/1 | Not started | - |
+| 134. Ops Hardening & Env Var Documentation | v11.0 | 1/1 | Complete   | 2026-04-01 |
 
 ---
 *Roadmap created: 2026-02-09*
