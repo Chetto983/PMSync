@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback, useState } from 'react';
 import {
   Box,
   Typography,
@@ -14,6 +14,7 @@ import {
   ListItemIcon,
   ListItemText,
   LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import { Building2, Handshake, Ticket, Link2, Check, X, Sparkles } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -84,6 +85,7 @@ interface SuggestionItemProps {
   acceptLabel: string;
   dismissLabel: string;
   typeLabels: Record<string, string | undefined>;
+  isPending: boolean;
 }
 
 const SuggestionItem = memo(function SuggestionItem({
@@ -93,6 +95,7 @@ const SuggestionItem = memo(function SuggestionItem({
   acceptLabel,
   dismissLabel,
   typeLabels,
+  isPending,
 }: SuggestionItemProps) {
   const icon = TYPE_ICON[suggestion.type] ?? <Sparkles size={16} />;
   const description = getSuggestionDescription(suggestion);
@@ -101,7 +104,7 @@ const SuggestionItem = memo(function SuggestionItem({
   return (
     <ListItem
       disablePadding
-      sx={{ py: 0.75, px: 1 }}
+      sx={{ py: 0.75, px: 1, opacity: isPending ? 0.6 : 1 }}
       secondaryAction={
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           <Tooltip title={acceptLabel}>
@@ -109,9 +112,10 @@ const SuggestionItem = memo(function SuggestionItem({
               size="small"
               color="success"
               onClick={() => onAccept(suggestion.id)}
+              disabled={isPending}
               sx={{ minWidth: 32, minHeight: 32 }}
             >
-              <Check size={16} />
+              {isPending ? <CircularProgress size={14} color="inherit" /> : <Check size={16} />}
             </IconButton>
           </Tooltip>
           <Tooltip title={dismissLabel}>
@@ -119,6 +123,7 @@ const SuggestionItem = memo(function SuggestionItem({
               size="small"
               color="error"
               onClick={() => onDismiss(suggestion.id)}
+              disabled={isPending}
               sx={{ minWidth: 32, minHeight: 32 }}
             >
               <X size={16} />
@@ -160,6 +165,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
   const acceptMutation = useAcceptSuggestion();
   const dismissMutation = useDismissSuggestion();
   const bulkMutation = useBulkSuggestionAction();
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   const suggestions = useMemo(() => data?.data ?? [], [data]);
   const grouped = useMemo(() => {
@@ -176,22 +182,38 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
   );
 
   const handleAccept = useCallback(async (id: string) => {
+    if (pendingIds.has(id)) return;
+    setPendingIds((prev) => new Set(prev).add(id));
     try {
       await acceptMutation.mutateAsync(id);
       toast.success(ts?.accepted ?? 'Suggestion accepted');
     } catch {
       toast.error(t.common?.genericError ?? 'Error');
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
-  }, [acceptMutation, toast, ts, t.common]);
+  }, [acceptMutation, toast, ts, t.common, pendingIds]);
 
   const handleDismiss = useCallback(async (id: string) => {
+    if (pendingIds.has(id)) return;
+    setPendingIds((prev) => new Set(prev).add(id));
     try {
       await dismissMutation.mutateAsync(id);
       toast.success(ts?.dismissed ?? 'Suggestion dismissed');
     } catch {
       toast.error(t.common?.genericError ?? 'Error');
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
-  }, [dismissMutation, toast, ts, t.common]);
+  }, [dismissMutation, toast, ts, t.common, pendingIds]);
 
   const handleBulkAccept = useCallback(async () => {
     const ids = suggestions.map((s) => s.id);
@@ -290,6 +312,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
                   acceptLabel={ts?.accept ?? 'Accept'}
                   dismissLabel={ts?.dismiss ?? 'Dismiss'}
                   typeLabels={typeLabels}
+                  isPending={pendingIds.has(suggestion.id)}
                 />
               ))}
             </Box>
