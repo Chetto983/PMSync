@@ -377,16 +377,16 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
    * Removes jobs older than specified days.
    */
   async cleanOldFailures(olderThanDays?: number): Promise<number> {
-    const retentionDays = olderThanDays || this.DLQ_RETENTION_DAYS;
+    const retentionDays = olderThanDays ?? this.DLQ_RETENTION_DAYS;
+    const purgeAll = retentionDays === 0;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    const jobs = await this.dlqQueue.getJobs(['completed', 'waiting'], 0, 200);
+    const jobs = await this.dlqQueue.getJobs(['completed', 'waiting'], 0, 1000);
     let removedCount = 0;
 
     for (const job of jobs) {
-      const failedAt = new Date(job.data.failedAt);
-      if (failedAt < cutoffDate) {
+      if (purgeAll || new Date(job.data.failedAt) < cutoffDate) {
         await job.remove();
         removedCount++;
       }
