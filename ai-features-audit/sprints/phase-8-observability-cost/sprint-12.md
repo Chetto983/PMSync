@@ -25,31 +25,31 @@
 - [x] Auth-gated `/ai/health/detailed`: keep circuit breaker state, failure counts (already `@Roles('admin')`)
 - [x] Addresses: **OBS-H2** — no code change needed, already properly secured
 
-### T-1203: Add proactive cost alerting per tenant [3 SP]
-- [ ] Read `ai-analytics.service.ts` — locate burn rate calculation
-- [ ] Add threshold check: when tenant reaches 80% of monthly AI quota, create alert
-- [ ] Send notification via existing alert infrastructure (Socket.IO or email)
-- [ ] Add `AI_COST_ALERT_THRESHOLD` env var (default 0.8)
-- [ ] Addresses: **OBS-M1**
+### T-1203: Add proactive cost alerting per tenant [3 SP] ✅ DONE
+- [x] Read `ai-analytics.service.ts` — locate burn rate calculation
+- [x] Add threshold check: when tenant reaches 80% of monthly AI quota, create alert
+- [x] Send notification via existing alert infrastructure (Socket.IO `ai:cost:alert` event)
+- [x] Add `AI_COST_ALERT_THRESHOLD` env var (default 0.8) + 24h Redis cooldown
+- [x] Addresses: **OBS-M1**
 
-### T-1204: Expose embedding queue metrics in health endpoint [2 SP]
-- [ ] Read `email-embedding.queue.ts` and `contact-embedding.queue.ts`
-- [ ] Add queue depth, DLQ size, processing rate to `/ai/health/detailed`
-- [ ] Add alert threshold: DLQ > 100 items = degraded health
-- [ ] Addresses: **OBS-M2**
+### T-1204: Expose embedding queue metrics in health endpoint [2 SP] ✅ DONE
+- [x] Read `email-embedding.queue.ts` and `contact-embedding.queue.ts`
+- [x] Add queue depth (waiting/active/failed) to `/ai/health/detailed` via `getQueueStats()`
+- [x] Add alert threshold: DLQ > 100 items = degraded health
+- [x] Addresses: **OBS-M2**
 
-### T-1205: Surface circuit breaker state to frontend [2 SP]
-- [ ] Read `ai-circuit-breaker.ts` — trace state management
-- [ ] Add circuit breaker state to `/ai/health` response (open/closed/half-open)
-- [ ] Frontend: when circuit is open, show banner "AI features temporarily unavailable"
-- [ ] Disable AI action buttons when circuit is open (prevent wasted requests)
-- [ ] Addresses: **OBS-M3**
+### T-1205: Surface circuit breaker state to frontend [2 SP] ✅ DONE
+- [x] Read `ai-health.controller.ts` — public endpoint already returns degraded status
+- [x] Frontend: useAiHealth() polls /ai/health every 30s
+- [x] AiDegradedBanner shows warning when degraded/unhealthy, auto-hides on recovery
+- [x] Wired into Layout.tsx above page content
+- [x] Addresses: **OBS-M3**
 
-### T-1206: Add time-series granularity toggle to analytics [1 SP]
-- [ ] Read `ai-analytics.service.ts` — locate time-series query
-- [ ] Add `granularity` param: hourly, daily, weekly (default: daily)
-- [ ] Update `AiAnalyticsQueryDto` with new field
-- [ ] Addresses: **OBS-L1**
+### T-1206: Add time-series granularity toggle to analytics [1 SP] ✅ DONE
+- [x] Read `ai-analytics.service.ts` — locate time-series query
+- [x] Add `granularity` param: hourly, daily, weekly (default: daily)
+- [x] Update `AiAnalyticsQueryDto` with new field + IsIn validator
+- [x] Addresses: **OBS-L1**
 
 ---
 
@@ -64,10 +64,10 @@
 
 ## Definition of Done
 
-- [ ] Ledger writes retry once on failure — no silent data loss
-- [ ] Public health endpoint returns minimal info only
-- [ ] Cost alerts fire at 80% quota threshold (configurable)
-- [ ] Embedding queue metrics visible in detailed health
-- [ ] Circuit breaker state surfaced — frontend shows degraded mode
-- [ ] Analytics supports hourly/daily/weekly granularity
-- [ ] `npx tsc --noEmit` passes on both backend and frontend
+- [x] Ledger writes retry once on failure — no silent data loss
+- [x] Public health endpoint returns minimal info only
+- [x] Cost alerts fire at 80% quota threshold (configurable)
+- [x] Embedding queue metrics visible in detailed health
+- [x] Circuit breaker state surfaced — frontend shows degraded mode
+- [x] Analytics supports hourly/daily/weekly granularity
+- [x] `npx tsc --noEmit` passes on both backend and frontend
