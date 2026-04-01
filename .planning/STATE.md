@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: executing
-stopped_at: Completed 0137-01-PLAN.md
-last_updated: "2026-04-01T20:31:09.521Z"
-last_activity: 2026-04-01
+stopped_at: Phase 136 UI-SPEC approved
+last_updated: "2026-04-01T20:19:54.433Z"
+last_activity: 2026-04-01 -- Phase 0137 execution started
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 24
-  completed_plans: 23
+  completed_plans: 22
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 0136 — command-palette
+**Current focus:** Phase 0137 — unified-task-model
 
 ## Current Position
 
-Phase: 0136 (command-palette) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-04-01
+Phase: 0137 (unified-task-model) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 0137
+Last activity: 2026-04-01 -- Phase 0137 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,7 +52,6 @@ Progress: [░░░░░░░░░░] 0%
 - v12.0: Sidebar reduction first (most visible, motivates all other changes)
 - [Phase 0135]: Sidebar always 64px icon rail — no collapsed/expanded modes, mobile returns null
 - [Phase 0135]: Settings pinned at bottom via flex spacer, excluded from DnD reorder
-- [Phase 0137]: UncheckedUpdateInput for ManualTask FK updates -- Prisma UpdateInput requires relation objects, unchecked variant allows raw FK assignment
 
 ### Blockers/Concerns
 
@@ -60,6 +59,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-01T20:31:09.516Z
-Stopped at: Completed 0137-01-PLAN.md
-Resume file: None
+Last session: 2026-04-01T15:55:46.576Z
+Stopped at: Phase 136 UI-SPEC approved
+Resume file: .planning/phases/0136-command-palette/0136-UI-SPEC.md
