@@ -150,7 +150,7 @@ export function CustomizeDrawer({
                       {getWidgetName(widget.id, t)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {getWidgetDescription(widget.id)}
+                      {getWidgetDescription(widget.id, t)}
                     </Typography>
                   </Box>
                   <Switch

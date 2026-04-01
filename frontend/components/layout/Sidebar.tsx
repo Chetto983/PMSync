@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -32,12 +32,39 @@ import {
   Headset,
   BookOpen,
   BarChart3,
+  GripVertical,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DraggableSyntheticListeners,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useSidebarOrder } from '@/hooks/use-sidebar-order';
 
 const RAIL_WIDTH = 64;
 const EXPANDED_WIDTH = 220;
+
+interface SortableProps {
+  setNodeRef: (el: HTMLElement | null) => void;
+  style: React.CSSProperties;
+  attributes: ReturnType<typeof useSortable>['attributes'];
+  listeners: DraggableSyntheticListeners;
+  isDragging: boolean;
+}
 
 interface NavItem {
   label: string;
@@ -67,25 +94,45 @@ export function Sidebar({
   const t = useTranslations();
   const isDark = theme.palette.mode === 'dark';
 
-  const navItems: NavItem[] = [
-    { label: t.nav.home, icon: <Home size={24} strokeWidth={1.7} />, href: '/dashboard', section: 'main' },
-    { label: t.nav.mail, icon: <Mail size={24} strokeWidth={1.7} />, href: '/dashboard/email', section: 'main' },
-    { label: t.nav.calendar, icon: <Calendar size={24} strokeWidth={1.7} />, href: '/dashboard/calendar', section: 'main' },
-    { label: t.nav.contacts, icon: <Users size={24} strokeWidth={1.7} />, href: '/dashboard/contacts', section: 'main' },
-    { label: t.nav.crmAccounts, icon: <Building2 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/accounts', section: 'crm' },
-    { label: t.nav.crmPipelines, icon: <GitBranch size={24} strokeWidth={1.7} />, href: '/dashboard/crm/pipelines', section: 'crm' },
-    { label: t.nav.crmDeals, icon: <Handshake size={24} strokeWidth={1.7} />, href: '/dashboard/crm/deals', section: 'crm' },
-    { label: t.nav.crmForecast, icon: <TrendingUp size={24} strokeWidth={1.7} />, href: '/dashboard/crm/forecast', section: 'crm' },
-    { label: t.nav.crmChurn, icon: <AlertTriangle size={24} strokeWidth={1.7} />, href: '/dashboard/crm/churn', section: 'crm' },
-    { label: t.nav.crmGovernance, icon: <ShieldCheck size={24} strokeWidth={1.7} />, href: '/dashboard/crm/ai-governance', section: 'crm' },
-    { label: t.nav.crmTickets, icon: <Ticket size={24} strokeWidth={1.7} />, href: '/dashboard/crm/tickets', section: 'crm' },
-    { label: t.nav.kb || 'Knowledge Base', icon: <BookOpen size={24} strokeWidth={1.7} />, href: '/dashboard/crm/kb', section: 'crm' },
-    { label: t.serviceAnalytics?.title || 'Service Analytics', icon: <BarChart3 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/service-analytics', section: 'crm' },
-    { label: t.agentDashboard?.title || 'Agent Dashboard', icon: <Headset size={24} strokeWidth={1.7} />, href: '/dashboard/agent', section: 'crm' },
-    { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={24} strokeWidth={1.7} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
-    { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={24} strokeWidth={1.7} />, href: '/dashboard/reminders', section: 'ai' },
-    { label: t.ai?.title || 'AI Assistant', icon: <Sparkles size={24} strokeWidth={1.7} />, href: '/dashboard/ai', section: 'ai' },
-  ];
+  const navItemsMap: Record<string, NavItem> = useMemo(() => ({
+    '/dashboard': { label: t.nav.home, icon: <Home size={24} strokeWidth={1.7} />, href: '/dashboard', section: 'main' },
+    '/dashboard/email': { label: t.nav.mail, icon: <Mail size={24} strokeWidth={1.7} />, href: '/dashboard/email', section: 'main' },
+    '/dashboard/calendar': { label: t.nav.calendar, icon: <Calendar size={24} strokeWidth={1.7} />, href: '/dashboard/calendar', section: 'main' },
+    '/dashboard/contacts': { label: t.nav.contacts, icon: <Users size={24} strokeWidth={1.7} />, href: '/dashboard/contacts', section: 'main' },
+    '/dashboard/crm/accounts': { label: t.nav.crmAccounts, icon: <Building2 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/accounts', section: 'crm' },
+    '/dashboard/crm/pipelines': { label: t.nav.crmPipelines, icon: <GitBranch size={24} strokeWidth={1.7} />, href: '/dashboard/crm/pipelines', section: 'crm' },
+    '/dashboard/crm/deals': { label: t.nav.crmDeals, icon: <Handshake size={24} strokeWidth={1.7} />, href: '/dashboard/crm/deals', section: 'crm' },
+    '/dashboard/crm/forecast': { label: t.nav.crmForecast, icon: <TrendingUp size={24} strokeWidth={1.7} />, href: '/dashboard/crm/forecast', section: 'crm' },
+    '/dashboard/crm/churn': { label: t.nav.crmChurn, icon: <AlertTriangle size={24} strokeWidth={1.7} />, href: '/dashboard/crm/churn', section: 'crm' },
+    '/dashboard/crm/ai-governance': { label: t.nav.crmGovernance, icon: <ShieldCheck size={24} strokeWidth={1.7} />, href: '/dashboard/crm/ai-governance', section: 'crm' },
+    '/dashboard/crm/tickets': { label: t.nav.crmTickets, icon: <Ticket size={24} strokeWidth={1.7} />, href: '/dashboard/crm/tickets', section: 'crm' },
+    '/dashboard/crm/kb': { label: t.nav.kb || 'Knowledge Base', icon: <BookOpen size={24} strokeWidth={1.7} />, href: '/dashboard/crm/kb', section: 'crm' },
+    '/dashboard/crm/service-analytics': { label: t.serviceAnalytics?.title || 'Service Analytics', icon: <BarChart3 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/service-analytics', section: 'crm' },
+    '/dashboard/agent': { label: t.agentDashboard?.title || 'Agent Dashboard', icon: <Headset size={24} strokeWidth={1.7} />, href: '/dashboard/agent', section: 'crm' },
+    '/dashboard/ai/follow-ups': { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={24} strokeWidth={1.7} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
+    '/dashboard/reminders': { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={24} strokeWidth={1.7} />, href: '/dashboard/reminders', section: 'ai' },
+    '/dashboard/ai': { label: t.ai?.title || 'AI Assistant', icon: <Sparkles size={24} strokeWidth={1.7} />, href: '/dashboard/ai', section: 'ai' },
+  }), [t]);
+
+  const defaultMainOrder = useMemo(() => ['/dashboard', '/dashboard/email', '/dashboard/calendar', '/dashboard/contacts'], []);
+  const defaultCrmOrder = useMemo(() => [
+    '/dashboard/crm/accounts', '/dashboard/crm/pipelines', '/dashboard/crm/deals',
+    '/dashboard/crm/forecast', '/dashboard/crm/churn', '/dashboard/crm/ai-governance',
+    '/dashboard/crm/tickets', '/dashboard/crm/kb', '/dashboard/crm/service-analytics',
+    '/dashboard/agent',
+  ], []);
+  const defaultAiOrder = useMemo(() => ['/dashboard/ai/follow-ups', '/dashboard/reminders', '/dashboard/ai'], []);
+
+  const { order: mainOrder, handleReorder: reorderMain } = useSidebarOrder('main', defaultMainOrder);
+  const { order: crmOrder, handleReorder: reorderCrm } = useSidebarOrder('crm', defaultCrmOrder);
+  const { order: aiOrder, handleReorder: reorderAi } = useSidebarOrder('ai', defaultAiOrder);
+
+  const dndEnabled = !collapsed && !isMobile;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const isActive = (href: string) => router.pathname === href;
 
@@ -102,99 +149,135 @@ export function Sidebar({
     ? alpha('#55cae5', 0.25)
     : alpha('#00aced', 0.2);
 
-  const renderNavItem = (item: NavItem) => {
+  const renderNavItem = (item: NavItem, sortableProps?: SortableProps) => {
     const active = isActive(item.href);
 
     const button = (
       <Box
-        component={Link}
-        href={item.href}
-        onClick={() => { if (isMobile && onClose) onClose(); }}
+        ref={sortableProps?.setNodeRef}
+        style={sortableProps?.style}
         sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 1.5,
           position: 'relative',
-          textDecoration: 'none',
-          color: 'inherit',
-          px: collapsed ? 0 : 1.5,
-          py: 0,
-          mx: collapsed ? 'auto' : 1,
           height: 44,
+          mx: collapsed ? 'auto' : 1,
           width: collapsed ? 44 : 'auto',
-          borderRadius: '12px',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          overflow: 'hidden',
-          // Active pill
-          background: active ? activeBg : 'transparent',
-          border: '1px solid',
-          borderColor: active ? activeBorder : 'transparent',
-          boxShadow: active ? activeGlow : 'none',
-          // Transitions
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          transform: 'translateZ(0)',
-          '&:hover': {
-            background: active
-              ? activeBg
-              : alpha(theme.palette.text.primary, isDark ? 0.06 : 0.04),
-            borderColor: active
-              ? activeBorder
-              : alpha(theme.palette.divider, 0.15),
-            transform: 'translateZ(0) scale(1.02)',
-          },
-          '&:active': {
-            transform: 'translateZ(0) scale(0.98)',
+          opacity: sortableProps?.isDragging ? 0.5 : 1,
+          '&:hover .sidebar-drag-handle': {
+            opacity: 1,
           },
         }}
       >
-        {/* Active left accent — thin gradient bar */}
-        {active && (
+        {/* Drag handle — only in expanded + desktop mode */}
+        {dndEnabled && sortableProps && (
           <Box
+            className="sidebar-drag-handle"
+            {...sortableProps.attributes}
+            {...sortableProps.listeners}
+            role="button"
+            aria-label={`${t.nav.dragToReorder ?? 'Drag to reorder'} ${item.label}`}
             sx={{
-              position: 'absolute',
-              left: 0,
-              top: '20%',
-              bottom: '20%',
-              width: 3,
-              borderRadius: '0 2px 2px 0',
-              background: 'linear-gradient(180deg, #55cae5 0%, #7650ce 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'grab',
+              width: 20,
+              flexShrink: 0,
+              color: 'text.disabled',
+              opacity: 0,
+              transition: 'opacity 0.15s ease',
+              '&:hover': { color: 'text.secondary' },
+              '&:active': { cursor: 'grabbing' },
             }}
-          />
+          >
+            <GripVertical size={14} />
+          </Box>
         )}
 
-        {/* Icon */}
         <Box
+          component={Link}
+          href={item.href}
+          onClick={() => { if (isMobile && onClose) onClose(); }}
           sx={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            width: 24,
-            height: 24,
-            color: active ? 'primary.main' : 'text.secondary',
-            transition: 'color 0.2s ease',
+            gap: 1.5,
+            flex: 1,
+            textDecoration: 'none',
+            color: 'inherit',
+            px: collapsed ? 0 : 1.5,
+            py: 0,
+            height: '100%',
+            borderRadius: '12px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            overflow: 'hidden',
+            background: active ? activeBg : 'transparent',
+            border: '1px solid',
+            borderColor: active ? activeBorder : 'transparent',
+            boxShadow: active ? activeGlow : 'none',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: 'translateZ(0)',
+            '&:hover': {
+              background: active
+                ? activeBg
+                : alpha(theme.palette.text.primary, isDark ? 0.06 : 0.04),
+              borderColor: active
+                ? activeBorder
+                : alpha(theme.palette.divider, 0.15),
+              transform: 'translateZ(0) scale(1.02)',
+            },
+            '&:active': {
+              transform: 'translateZ(0) scale(0.98)',
+            },
           }}
         >
-          {item.icon}
-        </Box>
+          {active && (
+            <Box
+              sx={{
+                position: 'absolute',
+                left: dndEnabled ? 20 : 0,
+                top: '20%',
+                bottom: '20%',
+                width: 3,
+                borderRadius: '0 2px 2px 0',
+                background: 'linear-gradient(180deg, #55cae5 0%, #7650ce 100%)',
+              }}
+            />
+          )}
 
-        {/* Label */}
-        {!collapsed && (
-          <Typography
-            variant="body2"
-            noWrap
+          <Box
             sx={{
-              fontSize: '0.8125rem',
-              fontWeight: active ? 600 : 450,
-              color: active ? 'text.primary' : 'text.secondary',
-              letterSpacing: '-0.01em',
-              transition: 'color 0.2s ease, font-weight 0.2s ease',
-              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              width: 24,
+              height: 24,
+              color: active ? 'primary.main' : 'text.secondary',
+              transition: 'color 0.2s ease',
             }}
           >
-            {item.label}
-          </Typography>
-        )}
+            {item.icon}
+          </Box>
+
+          {!collapsed && (
+            <Typography
+              variant="body2"
+              noWrap
+              sx={{
+                fontSize: '0.8125rem',
+                fontWeight: active ? 600 : 450,
+                color: active ? 'text.primary' : 'text.secondary',
+                letterSpacing: '-0.01em',
+                transition: 'color 0.2s ease, font-weight 0.2s ease',
+                lineHeight: 1,
+              }}
+            >
+              {item.label}
+            </Typography>
+          )}
+        </Box>
       </Box>
     );
 
@@ -207,9 +290,45 @@ export function Sidebar({
     );
   };
 
-  const mainItems = navItems.filter((i) => i.section === 'main');
-  const crmItems = navItems.filter((i) => i.section === 'crm');
-  const aiItems = navItems.filter((i) => i.section === 'ai');
+  const mainItems = mainOrder.map((href) => navItemsMap[href]).filter(Boolean);
+  const crmItems = crmOrder.map((href) => navItemsMap[href]).filter(Boolean);
+  const aiItems = aiOrder.map((href) => navItemsMap[href]).filter(Boolean);
+
+  const makeDragEndHandler = (reorder: (activeId: string, overId: string) => void) =>
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      reorder(String(active.id), String(over.id));
+    };
+
+  const renderSortableSection = (
+    items: NavItem[],
+    order: string[],
+    reorder: (activeId: string, overId: string) => void,
+  ) => {
+    if (!dndEnabled) {
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {items.map((item) => renderNavItem(item))}
+        </Box>
+      );
+    }
+    return (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={makeDragEndHandler(reorder)}
+      >
+        <SortableContext items={order} strategy={verticalListSortingStrategy}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {items.map((item) => (
+              <SortableNavItem key={item.href} item={item} renderNavItem={renderNavItem} />
+            ))}
+          </Box>
+        </SortableContext>
+      </DndContext>
+    );
+  };
 
   const drawerContent = (
     <Box
@@ -260,9 +379,7 @@ export function Sidebar({
         </Typography>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {mainItems.map(renderNavItem)}
-      </Box>
+      {renderSortableSection(mainItems, mainOrder, reorderMain)}
 
       {/* Section: CRM */}
       <Box
@@ -291,9 +408,7 @@ export function Sidebar({
         </Typography>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {crmItems.map(renderNavItem)}
-      </Box>
+      {renderSortableSection(crmItems, crmOrder, reorderCrm)}
 
       {/* Section divider */}
       <Box
@@ -323,9 +438,7 @@ export function Sidebar({
         </Typography>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {aiItems.map(renderNavItem)}
-      </Box>
+      {renderSortableSection(aiItems, aiOrder, reorderAi)}
 
       {/* Spacer */}
       <Box sx={{ flex: 1, minHeight: 16 }} />
@@ -432,4 +545,30 @@ export function Sidebar({
       {drawerContent}
     </Drawer>
   );
+}
+
+// ---- Sortable Nav Item (extracted to avoid hook-in-callback) ----
+
+interface SortableNavItemProps {
+  item: NavItem;
+  renderNavItem: (item: NavItem, sortableProps?: SortableProps) => React.ReactNode;
+}
+
+function SortableNavItem({ item, renderNavItem }: SortableNavItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.href });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return <>{renderNavItem(item, { setNodeRef, style, attributes, listeners, isDragging })}</>;
 }

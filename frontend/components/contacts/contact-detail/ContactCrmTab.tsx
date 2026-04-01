@@ -60,6 +60,24 @@ export const ContactCrmTab = memo(function ContactCrmTab({ contactId }: ContactC
     return timelineQuery.data.pages.flatMap((p) => p.data);
   }, [timelineQuery.data]);
 
+  const fallbackActivities = useMemo(() => {
+    if (!crmData?.recentActivities?.length) return [];
+    return crmData.recentActivities.map((activity) => ({
+      id: activity.id,
+      type: activity.type,
+      content: activity.content,
+      createdAt: activity.createdAt,
+      metadata: null,
+    }));
+  }, [crmData?.recentActivities]);
+
+  const timelineActivities = useMemo(() => {
+    if (allActivities.length > 0) {
+      return allActivities;
+    }
+    return fallbackActivities;
+  }, [allActivities, fallbackActivities]);
+
   const handleLoadMore = useCallback(() => {
     if (timelineQuery.hasNextPage && !timelineQuery.isFetchingNextPage) {
       timelineQuery.fetchNextPage();
@@ -194,21 +212,16 @@ export const ContactCrmTab = memo(function ContactCrmTab({ contactId }: ContactC
         </Typography>
       )}
 
-      {/* Activity Timeline (if account linked) */}
-      {accountId && (
-        <>
-          <Divider sx={{ mb: 2 }} />
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            {t.activityTimeline?.title ?? 'Activity Timeline'}
-          </Typography>
-          <ActivityTimeline
-            activities={allActivities}
-            isLoading={timelineQuery.isLoading}
-            hasMore={!!timelineQuery.hasNextPage}
-            onLoadMore={handleLoadMore}
-          />
-        </>
-      )}
+      <Divider sx={{ mb: 2 }} />
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        {t.activityTimeline?.title ?? 'Activity Timeline'}
+      </Typography>
+      <ActivityTimeline
+        activities={timelineActivities}
+        isLoading={!!accountId && timelineQuery.isLoading}
+        hasMore={!!accountId && !!timelineQuery.hasNextPage}
+        onLoadMore={accountId ? handleLoadMore : undefined}
+      />
     </Box>
   );
 });

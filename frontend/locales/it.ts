@@ -47,6 +47,7 @@ export const it: AppTranslations = {
     lightMode: 'Modalità chiara',
     darkMode: 'Modalità scura',
     searchPlaceholder: 'Cerca email, contatti, eventi...',
+    dragToReorder: 'Trascina per riordinare',
   },
   common: {
     skipToContent: 'Vai al contenuto principale',

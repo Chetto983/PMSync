@@ -14,9 +14,18 @@ import { create } from 'zustand';
 // Store Types
 // ============================================================================
 
-export type WidgetId = 'briefing' | 'events' | 'emails' | 'deadlines' | 'followups' | 'trends' | 'contacts' | 'triage';
+export type WidgetId =
+    | 'briefing'
+    | 'events'
+    | 'emails'
+    | 'deadlines'
+    | 'followups'
+    | 'trends'
+    | 'contacts'
+    | 'triage'
+    | 'crmSuggestions';
 
-export const ALL_WIDGETS: WidgetId[] = ['briefing', 'events', 'emails', 'deadlines', 'followups', 'trends', 'contacts', 'triage'];
+export const ALL_WIDGETS: WidgetId[] = ['briefing', 'events', 'emails', 'deadlines', 'followups', 'trends', 'contacts', 'triage', 'crmSuggestions'];
 
 interface DashboardUIState {
     // Edit mode (client-only, transient)

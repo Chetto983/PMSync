@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Users,
   Shield,
+  Building2,
 } from 'lucide-react';
 import type { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -40,13 +41,25 @@ const StaleContactsWidget = lazy(() =>
 const AiTriageWidget = lazy(() =>
   import('../widgets/AiTriageWidget').then((m) => ({ default: m.AiTriageWidget }))
 );
+const CrmSuggestionsFeed = lazy(() =>
+  import('../CrmSuggestionsFeed').then((m) => ({ default: m.CrmSuggestionsFeed }))
+);
 
-export type WidgetId = 'briefing' | 'events' | 'emails' | 'deadlines' | 'followups' | 'trends' | 'contacts' | 'triage';
+export type WidgetId =
+  | 'briefing'
+  | 'events'
+  | 'emails'
+  | 'deadlines'
+  | 'followups'
+  | 'trends'
+  | 'contacts'
+  | 'triage'
+  | 'crmSuggestions';
 
 export interface WidgetConfig {
   id: WidgetId;
   icon: React.ReactNode;
-  component: React.LazyExoticComponent<() => React.JSX.Element>;
+  component: React.LazyExoticComponent<React.ComponentType<any>>;
   fullWidth?: boolean;
 }
 
@@ -92,23 +105,29 @@ export const WIDGETS: WidgetConfig[] = [
     icon: React.createElement(Shield, { size: 20 }),
     component: AiTriageWidget,
   },
+  {
+    id: 'crmSuggestions',
+    icon: React.createElement(Building2, { size: 20 }),
+    component: CrmSuggestionsFeed,
+  },
 ];
 
 export function getWidgetName(id: WidgetId, t: ReturnType<typeof useTranslations>): string {
   const names: Record<WidgetId, string> = {
     briefing: t.dashboard?.widgets?.briefing?.title || 'Daily Briefing',
-    events: t.calendar?.title || "Today's Events",
-    emails: t.email?.title || 'Unread Emails',
+    events: t.dashboard?.widgets?.todayEvents?.title || "Today's Events",
+    emails: t.dashboard?.widgets?.unreadEmails?.title || 'Unread Emails',
     deadlines: t.dashboard?.widgets?.deadlines?.title || 'Deadlines',
     followups: t.dashboard?.widgets?.followUps?.title || 'Follow-ups',
     trends: t.dashboard?.widgets?.trendCharts?.title || 'Email Activity',
     contacts: t.dashboard?.widgets?.crm?.title || 'Stale Contacts',
     triage: t.dashboard?.widgets?.aiTriage?.title || 'AI Triage',
+    crmSuggestions: t.crmSuggestions?.title || 'AI Suggestions',
   };
   return names[id];
 }
 
-export function getWidgetDescription(id: WidgetId): string {
+export function getWidgetDescription(id: WidgetId, _t: ReturnType<typeof useTranslations>): string {
   const descriptions: Record<WidgetId, string> = {
     briefing: 'AI-powered summary of your day',
     events: 'Calendar events for today',
@@ -118,6 +137,7 @@ export function getWidgetDescription(id: WidgetId): string {
     trends: 'Email activity trends',
     contacts: 'Contacts needing reconnection',
     triage: 'AI-prioritized email inbox',
+    crmSuggestions: 'Review pending CRM suggestions from real inbox activity',
   };
   return descriptions[id];
 }

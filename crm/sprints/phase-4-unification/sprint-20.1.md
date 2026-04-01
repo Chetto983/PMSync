@@ -13,10 +13,10 @@
 
 ### Critical — Fix Immediately (5 SP)
 
-- [ ] T-2011 — **Suggestions Accept/Dismiss: loading + double-submit guard.** In `CrmSuggestionsFeed.tsx`, track per-item pending state with a `Set<string>` of in-flight IDs. Disable individual Accept/Dismiss buttons while their mutation is pending. Show `CircularProgress size={14}` inside button during mutation. Prevents double-submit and provides instant feedback. — [2 SP]
-- [ ] T-2012 — **Suggestions Dismiss: add confirmation dialog.** Add a `ConfirmDialog` before `handleDismiss` executes. Message: "Dismiss this suggestion? This cannot be undone." Only for individual dismiss — bulk dismiss already has visual weight as a deliberate action. — [1 SP]
-- [ ] T-2013 — **KB article delete: replace `window.confirm` with ConfirmDialog.** In `KBBrowsePage.tsx`, replace `window.confirm()` at line 82 with MUI `ConfirmDialog` component (already used in accounts/deals/tickets). Consistent UX, themed, accessible. — [1 SP]
-- [ ] T-2014 — **Touch targets: increase to 44px minimum.** In `CrmSuggestionsFeed.tsx` change Accept/Dismiss `IconButton` from `sx={{ minWidth: 32, minHeight: 32 }}` to `sx={{ width: 44, height: 44 }}`. In `EntityContextSidebar.tsx` change close/toggle buttons from `size="small"` to explicit 44px. Audit all Sprint 20 components for sub-44px interactive elements. — [1 SP]
+- [x] T-2011 — **Suggestions Accept/Dismiss: loading + double-submit guard.** In `CrmSuggestionsFeed.tsx`, track per-item pending state with a `Set<string>` of in-flight IDs. Disable individual Accept/Dismiss buttons while their mutation is pending. Show `CircularProgress size={14}` inside button during mutation. Prevents double-submit and provides instant feedback. — [2 SP] — ✅ DONE
+- [x] T-2012 — **Suggestions Dismiss: add confirmation dialog.** Add a `ConfirmDialog` before `handleDismiss` executes. Message: "Dismiss this suggestion? This cannot be undone." Only for individual dismiss — bulk dismiss already has visual weight as a deliberate action. — [1 SP] — ✅ DONE
+- [x] T-2013 — **KB article delete: replace `window.confirm` with ConfirmDialog.** In `KBBrowsePage.tsx`, replace `window.confirm()` at line 82 with MUI `ConfirmDialog` component (already used in accounts/deals/tickets). Consistent UX, themed, accessible. — [1 SP] — ✅ DONE
+- [x] T-2014 — **Touch targets: increase to 44px minimum.** In `CrmSuggestionsFeed.tsx` change Accept/Dismiss `IconButton` from `sx={{ minWidth: 32, minHeight: 32 }}` to `sx={{ width: 44, height: 44 }}`. In `EntityContextSidebar.tsx` change close/toggle buttons from `size="small"` to explicit 44px. Audit all Sprint 20 components for sub-44px interactive elements. — [1 SP] — ✅ DONE
 
 ### High — Fix This Sprint (5 SP)
 

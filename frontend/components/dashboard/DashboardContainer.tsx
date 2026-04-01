@@ -17,6 +17,7 @@ import { PageContainer } from '@/components/common';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import { ALL_WIDGETS } from '@/stores/dashboard-store';
 import { useDashboardPreferences, useSaveDashboardLayout } from '@/hooks/queries/use-dashboard';
+import { usePendingSuggestions } from '@/hooks/queries/use-crm-suggestions';
 import { WIDGETS, type WidgetId } from './dashboard/widget-registry';
 import { WidgetSkeleton } from './dashboard/WidgetSkeleton';
 import { WidgetCard } from './dashboard/WidgetCard';
@@ -31,6 +32,7 @@ export default function DashboardContainer() {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const { data: preferences, isLoading, error, refetch } = useDashboardPreferences();
   const saveMutation = useSaveDashboardLayout();
+  const { data: pendingSuggestions } = usePendingSuggestions();
 
   const visibleWidgets = useMemo(() => {
     if (!preferences?.widgets?.length) return ALL_WIDGETS as WidgetId[];
@@ -38,6 +40,11 @@ export default function DashboardContainer() {
       .map((w) => w.widgetId as WidgetId)
       .filter((id) => (ALL_WIDGETS as readonly string[]).includes(id));
   }, [preferences]);
+
+  const forcedCrmSuggestions = useMemo(() => {
+    const pendingCount = pendingSuggestions?.data?.length ?? 0;
+    return pendingCount > 0 && !visibleWidgets.includes('crmSuggestions');
+  }, [pendingSuggestions, visibleWidgets]);
 
   const buildLayout = useCallback((widgetIds: WidgetId[]) => {
     return widgetIds.map((widgetId, i) => ({
@@ -64,7 +71,12 @@ export default function DashboardContainer() {
   // Get visible widgets in order
   const widgetsToShow = WIDGETS.filter((w) => visibleWidgets.includes(w.id));
   const briefingWidget = widgetsToShow.find((w) => w.id === 'briefing');
+  const crmSuggestionsWidget = WIDGETS.find((w) => w.id === 'crmSuggestions');
   const otherWidgets = widgetsToShow.filter((w) => w.id !== 'briefing');
+  const gridWidgets =
+    forcedCrmSuggestions && crmSuggestionsWidget
+      ? [...otherWidgets, crmSuggestionsWidget]
+      : otherWidgets;
 
   const headerActions = (
     <Button
@@ -128,7 +140,7 @@ export default function DashboardContainer() {
           )}
 
           {/* Other Widgets - 2-column grid */}
-          {otherWidgets.length > 0 && (
+          {gridWidgets.length > 0 && (
             <Box
               sx={{
                 display: 'grid',
@@ -139,7 +151,7 @@ export default function DashboardContainer() {
                 gap: 3,
               }}
             >
-              {otherWidgets.map((widget) => (
+              {gridWidgets.map((widget) => (
                 <WidgetCard key={widget.id}>
                   <Suspense fallback={<WidgetSkeleton />}>
                     <widget.component />

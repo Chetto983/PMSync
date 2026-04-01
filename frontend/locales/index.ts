@@ -315,6 +315,7 @@ export interface AppTranslations {
     lightMode: string;
     darkMode: string;
     searchPlaceholder: string;
+    dragToReorder: string;
   };
   common: {
     skipToContent: string;

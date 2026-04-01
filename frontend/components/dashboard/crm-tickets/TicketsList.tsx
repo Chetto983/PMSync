@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -42,13 +42,27 @@ const PRIORITY_COLORS: Record<string, 'default' | 'info' | 'warning' | 'error'> 
 export function TicketsList() {
   const t = useTranslations();
   const tt = t.crmTickets;
+  const router = useRouter();
+  const q = router.query;
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState(() => (typeof q.q === 'string' ? q.q : ''));
+  const [statusFilter, setStatusFilter] = useState(() => (typeof q.status === 'string' ? q.status : ''));
+  const [priorityFilter, setPriorityFilter] = useState(() => (typeof q.priority === 'string' ? q.priority : ''));
+  const [page, setPage] = useState(() => {
+    const p = parseInt(typeof q.page === 'string' ? q.page : '', 10);
+    return isNaN(p) ? 0 : p;
+  });
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (search) params.q = search;
+    if (statusFilter) params.status = statusFilter;
+    if (priorityFilter) params.priority = priorityFilter;
+    if (page > 0) params.page = String(page);
+    router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
+  }, [search, statusFilter, priorityFilter, page]);
 
   const { data, isLoading, isError, error } = useTickets({
     search: search || undefined,
@@ -57,8 +71,6 @@ export function TicketsList() {
     limit: rowsPerPage,
     offset: page * rowsPerPage,
   });
-
-  const router = useRouter();
 
   if (isLoading) {
     return (
