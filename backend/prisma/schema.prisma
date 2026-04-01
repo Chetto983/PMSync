@@ -80,6 +80,7 @@ model Tenant {
   kbArticles               KBArticle[]
   csatSurveys              CSATSurvey[]
   ticketTemplates          TicketTemplate[]
+  crmSuggestions           CrmSuggestion[]
 
   @@map("tenants")
 }
@@ -544,6 +545,7 @@ model Email {
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   embeddings           Embedding[]
   tickets              Ticket[]
+  crmSuggestions       CrmSuggestion[]
 
   @@id([id, tenantId])
   @@unique([tenantId, messageId, folder])
@@ -1981,6 +1983,32 @@ model CrmCustomFieldValue {
   @@index([entityId, tenantId])
   @@index([fieldId])
   @@map("crm_custom_field_values")
+}
+
+/// ========================================================================
+/// CRM Suggestions — Auto-population engine (Phase 4, Sprint 19)
+/// ========================================================================
+
+model CrmSuggestion {
+  id             String   @id @default(cuid())
+  tenantId       String
+  type           String   // account, deal, ticket, link
+  status         String   @default("pending") // pending, accepted, dismissed
+  entityData     Json     // Data to create the CRM entity from
+  sourceEmailId  String?
+  sourceEmailTenant String?
+  sourceType     String?  // email_triage, contact_linker, calendar_sync
+  confidence     Float    @default(0.5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sourceEmail    Email?   @relation(fields: [sourceEmailId, sourceEmailTenant], references: [id, tenantId], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, type])
+  @@index([tenantId, sourceEmailId])
+  @@map("crm_suggestions")
 }
 
 /// ========================================================================
