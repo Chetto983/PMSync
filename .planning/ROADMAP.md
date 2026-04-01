@@ -2,128 +2,128 @@
 
 ## Milestones
 
-- ✅ **v1 Stability & Code Quality Refactor** — Phases 1-8 (shipped 2026-02-02)
-- ✅ **v2.0 Professional Email Client** — Phases 1-8 (shipped 2026-02-04)
-- ✅ **v2.1 Optimization & Polish** — Phases 01-03 (shipped 2026-02-05)
-- ✅ **v3.0 AI Intelligence & Scalability** — Phases 1-12 (shipped 2026-02-09)
-- ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** — Phases 13-22 (shipped 2026-02-27)
-- ✅ **v3.2 AI Rebuild & Cleanup** — Phases 23-28 (shipped 2026-03-03, partial)
-- ✅ **v4.0 Enterprise Stabilization** — Phases 31-41 (shipped 2026-03-04)
-- ✅ **v4.1 Security Hardening & Debt Reduction** — Phases 42-49 (shipped 2026-03-06)
-- ✅ **v5.0 better-auth Migration** — Phases 50-65 (shipped 2026-03-10)
-- ✅ **v5.1 Test Coverage & Polish** — Phases 66-76 (shipped 2026-03-15)
-- ✅ **v6.0 Enterprise Platform & AI Governance** — Phases 77-88 (partial, archived 2026-03-20)
-- ✅ **v7.0 System Audit & Hardening** — Phases 89-99 (shipped 2026-03-23)
-- ✅ **v8.0 Progressive Web App** — Phases 100-105 (shipped 2026-03-24)
-- ✅ **v9.0 AI Intelligence & Platform Hardening** — Phases 106-111 (shipped 2026-03-25)
-- ✅ **CRM Pro 360 Phase 1 — Core CRM** — Sprints 01-08 (shipped 2026-03-25)
-- ✅ **CRM Pro 360 Phase 2 — Intelligence Layer** — Sprints 09-14, 61 tasks, 106 SP (shipped 2026-03-30)
-- [ ] **CRM Pro 360 Phase 3 — Customer Service** — Sprints 15-18 (next)
-- ✅ **v10.0 Email & Sync Production Validation** — Phases 112-124 (shipped 2026-03-30)
-- [ ] **v11.0 Legacy Cleanup, Scalability & Billing Hardening** — Phases 125-133 (in progress)
+- â **v1 Stability & Code Quality Refactor** â Phases 1-8 (shipped 2026-02-02)
+- â **v2.0 Professional Email Client** â Phases 1-8 (shipped 2026-02-04)
+- â **v2.1 Optimization & Polish** â Phases 01-03 (shipped 2026-02-05)
+- â **v3.0 AI Intelligence & Scalability** â Phases 1-12 (shipped 2026-02-09)
+- â **v3.1 GDPR Compliance & Chatbot Enhancement** â Phases 13-22 (shipped 2026-02-27)
+- â **v3.2 AI Rebuild & Cleanup** â Phases 23-28 (shipped 2026-03-03, partial)
+- â **v4.0 Enterprise Stabilization** â Phases 31-41 (shipped 2026-03-04)
+- â **v4.1 Security Hardening & Debt Reduction** â Phases 42-49 (shipped 2026-03-06)
+- â **v5.0 better-auth Migration** â Phases 50-65 (shipped 2026-03-10)
+- â **v5.1 Test Coverage & Polish** â Phases 66-76 (shipped 2026-03-15)
+- â **v6.0 Enterprise Platform & AI Governance** â Phases 77-88 (partial, archived 2026-03-20)
+- â **v7.0 System Audit & Hardening** â Phases 89-99 (shipped 2026-03-23)
+- â **v8.0 Progressive Web App** â Phases 100-105 (shipped 2026-03-24)
+- â **v9.0 AI Intelligence & Platform Hardening** â Phases 106-111 (shipped 2026-03-25)
+- â **CRM Pro 360 Phase 1 â Core CRM** â Sprints 01-08 (shipped 2026-03-25)
+- â **CRM Pro 360 Phase 2 â Intelligence Layer** â Sprints 09-14, 61 tasks, 106 SP (shipped 2026-03-30)
+- [ ] **CRM Pro 360 Phase 3 â Customer Service** â Sprints 15-18 (next)
+- â **v10.0 Email & Sync Production Validation** â Phases 112-124 (shipped 2026-03-30)
+- [ ] **v11.0 Legacy Cleanup, Scalability & Billing Hardening** â Phases 125-133 (in progress)
 
 ## Phases
 
 <details>
-<summary>✅ v1 Stability & Code Quality Refactor (Phases 1-8) — SHIPPED 2026-02-02</summary>
+<summary>â v1 Stability & Code Quality Refactor (Phases 1-8) â SHIPPED 2026-02-02</summary>
 
 8 phases, 40 plans. See `milestones/v1-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v2.0 Professional Email Client (Phases 1-8) — SHIPPED 2026-02-04</summary>
+<summary>â v2.0 Professional Email Client (Phases 1-8) â SHIPPED 2026-02-04</summary>
 
 8 phases, 21 plans, 24/24 requirements. See `milestones/v2.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v2.1 Optimization & Polish (Phases 01-03) — SHIPPED 2026-02-05</summary>
+<summary>â v2.1 Optimization & Polish (Phases 01-03) â SHIPPED 2026-02-05</summary>
 
 3 phases, 5 plans. See `milestones/v2.1-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v3.0 AI Intelligence & Scalability (Phases 1-12) — SHIPPED 2026-02-09</summary>
+<summary>â v3.0 AI Intelligence & Scalability (Phases 1-12) â SHIPPED 2026-02-09</summary>
 
 12 phases, 42 plans, 19/19 requirements. See `milestones/v3.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) — SHIPPED 2026-02-27</summary>
+<summary>â v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) â SHIPPED 2026-02-27</summary>
 
 10 phases, 34 plans, 31/32 requirements (ENC-03 deferred). See `milestones/v3.1-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v3.2 AI Rebuild & Cleanup (Phases 23-28) — SHIPPED 2026-03-03 (partial)</summary>
+<summary>â v3.2 AI Rebuild & Cleanup (Phases 23-28) â SHIPPED 2026-03-03 (partial)</summary>
 
 6 phases, 20 plans, 25/33 requirements (8 carried to v4.0). See `milestones/v3.2-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v4.0 Enterprise Stabilization (Phases 31-41) — SHIPPED 2026-03-04</summary>
+<summary>â v4.0 Enterprise Stabilization (Phases 31-41) â SHIPPED 2026-03-04</summary>
 
 11 phases, 22 plans, 19/19 requirements. See `milestones/v4.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v4.1 Security Hardening & Debt Reduction (Phases 42-49) — SHIPPED 2026-03-06</summary>
+<summary>â v4.1 Security Hardening & Debt Reduction (Phases 42-49) â SHIPPED 2026-03-06</summary>
 
 8 phases, 28 plans, 65/66 requirements. See `milestones/v4.1-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v5.0 better-auth Migration (Phases 50-65) — SHIPPED 2026-03-10</summary>
+<summary>â v5.0 better-auth Migration (Phases 50-65) â SHIPPED 2026-03-10</summary>
 
 15 phases, 34 plans, 51/51 requirements. See `milestones/v5.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v5.1 Test Coverage & Polish (Phases 66-76) — SHIPPED 2026-03-15</summary>
+<summary>â v5.1 Test Coverage & Polish (Phases 66-76) â SHIPPED 2026-03-15</summary>
 
 11 phases, 30 plans. See `milestones/v5.1-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v6.0 Enterprise Platform & AI Governance (Phases 77-88) — PARTIAL, archived 2026-03-20</summary>
+<summary>â v6.0 Enterprise Platform & AI Governance (Phases 77-88) â PARTIAL, archived 2026-03-20</summary>
 
 12 phases (77-88), 4/66 requirements completed. Phases 86-88 (bug fixes) completed. Phases 77-85 (enterprise features) deferred to v8.0+. See `milestones/v6.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v7.0 System Audit & Hardening (Phases 89-99) — SHIPPED 2026-03-23</summary>
+<summary>â v7.0 System Audit & Hardening (Phases 89-99) â SHIPPED 2026-03-23</summary>
 
 10 active phases + 1 obsolete (97), 35 plans, 65/65 requirements. See `milestones/v7.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v8.0 Progressive Web App (Phases 100-105) — SHIPPED 2026-03-24</summary>
+<summary>â v8.0 Progressive Web App (Phases 100-105) â SHIPPED 2026-03-24</summary>
 
 6 phases, 11 plans, 21/21 requirements. See `milestones/v8.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v9.0 AI Intelligence & Platform Hardening (Phases 106-111) — SHIPPED 2026-03-25</summary>
+<summary>â v9.0 AI Intelligence & Platform Hardening (Phases 106-111) â SHIPPED 2026-03-25</summary>
 
 6 phases, 14 plans, 20/20 requirements. See `milestones/v9.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v10.0 Email & Sync Production Validation (Phases 112-124) — SHIPPED 2026-03-30</summary>
+<summary>â v10.0 Email & Sync Production Validation (Phases 112-124) â SHIPPED 2026-03-30</summary>
 
 13 phases, 27 plans, 49/50 requirements (WRITE-03 infrastructure-blocked). See `milestones/v10.0-ROADMAP.md` for full details.
 
@@ -159,9 +159,9 @@
   5. Frontend builds and renders correctly with no missing styles or broken layouts after Tailwind removal
 **Plans**: 3 plans
 Plans:
-- [x] 125-01-PLAN.md — Replace @ApiBearerAuth with @ApiCookieAuth across 38 controllers + clean Swagger config, dead scripts, guard comments, and JWT_SECRET
-- [x] 125-02-PLAN.md — Verify deprecated API aliases removed + remove Tailwind CSS pipeline
-- [x] 125-03-PLAN.md — End-to-end validation and visual verification checkpoint
+- [x] 125-01-PLAN.md â Replace @ApiBearerAuth with @ApiCookieAuth across 38 controllers + clean Swagger config, dead scripts, guard comments, and JWT_SECRET
+- [x] 125-02-PLAN.md â Verify deprecated API aliases removed + remove Tailwind CSS pipeline
+- [x] 125-03-PLAN.md â End-to-end validation and visual verification checkpoint
 
 ### Phase 126: Cron-to-BullMQ Migration
 **Goal**: All scheduled jobs run exactly once across any number of backend instances
@@ -173,8 +173,8 @@ Plans:
   3. Running two backend instances simultaneously produces no duplicate job executions (verified via BullMQ job logs)
 **Plans**: 2 plans
 Plans:
-- [x] 126-01-PLAN.md — Migrate 8 @Cron decorators to BullMQ registerHandler across 4 service files
-- [x] 126-02-PLAN.md — Remove ScheduleModule.forRoot() and uninstall @nestjs/schedule
+- [x] 126-01-PLAN.md â Migrate 8 @Cron decorators to BullMQ registerHandler across 4 service files
+- [x] 126-02-PLAN.md â Remove ScheduleModule.forRoot() and uninstall @nestjs/schedule
 
 ### Phase 127: Transport & Connection Hardening
 **Goal**: WebSocket connections and database pool are safe for multi-replica Railway deployment
@@ -187,7 +187,7 @@ Plans:
   4. Connection pool exhaustion does not occur during rolling deploys (old + new instances co-existing)
 **Plans**: 1 plan
 Plans:
-- [x] 127-01-PLAN.md — Force WebSocket-only transport on client + fix DB pool config with env var overrides
+- [x] 127-01-PLAN.md â Force WebSocket-only transport on client + fix DB pool config with env var overrides
 
 ### Phase 128: State Externalization
 **Goal**: No in-memory state diverges across backend replicas
@@ -199,8 +199,8 @@ Plans:
   3. EmailTriageService concurrency semaphore uses Redis-based distributed locking, preventing N-times-limit AI concurrency across replicas
 **Plans**: 2 plans
 Plans:
-- [x] 128-01-PLAN.md — Externalize TriageLearningService signal buffer to Redis lists and remove scoreCache
-- [x] 128-02-PLAN.md — Replace EmailTriageService in-memory semaphore with Redis distributed semaphore + document CircuitBreaker per-instance design
+- [x] 128-01-PLAN.md â Externalize TriageLearningService signal buffer to Redis lists and remove scoreCache
+- [x] 128-02-PLAN.md â Replace EmailTriageService in-memory semaphore with Redis distributed semaphore + document CircuitBreaker per-instance design
 
 ### Phase 129: Replica Activation
 **Goal**: Production runs on 2+ Railway replicas with tuned workers and per-replica observability
@@ -227,8 +227,8 @@ Plans:
   4. No functionality regressions from dynamic imports (lazy-loaded components render correctly with loading fallbacks)
 **Plans**: 2 plans
 Plans:
-- [x] 130-01-PLAN.md — Dynamic import Calendar page component (FullCalendar code-split)
-- [x] 130-02-PLAN.md — Add Cache-Control headers to labels, folders, and pricing GET endpoints
+- [x] 130-01-PLAN.md â Dynamic import Calendar page component (FullCalendar code-split)
+- [x] 130-02-PLAN.md â Add Cache-Control headers to labels, folders, and pricing GET endpoints
 **UI hint**: yes
 
 ### Phase 131: Billing Frontend
@@ -242,7 +242,7 @@ Plans:
   4. Billing portal redirect opens Stripe customer portal for invoice history and payment method management
 **Plans**: 1 plan
 Plans:
-- [x] 131-01-PLAN.md — UI-SPEC compliance polish (typography weights, spacing, error copywriting)
+- [x] 131-01-PLAN.md â UI-SPEC compliance polish (typography weights, spacing, error copywriting)
 **UI hint**: yes
 
 ### Phase 132: Billing Backend Hardening
@@ -257,8 +257,8 @@ Plans:
   5. Cancellation flow works end-to-end: user cancels, access continues until period end, then features restrict
 **Plans**: 2 plans
 Plans:
-- [x] 132-01-PLAN.md — Autumn webhook endpoint with Svix verification, idempotent event processing, and scenario routing
-- [x] 132-02-PLAN.md — Cancellation period-end enforcement + wire billing alert emails
+- [x] 132-01-PLAN.md â Autumn webhook endpoint with Svix verification, idempotent event processing, and scenario routing
+- [x] 132-02-PLAN.md â Cancellation period-end enforcement + wire billing alert emails
 
 ### Phase 133: Billing E2E Validation
 **Goal**: All billing flows verified end-to-end against real Autumn test mode on Railway/Vercel
@@ -268,7 +268,9 @@ Plans:
   1. Validation scripts exercise attach (customer creation), check (entitlement gating), track (usage metering), cancel, and billing portal flows against Autumn test mode
   2. All scripts pass against Railway backend + Vercel frontend deployment
   3. Subscription state remains consistent after payment failure simulation and retry
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 133-01-PLAN.md — E2E billing validation script (attach, check, track, cancel, portal, webhook, cost protection)
 
 ## Progress
 
@@ -285,7 +287,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 130. Frontend Performance | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 131. Billing Frontend | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 132. Billing Backend Hardening | v11.0 | 2/2 | Complete    | 2026-04-01 |
-| 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
+| 133. Billing E2E Validation | v11.0 | 0/1 | In progress | - |
 
 ---
 *Roadmap created: 2026-02-09*
