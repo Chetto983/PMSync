@@ -31,7 +31,7 @@ Declared values from `frontend/theme/tokens.ts` spacing scale. This phase uses t
 
 | Token | Value | Usage in Command Palette |
 |-------|-------|--------------------------|
-| xs | 4px | Icon-to-text gaps within list items |
+| xs | 4px | Icon-to-text gaps within list items, list item bottom margin |
 | sm | 8px | List item vertical padding, chip internal padding |
 | md | 16px | Dialog internal padding (px/pt), section divider margins |
 | lg | 24px | Empty state vertical padding |
@@ -49,11 +49,12 @@ All values from `frontend/theme/typography.ts`. This phase uses only these roles
 |------|------|--------|-------------|-------|
 | Search input | 1.1rem (17.6px) | 400 (normal) | 1.5 | The main text field inside the dialog (existing: `fontSize: '1.1rem'`) |
 | List item primary | 0.875rem (14px) | 400 (normal) | 1.625 (relaxed) | Command names and search result titles |
-| List item secondary | 0.75rem (12px) | 400 (normal) | 1.5 (normal) | Search result subtitles (sender, date, stage, status) |
-| Group header | 0.7rem (11.2px) | 700 (bold) | 28px fixed | Section labels ("Navigation", "CRM", "Actions", "Search Results") -- uppercase, letter-spacing 0.08em |
-| Shortcut badge | 0.7rem (11.2px) | 500 (medium) | 1.5 | Keyboard shortcut labels (existing `kbd` styling) |
-| Entity type chip | 0.65rem (10.4px) | 400 (normal) | 20px (chip height) | Result type badges ("email", "contact", "deal", "ticket", "kb") |
-| Footer hint | caption (0.75rem) | 400 (normal) | 1.5 | Navigation hints row at bottom |
+| List item secondary / Footer hint | 0.75rem (12px) | 400 (normal) | 1.5 (normal) | Search result subtitles (sender, date, stage, status), navigation hints row at bottom |
+| Group header / Shortcut badge / Entity type chip | 0.7rem (11.2px) | 700 (bold) for group headers, 400 (normal) for shortcut badges and entity chips | 28px fixed (headers), 1.5 (badges/chips) | Section labels ("Navigation", "CRM", "Actions", "Search Results") -- uppercase, letter-spacing 0.08em; keyboard shortcut labels; result type badges ("email", "contact", "deal", "ticket", "kb") |
+
+**Sizes declared (4 total):** 1.1rem, 0.875rem, 0.75rem, 0.7rem
+
+**Weights declared (2 total):** 400 (normal), 700 (bold)
 
 ---
 
@@ -117,7 +118,7 @@ Accent reserved for: search input focus indicator, loading spinner, active item 
 | Property | Value |
 |----------|-------|
 | MUI component | `List` dense, `maxHeight: 320`, `overflow: 'auto'`, `py: 1, px: 1` |
-| Item component | `ListItemButton` with `borderRadius: 2` (16px), `mb: 0.25` (2px gap) |
+| Item component | `ListItemButton` with `borderRadius: 2` (16px), `mb: 0.5` (4px gap) |
 | Icon size | 18px via lucide-react `size` prop |
 | Icon container | `ListItemIcon` with `minWidth: 36` |
 | Selected state | MUI `selected` prop -- uses `action.selected` token |
@@ -150,7 +151,8 @@ When query >= 2 chars, show BOTH matching commands (filtered by keyword) AND API
 
 Each result item has a `Chip` showing entity type:
 - `size="small"`, `variant="outlined"`
-- `fontSize: '0.65rem'`, `height: 20`, `textTransform: 'capitalize'`
+- `fontSize: '0.7rem'`, `height: 20`, `textTransform: 'capitalize'`
+- `fontWeight: 400`
 - Border color matches entity semantic color (see Color section)
 
 ### Loading State
@@ -166,8 +168,17 @@ Each result item has a `Chip` showing entity type:
 | Property | Value |
 |----------|-------|
 | Component | `Typography` body2, `color="text.secondary"`, centered |
-| Copy | `t.commandPalette.noResults` ("No results found.") |
+| Copy | `t.commandPalette.noResults` ("No results found. Try a different keyword.") |
 | Layout | `textAlign: 'center'`, `py: 4` |
+
+### Error State (search failed)
+
+| Property | Value |
+|----------|-------|
+| Component | `Typography` body2, `color="text.secondary"`, centered |
+| Copy | `t.commandPalette.searchError` ("Search unavailable. Check your connection and try again.") |
+| Layout | `textAlign: 'center'`, `py: 4` |
+| Trigger | All 5 API search calls rejected (via `Promise.allSettled` -- all settled as rejected) |
 
 ### Footer Hints Bar
 
@@ -175,7 +186,7 @@ Each result item has a `Chip` showing entity type:
 |----------|-------|
 | Layout | Flex row, space-between, `px: 2, py: 1` |
 | Hints | `ArrowUp/ArrowDown` = Navigate, `Enter` = Select, `Esc` = Close |
-| Badge style | Same `kbd` styling as shortcut badges: `alpha(text.primary, 0.06)` bg, `borderRadius: 1` |
+| Badge style | Same `kbd` styling as shortcut badges: `alpha(text.primary, 0.06)` bg, `borderRadius: 1`, `fontWeight: 400` |
 
 ---
 
@@ -198,6 +209,7 @@ Each result item has a `Chip` showing entity type:
 | 0-1 chars typed | Show all command groups (no API calls) |
 | 2+ chars typed | Filter commands by name + keywords AND fire parallel API searches (debounced 300ms) |
 | API calls | `Promise.allSettled` across 5 endpoints; skip failed; no blocking on slow endpoints |
+| All API calls fail | Show error state with `t.commandPalette.searchError` copy; still display any matching commands above |
 | Stale prevention | Monotonic request ID via `useRef`; discard responses from outdated queries |
 | Result limit | 5 results per entity type (25 max from API + filtered commands above) |
 
@@ -240,7 +252,8 @@ All copy goes through i18n. Keys listed below with English values.
 | Dialog title (ARIA) | `commandPalette.title` | "Command Palette" |
 | Search placeholder | `commandPalette.searchPlaceholder` | "Type a command or search..." |
 | Loading state | `commandPalette.searching` | "Searching..." |
-| Empty state (no results) | `commandPalette.noResults` | "No results found." |
+| Empty state (no results) | `commandPalette.noResults` | "No results found. Try a different keyword." |
+| Error state (search failed) | `commandPalette.searchError` | "Search unavailable. Check your connection and try again." |
 | Nav group label | `commandPalette.navigation` | "Navigation" |
 | CRM nav group label | `commandPalette.crmNavigation` | "CRM" |
 | Actions group label | `commandPalette.actions` | "Actions" |
