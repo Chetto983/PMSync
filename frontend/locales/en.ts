@@ -5379,4 +5379,21 @@ export const en: AppTranslations = {
     strengthModerate: 'Moderate',
     strengthStrong: 'Strong',
   },
+  activityTimeline: {
+    title: 'Activity Timeline',
+    noActivities: 'No activities yet',
+    loadMore: 'Load more',
+    loading: 'Loading activities...',
+    eventTypes: {
+      email_sent: 'Email sent',
+      email_received: 'Email received',
+      meeting: 'Meeting',
+      deal_stage_change: 'Stage changed',
+      ticket_update: 'Ticket updated',
+      note: 'Note added',
+      call: 'Call',
+      task: 'Task',
+      stage_change: 'Stage changed',
+    },
+  },
 };

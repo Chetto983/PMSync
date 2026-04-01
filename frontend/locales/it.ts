@@ -5356,4 +5356,21 @@ export const it: AppTranslations = {
     strengthModerate: 'Moderata',
     strengthStrong: 'Forte',
   },
+  activityTimeline: {
+    title: 'Cronologia Attività',
+    noActivities: 'Nessuna attività',
+    loadMore: 'Carica altro',
+    loading: 'Caricamento attività...',
+    eventTypes: {
+      email_sent: 'Email inviata',
+      email_received: 'Email ricevuta',
+      meeting: 'Riunione',
+      deal_stage_change: 'Cambio fase',
+      ticket_update: 'Ticket aggiornato',
+      note: 'Nota aggiunta',
+      call: 'Chiamata',
+      task: 'Attività',
+      stage_change: 'Cambio fase',
+    },
+  },
 };

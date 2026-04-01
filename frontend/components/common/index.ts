@@ -17,3 +17,4 @@ export {
 } from './ColorPicker';
 export { SlaBadge } from './SlaBadge';
 export { EntityContextSidebar, type EntityContextSidebarProps } from './EntityContextSidebar';
+export { ActivityTimeline, type ActivityTimelineProps, type ActivityEvent } from './ActivityTimeline';

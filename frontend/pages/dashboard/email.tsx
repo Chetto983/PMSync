@@ -26,7 +26,9 @@ const KeyboardShortcutsDialog = dynamic(
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { EntityContextSidebar } from '@/components/common';
 import {
+  useCreateLocalContact,
   useEmail, useFolders, useSenderPhotos, useUserPreferences, emailKeys, emailsListOptions,
   useMoveFolder,
 } from '@/hooks/queries';
@@ -37,8 +39,13 @@ import { CircularProgress, Box, Skeleton, Typography, useMediaQuery, useTheme, F
 import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
-import { extractEmailAddress, formatEmailToThread } from '@/components/email/utils/email-formatters';
+import {
+  extractEmailAddress,
+  extractSenderDisplayName,
+  formatEmailToThread,
+} from '@/components/email/utils/email-formatters';
 import { useEmailPageActions, type EmailPageStateSnapshot } from '@/components/email/hooks/use-email-page-actions';
+import { useGlobalToast } from '@/lib/context/toast-context';
 
 function ExpandedMessageSkeleton() {
   return (
@@ -53,6 +60,7 @@ function ExpandedMessageSkeleton() {
 export default function EmailPage() {
   const router = useRouter();
   const t = useTranslations();
+  const toast = useGlobalToast();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -64,7 +72,9 @@ export default function EmailPage() {
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [folderPickerEmailIds, setFolderPickerEmailIds] = useState<string[]>([]);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  const [contextSidebarOpen, setContextSidebarOpen] = useState(true);
   const queryClient = useQueryClient();
+  const createLocalContact = useCreateLocalContact();
 
   const handleCompose = useCallback(() => {
     router.push('/dashboard/email/compose');
@@ -402,6 +412,29 @@ export default function EmailPage() {
 
   const handleCloseReadingPane = useCallback(() => setSelectedThreadId(null), []);
 
+  useEffect(() => {
+    if (selectedThreadId && isDesktop) {
+      setContextSidebarOpen(true);
+    }
+  }, [isDesktop, selectedThreadId]);
+
+  const handleCreateContextContact = useCallback(async () => {
+    if (!selectedEmailData) return;
+
+    const senderEmail = extractEmailAddress(selectedEmailData.from);
+    const senderName = extractSenderDisplayName(selectedEmailData.from);
+
+    try {
+      await createLocalContact.mutateAsync({
+        displayName: senderName || senderEmail,
+        emails: [{ value: senderEmail, primary: true }],
+      });
+      await queryClient.invalidateQueries({ queryKey: ['crm-context'] });
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [createLocalContact, queryClient, selectedEmailData, t.common.genericError, toast]);
+
   const handleMarkThreadAsRead = useCallback(
     (id: string) => {
       optimisticUpdateEmail(id, { isRead: true });
@@ -470,14 +503,19 @@ export default function EmailPage() {
       );
     }
     if (!selectedEmailData) return undefined;
+    const senderEmail = extractEmailAddress(selectedEmailData.from);
+    const senderName = extractSenderDisplayName(selectedEmailData.from);
     return (
       <Box
         key={selectedThreadId}
         data-testid="reading-pane"
         sx={{
           height: '100%',
-          overflow: 'auto',
+          overflow: 'hidden',
           p: 2,
+          display: 'flex',
+          gap: 2,
+          position: 'relative',
           // Fade-in on thread switch (respects reduced-motion)
           '@keyframes fadeIn': {
             from: { opacity: 0 },
@@ -489,17 +527,26 @@ export default function EmailPage() {
           },
         }}
       >
-        <ExpandedMessage
-          message={selectedEmailData}
-          onCollapse={handleCloseReadingPane}
-          onReply={handleReply} onReplyAll={handleReplyAll} onForward={handleForward}
-          onFlag={handleFlagMessage} onLabels={handleLabelsMessage}
-          onDownloadAttachment={handleDownloadAttachment}
-          onDelete={handleDeleteMessage} onArchive={handleArchiveMessage}
-          onMove={handleMoveMessage} onMoveToFolder={handleMoveMessageToFolder}
-          onRemoveLabel={handleRemoveLabel}
-          onAcceptAiLabel={handleAcceptAiLabel}
-          onDismissAiLabel={handleDismissAiLabel}
+        <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
+          <ExpandedMessage
+            message={selectedEmailData}
+            onCollapse={handleCloseReadingPane}
+            onReply={handleReply} onReplyAll={handleReplyAll} onForward={handleForward}
+            onFlag={handleFlagMessage} onLabels={handleLabelsMessage}
+            onDownloadAttachment={handleDownloadAttachment}
+            onDelete={handleDeleteMessage} onArchive={handleArchiveMessage}
+            onMove={handleMoveMessage} onMoveToFolder={handleMoveMessageToFolder}
+            onRemoveLabel={handleRemoveLabel}
+            onAcceptAiLabel={handleAcceptAiLabel}
+            onDismissAiLabel={handleDismissAiLabel}
+          />
+        </Box>
+        <EntityContextSidebar
+          email={senderEmail}
+          contactName={senderName}
+          open={contextSidebarOpen}
+          onToggle={() => setContextSidebarOpen((current) => !current)}
+          onCreateContact={handleCreateContextContact}
         />
       </Box>
     );
@@ -509,7 +556,8 @@ export default function EmailPage() {
     handleFlagMessage, handleLabelsMessage, handleRemoveLabel,
     handleAcceptAiLabel, handleDismissAiLabel, handleDownloadAttachment,
     handleDeleteMessage, handleArchiveMessage, handleMoveMessage,
-    handleMoveMessageToFolder, t.threadView?.loading,
+    handleMoveMessageToFolder, t.threadView?.loading, contextSidebarOpen,
+    handleCreateContextContact,
   ]);
 
   if (loading && emails.length === 0) {

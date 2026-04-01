@@ -1,37 +1,36 @@
 import { memo, useMemo } from 'react';
 import {
+  Alert,
+  Avatar,
   Box,
+  Chip,
+  Divider,
   Drawer,
   IconButton,
-  Typography,
-  Chip,
-  Skeleton,
-  Divider,
-  Tooltip,
-  Avatar,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Alert,
+  Skeleton,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
-  PanelRightClose,
-  PanelRightOpen,
+  Activity,
   Building2,
   Handshake,
-  Ticket,
   Mail,
-  Activity,
+  PanelRightClose,
+  PanelRightOpen,
+  Ticket,
   UserPlus,
 } from 'lucide-react';
-import useTranslations from '@/lib/hooks/use-translations';
 import { useCrmContextByContact, useCrmContextByEmail } from '@/hooks/queries/use-crm-context';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CrmContactContext } from '@/lib/api/crm-context';
 
 const SIDEBAR_WIDTH = 320;
-
-// ---- Types ----
 
 export interface EntityContextSidebarProps {
   contactId?: string;
@@ -43,28 +42,24 @@ export interface EntityContextSidebarProps {
   onCreateContact?: () => void;
 }
 
-// ---- Helpers ----
-
 function getRelationshipStrength(emailCount: number): 'weak' | 'moderate' | 'strong' {
   if (emailCount >= 20) return 'strong';
   if (emailCount >= 5) return 'moderate';
   return 'weak';
 }
 
-const strengthColors: Record<string, string> = {
+const strengthColors: Record<'weak' | 'moderate' | 'strong', string> = {
   weak: '#ef5350',
   moderate: '#ff9800',
   strong: '#4caf50',
 };
 
-function formatCurrency(amount: string | null, currency: string): string {
-  if (!amount) return '—';
+function formatCurrency(amount: string | null, currency: string, locale: string): string {
+  if (!amount) return '-';
   const num = parseFloat(amount);
-  if (isNaN(num)) return '—';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(num);
+  if (Number.isNaN(num)) return '-';
+  return new Intl.NumberFormat(locale || 'en', { style: 'currency', currency }).format(num);
 }
-
-// ---- Sub-components ----
 
 const SidebarSkeleton = memo(function SidebarSkeleton() {
   return (
@@ -91,7 +86,7 @@ interface ContactCardProps {
 
 const ContactCard = memo(function ContactCard({ name, email, company }: ContactCardProps) {
   const displayName = name || email || '?';
-  const initials = (name || email || '?').charAt(0).toUpperCase();
+  const initials = displayName.charAt(0).toUpperCase();
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
@@ -102,7 +97,7 @@ const ContactCard = memo(function ContactCard({ name, email, company }: ContactC
         <Typography variant="subtitle2" noWrap>
           {displayName}
         </Typography>
-        {email && name && (
+        {email && (
           <Typography variant="caption" color="text.secondary" noWrap>
             {email}
           </Typography>
@@ -131,6 +126,7 @@ const SidebarContent = memo(function SidebarContent({
   contactCompany,
 }: SidebarContentProps) {
   const t = useTranslations();
+  const { locale } = useLocale();
   const tc = t.crmContext;
 
   const strength = useMemo(
@@ -139,22 +135,31 @@ const SidebarContent = memo(function SidebarContent({
   );
 
   const activeTickets = useMemo(
-    () => data.tickets.filter((t) => t.status !== 'closed' && t.status !== 'resolved'),
+    () => data.tickets.filter((ticket) => ticket.status !== 'closed' && ticket.status !== 'resolved'),
     [data.tickets],
   );
+  const hasCrmContext = !!data.account || data.deals.length > 0 || activeTickets.length > 0 || data.recentActivities.length > 0;
+
+  const resolvedName = contactName ?? data.contact.displayName ?? null;
+  const resolvedEmail = email ?? data.contact.email ?? undefined;
+  const resolvedCompany = contactCompany ?? data.contact.company ?? data.account?.name ?? null;
 
   return (
     <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
-      {/* Contact Card */}
       <ContactCard
-        name={contactName ?? null}
-        email={email}
-        company={contactCompany ?? data.account?.name ?? null}
+        name={resolvedName}
+        email={resolvedEmail}
+        company={resolvedCompany}
       />
+
+      {!hasCrmContext && (
+        <Alert severity="info" variant="outlined" sx={{ mb: 2, fontSize: '0.8rem' }}>
+          {tc?.noCrmData ?? 'No CRM data yet - AI will analyze after next sync.'}
+        </Alert>
+      )}
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* Relationship Strength */}
       <Box sx={{ mb: 2 }}>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
           {tc?.relationshipStrength ?? 'Relationship'}
@@ -181,23 +186,23 @@ const SidebarContent = memo(function SidebarContent({
             />
           </Box>
           <Typography variant="caption" sx={{ color: strengthColors[strength], fontWeight: 600 }}>
-            {tc?.[strength === 'strong' ? 'strengthStrong' : strength === 'moderate' ? 'strengthModerate' : 'strengthWeak'] ?? strength}
+            {tc?.[
+              strength === 'strong'
+                ? 'strengthStrong'
+                : strength === 'moderate'
+                  ? 'strengthModerate'
+                  : 'strengthWeak'
+            ] ?? strength}
           </Typography>
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
           {(tc?.emailCount ?? '{count} emails exchanged').replace('{count}', String(data.emailCount))}
-          {data.lastInteraction && (
-            <>
-              {' · '}
-              {new Date(data.lastInteraction).toLocaleDateString()}
-            </>
-          )}
+          {data.lastInteraction ? ` - ${new Date(data.lastInteraction).toLocaleDateString(locale)}` : ''}
         </Typography>
       </Box>
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* Linked Account */}
       <Box sx={{ mb: 2 }}>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
           {tc?.linkedAccount ?? 'Account'}
@@ -234,7 +239,6 @@ const SidebarContent = memo(function SidebarContent({
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* Open Deals */}
       <Box sx={{ mb: 2 }}>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
           {tc?.openDeals ?? 'Open Deals'} ({data.deals.length})
@@ -247,7 +251,7 @@ const SidebarContent = memo(function SidebarContent({
                   <Handshake size={14} />
                 </ListItemIcon>
                 <ListItemText
-                  primary={
+                  primary={(
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                         {deal.name}
@@ -266,8 +270,8 @@ const SidebarContent = memo(function SidebarContent({
                         />
                       )}
                     </Box>
-                  }
-                  secondary={formatCurrency(deal.amount, deal.currency)}
+                  )}
+                  secondary={formatCurrency(deal.amount, deal.currency, locale)}
                   secondaryTypographyProps={{ variant: 'caption' }}
                 />
               </ListItem>
@@ -282,7 +286,6 @@ const SidebarContent = memo(function SidebarContent({
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* Active Tickets */}
       <Box>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
           {tc?.activeTickets ?? 'Active Tickets'} ({activeTickets.length})
@@ -295,19 +298,20 @@ const SidebarContent = memo(function SidebarContent({
                   <Ticket size={14} />
                 </ListItemIcon>
                 <ListItemText
-                  primary={
+                  primary={(
                     <Typography variant="body2" noWrap>
                       {ticket.subject}
                     </Typography>
-                  }
-                  secondary={
+                  )}
+                  secondary={(
                     <Chip
                       label={ticket.status.replace('_', ' ')}
                       size="small"
                       variant="outlined"
                       sx={{ height: 20, fontSize: '0.65rem', mt: 0.25 }}
                     />
-                  }
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
                 />
               </ListItem>
             ))}
@@ -321,8 +325,6 @@ const SidebarContent = memo(function SidebarContent({
     </Box>
   );
 });
-
-// ---- Main Component ----
 
 export const EntityContextSidebar = memo(function EntityContextSidebar({
   contactId,
@@ -342,22 +344,20 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
   const data = contactId ? contactQuery.data : emailQuery.data;
   const isLoading = contactId ? contactQuery.isLoading : emailQuery.isLoading;
   const isError = contactId ? contactQuery.isError : emailQuery.isError;
-
   const hasIdentifier = !!contactId || !!email;
+  const isUnknownContact = !contactId && !!email && !isLoading && !isError && data === null;
 
   return (
     <>
-      {/* Toggle button (visible when collapsed) */}
       {!open && hasIdentifier && (
         <Tooltip title={tc?.expand ?? 'Show CRM context'} placement="left">
           <IconButton
             onClick={onToggle}
             size="small"
             sx={{
-              position: 'fixed',
+              position: 'absolute',
               right: 8,
-              top: '50%',
-              transform: 'translateY(-50%)',
+              top: 12,
               zIndex: (theme) => theme.zIndex.drawer - 1,
               bgcolor: 'background.paper',
               border: 1,
@@ -385,7 +385,6 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
           },
         }}
       >
-        {/* Header */}
         <Box
           sx={{
             display: 'flex',
@@ -409,18 +408,17 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
           </Tooltip>
         </Box>
 
-        {/* Body */}
         {isLoading && <SidebarSkeleton />}
 
         {isError && (
           <Box sx={{ p: 2 }}>
             <Alert severity="warning" variant="outlined" sx={{ fontSize: '0.8rem' }}>
-              {tc?.noCrmData ?? 'No CRM data yet — AI will analyze after next sync.'}
+              {tc?.noCrmData ?? 'No CRM data yet - AI will analyze after next sync.'}
             </Alert>
           </Box>
         )}
 
-        {!isLoading && !isError && !data && !contactId && email && (
+        {isUnknownContact && (
           <Box sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {tc?.unknownContact ?? 'Unknown Contact'}
@@ -440,9 +438,9 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
         {!isLoading && !isError && data && (
           <SidebarContent
             data={data}
-            contactName={contactName ?? null}
-            email={email}
-            contactCompany={contactCompany ?? null}
+            contactName={contactName ?? data.contact.displayName ?? null}
+            email={email ?? data.contact.email ?? undefined}
+            contactCompany={contactCompany ?? data.contact.company ?? null}
           />
         )}
       </Drawer>

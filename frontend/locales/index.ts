@@ -5175,6 +5175,23 @@ export interface AppTranslations {
     strengthModerate?: string;
     strengthStrong?: string;
   };
+  activityTimeline?: {
+    title?: string;
+    noActivities?: string;
+    loadMore?: string;
+    loading?: string;
+    eventTypes?: {
+      email_sent?: string;
+      email_received?: string;
+      meeting?: string;
+      deal_stage_change?: string;
+      ticket_update?: string;
+      note?: string;
+      call?: string;
+      task?: string;
+      stage_change?: string;
+    };
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
