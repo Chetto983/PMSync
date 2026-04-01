@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
-status: planning
-stopped_at: Phase 135 context gathered
-last_updated: "2026-04-01T14:22:33.792Z"
-last_activity: 2026-04-01 — Roadmap created for v12.0 (11 phases, 26 requirements)
+status: executing
+stopped_at: Completed 0135-01-PLAN.md
+last_updated: "2026-04-01T15:04:12.626Z"
+last_activity: 2026-04-01
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 20
+  completed_plans: 19
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v12.0 Phase 135 — Sidebar Reduction & Route Preservation
+**Current focus:** Phase 0135 — sidebar-reduction
 
 ## Current Position
 
-Phase: 135 of 145 (Sidebar Reduction & Route Preservation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-01 — Roadmap created for v12.0 (11 phases, 26 requirements)
+Phase: 0135 (sidebar-reduction) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -50,6 +50,8 @@ Progress: [░░░░░░░░░░] 0%
 - v12.0: Follow-ups + Reminders + Tickets + Deal tasks -> unified Tasks pillar
 - v12.0: Backend unified task model before frontend Tasks page (TASK-01 prerequisite)
 - v12.0: Sidebar reduction first (most visible, motivates all other changes)
+- [Phase 0135]: Sidebar always 64px icon rail — no collapsed/expanded modes, mobile returns null
+- [Phase 0135]: Settings pinned at bottom via flex spacer, excluded from DnD reorder
 
 ### Blockers/Concerns
 
@@ -57,6 +59,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-01T14:22:33.787Z
-Stopped at: Phase 135 context gathered
-Resume file: .planning/phases/0135-sidebar-reduction/0135-CONTEXT.md
+Last session: 2026-04-01T15:04:12.615Z
+Stopped at: Completed 0135-01-PLAN.md
+Resume file: None

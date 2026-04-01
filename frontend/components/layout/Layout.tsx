@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePrefetchQuery } from '@tanstack/react-query';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -22,8 +22,6 @@ export interface LayoutProps {
   children: React.ReactNode;
 }
 
-const SIDEBAR_KEY = 'pmsync:sidebar-collapsed';
-
 export function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const t = useTranslations();
@@ -34,11 +32,6 @@ export function Layout({ children }: LayoutProps) {
 
   // Wire up offline action replay (online event + SW message listeners)
   useOfflineActions();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const stored = localStorage.getItem(SIDEBAR_KEY);
-    return stored !== null ? stored === 'true' : false;
-  });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Get translated sync status message
@@ -60,14 +53,6 @@ export function Layout({ children }: LayoutProps) {
 
     return `${statusText}${progress}${error}`;
   }, [lastStatus, t]);
-
-  const handleToggleCollapse = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(SIDEBAR_KEY, String(next));
-      return next;
-    });
-  }, []);
 
   const handleMobileDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -121,12 +106,7 @@ export function Layout({ children }: LayoutProps) {
           {t.common?.skipToContent || 'Skip to main content'}
         </Box>
         {/* Sidebar */}
-        <Sidebar
-          collapsed={collapsed}
-          onToggleCollapse={handleToggleCollapse}
-          mobileOpen={mobileOpen}
-          onClose={handleMobileDrawerToggle}
-        />
+        <Sidebar />
 
         {/* Main Content Area */}
         <Box

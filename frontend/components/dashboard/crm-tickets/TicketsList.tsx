@@ -22,6 +22,9 @@ import {
 import { Search, Plus, Trash2, Ticket as TicketIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import { useTickets, useDeleteTicket } from '@/hooks/queries/use-crm-tickets';
 import { CrmBreadcrumb, EmptyState } from '@/components/common';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -46,7 +49,10 @@ const PRIORITY_COLORS: Record<string, 'default' | 'info' | 'warning' | 'error'> 
 export function TicketsList() {
   const t = useTranslations();
   const tt = t.crmTickets;
+  const tc = t.common;
   const router = useRouter();
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
   const q = router.query;
 
   const [search, setSearch] = useState(() => (typeof q.q === 'string' ? q.q : ''));
@@ -248,7 +254,7 @@ export function TicketsList() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
-                        {new Date(ticket.createdAt).toLocaleDateString()}
+                        {formatDateInTz(ticket.createdAt, timezone, locale)}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -279,6 +285,13 @@ export function TicketsList() {
               setPage(0);
             }}
             rowsPerPageOptions={[10, 25, 50]}
+            labelRowsPerPage={tc?.rowsPerPage ?? 'Rows per page:'}
+            labelDisplayedRows={({ from, to, count }) =>
+              (tc?.displayedRows ?? '{from}-{to} of {count}')
+                .replace('{from}', String(from))
+                .replace('{to}', String(to))
+                .replace('{count}', count !== -1 ? String(count) : `more than ${to}`)
+            }
           />
         </>
       )}
