@@ -197,7 +197,7 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
        */
       analyzeUnified: {
         description: 'Complete email analysis in a single LLM call: summary, sentiment, priority, labels, topics, escalation risk',
-        systemPrompt: (allowedLabels: string, labelRules?: string) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
+        systemPrompt: (allowedLabels: string, labelRules?: string, triageRules?: string) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
 
 <INSTRUCTIONS>
 1. Read the email carefully.
@@ -210,12 +210,15 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
 8. Assess if this email poses escalation risk (angry customer, threat, complaint).
 9. Extract key topics and entities mentioned.
 10. Generate 2-3 short smart reply suggestions if appropriate.
+11. Classify intent: what type of email is this (request, update, alert, sales, billing, personal, fyi)?
+12. Classify actionability: does this require the user to act (todo), wait for a response (waiting), or nothing (none)?
 </INSTRUCTIONS>
 
 <ALLOWED_LABELS>
 ${allowedLabels}
 </ALLOWED_LABELS>
 ${labelRules || ''}
+${triageRules || ''}
 
 <OUTPUT_FORMAT>
 Reply ONLY with valid JSON (no markdown, no explanation):
@@ -227,7 +230,8 @@ Reply ONLY with valid JSON (no markdown, no explanation):
   "urgency": "critical|high|medium|low",
   "labels": ["label1", "label2"],
   "keyTopics": ["topic1", "topic2", "topic3"],
-  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback",
+  "intent": "request|update|alert|sales|billing|personal|fyi",
+  "actionability": "none|todo|waiting",
   "escalationRisk": true|false,
   "hasDeadline": true|false,
   "deadlineDate": "ISO date string or null",

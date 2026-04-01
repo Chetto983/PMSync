@@ -14,6 +14,7 @@ import { PiiDetectionService } from '../guards';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 import { buildAiResponseMeta } from '../utils/ai-response-meta';
 import { DEFAULT_AI_USER_LABELS, ensureDefaultUserLabels } from '../../labels/default-user-labels';
+import { TriageRuleService } from './triage-rule.service';
 
 type LocaleKey = 'en' | 'it';
 
@@ -31,6 +32,7 @@ export class EmailAnalysisService {
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
     private readonly utils: InsightUtilsService,
+    private readonly triageRuleService: TriageRuleService,
     @Optional() @Inject(PiiDetectionService) private readonly piiDetection?: PiiDetectionService,
   ) {}
 
@@ -79,7 +81,8 @@ export class EmailAnalysisService {
     const t = getToolTranslations(supportedLocale);
     const allowedLabels = labelDefs.map((l) => l.name);
     const labelPromptBlock = this.buildLabelPromptBlock(labelDefs);
-    const systemPrompt = t.insights.analyzeUnified.systemPrompt(allowedLabels.join(', '), labelPromptBlock);
+    const triageContext = await this.triageRuleService.buildTriageContext(tenantId);
+    const systemPrompt = t.insights.analyzeUnified.systemPrompt(allowedLabels.join(', '), labelPromptBlock, triageContext);
     const userPrompt = this.buildEmailPrompt(email, lang);
 
     try {
@@ -92,7 +95,8 @@ export class EmailAnalysisService {
 
       const rawPriority = Math.min(5, Math.max(1, Number(parsed.priority) || 3)) as 1 | 2 | 3 | 4 | 5;
       const rawUrgency = this.validateUrgency(parsed.urgency);
-      const intent = typeof parsed.intent === 'string' ? parsed.intent : 'fyi';
+      const intent = this.validateIntent(parsed.intent);
+      const actionability = this.validateActionability(parsed.actionability);
       const escalationRisk = Boolean(parsed.escalationRisk);
       const hasDeadline = Boolean(parsed.hasDeadline);
       const rawNeedsFollowUp = Boolean(parsed.needsFollowUp);
@@ -128,6 +132,8 @@ export class EmailAnalysisService {
         labels,
         keyTopics: Array.isArray(parsed.keyTopics) ? (parsed.keyTopics as string[]).slice(0, 5) : [],
         intent,
+        actionability,
+        lane: this.deriveLane(labels, labelDefs, actionability),
         escalationRisk,
         hasDeadline,
         deadlineDate: normalizedSignals.deadlineDate,
@@ -154,6 +160,7 @@ export class EmailAnalysisService {
         summary: result.summary, keyPoints: result.keyTopics,
         hasDeadline: result.hasDeadline, deadlineDate: result.deadlineDate, needsFollowUp: result.needsFollowUp,
         followUpDate: result.followUpDate,
+        lane: result.lane, intent: result.intent, actionability: result.actionability,
         suggestedActions: {
           locale: lang, smartReplies: result.smartReplies, intent: result.intent, urgency: result.urgency,
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,
@@ -169,7 +176,7 @@ export class EmailAnalysisService {
 
       await this.prisma.email.updateMany({
         where: { id: emailId, tenantId },
-        data: { aiPriority: result.priority, aiPriorityReason: result.reasoning, aiSentiment: result.sentiment, aiLabels: result.labels, isAutoTriaged: true, autoTriagedAt: new Date() },
+        data: { aiPriority: result.priority, aiPriorityReason: result.reasoning, aiSentiment: result.sentiment, aiLabels: result.labels, aiLane: result.lane, aiIntent: result.intent, aiActionability: result.actionability, isAutoTriaged: true, autoTriagedAt: new Date() },
       });
 
       if (result.labels.length > 0) {
@@ -203,16 +210,20 @@ export class EmailAnalysisService {
 
   // --- Private helpers ---
 
-  private async getUserLabels(tenantId: string): Promise<Array<{ name: string; aiPrompt: string | null }>> {
+  private async getUserLabels(tenantId: string): Promise<Array<{ name: string; aiPrompt: string | null; defaultLane: string | null }>> {
     try {
       await ensureDefaultUserLabels(this.prisma, tenantId);
       const labels = await this.prisma.userLabel.findMany({
         where: { tenantId, isArchived: false },
-        select: { name: true, aiPrompt: true },
+        select: { name: true, aiPrompt: true, defaultLane: true },
         orderBy: { orderIndex: 'asc' },
       });
-      return labels.length === 0 ? DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt }) => ({ name, aiPrompt })) : labels;
-    } catch { return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt }) => ({ name, aiPrompt })); }
+      return labels.length === 0
+        ? DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({ name, aiPrompt, defaultLane }))
+        : labels;
+    } catch {
+      return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({ name, aiPrompt, defaultLane }));
+    }
   }
 
   /**
@@ -307,6 +318,9 @@ export class EmailAnalysisService {
       deadlineDate: Date | null;
       needsFollowUp: boolean;
       followUpDate?: Date | null;
+      lane?: string | null;
+      intent?: string | null;
+      actionability?: string | null;
       suggestedActions: unknown;
     },
     persistedLabels: string[] = [],
@@ -323,7 +337,10 @@ export class EmailAnalysisService {
         ? actionLabels
         : (persistedLabels || []).slice(0, 3),
       keyTopics: analysis.keyPoints || [],
-      intent: (actions.intent as string) || 'fyi', escalationRisk: Boolean(actions.escalationRisk),
+      intent: analysis.intent || (actions.intent as string) || 'fyi',
+      actionability: this.validateActionability(analysis.actionability),
+      lane: analysis.lane ?? null,
+      escalationRisk: Boolean(actions.escalationRisk),
       hasDeadline: analysis.hasDeadline, deadlineDate: analysis.deadlineDate, needsFollowUp: analysis.needsFollowUp,
       followUpDate: analysis.followUpDate ?? null, followUpReason: (actions.followUpReason as string) ?? null,
       smartReplies: actions.smartReplies as string[] | undefined, confidence: Number(actions.confidence) || 0.7,
@@ -339,6 +356,44 @@ export class EmailAnalysisService {
   private validateUrgency(value: unknown): 'critical' | 'high' | 'medium' | 'low' {
     const valid = ['critical', 'high', 'medium', 'low'];
     return valid.includes(String(value)) ? (value as 'critical' | 'high' | 'medium' | 'low') : 'medium';
+  }
+
+  private validateIntent(value: unknown): string {
+    const valid = ['request', 'update', 'alert', 'sales', 'billing', 'personal', 'fyi'];
+    const str = String(value ?? 'fyi').toLowerCase().replace(/_/g, '');
+    // Map legacy intent values to new schema
+    if (str === 'actionrequired' || str === 'action_required') return 'request';
+    if (str === 'meetingrequest' || str === 'meeting_request') return 'request';
+    if (str === 'followup' || str === 'follow_up') return 'request';
+    if (str === 'question') return 'request';
+    if (str === 'escalation') return 'alert';
+    if (str === 'feedback') return 'fyi';
+    return valid.includes(str) ? str : 'fyi';
+  }
+
+  private validateActionability(value: unknown): 'none' | 'todo' | 'waiting' {
+    const valid = ['none', 'todo', 'waiting'];
+    const str = String(value ?? 'none').toLowerCase();
+    return valid.includes(str) ? (str as 'none' | 'todo' | 'waiting') : 'none';
+  }
+
+  /**
+   * Derive lane from resolved labels using label metadata.
+   * First label with a defaultLane wins. Falls back to 'review-later'.
+   */
+  private deriveLane(
+    labels: string[],
+    labelDefs: Array<{ name: string; defaultLane: string | null }>,
+    actionability: string,
+  ): string {
+    for (const labelName of labels) {
+      const def = labelDefs.find((l) => l.name === labelName);
+      if (def?.defaultLane) return def.defaultLane;
+    }
+    // Fallback: if actionability is todo, default to action-now
+    if (actionability === 'todo') return 'action-now';
+    if (actionability === 'waiting') return 'waiting-on-reply';
+    return 'review-later';
   }
 
   private normalizeLabels(labels: unknown, allowedLabels: string[]): string[] {

@@ -62,7 +62,12 @@ describe('EmailAnalysisService cache signature', () => {
       mapAiErrorToHttpException: vi.fn((error: unknown) => error),
     };
 
-    service = new EmailAnalysisService(prisma, mistral, utils, undefined as any);
+    const triageRuleService = {
+      getTriageRules: vi.fn().mockResolvedValue([]),
+      setTriageRules: vi.fn().mockResolvedValue([]),
+      buildTriageContext: vi.fn().mockResolvedValue(''),
+    };
+    service = new EmailAnalysisService(prisma, mistral, utils, triageRuleService as any, undefined as any);
   });
 
   it('uses cached analysis when locale and label rules signature match', async () => {

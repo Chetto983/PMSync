@@ -185,7 +185,7 @@ Il campo keyTopics deve contenere elementi in ITALIANO.`,
        */
       analyzeUnified: {
         description: "Analisi completa dell'email in una singola chiamata LLM: riassunto, sentiment, priorità, etichette, argomenti, rischio escalation",
-        systemPrompt: (allowedLabels: string, labelRules?: string) => `Sei un esperto analista di email. Analizza questa email accuratamente e restituisci un'analisi JSON completa.
+        systemPrompt: (allowedLabels: string, labelRules?: string, triageRules?: string) => `Sei un esperto analista di email. Analizza questa email accuratamente e restituisci un'analisi JSON completa.
 
 <ISTRUZIONI>
 1. Leggi attentamente l'email.
@@ -198,12 +198,15 @@ Il campo keyTopics deve contenere elementi in ITALIANO.`,
 8. Valuta se questa email presenta rischio di escalation (cliente arrabbiato, minaccia, reclamo).
 9. Estrai argomenti chiave e entità menzionate.
 10. Genera 2-3 brevi suggerimenti di risposta rapida se appropriato.
+11. Classifica l'intento: che tipo di email è (request, update, alert, sales, billing, personal, fyi)?
+12. Classifica l'azionabilità: l'utente deve agire (todo), attendere una risposta (waiting), o nulla (none)?
 </ISTRUZIONI>
 
 <ETICHETTE_CONSENTITE>
 ${allowedLabels}
 </ETICHETTE_CONSENTITE>
 ${labelRules || ''}
+${triageRules || ''}
 
 <FORMATO_OUTPUT>
 Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi testuali devono essere in ITALIANO:
@@ -215,7 +218,8 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
   "urgency": "critical|high|medium|low",
   "labels": ["etichetta1", "etichetta2"],
   "keyTopics": ["argomento1", "argomento2", "argomento3"],
-  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback",
+  "intent": "request|update|alert|sales|billing|personal|fyi",
+  "actionability": "none|todo|waiting",
   "escalationRisk": true|false,
   "hasDeadline": true|false,
   "deadlineDate": "data ISO o null",

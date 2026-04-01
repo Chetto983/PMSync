@@ -143,7 +143,7 @@ export interface ToolTranslations {
      */
     analyzeUnified: {
       description: string;
-      systemPrompt: (allowedLabels: string, labelRules?: string) => string;
+      systemPrompt: (allowedLabels: string, labelRules?: string, triageRules?: string) => string;
     };
     compose: {
       description: string;
