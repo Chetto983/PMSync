@@ -350,12 +350,12 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
     errorType?: string;
     limit?: number;
     offset?: number;
-  }): Promise<DLQJobData[]> {
+  }): Promise<(DLQJobData & { dlqJobId: string })[]> {
     const { queue, errorType, limit = 50, offset = 0 } = options;
 
     const jobs = await this.dlqQueue.getJobs(['waiting', 'active', 'completed'], 0, limit + offset);
 
-    let filtered = jobs.map((job) => job.data);
+    let filtered = jobs.map((job) => ({ ...job.data, dlqJobId: job.id ?? '' }));
 
     // Filter by queue
     if (queue) {

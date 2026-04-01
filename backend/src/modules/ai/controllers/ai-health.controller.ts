@@ -263,7 +263,7 @@ export class AiHealthController {
     }
 
     const retried = await this.dlqService.retryBulk(
-      jobs.map((j) => j.originalJobId),
+      jobs.map((j) => j.dlqJobId),
       { maxRetries: 3, retryDelay: 5000 },
     );
 
