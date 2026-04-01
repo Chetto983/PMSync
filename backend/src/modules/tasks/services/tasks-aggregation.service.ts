@@ -245,14 +245,14 @@ export class TasksAggregationService {
       where: {
         tenantId,
         userId,
-        status: { in: this.mapToFollowUpStatuses(statusFilter) },
+        status: { in: this.mapToFollowUpStatuses(statusFilter) as any },
         ...(query.dueBefore ? { dueDate: { lte: new Date(query.dueBefore) } } : {}),
         ...(query.dueAfter ? { dueDate: { gte: new Date(query.dueAfter) } } : {}),
       },
       include: { email: { select: { subject: true, from: true } } },
       take: 500,
     });
-    return records.map(normalizeFollowUp);
+    return records.map((r) => normalizeFollowUp(r as Parameters<typeof normalizeFollowUp>[0]));
   }
 
   private async queryReminders(
@@ -265,7 +265,7 @@ export class TasksAggregationService {
       where: {
         tenantId,
         userId,
-        status: { in: this.mapToReminderStatuses(statusFilter) },
+        status: { in: this.mapToReminderStatuses(statusFilter) as any },
         ...(query.dueBefore ? { scadenzaDatetime: { lte: new Date(query.dueBefore) } } : {}),
         ...(query.dueAfter ? { scadenzaDatetime: { gte: new Date(query.dueAfter) } } : {}),
         ...(query.contactId ? { contatto: { contains: query.contactId } } : {}),
