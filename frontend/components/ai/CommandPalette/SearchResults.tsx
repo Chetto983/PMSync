@@ -26,15 +26,6 @@ interface SearchResultsProps {
   listRef: React.RefObject<HTMLUListElement | null>;
 }
 
-const ENTITY_COLORS: Record<SearchResult['type'], string> = {
-  email: 'primary.main',
-  contact: 'secondary.main',
-  event: 'secondary.main',
-  deal: 'success.main',
-  ticket: 'warning.main',
-  kb: 'secondary.main',
-};
-
 function getEntityColor(type: SearchResult['type'], theme: ReturnType<typeof useTheme>): string {
   switch (type) {
     case 'email': return theme.palette.primary.main;
