@@ -62,6 +62,7 @@ export function TicketsList() {
     if (priorityFilter) params.priority = priorityFilter;
     if (page > 0) params.page = String(page);
     router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter, priorityFilter, page]);
 
   const { data, isLoading, isError, error } = useTickets({

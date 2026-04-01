@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -46,13 +46,27 @@ export function KBBrowsePage() {
   const tk = t.kb;
   const tf = tk?.form;
   const tb = tk?.browse;
+  const q = router.query;
 
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState(() => (typeof q.q === 'string' ? q.q : ''));
+  const [debouncedSearch, setDebouncedSearch] = useState(() => (typeof q.q === 'string' ? q.q : ''));
+  const [statusFilter, setStatusFilter] = useState(() => (typeof q.status === 'string' ? q.status : ''));
+  const [categoryFilter, setCategoryFilter] = useState(() => (typeof q.category === 'string' ? q.category : ''));
+  const [page, setPage] = useState(() => {
+    const p = parseInt(typeof q.page === 'string' ? q.page : '', 10);
+    return isNaN(p) ? 0 : p;
+  });
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (debouncedSearch) params.q = debouncedSearch;
+    if (statusFilter) params.status = statusFilter;
+    if (categoryFilter) params.category = categoryFilter;
+    if (page > 0) params.page = String(page);
+    router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, statusFilter, categoryFilter, page]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Debounce search

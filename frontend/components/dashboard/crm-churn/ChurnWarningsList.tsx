@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -19,6 +19,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { AlertTriangle, Check, Eye, Building2, User } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useChurnAtRisk,
@@ -60,10 +61,23 @@ function formatDate(dateStr: string | null): string {
 export function ChurnWarningsList() {
   const t = useTranslations();
   const tc = t.churn;
+  const router = useRouter();
+  const q = router.query;
 
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(() => {
+    const p = parseInt(typeof q.page === 'string' ? q.page : '', 10);
+    return isNaN(p) ? 0 : p;
+  });
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [riskFilter, setRiskFilter] = useState<string>('');
+  const [riskFilter, setRiskFilter] = useState<string>(() => (typeof q.risk === 'string' ? q.risk : ''));
+
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (riskFilter) params.risk = riskFilter;
+    if (page > 0) params.page = String(page);
+    router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riskFilter, page]);
 
   const { data, isLoading, isError } = useChurnAtRisk({
     page: page + 1,

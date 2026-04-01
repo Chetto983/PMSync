@@ -35,21 +35,32 @@ export function AccountsList() {
   const t = useTranslations();
   const ta = t.crmAccounts;
   const tc = t.common;
+  const router = useRouter();
+  const q = router.query;
 
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState(() => (typeof q.q === 'string' ? q.q : ''));
+  const [page, setPage] = useState(() => {
+    const p = parseInt(typeof q.page === 'string' ? q.page : '', 10);
+    return isNaN(p) ? 0 : p;
+  });
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (search) params.q = search;
+    if (page > 0) params.page = String(page);
+    router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, page]);
 
   const { data, isLoading, isError, error } = useAccounts({
     search: search || undefined,
     limit: rowsPerPage,
     offset: page * rowsPerPage,
   });
-
-  const router = useRouter();
   const deleteAccount = useDeleteAccount();
 
   const handleDelete = () => {
