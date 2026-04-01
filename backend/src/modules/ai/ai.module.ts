@@ -68,6 +68,8 @@ import { AiAnalyticsService } from './services/ai-analytics.service';
 import { RealtimeModule } from '../realtime/realtime.module';
 // Phase 109: Entity extraction for graph RAG
 import { EntityExtractionService } from './services/entity-extraction.service';
+// Phase 10 Label-First Triage: Onboarding rules management
+import { TriageRuleService } from './services/triage-rule.service';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
@@ -140,6 +142,8 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     EmailEmbeddingCleanupService,
     // Phase 109: Entity extraction for graph RAG
     EntityExtractionService,
+    // Phase 10 Label-First Triage: Onboarding rules management
+    TriageRuleService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController],
   exports: [
@@ -167,6 +171,8 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     AiRunLedgerService,
     // Phase 109: Entity extraction (exported for ai-chat module)
     EntityExtractionService,
+    // Phase 10 Label-First Triage: exported for controllers/chat
+    TriageRuleService,
   ],
 })
 export class AiModule implements OnModuleInit {
