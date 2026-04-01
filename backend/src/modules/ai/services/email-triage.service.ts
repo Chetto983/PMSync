@@ -15,6 +15,7 @@
 
 import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
@@ -72,33 +73,41 @@ interface BatchTriageResult {
 export class EmailTriageService implements OnModuleInit {
   private readonly logger = new Logger(EmailTriageService.name);
 
-  // SCALE PROTECTION: Redis-based distributed counting semaphore
-  // Enforces global MAX_CONCURRENT_TRIAGE_OPERATIONS across all replicas
+  // SCALE PROTECTION: Redis sorted-set distributed semaphore
+  // Each slot is a unique member with a timestamp score.
+  // Stale slots (from crashed workers) auto-expire individually on every acquire/release.
   private redis!: Redis;
 
-  private readonly SEMAPHORE_KEY = 'pmsync:triage-semaphore:count';
+  private readonly SEMAPHORE_KEY = 'pmsync:triage-semaphore:slots';
   private readonly SEMAPHORE_MAX = MAX_CONCURRENT_TRIAGE_OPERATIONS; // 5
-  private readonly SEMAPHORE_TTL = 120; // 2 min safety TTL
+  private readonly SEMAPHORE_SLOT_TTL_MS = 5 * 60 * 1000; // 5 min per-slot TTL
+  private currentSlotId: string | null = null;
 
-  /** Lua: atomic check-and-increment with TTL refresh */
+  /**
+   * Lua: remove expired slots, then add new slot if below max.
+   * ARGV[1] = max slots, ARGV[2] = expiry cutoff timestamp, ARGV[3] = slot id, ARGV[4] = now timestamp
+   * Returns 1 if acquired, 0 if at capacity.
+   */
   private readonly ACQUIRE_SCRIPT = `
-    local current = tonumber(redis.call("GET", KEYS[1]) or "0")
-    if current < tonumber(ARGV[1]) then
-      redis.call("INCR", KEYS[1])
-      redis.call("EXPIRE", KEYS[1], ARGV[2])
+    redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", ARGV[2])
+    local count = redis.call("ZCARD", KEYS[1])
+    if count < tonumber(ARGV[1]) then
+      redis.call("ZADD", KEYS[1], ARGV[4], ARGV[3])
       return 1
     else
       return 0
     end
   `;
 
-  /** Lua: atomic check-and-decrement (floor at 0) */
+  /**
+   * Lua: remove specific slot by member id, then clean expired.
+   * ARGV[1] = slot id, ARGV[2] = expiry cutoff timestamp
+   * Returns remaining count after removal.
+   */
   private readonly RELEASE_SCRIPT = `
-    local current = tonumber(redis.call("GET", KEYS[1]) or "0")
-    if current > 0 then
-      redis.call("DECR", KEYS[1])
-    end
-    return current - 1
+    redis.call("ZREM", KEYS[1], ARGV[1])
+    redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", ARGV[2])
+    return redis.call("ZCARD", KEYS[1])
   `;
 
   constructor(
@@ -114,17 +123,28 @@ export class EmailTriageService implements OnModuleInit {
   }
 
   /**
-   * SCALE PROTECTION: Acquire distributed semaphore slot via Redis Lua
-   * Returns true if acquired (below limit), false if at capacity or Redis error.
+   * SCALE PROTECTION: Acquire distributed semaphore slot via Redis sorted set.
+   * Each slot gets a unique ID and timestamp. Stale slots (older than SLOT_TTL_MS)
+   * are cleaned up atomically during acquire, so crashed workers don't block the semaphore.
    * Fails closed: if Redis is down, triage is blocked (no LLM call storm).
    */
   private async acquireSemaphore(): Promise<boolean> {
     try {
+      const now = Date.now();
+      const expiryCutoff = now - this.SEMAPHORE_SLOT_TTL_MS;
+      const slotId = `${process.pid}:${now}:${randomBytes(4).toString('hex')}`;
+
       const result = await this.redis.eval(
         this.ACQUIRE_SCRIPT, 1,
-        this.SEMAPHORE_KEY, this.SEMAPHORE_MAX, this.SEMAPHORE_TTL,
+        this.SEMAPHORE_KEY,
+        this.SEMAPHORE_MAX, expiryCutoff, slotId, now,
       );
-      return result === 1;
+
+      if (result === 1) {
+        this.currentSlotId = slotId;
+        return true;
+      }
+      return false;
     } catch (error) {
       this.logger.error(`Semaphore acquire failed: ${error instanceof Error ? error.message : String(error)}`);
       return false; // Fail closed - don't allow triage if Redis is down
@@ -132,16 +152,38 @@ export class EmailTriageService implements OnModuleInit {
   }
 
   /**
-   * SCALE PROTECTION: Release distributed semaphore slot via Redis Lua
+   * SCALE PROTECTION: Release distributed semaphore slot by removing its specific member.
+   * Also cleans up any expired slots from other crashed workers.
    * Fire-and-forget: errors are logged but swallowed.
    */
   private releaseSemaphore(): void {
+    const slotId = this.currentSlotId;
+    if (!slotId) return;
+    this.currentSlotId = null;
+
+    const expiryCutoff = Date.now() - this.SEMAPHORE_SLOT_TTL_MS;
     this.redis.eval(
       this.RELEASE_SCRIPT, 1,
       this.SEMAPHORE_KEY,
+      slotId, expiryCutoff,
     ).catch((err: unknown) => {
       this.logger.error(`Semaphore release failed: ${err instanceof Error ? err.message : String(err)}`);
     });
+  }
+
+  /**
+   * Get current semaphore utilization (for monitoring/health endpoint).
+   * Returns active slot count after cleaning expired entries.
+   */
+  async getSemaphoreUtilization(): Promise<{ active: number; max: number }> {
+    try {
+      const expiryCutoff = Date.now() - this.SEMAPHORE_SLOT_TTL_MS;
+      await this.redis.zremrangebyscore(this.SEMAPHORE_KEY, '-inf', expiryCutoff);
+      const active = await this.redis.zcard(this.SEMAPHORE_KEY);
+      return { active, max: this.SEMAPHORE_MAX };
+    } catch {
+      return { active: -1, max: this.SEMAPHORE_MAX };
+    }
   }
 
   /**
