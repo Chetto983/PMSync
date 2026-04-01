@@ -124,6 +124,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                 size="small"
                 onClick={handleToggleVip}
                 disabled={isLoading || toggleVipMutation.isPending}
+                aria-label={contact.isVip ? (contactsCopy.actions?.removeVip || 'Remove VIP') : (contactsCopy.actions?.markVip || 'Mark as VIP')}
                 sx={{ color: contact.isVip ? 'warning.main' : 'action.disabled' }}
               >
                 <Star size={18} fill={contact.isVip ? 'currentColor' : 'none'} />
@@ -131,20 +132,20 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
             </Tooltip>
             {onEdit && (
               <Tooltip title={t.common?.edit || 'Edit'}>
-                <IconButton size="small" onClick={onEdit} disabled={isLoading}>
+                <IconButton size="small" onClick={onEdit} disabled={isLoading} aria-label={t.common?.edit || 'Edit'}>
                   <Edit size={18} />
                 </IconButton>
               </Tooltip>
             )}
             {onDelete && (
               <Tooltip title={t.common?.delete || 'Delete'}>
-                <IconButton size="small" onClick={onDelete} disabled={isLoading}>
+                <IconButton size="small" onClick={onDelete} disabled={isLoading} aria-label={t.common?.delete || 'Delete'}>
                   <Trash2 size={18} />
                 </IconButton>
               </Tooltip>
             )}
             <Tooltip title={t.contacts?.duplicates?.findDuplicates || 'Find Duplicates'}>
-              <IconButton size="small" onClick={() => setDupsOpen(true)} disabled={isLoading}>
+              <IconButton size="small" onClick={() => setDupsOpen(true)} disabled={isLoading} aria-label={t.contacts?.duplicates?.findDuplicates || 'Find Duplicates'}>
                 <GitMerge size={18} />
               </IconButton>
             </Tooltip>

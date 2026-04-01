@@ -25,6 +25,7 @@ import {
   Ticket,
   UserPlus,
 } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useCrmContextByContact, useCrmContextByEmail } from '@/hooks/queries/use-crm-context';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -127,6 +128,7 @@ const SidebarContent = memo(function SidebarContent({
 }: SidebarContentProps) {
   const t = useTranslations();
   const { locale } = useLocale();
+  const router = useRouter();
   const tc = t.crmContext;
 
   const strength = useMemo(
@@ -164,7 +166,11 @@ const SidebarContent = memo(function SidebarContent({
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
           {tc?.relationshipStrength ?? 'Relationship'}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box
+          role="img"
+          aria-label={`${tc?.relationshipStrength ?? 'Relationship strength'}: ${strength}`}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        >
           <Activity size={14} />
           <Box
             sx={{
@@ -246,7 +252,20 @@ const SidebarContent = memo(function SidebarContent({
         {data.deals.length > 0 ? (
           <List dense disablePadding>
             {data.deals.map((deal) => (
-              <ListItem key={deal.id} disablePadding sx={{ mb: 0.5 }}>
+              <ListItem
+                key={deal.id}
+                disablePadding
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/dashboard/crm/deals/${deal.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    router.push(`/dashboard/crm/deals/${deal.id}`);
+                  }
+                }}
+                sx={{ mb: 0.5, cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+              >
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <Handshake size={14} />
                 </ListItemIcon>
@@ -293,7 +312,20 @@ const SidebarContent = memo(function SidebarContent({
         {activeTickets.length > 0 ? (
           <List dense disablePadding>
             {activeTickets.map((ticket) => (
-              <ListItem key={ticket.id} disablePadding sx={{ mb: 0.5 }}>
+              <ListItem
+                key={ticket.id}
+                disablePadding
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/dashboard/crm/tickets/${ticket.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    router.push(`/dashboard/crm/tickets/${ticket.id}`);
+                  }
+                }}
+                sx={{ mb: 0.5, cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+              >
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <Ticket size={14} />
                 </ListItemIcon>
@@ -353,6 +385,7 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
         <Tooltip title={tc?.expand ?? 'Show CRM context'} placement="left">
           <IconButton
             onClick={onToggle}
+            aria-label={tc?.expand ?? 'Show CRM context'}
             sx={{
               position: 'absolute',
               right: 8,
@@ -404,7 +437,7 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
             </Typography>
           </Box>
           <Tooltip title={tc?.collapse ?? 'Collapse sidebar'}>
-            <IconButton onClick={onToggle} sx={{ width: 44, height: 44 }}>
+            <IconButton onClick={onToggle} aria-label={tc?.collapse ?? 'Collapse sidebar'} sx={{ width: 44, height: 44 }}>
               <PanelRightClose size={18} />
             </IconButton>
           </Tooltip>

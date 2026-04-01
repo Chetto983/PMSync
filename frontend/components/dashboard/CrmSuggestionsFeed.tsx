@@ -112,6 +112,7 @@ const SuggestionItem = memo(function SuggestionItem({
             <IconButton
               size="small"
               color="success"
+              aria-label={acceptLabel}
               onClick={() => onAccept(suggestion.id)}
               disabled={isPending}
               sx={{ width: 44, height: 44 }}
@@ -123,6 +124,7 @@ const SuggestionItem = memo(function SuggestionItem({
             <IconButton
               size="small"
               color="error"
+              aria-label={dismissLabel}
               onClick={() => onDismiss(suggestion.id)}
               disabled={isPending}
               sx={{ width: 44, height: 44 }}
