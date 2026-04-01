@@ -89,11 +89,14 @@ export function TasksList() {
   const [filterSourceType, setFilterSourceType] = useState(() => (typeof q.type === 'string' ? q.type : ''));
   const [filterStatus, setFilterStatus] = useState(() => (typeof q.status === 'string' ? q.status : ''));
   const [filterPriority, setFilterPriority] = useState(() => (typeof q.priority === 'string' ? q.priority : ''));
+  const [filterDueBefore, setFilterDueBefore] = useState(() => (typeof q.dueBefore === 'string' ? q.dueBefore : ''));
+  const [filterDueAfter, setFilterDueAfter] = useState(() => (typeof q.dueAfter === 'string' ? q.dueAfter : ''));
+  const [filterContactId, setFilterContactId] = useState(() => (typeof q.contactId === 'string' ? q.contactId : ''));
   const [page, setPage] = useState(() => {
     const p = parseInt(typeof q.page === 'string' ? q.page : '', 10);
     return isNaN(p) ? 0 : p;
   });
-  const [rowsPerPage] = useState(25);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedTask | null>(null);
 
@@ -114,20 +117,26 @@ export function TasksList() {
     if (filterSourceType) params.type = filterSourceType;
     if (filterStatus) params.status = filterStatus;
     if (filterPriority) params.priority = filterPriority;
+    if (filterDueBefore) params.dueBefore = filterDueBefore;
+    if (filterDueAfter) params.dueAfter = filterDueAfter;
+    if (filterContactId) params.contactId = filterContactId;
     if (page > 0) params.page = String(page);
     if (viewMode !== 'list') params.view = viewMode;
     void router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterSourceType, filterStatus, filterPriority, page, viewMode]);
+  }, [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId, page, viewMode]);
 
   // Build query
   const filters: ListTasksQuery = useMemo(() => ({
     sourceType: filterSourceType ? [filterSourceType as TaskSourceType] : undefined,
     status: filterStatus ? [filterStatus as UnifiedTaskStatus] : ['pending', 'in_progress'],
     priority: filterPriority ? [filterPriority as UnifiedTaskPriority] : undefined,
+    dueBefore: filterDueBefore || undefined,
+    dueAfter: filterDueAfter || undefined,
+    contactId: filterContactId || undefined,
     page: page + 1,
     limit: rowsPerPage,
-  }), [filterSourceType, filterStatus, filterPriority, page, rowsPerPage]);
+  }), [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId, page, rowsPerPage]);
 
   const { data, isLoading, isError, error } = useTasks(filters);
 
@@ -154,7 +163,7 @@ export function TasksList() {
     setDeleteTarget(null);
   }, [deleteTarget, deleteTask, toast, t]);
 
-  const hasFilters = !!(filterSourceType || filterStatus || filterPriority);
+  const hasFilters = !!(filterSourceType || filterStatus || filterPriority || filterDueBefore || filterDueAfter || filterContactId);
   const rows = data?.data ?? [];
   const total = data?.meta?.total ?? 0;
 
@@ -261,6 +270,32 @@ export function TasksList() {
             <MenuItem key={p} value={p}>{t.tasks.priorities[p]}</MenuItem>
           ))}
         </TextField>
+        <TextField
+          label={t.tasks.filters.dueAfter}
+          type="date"
+          value={filterDueAfter}
+          onChange={(e) => { setFilterDueAfter(e.target.value); setPage(0); }}
+          size="small"
+          sx={{ minWidth: 150 }}
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          label={t.tasks.filters.dueBefore}
+          type="date"
+          value={filterDueBefore}
+          onChange={(e) => { setFilterDueBefore(e.target.value); setPage(0); }}
+          size="small"
+          sx={{ minWidth: 150 }}
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          label={t.tasks.filters.contact}
+          value={filterContactId}
+          onChange={(e) => { setFilterContactId(e.target.value); setPage(0); }}
+          size="small"
+          sx={{ minWidth: 150 }}
+          placeholder={t.tasks.filters.contact}
+        />
         <Chip
           variant="outlined"
           size="small"
@@ -388,7 +423,7 @@ export function TasksList() {
                 page={page}
                 onPageChange={(_, newPage) => setPage(newPage)}
                 rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={() => {}}
+                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
                 rowsPerPageOptions={[10, 25, 50]}
                 labelRowsPerPage={tc?.rowsPerPage ?? 'Rows per page:'}
                 labelDisplayedRows={({ from, to, count }) =>
