@@ -114,6 +114,50 @@ describe('LabelsService', () => {
     });
   });
 
+  describe('triage onboarding', () => {
+    it('previews normalized rules and recommended labels', async () => {
+      const tenant = await createTestTenant();
+
+      const preview = await service.previewTriageOnboarding(tenant.id, {
+        customerDomains: ['Acme.com', '@acme.com'],
+        systemAlertSources: ['GitHub Actions'],
+        followUpSlaHours: 24,
+      });
+
+      expect(preview.normalizedRules.customerDomains).toEqual(['acme.com']);
+      expect(preview.recommendedLabels.map((label) => label.name)).toEqual(
+        expect.arrayContaining(['Customer', 'System Alert', 'Important', 'Follow-up']),
+      );
+      expect(preview.taxonomy.find((label) => label.name === 'Review Later')).toBeDefined();
+    });
+
+    it('creates missing operational labels and updates existing prompts when applied', async () => {
+      const tenant = await createTestTenant();
+
+      const applied = await service.applyTriageOnboarding(tenant.id, {
+        customerDomains: ['acme.com'],
+        importantSenders: ['cto@acme.com'],
+        systemAlertSources: ['Railway'],
+        reviewLaterTopics: ['weekly digest'],
+        billingTopics: ['invoice overdue'],
+        followUpSlaHours: 48,
+      });
+
+      expect(applied.labels.map((label) => label.name)).toEqual(
+        expect.arrayContaining(['Customer', 'System Alert', 'Review Later', 'Important']),
+      );
+
+      const labels = await prisma.userLabel.findMany({
+        where: { tenantId: tenant.id, isArchived: false },
+        select: { name: true, aiPrompt: true },
+      });
+
+      expect(labels.find((label) => label.name === 'Customer')?.aiPrompt).toContain('acme.com');
+      expect(labels.find((label) => label.name === 'System Alert')?.aiPrompt).toContain('Railway');
+      expect(labels.find((label) => label.name === 'Follow-up')?.aiPrompt).toContain('48 hours');
+    });
+  });
+
   describe('findOne', () => {
     it('returns the label when tenantId matches', async () => {
       const tenant = await createTestTenant();

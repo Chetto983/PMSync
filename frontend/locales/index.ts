@@ -3929,6 +3929,7 @@ export interface AppTranslations {
       name: string;
       workspace: string;
       emailProvider: string;
+      triage: string;
       avatar: string;
       mfa: string;
     };
@@ -3950,21 +3951,25 @@ export interface AppTranslations {
         placeholder: string;
         alreadySetUp: string;
       };
-      emailProvider: {
-        title: string;
-        description: string;
-        autoDetected: string;
-        autoConnecting: string;
-        connected: string;
-        connectGmail: string;
-        connectOutlook: string;
-        skipForNow: string;
-      };
-      avatar: {
-        title: string;
-        description: string;
-        upload: string;
-        useOAuth: string;
+        emailProvider: {
+          title: string;
+          description: string;
+          autoDetected: string;
+          autoConnecting: string;
+          connected: string;
+          connectGmail: string;
+          connectOutlook: string;
+          skipForNow: string;
+        };
+        triage: {
+          title: string;
+          description: string;
+        };
+        avatar: {
+          title: string;
+          description: string;
+          upload: string;
+          useOAuth: string;
         skip: string;
         fileTooLarge?: string;
       };
@@ -3998,10 +4003,42 @@ export interface AppTranslations {
         downloadCodes: string;
         addPasskey: string;
       };
+      };
     };
-  };
-  admin: {
-    users: {
+    triageSetup: {
+      title: string;
+      description: string;
+      customerDomains: string;
+      importantSenders: string;
+      projectTopics: string;
+      systemAlerts: string;
+      billingTopics: string;
+      reviewLaterTopics: string;
+      followUpSla: string;
+      customerPlaceholder: string;
+      senderPlaceholder: string;
+      topicPlaceholder: string;
+      systemPlaceholder: string;
+      billingPlaceholder: string;
+      reviewLaterPlaceholder: string;
+      helper: string;
+      preview: string;
+      willCreate: string;
+      catchTitle: string;
+      avoidTitle: string;
+      previewButton: string;
+      applyButton: string;
+      skipButton: string;
+      loading: string;
+      genericError: string;
+      applyReady: string;
+      applySuccess: string;
+      currentLabels: string;
+      dialogTitle: string;
+      openGuided: string;
+    };
+    admin: {
+      users: {
       title: string;
       searchPlaceholder: string;
       columns: {

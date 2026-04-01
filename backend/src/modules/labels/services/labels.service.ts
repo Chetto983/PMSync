@@ -15,9 +15,17 @@ import {
   AddEmailsToLabelDto,
   CreateLabelDto,
   ReorderLabelsDto,
+  TriageOnboardingRulesDto,
   UpdateLabelDto,
 } from '../dto/labels.dto';
 import { ensureDefaultUserLabels } from '../default-user-labels';
+import {
+  buildRecommendedLabelSet,
+  normalizeTriageOnboardingRules,
+  TRIAGE_LABEL_TAXONOMY,
+  TRIAGE_ONBOARDING_EXAMPLES,
+  TRIAGE_ONBOARDING_FIELDS,
+} from '../triage-onboarding.contract';
 
 @Injectable()
 export class LabelsService {
@@ -63,6 +71,143 @@ export class LabelsService {
     }
 
     return label;
+  }
+
+  async getTriageOnboardingContract(tenantId: string) {
+    await ensureDefaultUserLabels(this.prisma, tenantId);
+
+    const labels = await this.prisma.userLabel.findMany({
+      where: { tenantId, isArchived: false },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        aiPrompt: true,
+        type: true,
+      },
+      orderBy: [{ parentId: 'asc' }, { orderIndex: 'asc' }],
+    });
+
+    return {
+      version: 'v1' as const,
+      schema: TRIAGE_ONBOARDING_FIELDS,
+      taxonomy: TRIAGE_LABEL_TAXONOMY,
+      examples: TRIAGE_ONBOARDING_EXAMPLES,
+      currentLabels: labels,
+    };
+  }
+
+  async previewTriageOnboarding(tenantId: string, dto: TriageOnboardingRulesDto) {
+    await ensureDefaultUserLabels(this.prisma, tenantId);
+
+    const normalizedRules = normalizeTriageOnboardingRules(dto);
+    const existingLabels = await this.prisma.userLabel.findMany({
+      where: { tenantId, isArchived: false },
+      select: { id: true, name: true, slug: true, aiPrompt: true, type: true },
+    });
+    const existingBySlug = new Map(existingLabels.map((label) => [label.slug, label]));
+
+    const recommendedLabels = buildRecommendedLabelSet(normalizedRules).map((label) => ({
+      ...label,
+      existingLabelId: existingBySlug.get(label.slug)?.id ?? null,
+      willCreate: !existingBySlug.has(label.slug),
+    }));
+
+    return {
+      version: 'v1' as const,
+      normalizedRules,
+      schema: TRIAGE_ONBOARDING_FIELDS,
+      taxonomy: TRIAGE_LABEL_TAXONOMY,
+      examples: TRIAGE_ONBOARDING_EXAMPLES,
+      recommendedLabels,
+    };
+  }
+
+  async applyTriageOnboarding(tenantId: string, dto: TriageOnboardingRulesDto) {
+    const preview = await this.previewTriageOnboarding(tenantId, dto);
+    const existingLabels = await this.prisma.userLabel.findMany({
+      where: { tenantId, isArchived: false },
+      select: { id: true, slug: true },
+    });
+    const existingBySlug = new Map(existingLabels.map((label) => [label.slug, label]));
+
+    const labels = await this.prisma.$transaction(async (tx) => {
+      const nextLabels = [];
+      for (const recommendation of preview.recommendedLabels) {
+        const existing = existingBySlug.get(recommendation.slug);
+
+        if (existing) {
+          const updated = await tx.userLabel.update({
+            where: { id: existing.id },
+            data: { aiPrompt: recommendation.aiPrompt },
+            select: {
+              id: true,
+              tenantId: true,
+              name: true,
+              slug: true,
+              type: true,
+              color: true,
+              icon: true,
+              parentId: true,
+              level: true,
+              orderIndex: true,
+              isArchived: true,
+              aiPrompt: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          });
+          nextLabels.push(updated);
+          continue;
+        }
+
+        const maxOrder = await tx.userLabel.aggregate({
+          where: { tenantId, parentId: null },
+          _max: { orderIndex: true },
+        });
+
+        const created = await tx.userLabel.create({
+          data: {
+            tenantId,
+            name: recommendation.name,
+            slug: recommendation.slug,
+            type: 'USER',
+            color: recommendation.color as Prisma.InputJsonValue,
+            aiPrompt: recommendation.aiPrompt,
+            level: 0,
+            parentId: null,
+            orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
+          },
+          select: {
+            id: true,
+            tenantId: true,
+            name: true,
+            slug: true,
+            type: true,
+            color: true,
+            icon: true,
+            parentId: true,
+            level: true,
+            orderIndex: true,
+            isArchived: true,
+            aiPrompt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        nextLabels.push(created);
+      }
+
+      return nextLabels;
+    });
+
+    return {
+      version: 'v1' as const,
+      normalizedRules: preview.normalizedRules,
+      taxonomy: TRIAGE_LABEL_TAXONOMY,
+      examples: TRIAGE_ONBOARDING_EXAMPLES,
+      labels,
+    };
   }
 
   async create(tenantId: string, dto: CreateLabelDto) {

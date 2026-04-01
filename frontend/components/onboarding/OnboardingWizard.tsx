@@ -17,6 +17,7 @@ import { apiClient } from '@/lib/api-client';
 import { StepNameConfirm } from './StepNameConfirm';
 import { StepWorkspace } from './StepWorkspace';
 import { StepEmailProvider } from './StepEmailProvider';
+import { StepTriageRules } from './StepTriageRules';
 import { StepAvatar } from './StepAvatar';
 import { StepMfaSetup } from './StepMfaSetup';
 import { StepLegalConsent } from './StepLegalConsent';
@@ -44,6 +45,7 @@ export function OnboardingWizard({ user, legalOnly = false }: OnboardingWizardPr
         { label: t.onboarding.steps.name, Component: StepNameConfirm },
         { label: t.onboarding.steps.workspace, Component: StepWorkspace },
         { label: t.onboarding.steps.emailProvider, Component: StepEmailProvider },
+        { label: t.onboarding.steps.triage, Component: StepTriageRules },
         { label: t.onboarding.steps.avatar, Component: StepAvatar },
         { label: t.onboarding.steps.mfa, Component: StepMfaSetup },
       ];

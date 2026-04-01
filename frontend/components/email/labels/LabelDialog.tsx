@@ -27,6 +27,7 @@ import { Tag } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useCreateLabel, useUpdateLabel, useLabels } from '@/hooks/queries';
 import { LabelColorPicker } from './LabelColorPicker';
+import { TriageSetupDialog } from './TriageSetupDialog';
 import { DEFAULT_LABEL_COLOR, type LabelColor } from '@/lib/label-colors';
 import { getDescendantIdsFlat, MAX_DEPTH } from '@/lib/label-tree-utils';
 import type { Label } from '@/lib/api/labels';
@@ -59,6 +60,7 @@ export function LabelDialog({
   const [parentId, setParentId] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [triageSetupOpen, setTriageSetupOpen] = useState(false);
 
   // Mutations
   const createLabel = useCreateLabel();
@@ -278,6 +280,17 @@ export function LabelDialog({
           sx={{ mt: 2 }}
         />
 
+        <Box sx={{ mt: 1.5 }}>
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => setTriageSetupOpen(true)}
+            disabled={isLoading}
+          >
+            {t.triageSetup.openGuided}
+          </Button>
+        </Box>
+
         {/* Preview */}
         <Box sx={{ mt: 3 }}>
           <Typography
@@ -326,6 +339,11 @@ export function LabelDialog({
             : t.email?.labels?.create || 'Create'}
         </Button>
       </DialogActions>
+
+      <TriageSetupDialog
+        open={triageSetupOpen}
+        onClose={() => setTriageSetupOpen(false)}
+      />
     </Dialog>
   );
 }

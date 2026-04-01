@@ -19,6 +19,7 @@ import {
   BulkDeleteLabelsDto,
   CreateLabelDto,
   ReorderLabelsDto,
+  TriageOnboardingRulesDto,
   UpdateLabelDto,
 } from '../dto/labels.dto';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
@@ -44,6 +45,48 @@ export class LabelsController {
   async listLabels(@Req() req: AuthenticatedRequest) {
     const labels = await this.labelsService.findAllByTenant(req.user.tenantId);
     return { labels };
+  }
+
+  @Get('triage-onboarding')
+  @ApiOperation({
+    summary: 'Get triage onboarding contract',
+    description: 'Returns the onboarding schema, label taxonomy, and current label prompts used by label-first triage',
+  })
+  @ApiResponse({ status: 200, description: 'Triage onboarding contract returned successfully' })
+  async getTriageOnboarding(@Req() req: AuthenticatedRequest) {
+    return this.labelsService.getTriageOnboardingContract(req.user.tenantId);
+  }
+
+  @Post('triage-onboarding/preview')
+  @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({
+    summary: 'Preview triage onboarding rules',
+    description: 'Normalizes onboarding rules and previews the label prompts PMSync would apply',
+  })
+  @ApiBody({ type: TriageOnboardingRulesDto })
+  @ApiResponse({ status: 200, description: 'Preview returned successfully' })
+  async previewTriageOnboarding(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: TriageOnboardingRulesDto,
+  ) {
+    return this.labelsService.previewTriageOnboarding(req.user.tenantId, dto);
+  }
+
+  @Post('triage-onboarding/apply')
+  @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({
+    summary: 'Apply triage onboarding rules',
+    description: 'Creates or updates operational labels and aiPrompt guidance from onboarding rules',
+  })
+  @ApiBody({ type: TriageOnboardingRulesDto })
+  @ApiResponse({ status: 200, description: 'Triage onboarding applied successfully' })
+  async applyTriageOnboarding(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: TriageOnboardingRulesDto,
+  ) {
+    return this.labelsService.applyTriageOnboarding(req.user.tenantId, dto);
   }
 
   @Get(':id')

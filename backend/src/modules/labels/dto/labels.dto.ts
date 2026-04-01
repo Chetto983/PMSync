@@ -1,5 +1,6 @@
-import { IsArray, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length, Matches, ValidateNested } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length, Matches, Max, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 /** Hex color regex: #RGB, #RRGGBB, or #RRGGBBAA */
 const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
@@ -87,4 +88,85 @@ export class BulkDeleteLabelsDto {
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
   labelIds!: string[];
+}
+
+export class TriageOnboardingRulesDto {
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Customer email domains that should bias triage toward customer context',
+    example: ['acme.com', 'contoso.it'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  customerDomains?: string[];
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Specific senders that deserve higher operational attention',
+    example: ['cto@acme.com', 'ops@railway.app'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  importantSenders?: string[];
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Projects or phrases that often imply real work',
+    example: ['PMSync production deploy', 'customer migration'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  projectTopics?: string[];
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Alert sources that should map to operational system labels',
+    example: ['GitHub Actions', 'Railway'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  systemAlertSources?: string[];
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Billing or finance phrases to reinforce the finance label',
+    example: ['invoice overdue', 'subscription renewal'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  billingTopics?: string[];
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'FYI topics that should stay visible but low-urgency',
+    example: ['weekly digest', 'product newsletter'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  reviewLaterTopics?: string[];
+
+  @ApiProperty({
+    required: false,
+    description: 'Default follow-up revisit target in hours',
+    example: 24,
+    minimum: 4,
+    maximum: 240,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(4)
+  @Max(240)
+  followUpSlaHours?: number;
 }

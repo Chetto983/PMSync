@@ -102,6 +102,94 @@ export interface ReorderLabelsDto {
   labelIds: string[];
 }
 
+export interface TriageOnboardingRulesInput {
+  customerDomains?: string[];
+  importantSenders?: string[];
+  projectTopics?: string[];
+  systemAlertSources?: string[];
+  billingTopics?: string[];
+  reviewLaterTopics?: string[];
+  followUpSlaHours?: number;
+}
+
+export interface TriageOnboardingFieldDefinition {
+  key:
+    | 'customerDomains'
+    | 'importantSenders'
+    | 'projectTopics'
+    | 'systemAlertSources'
+    | 'billingTopics'
+    | 'reviewLaterTopics'
+    | 'followUpSlaHours';
+  label: string;
+  description: string;
+  examples: string[];
+  kind: 'list' | 'number';
+}
+
+export interface TriageLabelTaxonomyRule {
+  name: string;
+  family: 'priority' | 'workflow' | 'semantic' | 'suppression' | 'context';
+  suppressesUrgency: boolean;
+  mutuallyExclusiveWith: string[];
+  allowedWith: string[];
+  notes: string;
+}
+
+export interface TriageRecommendedLabel {
+  name: string;
+  slug: string;
+  aiPrompt: string;
+  rationale: string;
+  family: TriageLabelTaxonomyRule['family'];
+  color: LabelColor;
+  existingLabelId?: string | null;
+  willCreate?: boolean;
+}
+
+export interface TriageOnboardingExamples {
+  customerRule: string;
+  systemAlertRule: string;
+  billingRule: string;
+  reviewLaterRule: string;
+}
+
+export interface TriageOnboardingRules {
+  version: 'v1';
+  customerDomains: string[];
+  importantSenders: string[];
+  projectTopics: string[];
+  systemAlertSources: string[];
+  billingTopics: string[];
+  reviewLaterTopics: string[];
+  followUpSlaHours: number | null;
+}
+
+export interface TriageOnboardingContractResponse {
+  version: 'v1';
+  schema: TriageOnboardingFieldDefinition[];
+  taxonomy: TriageLabelTaxonomyRule[];
+  examples: TriageOnboardingExamples;
+  currentLabels: Array<Pick<Label, 'id' | 'name' | 'slug' | 'aiPrompt' | 'type'>>;
+}
+
+export interface TriageOnboardingPreviewResponse {
+  version: 'v1';
+  normalizedRules: TriageOnboardingRules;
+  schema: TriageOnboardingFieldDefinition[];
+  taxonomy: TriageLabelTaxonomyRule[];
+  examples: TriageOnboardingExamples;
+  recommendedLabels: TriageRecommendedLabel[];
+}
+
+export interface TriageOnboardingApplyResponse {
+  version: 'v1';
+  normalizedRules: TriageOnboardingRules;
+  taxonomy: TriageLabelTaxonomyRule[];
+  examples: TriageOnboardingExamples;
+  labels: Label[];
+}
+
 export interface LabelsResponse {
   labels: Label[];
 }
@@ -203,5 +291,36 @@ export const labelsApi = {
    */
   async reorderLabels(dto: ReorderLabelsDto): Promise<void> {
     await apiClient.post('/labels/reorder', dto);
+  },
+
+  /**
+   * Get triage onboarding schema, taxonomy, and current label prompts
+   * GET /labels/triage-onboarding
+   */
+  async getTriageOnboardingContract(): Promise<TriageOnboardingContractResponse> {
+    const response = await apiClient.get('/labels/triage-onboarding');
+    return response.data;
+  },
+
+  /**
+   * Preview normalized triage onboarding rules
+   * POST /labels/triage-onboarding/preview
+   */
+  async previewTriageOnboarding(
+    dto: TriageOnboardingRulesInput,
+  ): Promise<TriageOnboardingPreviewResponse> {
+    const response = await apiClient.post('/labels/triage-onboarding/preview', dto);
+    return response.data;
+  },
+
+  /**
+   * Apply triage onboarding rules to operational labels
+   * POST /labels/triage-onboarding/apply
+   */
+  async applyTriageOnboarding(
+    dto: TriageOnboardingRulesInput,
+  ): Promise<TriageOnboardingApplyResponse> {
+    const response = await apiClient.post('/labels/triage-onboarding/apply', dto);
+    return response.data;
   },
 };
