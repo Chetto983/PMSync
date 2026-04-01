@@ -79,6 +79,9 @@ export enum ScheduledJobType {
 
   // Contact purge (S09 T-0905 — auto-delete soft-deleted contacts after 30 days)
   CONTACT_PURGE = 'contact-purge',
+
+  // Reminder alert check (Sprint 01 — T-0102)
+  REMINDER_ALERT_CHECK = 'reminder-alert-check',
 }
 
 /**
@@ -115,6 +118,8 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.CHURN_RECOMPUTE]: '0 3 * * 0',                     // Sunday 3 AM
   // Contact purge (S09 T-0905)
   [ScheduledJobType.CONTACT_PURGE]: '0 4 * * *',                      // Daily 4 AM
+  // Reminder alert check (Sprint 01 — T-0102)
+  [ScheduledJobType.REMINDER_ALERT_CHECK]: '*/5 * * * *',             // Every 5 minutes
 };
 
 export interface ScheduledJobData {
