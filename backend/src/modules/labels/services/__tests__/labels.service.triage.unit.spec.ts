@@ -58,6 +58,9 @@ describe('LabelsService triage onboarding', () => {
     };
 
     const prisma = {
+      emailAnalysis: {
+        updateMany: jest.fn().mockResolvedValue({ count: 12 }),
+      },
       userLabel: {
         count: jest.fn().mockResolvedValue(8),
         findMany: jest
@@ -104,6 +107,10 @@ describe('LabelsService triage onboarding', () => {
         }),
       }),
     );
+    expect(prisma.emailAnalysis.updateMany).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-1' },
+      data: { processedAt: expect.any(Date) },
+    });
     expect(result.labels.some((label: { name: string }) => label.name === 'System Alert')).toBe(true);
   });
 });

@@ -201,6 +201,8 @@ export class LabelsService {
       return nextLabels;
     });
 
+    await this.invalidateTenantAnalysisCache(tenantId, 'triage-onboarding-applied');
+
     return {
       version: 'v1' as const,
       normalizedRules: preview.normalizedRules,
@@ -265,6 +267,8 @@ export class LabelsService {
       label: newLabel as any,
       timestamp: new Date().toISOString(),
     });
+
+    await this.invalidateTenantAnalysisCache(tenantId, 'label-created');
 
     return newLabel;
   }
@@ -371,6 +375,8 @@ export class LabelsService {
         timestamp: new Date().toISOString(),
       });
 
+      await this.invalidateTenantAnalysisCache(tenantId, 'label-updated');
+
       return updatedLabel;
     }
 
@@ -465,6 +471,8 @@ export class LabelsService {
       timestamp: new Date().toISOString(),
     });
 
+    await this.invalidateTenantAnalysisCache(tenantId, 'label-updated');
+
     return updatedLabel;
   }
 
@@ -492,6 +500,8 @@ export class LabelsService {
       label: label as any,
       timestamp: new Date().toISOString(),
     });
+
+    await this.invalidateTenantAnalysisCache(tenantId, 'label-deleted');
   }
 
   async bulkDelete(tenantId: string, labelIds: string[]) {
@@ -556,6 +566,8 @@ export class LabelsService {
         timestamp: new Date().toISOString(),
       });
     }
+
+    await this.invalidateTenantAnalysisCache(tenantId, 'labels-bulk-deleted');
 
     return { deleted: validIds.length };
   }
@@ -816,6 +828,22 @@ export class LabelsService {
         },
       });
       await this.archiveDescendants(tenantId, child.id);
+    }
+  }
+
+  private async invalidateTenantAnalysisCache(tenantId: string, reason: string): Promise<void> {
+    try {
+      const { count } = await this.prisma.emailAnalysis.updateMany({
+        where: { tenantId },
+        data: { processedAt: new Date(0) },
+      });
+      this.logger.debug(`Expired ${count} email analyses for tenant ${tenantId} after ${reason}`);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to expire email analyses for tenant ${tenantId} after ${reason}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 
