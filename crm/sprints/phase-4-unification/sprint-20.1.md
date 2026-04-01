@@ -30,7 +30,7 @@
 - [x] T-2019 — **Relationship strength bar: add aria-label.** In `EntityContextSidebar.tsx`, add `role="img"` and `aria-label="Relationship strength: {level}"` to the strength bar container. Screen readers can announce the value. — [0.5 SP] — ✅ DONE
 - [x] T-2020 — **Icon-only buttons: add aria-labels.** Audit all CRM components for `IconButton` without `aria-label`. Add labels to: ContactDetail edit/delete/merge buttons, EntityContextSidebar toggle/close, CrmSuggestionsFeed accept/dismiss, ActivityTimeline icons. — [0.5 SP] — ✅ DONE
 - [x] T-2021 — **Required field markers.** Add `required` prop to MUI `TextField` in: `CreateAccountDialog` (name), `CreateDealDialog` (name, pipeline, stage), `CreateTicketDialog` (subject), `KBArticleEditor` (title, body). MUI renders asterisk automatically with `required`. — [1 SP] — ✅ DONE
-- [ ] T-2022 — **Generic error messages: add context.** Replace `toast.error(t.common.genericError)` in `AccountContactsTab`, `AccountDetail`, `DealContactsTab`, `DealProductsTab` with specific error keys: e.g. `t.crmAccounts.linkError ?? 'Failed to link contact'`. Add 8 new translation keys to en.ts + it.ts. — [1 SP]
+- [x] T-2022 — **Generic error messages: add context.** Replace `toast.error(t.common.genericError)` in `AccountContactsTab`, `AccountDetail`, `DealContactsTab`, `DealProductsTab` with specific error keys: e.g. `t.crmAccounts.linkError ?? 'Failed to link contact'`. Add 8 new translation keys to en.ts + it.ts. — [1 SP] — ✅ DONE
 
 **Totale: 14 SP**
 
