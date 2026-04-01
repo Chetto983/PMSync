@@ -47,3 +47,14 @@
 - Frontend tsc: not modified this sprint
 - Circular deps: ✅ zero (verified with madge)
 - DB push: ✅ schema synced to Railway
+- Railway deploy: ✅ /health 200, /crm/suggestions 401 (auth guard active)
+- Production DB validation (8/8 checks PASS):
+  - crm_suggestions table: ✅ exists, 4 real suggestions already created
+  - Create + dedup: ✅ works
+  - Accept → entity: ✅ creates real CRM account from entityData
+  - Freemail filter: ✅ 7/7 tests pass
+  - Contact-Account matching: ✅ JSONB domain query works, 5 accounts with websites
+  - Calendar-Activity logging: ✅ 189 events with attendees, 2 MEETING activities logged
+  - Auto-population potential: ✅ 1069 triaged emails, top business domains identified
+  - Indexes: ✅ 4 indexes present (pkey, status, type, sourceEmailId)
+- Script: `backend/scripts/validate-sprint19-auto-population.ts`
