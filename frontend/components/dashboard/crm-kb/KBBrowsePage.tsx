@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -70,11 +70,14 @@ export function KBBrowsePage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Debounce search
-  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+  }, []);
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    if (debounceTimer) clearTimeout(debounceTimer);
-    setDebounceTimer(setTimeout(() => setDebouncedSearch(value), 300));
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => setDebouncedSearch(value), 300);
   };
 
   const isSearchMode = debouncedSearch.trim().length > 0;

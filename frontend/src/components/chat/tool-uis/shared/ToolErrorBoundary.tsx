@@ -6,6 +6,8 @@ import Typography from '@mui/material/Typography';
 
 interface Props {
   toolName: string;
+  errorLabel?: string;
+  fallbackMessage?: string;
   children: ReactNode;
 }
 
@@ -42,11 +44,12 @@ export class ToolErrorBoundary extends Component<Props, State> {
             <Typography
               sx={{ ml: 'auto', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'warning.main' }}
             >
-              Render Error
+              {this.props.errorLabel ?? 'Render Error'}
             </Typography>
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-            {this.state.errorMessage}
+            {this.props.fallbackMessage ?? 'This tool could not be rendered.'}
+            {this.state.errorMessage ? ` ${this.state.errorMessage}` : ''}
           </Typography>
         </Paper>
       );

@@ -255,7 +255,7 @@ const SidebarContent = memo(function SidebarContent({
               <ListItem
                 key={deal.id}
                 disablePadding
-                role="link"
+                role="button"
                 tabIndex={0}
                 onClick={() => router.push(`/dashboard/crm/deals/${deal.id}`)}
                 onKeyDown={(e) => {
@@ -315,7 +315,7 @@ const SidebarContent = memo(function SidebarContent({
               <ListItem
                 key={ticket.id}
                 disablePadding
-                role="link"
+                role="button"
                 tabIndex={0}
                 onClick={() => router.push(`/dashboard/crm/tickets/${ticket.id}`)}
                 onKeyDown={(e) => {

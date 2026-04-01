@@ -4048,6 +4048,8 @@ export const it: AppTranslations = {
     },
     threadList: {
       title: 'Conversazioni',
+      openList: 'Apri conversazioni',
+      closeList: 'Chiudi conversazioni',
       newChat: 'Nuova chat',
       deleteConfirm: 'Eliminare questa conversazione?',
       deleteConfirmDescription: 'Questa conversazione verrà eliminata definitivamente. Questa azione non può essere annullata.',
@@ -4084,6 +4086,18 @@ export const it: AppTranslations = {
     },
     suggestions: {
       label: 'Domande suggerite',
+      summarizeInboxLabel: 'Riepiloga casella',
+      summarizeInboxPrompt: 'Mostrami le email non lette di oggi',
+      triageLabel: 'Cosa richiede attenzione',
+      triagePrompt: 'Fai triage della mia casella',
+      followUpsLabel: 'Mostra follow-up',
+      followUpsPrompt: 'Mostrami i miei follow-up',
+      todayScheduleLabel: 'Programma di oggi',
+      todaySchedulePrompt: 'Quali riunioni ho oggi?',
+      recentContactsLabel: 'Contatti recenti',
+      recentContactsPrompt: 'Chi sono i miei contatti piu recenti?',
+      briefingLabel: 'Dammi un briefing',
+      briefingPrompt: 'Dammi un briefing',
     },
   },
   onboarding: {

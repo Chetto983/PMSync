@@ -3896,6 +3896,8 @@ export interface AppTranslations {
     };
     threadList: {
       title: string;
+      openList: string;
+      closeList: string;
       newChat: string;
       deleteConfirm: string;
       deleteConfirmDescription?: string;
@@ -3932,6 +3934,18 @@ export interface AppTranslations {
     };
     suggestions: {
       label: string;
+      summarizeInboxLabel: string;
+      summarizeInboxPrompt: string;
+      triageLabel: string;
+      triagePrompt: string;
+      followUpsLabel: string;
+      followUpsPrompt: string;
+      todayScheduleLabel: string;
+      todaySchedulePrompt: string;
+      recentContactsLabel: string;
+      recentContactsPrompt: string;
+      briefingLabel: string;
+      briefingPrompt: string;
     };
   };
   onboarding: {

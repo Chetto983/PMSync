@@ -4071,6 +4071,8 @@ export const en: AppTranslations = {
     },
     threadList: {
       title: 'Conversations',
+      openList: 'Open conversations',
+      closeList: 'Close conversations',
       newChat: 'New chat',
       deleteConfirm: 'Delete this conversation?',
       deleteConfirmDescription: 'This conversation will be permanently deleted. This action cannot be undone.',
@@ -4107,6 +4109,18 @@ export const en: AppTranslations = {
     },
     suggestions: {
       label: 'Suggested questions',
+      summarizeInboxLabel: 'Summarize inbox',
+      summarizeInboxPrompt: 'Show my unread emails from today',
+      triageLabel: 'What needs attention',
+      triagePrompt: 'Triage my inbox',
+      followUpsLabel: 'Show follow-ups',
+      followUpsPrompt: 'Show my follow-ups',
+      todayScheduleLabel: "Today's schedule",
+      todaySchedulePrompt: 'What meetings do I have today?',
+      recentContactsLabel: 'Recent contacts',
+      recentContactsPrompt: 'Who are my most recent contacts?',
+      briefingLabel: 'Give me a briefing',
+      briefingPrompt: 'Give me a briefing',
     },
   },
   onboarding: {

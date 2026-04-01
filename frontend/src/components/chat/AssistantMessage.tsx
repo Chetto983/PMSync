@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import { Bot } from 'lucide-react';
 import Alert from '@mui/material/Alert';
 import { useMessageError } from '@assistant-ui/core/react';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import { ChatActionBar } from './ChatActionBar';
 import { ChatBranchPicker } from './ChatBranchPicker';
 import { ChatReasoningGroup } from './ChatReasoningGroup';
@@ -33,10 +34,15 @@ function ReasoningText({ text }: { type: 'reasoning'; text: string }) {
  * Wrapped in ToolErrorBoundary so malformed data doesn't crash the chat.
  */
 function ToolDispatcher(props: ToolCallMessagePartProps) {
+  const t = useTranslations();
   const Renderer = (TOOL_RENDERERS as Record<string, React.ComponentType<ToolCallMessagePartProps> | undefined>)[props.toolName];
   if (Renderer) {
     return (
-      <ToolErrorBoundary toolName={props.toolName}>
+      <ToolErrorBoundary
+        toolName={props.toolName}
+        errorLabel={t.errors.somethingWentWrong}
+        fallbackMessage={t.errors.unexpectedError}
+      >
         <Suspense fallback={<ToolLoadingSkeleton />}><Renderer {...props} /></Suspense>
       </ToolErrorBoundary>
     );

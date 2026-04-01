@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback, useState } from 'react';
+import { memo, useMemo, useCallback, useState, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -169,6 +169,8 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
   const dismissMutation = useDismissSuggestion();
   const bulkMutation = useBulkSuggestionAction();
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const pendingIdsRef = useRef(pendingIds);
+  pendingIdsRef.current = pendingIds;
   const [dismissConfirmId, setDismissConfirmId] = useState<string | null>(null);
 
   const suggestions = useMemo(() => data?.data ?? [], [data]);
@@ -186,7 +188,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
   );
 
   const handleAccept = useCallback(async (id: string) => {
-    if (pendingIds.has(id)) return;
+    if (pendingIdsRef.current.has(id)) return;
     setPendingIds((prev) => new Set(prev).add(id));
     try {
       await acceptMutation.mutateAsync(id);
@@ -200,7 +202,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
         return next;
       });
     }
-  }, [acceptMutation, toast, ts, t.common, pendingIds]);
+  }, [acceptMutation, toast, ts, t.common]);
 
   const handleDismissClick = useCallback((id: string) => {
     setDismissConfirmId(id);
@@ -210,7 +212,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
     const id = dismissConfirmId;
     if (!id) return;
     setDismissConfirmId(null);
-    if (pendingIds.has(id)) return;
+    if (pendingIdsRef.current.has(id)) return;
     setPendingIds((prev) => new Set(prev).add(id));
     try {
       await dismissMutation.mutateAsync(id);
@@ -224,7 +226,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
         return next;
       });
     }
-  }, [dismissConfirmId, dismissMutation, toast, ts, t.common, pendingIds]);
+  }, [dismissConfirmId, dismissMutation, toast, ts, t.common]);
 
   const handleBulkAccept = useCallback(async () => {
     const ids = suggestions.map((s) => s.id);
