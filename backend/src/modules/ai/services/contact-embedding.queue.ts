@@ -5,6 +5,7 @@ import { ModuleRef } from '@nestjs/core';
 import { KNOWLEDGE_BASE, IKnowledgeBase } from '../../../common/interfaces/embedding-queue.interface';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { isRateLimitError } from '../../../common/utils/error.utils';
 import {
   getRedisConnectionOptions,
@@ -51,11 +52,17 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
   private readonly seenIds = new Set<string>();
   private readonly MAX_SEEN_IDS = 10000;
 
+  /** KB-M2: Per-tenant rate limiting */
+  private static readonly TENANT_RATE_PREFIX = 'pmsync:contact-embed:rate:';
+  private static readonly TENANT_RATE_TTL = 60; // 1 minute sliding window
+  private readonly PER_TENANT_PER_MINUTE: number;
+
   constructor(
     private readonly config: ConfigService,
     private readonly moduleRef: ModuleRef,
     private readonly dlqService: DeadLetterQueueService,
     private readonly alertingService: AlertingService,
+    private readonly redisConnection: RedisConnectionService,
   ) {
     // Bulk batching settings
     this.BULK_SIZE = this.getPositiveNumber('EMBEDDING_BULK_SIZE', 50);
@@ -73,6 +80,9 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
     this.RATE_LIMIT_MAX_DELAY_MS = this.getPositiveNumber('EMBEDDING_RATE_LIMIT_MAX_DELAY_MS', 120000);
 
     this.WORKER_LOCK_MS = this.getPositiveNumber('EMBEDDING_LOCK_MS', 180000);
+
+    // KB-M2: Per-tenant rate limit (default 120/min = 2/s)
+    this.PER_TENANT_PER_MINUTE = this.getPositiveNumber('CONTACT_EMBEDDING_PER_TENANT_PER_MINUTE', 120);
   }
 
   onModuleInit() {
@@ -94,6 +104,14 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
       async (job: Job<ContactEmbeddingJob>) => {
         this.logger.debug(`Processing contact embedding job ${job.id}`);
         try {
+          // KB-M2: Per-tenant rate check — delay job if tenant exceeded limit
+          const throttled = await this.isTenantThrottled(job.data.tenantId);
+          if (throttled) {
+            this.logger.debug(`Tenant ${job.data.tenantId} throttled, delaying contact embedding job ${job.id}`);
+            await job.moveToDelayed(Date.now() + 5000, job.token); // retry in 5s
+            return false;
+          }
+          await this.incrementTenantCounter(job.data.tenantId);
           return await withoutTenantScopingAsync(() =>
             this.resolveKnowledgeBaseService().createEmbeddingForContact(job.data),
           );
@@ -277,6 +295,36 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
     );
 
     return removed;
+  }
+
+  /**
+   * KB-M2: Check if a tenant has exceeded the per-minute contact embedding limit.
+   * Fails open: if Redis is unavailable, allow the job (embedding is non-critical).
+   */
+  private async isTenantThrottled(tenantId: string): Promise<boolean> {
+    try {
+      const key = `${ContactEmbeddingQueueService.TENANT_RATE_PREFIX}${tenantId}`;
+      const current = await this.redisConnection.client.get(key);
+      return current !== null && parseInt(current, 10) >= this.PER_TENANT_PER_MINUTE;
+    } catch {
+      return false; // Fail open
+    }
+  }
+
+  /**
+   * KB-M2: Increment per-tenant counter with auto-expiring TTL.
+   */
+  private async incrementTenantCounter(tenantId: string): Promise<void> {
+    try {
+      const key = `${ContactEmbeddingQueueService.TENANT_RATE_PREFIX}${tenantId}`;
+      const redis = this.redisConnection.client;
+      const count = await redis.incr(key);
+      if (count === 1) {
+        await redis.expire(key, ContactEmbeddingQueueService.TENANT_RATE_TTL);
+      }
+    } catch {
+      // Non-critical — worst case we slightly over-process
+    }
   }
 
   private extractRetryAfter(error: unknown): number | null {
