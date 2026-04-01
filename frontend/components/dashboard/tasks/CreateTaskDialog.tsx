@@ -12,7 +12,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useCreateTask } from '@/hooks/queries/use-tasks';
 import { useGlobalToast } from '@/lib/context/toast-context';
-import type { UnifiedTaskPriority } from '@/lib/api/tasks';
+import type { UnifiedTaskPriority, CreateManualTaskDto } from '@/lib/api/tasks';
 
 const PRIORITY_OPTIONS: UnifiedTaskPriority[] = ['low', 'medium', 'high', 'urgent'];
 
@@ -46,13 +46,13 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
 
-    const dto: Record<string, unknown> = { title: title.trim() };
+    const dto: CreateManualTaskDto = { title: title.trim() };
     if (description.trim()) dto.description = description.trim();
     if (priority) dto.priority = priority;
     if (dueDate) dto.dueDate = dueDate;
 
     try {
-      await createTask.mutateAsync(dto as Parameters<typeof createTask.mutateAsync>[0]);
+      await createTask.mutateAsync(dto);
       toast.success(t.tasks.created);
       resetForm();
       onClose();
