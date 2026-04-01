@@ -269,7 +269,7 @@ export function buildCommands(
       name: t.commandPalette.commands.createTask,
       icon: PlusCircle,
       action: () => {
-        void router.push('/dashboard/reminders?action=create');
+        void router.push('/dashboard/tasks?action=create');
       },
       group: 'actions',
       keywords: ['new task', 'create task', 'add task', 'todo'],
