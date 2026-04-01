@@ -140,6 +140,25 @@ export function Sidebar({
   const isActive = (href: string) =>
     router.pathname === href || router.asPath.startsWith(href + '/');
 
+  // AI feature discovery: track which AI items the user has visited
+  const AI_SEEN_KEY = 'pmsync:ai-features-seen';
+  const [aiSeen, setAiSeen] = React.useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem(AI_SEEN_KEY);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+  const markAiSeen = React.useCallback((href: string) => {
+    setAiSeen((prev) => {
+      if (prev.has(href)) return prev;
+      const next = new Set(prev);
+      next.add(href);
+      localStorage.setItem(AI_SEEN_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+
   const drawerWidth = collapsed ? RAIL_WIDTH : EXPANDED_WIDTH;
 
   // Brand gradient for active pill
@@ -206,6 +225,7 @@ export function Sidebar({
           onClick={(e: React.MouseEvent) => {
             // Prevent navigation if a drag just completed
             if (sortableProps?.isDragging) { e.preventDefault(); return; }
+            if (item.section === 'ai') markAiSeen(item.href);
             if (isMobile && onClose) onClose();
           }}
           sx={{
@@ -271,20 +291,34 @@ export function Sidebar({
           </Box>
 
           {!collapsed && (
-            <Typography
-              variant="body2"
-              noWrap
-              sx={{
-                fontSize: '0.8125rem',
-                fontWeight: active ? 600 : 450,
-                color: active ? 'text.primary' : 'text.secondary',
-                letterSpacing: '-0.01em',
-                transition: 'color 0.2s ease, font-weight 0.2s ease',
-                lineHeight: 1,
-              }}
-            >
-              {item.label}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flex: 1, minWidth: 0 }}>
+              <Typography
+                variant="body2"
+                noWrap
+                sx={{
+                  fontSize: '0.8125rem',
+                  fontWeight: active ? 600 : 450,
+                  color: active ? 'text.primary' : 'text.secondary',
+                  letterSpacing: '-0.01em',
+                  transition: 'color 0.2s ease, font-weight 0.2s ease',
+                  lineHeight: 1,
+                }}
+              >
+                {item.label}
+              </Typography>
+              {item.section === 'ai' && !aiSeen.has(item.href) && (
+                <Box
+                  component="span"
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    bgcolor: 'primary.main',
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </Box>
           )}
         </Box>
       </Box>
