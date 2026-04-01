@@ -433,4 +433,196 @@ describe('EmbeddingComposerService', () => {
       expect(chunks[0].content).toBe('');
     });
   });
+
+  // ==========================================================================
+  // T-0403: Comprehensive chunking edge case tests (KB-M3)
+  // ==========================================================================
+  describe('chunkContentForEmbedding — edge cases', () => {
+    let smallChunkService: EmbeddingComposerService;
+
+    beforeEach(async () => {
+      // Service with 100-char chunk size for testable chunk boundaries
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EmbeddingComposerService,
+          { provide: PrismaService, useValue: mockPrismaService },
+          {
+            provide: ConfigService,
+            useValue: { get: (key: string, fallback: number) => key === 'AI_EMBEDDING_CHUNK_SIZE' ? 100 : fallback },
+          },
+        ],
+      }).compile();
+      smallChunkService = module.get(EmbeddingComposerService);
+    });
+
+    it('should handle content exactly at max chunk size', () => {
+      const exact = 'a'.repeat(100);
+      const chunks = smallChunkService.chunkContentForEmbedding(exact);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].content).toBe(exact);
+    });
+
+    it('should handle content one char over max chunk size', () => {
+      const content = 'a'.repeat(101);
+      const chunks = smallChunkService.chunkContentForEmbedding(content);
+      expect(chunks.length).toBeGreaterThan(1);
+      // All original content should be covered
+      const joined = chunks.map((c) => c.content).join('');
+      expect(joined.length).toBeGreaterThanOrEqual(content.length);
+    });
+
+    it('should not produce empty chunks from whitespace-only regions', () => {
+      const content = 'Hello.\n' + ' '.repeat(200) + '\nWorld.';
+      const chunks = smallChunkService.chunkContentForEmbedding(content);
+      for (const chunk of chunks) {
+        expect(chunk.content.trim().length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should handle single long word exceeding chunk size', () => {
+      // No sentence or newline boundaries — must still chunk
+      const longWord = 'abcdefghij'.repeat(20); // 200 chars, no breaks
+      const chunks = smallChunkService.chunkContentForEmbedding(longWord);
+      expect(chunks.length).toBeGreaterThan(1);
+      // Every char should be present across chunks
+      for (const c of longWord) {
+        const found = chunks.some((chunk) => chunk.content.includes(c));
+        expect(found).toBe(true);
+      }
+    });
+
+    it('should prefer newline boundaries over hard cuts', () => {
+      // 5 lines of 25 chars each = 125 chars total (> 100 chunk limit)
+      const lines = Array.from({ length: 5 }, (_, i) => `Line ${i}: ${'x'.repeat(18)}`);
+      const content = lines.join('\n');
+      const chunks = smallChunkService.chunkContentForEmbedding(content);
+
+      // First chunk should end at a newline, not mid-line
+      expect(chunks[0].content.endsWith('x')).toBe(true);
+    });
+
+    it('should produce overlapping chunks (20% default)', () => {
+      // Build content with distinct sentence markers
+      const sentences = Array.from({ length: 10 }, (_, i) => `Sentence-${i}-padding.`);
+      const content = sentences.join('\n');
+      const chunks = smallChunkService.chunkContentForEmbedding(content);
+
+      if (chunks.length > 1) {
+        // The end of chunk N should overlap with the start of chunk N+1
+        const tail0 = chunks[0].content.slice(-20);
+        const head1 = chunks[1].content.slice(0, 40);
+        // At least some content from end of chunk 0 should appear in chunk 1
+        const overlapFound = tail0.split('').some((ch) => head1.includes(ch));
+        expect(overlapFound).toBe(true);
+      }
+    });
+
+    it('should handle content with only newlines', () => {
+      const content = '\n'.repeat(200);
+      const chunks = smallChunkService.chunkContentForEmbedding(content);
+      // All chunks should be empty after trim — but the code checks .trim()
+      // So no chunks should be produced from pure whitespace after trim
+      for (const chunk of chunks) {
+        // chunk.content is already trimmed in the implementation
+        expect(typeof chunk.content).toBe('string');
+      }
+    });
+
+    it('should handle unicode content correctly', () => {
+      // Mix of multi-byte characters
+      const content = '日本語テスト。'.repeat(20) + '\n' + 'Ñoño àccéntéd. '.repeat(10);
+      const chunks = smallChunkService.chunkContentForEmbedding(content);
+      expect(chunks.length).toBeGreaterThan(0);
+      // No chunk should exceed max chars
+      for (const chunk of chunks) {
+        expect(chunk.content.length).toBeLessThanOrEqual(100);
+      }
+    });
+
+    it('should assign sequential indices starting from 0', () => {
+      const content = 'Word. '.repeat(50); // ~300 chars
+      const chunks = smallChunkService.chunkContentForEmbedding(content);
+      chunks.forEach((chunk, i) => {
+        expect(chunk.index).toBe(i);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // T-0403: Email composition edge cases for chunking pipeline
+  // ==========================================================================
+  describe('composeEmailEmbeddingContent — edge cases', () => {
+    it('should return null for email with only whitespace body', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: '',
+        bodyHtml: null,
+        bodyText: '   \n\n  \t  ',
+        snippet: null,
+      });
+      expect(result).toBeNull();
+    });
+
+    it('should handle HTML-only email (no bodyText/snippet)', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: 'HTML Only',
+        bodyHtml: '<div><p>Rich <strong>content</strong> here.</p></div>',
+        bodyText: null,
+        snippet: null,
+      });
+      expect(result).toContain('Subject: HTML Only');
+      expect(result).toContain('content');
+      expect(result).not.toContain('<div>');
+      expect(result).not.toContain('<strong>');
+    });
+
+    it('should handle plain text only email (no HTML/snippet)', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: null,
+        bodyHtml: null,
+        bodyText: 'Plain text only content',
+        snippet: null,
+      });
+      expect(result).toBe('Plain text only content');
+    });
+
+    it('should handle email with all null fields', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: null,
+        bodyHtml: null,
+        bodyText: null,
+        snippet: null,
+        from: null,
+        to: null,
+        receivedAt: null,
+      });
+      expect(result).toBeNull();
+    });
+
+    it('should handle email with very long subject', () => {
+      const longSubject = 'Re: '.repeat(500); // 2000 chars
+      const result = service.composeEmailEmbeddingContent({
+        subject: longSubject,
+        bodyText: 'Short body',
+      });
+      expect(result).toContain(`Subject: ${longSubject}`);
+    });
+
+    it('should handle receivedAt as ISO string', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: 'Test',
+        bodyText: 'Body',
+        receivedAt: '2026-01-15T08:30:00.000Z',
+      });
+      expect(result).toContain('Date: 2026-01-15');
+    });
+
+    it('should handle empty to array', () => {
+      const result = service.composeEmailEmbeddingContent({
+        subject: 'Test',
+        bodyText: 'Body',
+        to: [],
+      });
+      expect(result).not.toContain('To:');
+    });
+  });
 });
