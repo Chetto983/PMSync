@@ -296,6 +296,8 @@ export interface AppTranslations {
     calendar: string;
     contacts: string;
     tasks: string;
+    reminders: string;
+    followUps: string;
     analytics: string;
     ai: string;
     crmAccounts: string;

@@ -28,6 +28,8 @@ export const it: AppTranslations = {
     calendar: 'Calendario',
     contacts: 'Contatti',
     tasks: 'Attività',
+    reminders: 'Promemoria',
+    followUps: 'Follow-up',
     analytics: 'Analisi',
     ai: 'Assistente AI',
     crmAccounts: 'Account',
