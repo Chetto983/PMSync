@@ -115,7 +115,10 @@ export class ReminderNotifyQueueService
     reminderId: string,
     notifyAt: Date,
   ): Promise<void> {
-    const delay = notifyAt.getTime() - Date.now();
+    const rawDelay = notifyAt.getTime() - Date.now();
+    // Add ±30s jitter to prevent Telegram API spikes when many reminders fire at the same time
+    const jitterMs = rawDelay > 60_000 ? Math.floor(Math.random() * 60_000) - 30_000 : 0;
+    const delay = rawDelay + jitterMs;
 
     if (delay <= 0) {
       // Already past due — send immediately
