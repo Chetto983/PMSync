@@ -133,5 +133,19 @@ export type {
   UpdateTelegramSettingsDto,
 } from './reminders';
 
+export { tasksApi } from './tasks';
+export type {
+  UnifiedTask,
+  UnifiedTaskListResponse,
+  ListTasksQuery,
+  CreateManualTaskDto,
+  UpdateManualTaskDto,
+  TaskSourceType,
+  UnifiedTaskStatus,
+  UnifiedTaskPriority,
+  TaskCounts,
+  TaskMeta,
+} from './tasks';
+
 // Export the base API client for custom requests
 export { apiClient } from '../api-client';
