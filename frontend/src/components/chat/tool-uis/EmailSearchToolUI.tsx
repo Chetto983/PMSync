@@ -58,6 +58,7 @@ const EmailRow = memo(function EmailRow({ item, isFirst, tu }: { item: EmailSear
       href={`/dashboard/email/thread/${item.id}`}
       target="_blank"
       rel="noopener"
+      aria-label={`${item.from}: ${item.subject ?? '(no subject)'}`}
       sx={{
         display: 'flex',
         alignItems: 'flex-start',

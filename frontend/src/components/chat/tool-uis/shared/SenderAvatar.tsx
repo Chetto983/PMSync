@@ -53,6 +53,8 @@ export function SenderAvatar({ name, size = 28, fontSize }: SenderAvatarProps) {
 
   return (
     <Box
+      role="img"
+      aria-label={name}
       sx={{
         width: size,
         height: size,

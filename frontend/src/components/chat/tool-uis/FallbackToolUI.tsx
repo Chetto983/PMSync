@@ -85,7 +85,7 @@ export function FallbackToolRenderer({
           {isRunning ? (tu?.running ?? 'Running') : (tu?.complete ?? 'Complete')}
         </Typography>
       </Box>
-      <Box component="details" sx={{ mt: 1 }}>
+      <Box component="details" sx={{ mt: 1 }} aria-label={`${toolName} details`}>
         <Typography
           component="summary"
           sx={{

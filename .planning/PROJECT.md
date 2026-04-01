@@ -164,7 +164,18 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-(No active milestone — next: `/gsd:new-milestone`)
+## Current Milestone: v12.0 UX Unification — 4-Pillar Simplification
+
+**Goal:** Collapse 17 sidebar items into 4 pillars (Mail, Calendar, Contacts, Tasks) with contextual panels, unified task system, command palette, and AI-driven automation — so users manage their work, not the system.
+
+**Target features:**
+- 4-Pillar Navigation — Sidebar reduced to Mail, Calendar, Contacts, Tasks + Settings
+- Unified Tasks — New pillar absorbing follow-ups, reminders, CRM deal actions, ticket actions, manual to-dos
+- Contextual Right Sidebar — CRM data surfaces in-context (email → contact/deals/tickets; contact → emails/deals/tasks)
+- Command Palette (Cmd+K) — Global search + navigation + actions across all entities
+- Smart "Today" Dashboard — AI-curated daily view replacing current Home
+- AI Auto-Link & Suggest — Background automation: auto-link emails to contacts/deals, auto-categorize, suggest tasks
+- AI Assistant Overlay — Slide-over panel from any screen, replacing standalone page
 
 ### Out of Scope
 
@@ -328,4 +339,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-01 after v11.0 milestone complete*
+*Last updated: 2026-04-01 after v12.0 milestone started*

@@ -85,12 +85,16 @@ export function AnalysisRenderer({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
             <Box
               component="span"
+              role="status"
+              aria-label={`Sentiment: ${analysis.sentiment}`}
               sx={{ px: 0.75, py: 0.25, fontSize: '0.75rem', borderRadius: '9999px', ...sentimentStyle }}
             >
               {analysis.sentiment}
             </Box>
             <Box
               component="span"
+              role="status"
+              aria-label={`Urgency: ${analysis.urgency}`}
               sx={{ px: 0.75, py: 0.25, fontSize: '0.75rem', borderRadius: '9999px', ...urgencyStyle }}
             >
               {analysis.urgency}
