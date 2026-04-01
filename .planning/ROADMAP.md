@@ -162,7 +162,7 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
   - [x] 0135-02-PLAN.md — Create mobile bottom tab bar + clean up Layout/Header
 - [ ] **Phase 136: Command Palette** - Cmd+K search, navigation, and action execution
   Plans:
-  - [ ] 0136-01-PLAN.md — i18n, types, command registry, and CommandList component
+  - [x] 0136-01-PLAN.md — i18n, types, command registry, and CommandList component
   - [ ] 0136-02-PLAN.md — Parallel search hook, SearchResults component, and index.tsx refactor
 - [ ] **Phase 137: Unified Task Model (Backend)** - Backend API for consolidated task types
 - [ ] **Phase 138: Tasks Page & Views** - Frontend Tasks pillar with list/kanban, filters, quick-add

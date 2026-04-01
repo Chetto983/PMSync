@@ -10,9 +10,9 @@ Requirements for UX Unification — 4-Pillar Simplification. Each maps to roadma
 ### Navigation
 
 - [x] **NAV-01**: User sees only 4 pillars in sidebar: Mail, Calendar, Contacts, Tasks + Settings
-- [ ] **NAV-02**: User can access all former CRM/AI routes via Command Palette (Cmd+K) without sidebar entry
+- [x] **NAV-02**: User can access all former CRM/AI routes via Command Palette (Cmd+K) without sidebar entry
 - [ ] **NAV-03**: User can search across emails, contacts, deals, tasks, and KB articles from Command Palette
-- [ ] **NAV-04**: User can execute actions from Command Palette (create deal, create task, compose email, navigate to any route)
+- [x] **NAV-04**: User can execute actions from Command Palette (create deal, create task, compose email, navigate to any route)
 - [ ] **NAV-05**: User sees AI-curated "Today" dashboard as home: due tasks, pending replies, deal alerts, upcoming meetings
 - [x] **NAV-06**: User can still deep-link to any CRM page directly (URLs remain functional)
 
@@ -77,9 +77,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | NAV-01 | Phase 135 | Complete |
-| NAV-02 | Phase 136 | Pending |
+| NAV-02 | Phase 136 | Complete |
 | NAV-03 | Phase 136 | Pending |
-| NAV-04 | Phase 136 | Pending |
+| NAV-04 | Phase 136 | Complete |
 | NAV-05 | Phase 145 | Pending |
 | NAV-06 | Phase 135 | Complete |
 | CTX-01 | Phase 140 | Pending |
