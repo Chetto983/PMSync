@@ -2691,6 +2691,7 @@ export interface AppTranslations {
       connectionLost: string;
       rateLimit: string;
       circuitOpen: string;
+      degradedBanner: string;
       timeout: string;
       retryHint: string;
     };

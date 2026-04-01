@@ -2568,6 +2568,7 @@ export const en: AppTranslations = {
       connectionLost: 'Connection lost. Reconnecting...',
       rateLimit: 'Too many requests. Please wait a moment.',
       circuitOpen: 'AI service temporarily unavailable',
+      degradedBanner: 'AI features are temporarily unavailable. Some actions may not work.',
       timeout: 'Request timed out',
       retryHint: 'Please try again in a moment',
     },

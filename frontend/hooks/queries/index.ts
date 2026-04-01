@@ -30,6 +30,7 @@ export * from './consent-keys';
 export * from './use-consent';
 export * from './use-data-rights';
 export * from './use-ai-draft';
+export * from './use-ai-health';
 export * from './use-writing-style';
 export * from './use-organizations';
 export * from './use-admin';

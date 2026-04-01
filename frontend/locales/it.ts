@@ -2556,6 +2556,7 @@ export const it: AppTranslations = {
       connectionLost: 'Connessione persa. Riconnessione in corso...',
       rateLimit: 'Troppe richieste. Attendi un momento.',
       circuitOpen: 'Servizio AI temporaneamente non disponibile',
+      degradedBanner: 'Le funzionalità AI sono temporaneamente non disponibili. Alcune azioni potrebbero non funzionare.',
       timeout: 'Richiesta scaduta',
       retryHint: 'Riprova tra un momento',
     },

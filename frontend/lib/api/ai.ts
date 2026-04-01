@@ -754,5 +754,10 @@ export const aiChatApi = {
       params,
     );
   },
+
+  /** OBS-M3: Public AI health probe — no auth required. */
+  getHealth() {
+    return apiClient.get<{ status: 'ok' | 'degraded' | 'unhealthy' }>('/ai/health');
+  },
 };
 

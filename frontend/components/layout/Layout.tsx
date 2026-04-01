@@ -16,6 +16,7 @@ import { PendingInvitationBanner } from '@/components/organizations/PendingInvit
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { InstallPromptBanner } from '@/components/layout/InstallPromptBanner';
+import { AiDegradedBanner } from '@/components/common/AiDegradedBanner';
 import { useOfflineActions } from '@/hooks/use-offline-actions';
 
 export interface LayoutProps {
@@ -129,6 +130,9 @@ export function Layout({ children }: LayoutProps) {
 
           {/* Quota Alert Banner - shows when usage > 80% */}
           <QuotaAlertBanner />
+
+          {/* AI Degraded Banner - visible when AI service is degraded/unhealthy (OBS-M3) */}
+          <AiDegradedBanner />
 
           {/* Pending Invitation Banner -- visible until accepted/declined */}
           <PendingInvitationBanner />
