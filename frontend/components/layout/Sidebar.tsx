@@ -7,7 +7,6 @@ import {
   Box,
   Drawer,
   Tooltip,
-  useMediaQuery,
   useTheme,
   alpha,
   type Theme,
@@ -62,7 +61,6 @@ export interface PmSyncSidebarProps {}
 export function Sidebar(_props: PmSyncSidebarProps) {
   const router = useRouter();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const t = useTranslations();
   const isDark = theme.palette.mode === 'dark';
 
@@ -93,8 +91,6 @@ export function Sidebar(_props: PmSyncSidebarProps) {
     }
   };
 
-  if (isMobile) return null;
-
   const pillarMap = new Map(PILLAR_ITEMS.map((pillar) => [pillar.href, pillar]));
   const orderedPillars = order
     .map((href) => pillarMap.get(href))
@@ -106,7 +102,7 @@ export function Sidebar(_props: PmSyncSidebarProps) {
       sx={{
         width: RAIL_WIDTH,
         flexShrink: 0,
-        display: { xs: 'none', md: 'block' },
+        display: 'block',
         '& .MuiDrawer-paper': {
           width: RAIL_WIDTH,
           boxSizing: 'border-box',

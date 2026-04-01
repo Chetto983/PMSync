@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
 import { usePrefetchQuery } from '@tanstack/react-query';
-import { Box, Snackbar, Alert, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Snackbar, Alert } from '@mui/material';
 import { useRouter } from 'next/router';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { MobileTabBar } from './MobileTabBar';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { CommandPalette } from '@/components/ai/CommandPalette';
 import { consentOptions } from '@/hooks/queries/use-consent';
@@ -25,11 +24,8 @@ export interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const router = useRouter();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const t = useTranslations();
   const { lastStatus, clear } = useSyncStore();
-
   // Prefetch consent early so Dashboard widgets don't waterfall on useConsent()
   usePrefetchQuery(consentOptions());
 
@@ -151,7 +147,7 @@ export function Layout({ children }: LayoutProps) {
               overflowY: 'auto',
               minHeight: 0, // Allow nested panels to size within viewport
               minWidth: 0, // Critical for nested flex items
-              pb: { xs: '56px', md: 0 }, // Space for MobileTabBar on mobile
+              pb: 0,
             }}
           >
             {children}
@@ -173,8 +169,6 @@ export function Layout({ children }: LayoutProps) {
             </Alert>
           </Snackbar>
         )}
-        {/* Mobile bottom tab bar */}
-        {isMobile && <MobileTabBar />}
         <InstallPromptBanner />
         <CookieConsent />
         <CommandPalette />
