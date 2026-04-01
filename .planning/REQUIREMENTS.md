@@ -76,38 +76,38 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NAV-01 | — | Pending |
-| NAV-02 | — | Pending |
-| NAV-03 | — | Pending |
-| NAV-04 | — | Pending |
-| NAV-05 | — | Pending |
-| NAV-06 | — | Pending |
-| CTX-01 | — | Pending |
-| CTX-02 | — | Pending |
-| CTX-03 | — | Pending |
-| CTX-04 | — | Pending |
-| CTX-05 | — | Pending |
-| CTX-06 | — | Pending |
-| TASK-01 | — | Pending |
-| TASK-02 | — | Pending |
-| TASK-03 | — | Pending |
-| TASK-04 | — | Pending |
-| TASK-05 | — | Pending |
-| TASK-06 | — | Pending |
-| TASK-07 | — | Pending |
-| AI-01 | — | Pending |
-| AI-02 | — | Pending |
-| AI-03 | — | Pending |
-| AI-04 | — | Pending |
-| AI-05 | — | Pending |
-| AI-06 | — | Pending |
-| AI-07 | — | Pending |
+| NAV-01 | Phase 135 | Pending |
+| NAV-02 | Phase 136 | Pending |
+| NAV-03 | Phase 136 | Pending |
+| NAV-04 | Phase 136 | Pending |
+| NAV-05 | Phase 145 | Pending |
+| NAV-06 | Phase 135 | Pending |
+| CTX-01 | Phase 140 | Pending |
+| CTX-02 | Phase 140 | Pending |
+| CTX-03 | Phase 141 | Pending |
+| CTX-04 | Phase 141 | Pending |
+| CTX-05 | Phase 141 | Pending |
+| CTX-06 | Phase 140 | Pending |
+| TASK-01 | Phase 137 | Pending |
+| TASK-02 | Phase 138 | Pending |
+| TASK-03 | Phase 138 | Pending |
+| TASK-04 | Phase 139 | Pending |
+| TASK-05 | Phase 139 | Pending |
+| TASK-06 | Phase 138 | Pending |
+| TASK-07 | Phase 138 | Pending |
+| AI-01 | Phase 142 | Pending |
+| AI-02 | Phase 142 | Pending |
+| AI-03 | Phase 142 | Pending |
+| AI-04 | Phase 143 | Pending |
+| AI-05 | Phase 143 | Pending |
+| AI-06 | Phase 144 | Pending |
+| AI-07 | Phase 144 | Pending |
 
 **Coverage:**
 - v12.0 requirements: 26 total
-- Mapped to phases: 0
-- Unmapped: 26 ⚠️
+- Mapped to phases: 26
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-01*
-*Last updated: 2026-04-01 after initial definition*
+*Last updated: 2026-04-01 after roadmap creation*

@@ -168,6 +168,7 @@ export function Sidebar({
           width: collapsed ? 44 : 'auto',
           opacity: sortableProps?.isDragging ? 0.5 : 1,
           cursor: dndEnabled && sortableProps ? 'grab' : undefined,
+          touchAction: dndEnabled && sortableProps ? 'none' : undefined,
           '&:active': dndEnabled && sortableProps ? { cursor: 'grabbing' } : {},
           '&:hover .sidebar-drag-handle': {
             opacity: 1,
@@ -197,7 +198,12 @@ export function Sidebar({
         <Box
           component={Link}
           href={item.href}
-          onClick={() => { if (isMobile && onClose) onClose(); }}
+          draggable={false}
+          onClick={(e: React.MouseEvent) => {
+            // Prevent navigation if a drag just completed
+            if (sortableProps?.isDragging) { e.preventDefault(); return; }
+            if (isMobile && onClose) onClose();
+          }}
           sx={{
             display: 'flex',
             alignItems: 'center',

@@ -21,6 +21,7 @@
 - [ ] **CRM Pro 360 Phase 3 — Customer Service** — Sprints 15-18 (next)
 - :check_mark: **v10.0 Email & Sync Production Validation** — Phases 112-124 (shipped 2026-03-30)
 - :check_mark: **v11.0 Legacy Cleanup, Scalability & Billing Hardening** — Phases 125-134 (shipped 2026-04-01)
+- [ ] **v12.0 UX Unification — 4-Pillar Simplification** — Phases 135-145 (in progress)
 
 ## Phases
 
@@ -130,7 +131,7 @@
 </details>
 
 <details>
-<summary>✅ v11.0 Legacy Cleanup, Scalability & Billing Hardening (Phases 125-134) — SHIPPED 2026-04-01</summary>
+<summary>:check_mark: v11.0 Legacy Cleanup, Scalability & Billing Hardening (Phases 125-134) — SHIPPED 2026-04-01</summary>
 
 10 phases, 18 plans, 16 requirements. See `milestones/v11.0-ROADMAP.md` for full details.
 
@@ -147,7 +148,26 @@
 
 </details>
 
+### v12.0 UX Unification — 4-Pillar Simplification (In Progress)
+
+**Milestone Goal:** Collapse 17 sidebar items into 4 pillars with contextual panels, unified tasks, command palette, and AI automation.
+
+See `milestones/v12.0-ROADMAP.md` for full phase details.
+
+- [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
+- [ ] **Phase 136: Command Palette** - Cmd+K search, navigation, and action execution
+- [ ] **Phase 137: Unified Task Model (Backend)** - Backend API for consolidated task types
+- [ ] **Phase 138: Tasks Page & Views** - Frontend Tasks pillar with list/kanban, filters, quick-add
+- [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
+- [ ] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view
+- [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
+- [ ] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize
+- [ ] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss
+- [ ] **Phase 144: AI Assistant Overlay** - Slide-over AI panel from any screen
+- [ ] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
+
 ---
 *Roadmap created: 2026-02-09*
 *v10.0 completed: 2026-03-30 -- 13 phases, 27 plans, 49/50 requirements*
 *v11.0 completed: 2026-04-01 -- 10 phases, 18 plans, 16/16 requirements*
+*v12.0 roadmap created: 2026-04-01 -- 11 phases, 26 requirements*
