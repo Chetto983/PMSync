@@ -160,6 +160,7 @@ export function KBArticleEditor({ articleId }: KBArticleEditorProps) {
               label={tf?.title ?? 'Title'}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              required
               sx={{ mb: 2 }}
             />
 
@@ -178,6 +179,7 @@ export function KBArticleEditor({ articleId }: KBArticleEditorProps) {
                 fullWidth
                 multiline
                 rows={16}
+                required
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Write your article content here... (Markdown supported)"

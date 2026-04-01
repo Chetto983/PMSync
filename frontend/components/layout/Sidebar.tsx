@@ -156,6 +156,9 @@ export function Sidebar({
       <Box
         ref={sortableProps?.setNodeRef}
         style={sortableProps?.style}
+        {...(dndEnabled && sortableProps ? sortableProps.attributes : {})}
+        {...(dndEnabled && sortableProps ? sortableProps.listeners : {})}
+        aria-label={dndEnabled && sortableProps ? `${t.nav.dragToReorder ?? 'Drag to reorder'} ${item.label}` : undefined}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -164,31 +167,27 @@ export function Sidebar({
           mx: collapsed ? 'auto' : 1,
           width: collapsed ? 44 : 'auto',
           opacity: sortableProps?.isDragging ? 0.5 : 1,
+          cursor: dndEnabled && sortableProps ? 'grab' : undefined,
+          '&:active': dndEnabled && sortableProps ? { cursor: 'grabbing' } : {},
           '&:hover .sidebar-drag-handle': {
             opacity: 1,
           },
         }}
       >
-        {/* Drag handle — only in expanded + desktop mode */}
+        {/* Drag indicator icon — only in expanded + desktop mode */}
         {dndEnabled && sortableProps && (
           <Box
             className="sidebar-drag-handle"
-            {...sortableProps.attributes}
-            {...sortableProps.listeners}
-            role="button"
-            aria-label={`${t.nav.dragToReorder ?? 'Drag to reorder'} ${item.label}`}
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'grab',
               width: 20,
               flexShrink: 0,
               color: 'text.disabled',
               opacity: 0,
               transition: 'opacity 0.15s ease',
-              '&:hover': { color: 'text.secondary' },
-              '&:active': { cursor: 'grabbing' },
+              pointerEvents: 'none',
             }}
           >
             <GripVertical size={14} />

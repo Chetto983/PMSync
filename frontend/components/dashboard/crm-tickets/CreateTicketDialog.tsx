@@ -59,6 +59,7 @@ export function CreateTicketDialog({ open, onClose }: Props) {
               size="small"
               fullWidth
               autoFocus
+              required
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
             />
