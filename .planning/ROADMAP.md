@@ -20,7 +20,7 @@
 - â **CRM Pro 360 Phase 2 â Intelligence Layer** â Sprints 09-14, 61 tasks, 106 SP (shipped 2026-03-30)
 - [ ] **CRM Pro 360 Phase 3 â Customer Service** â Sprints 15-18 (next)
 - â **v10.0 Email & Sync Production Validation** â Phases 112-124 (shipped 2026-03-30)
-- [ ] **v11.0 Legacy Cleanup, Scalability & Billing Hardening** â Phases 125-133 (in progress)
+- [ ] **v11.0 Legacy Cleanup, Scalability & Billing Hardening** â Phases 125-134 (in progress)
 
 ## Phases
 
@@ -144,6 +144,7 @@
 - [x] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect (completed 2026-03-31)
 - [x] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening (completed 2026-04-01)
 - [x] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel (completed 2026-04-01)
+- [ ] **Phase 134: Ops Hardening & Env Var Documentation** - Document production env vars, commit untracked code, remove dead exports (gap closure)
 
 ## Phase Details
 
@@ -272,6 +273,17 @@ Plans:
 Plans:
 - [x] 133-01-PLAN.md — E2E billing validation script (attach, check, track, cancel, portal, webhook, cost protection)
 
+### Phase 134: Ops Hardening & Env Var Documentation
+**Goal**: All production env vars documented in .env.example and minor tech debt resolved
+**Depends on**: Phase 133
+**Requirements**: SCAL-03, BILL-02 (gap closure)
+**Gap Closure**: Closes integration gaps from v11.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. `.env.example` contains `WORKER_REPLICA_COUNT` and `AUTUMN_WEBHOOK_SECRET` with descriptions
+  2. Untracked `crm/context/` directory committed
+  3. Unused `cancelViaAutumn` export removed from frontend billing API
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
@@ -288,6 +300,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 131. Billing Frontend | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 132. Billing Backend Hardening | v11.0 | 2/2 | Complete    | 2026-04-01 |
 | 133. Billing E2E Validation | v11.0 | 1/1 | Complete    | 2026-04-01 |
+| 134. Ops Hardening & Env Var Documentation | v11.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
