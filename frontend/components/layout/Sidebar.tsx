@@ -127,6 +127,9 @@ export function Sidebar({
   const { order: crmOrder, handleReorder: reorderCrm } = useSidebarOrder('crm', defaultCrmOrder);
   const { order: aiOrder, handleReorder: reorderAi } = useSidebarOrder('ai', defaultAiOrder);
 
+  const defaultSectionOrder = useMemo(() => ['main', 'crm', 'ai'], []);
+  const { order: sectionOrder, handleReorder: reorderSections } = useSidebarOrder('sections', defaultSectionOrder);
+
   const dndEnabled = !collapsed && !isMobile;
 
   const sensors = useSensors(
@@ -306,35 +309,6 @@ export function Sidebar({
       reorder(String(active.id), String(over.id));
     };
 
-  const renderSortableSection = (
-    items: NavItem[],
-    order: string[],
-    reorder: (activeId: string, overId: string) => void,
-  ) => {
-    if (!dndEnabled) {
-      return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {items.map((item) => renderNavItem(item))}
-        </Box>
-      );
-    }
-    return (
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={makeDragEndHandler(reorder)}
-      >
-        <SortableContext items={order} strategy={verticalListSortingStrategy}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {items.map((item) => (
-              <SortableNavItem key={item.href} item={item} renderNavItem={renderNavItem} />
-            ))}
-          </Box>
-        </SortableContext>
-      </DndContext>
-    );
-  };
-
   const drawerContent = (
     <Box
       sx={{
@@ -366,84 +340,46 @@ export function Sidebar({
         />
       </Box>
 
-      {/* Section: Main */}
-      {!collapsed && (
-        <Typography
-          sx={{
-            fontSize: '0.625rem',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: 'text.disabled',
-            px: 2.5,
-            pt: 1.5,
-            pb: 0.75,
-          }}
-        >
-          {t.nav.home ? 'Navigation' : 'Nav'}
-        </Typography>
-      )}
-
-      {renderSortableSection(mainItems, mainOrder, reorderMain)}
-
-      {/* Section: CRM */}
-      <Box
-        sx={{
-          mx: collapsed ? 2 : 2.5,
-          my: 1.5,
-          height: '1px',
-          background: (th) =>
-            `linear-gradient(90deg, transparent, ${alpha(th.palette.divider, 0.4)}, transparent)`,
-        }}
-      />
-
-      {!collapsed && (
-        <Typography
-          sx={{
-            fontSize: '0.625rem',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: 'text.disabled',
-            px: 2.5,
-            pb: 0.75,
-          }}
-        >
-          CRM
-        </Typography>
-      )}
-
-      {renderSortableSection(crmItems, crmOrder, reorderCrm)}
-
-      {/* Section divider */}
-      <Box
-        sx={{
-          mx: collapsed ? 2 : 2.5,
-          my: 1.5,
-          height: '1px',
-          background: (th) =>
-            `linear-gradient(90deg, transparent, ${alpha(th.palette.divider, 0.4)}, transparent)`,
-        }}
-      />
-
-      {/* Section: AI & Productivity */}
-      {!collapsed && (
-        <Typography
-          sx={{
-            fontSize: '0.625rem',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: 'text.disabled',
-            px: 2.5,
-            pb: 0.75,
-          }}
-        >
-          AI
-        </Typography>
-      )}
-
-      {renderSortableSection(aiItems, aiOrder, reorderAi)}
+      {/* Sortable sections */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={makeDragEndHandler(reorderSections)}
+      >
+        <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+          {sectionOrder.map((sectionKey, idx) => (
+            <SortableSectionBlock
+              key={sectionKey}
+              sectionKey={sectionKey}
+              isFirst={idx === 0}
+              collapsed={collapsed}
+              dndEnabled={dndEnabled}
+              sectionLabel={
+                sectionKey === 'main' ? (t.nav.home ? 'Navigation' : 'Nav')
+                : sectionKey === 'crm' ? 'CRM'
+                : 'AI'
+              }
+              items={
+                sectionKey === 'main' ? mainItems
+                : sectionKey === 'crm' ? crmItems
+                : aiItems
+              }
+              order={
+                sectionKey === 'main' ? mainOrder
+                : sectionKey === 'crm' ? crmOrder
+                : aiOrder
+              }
+              reorder={
+                sectionKey === 'main' ? reorderMain
+                : sectionKey === 'crm' ? reorderCrm
+                : reorderAi
+              }
+              sensors={sensors}
+              renderNavItem={renderNavItem}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {/* Spacer */}
       <Box sx={{ flex: 1, minHeight: 16 }} />
@@ -576,4 +512,117 @@ function SortableNavItem({ item, renderNavItem }: SortableNavItemProps) {
   };
 
   return <>{renderNavItem(item, { setNodeRef, style, attributes, listeners, isDragging })}</>;
+}
+
+// ---- Sortable Section Block (entire section is a sortable unit) ----
+
+interface SortableSectionBlockProps {
+  sectionKey: string;
+  isFirst: boolean;
+  collapsed: boolean;
+  dndEnabled: boolean;
+  sectionLabel: string;
+  items: NavItem[];
+  order: string[];
+  reorder: (activeId: string, overId: string) => void;
+  sensors: ReturnType<typeof useSensors>;
+  renderNavItem: (item: NavItem, sortableProps?: SortableProps) => React.ReactNode;
+}
+
+function SortableSectionBlock({
+  sectionKey,
+  isFirst,
+  collapsed,
+  dndEnabled,
+  sectionLabel,
+  items,
+  order,
+  reorder,
+  sensors,
+  renderNavItem,
+}: SortableSectionBlockProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: sectionKey });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  const makeDragEndHandler = (reorderFn: (a: string, b: string) => void) =>
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      reorderFn(String(active.id), String(over.id));
+    };
+
+  return (
+    <Box ref={setNodeRef} style={style}>
+      {/* Divider (skip for first section) */}
+      {!isFirst && (
+        <Box
+          sx={{
+            mx: collapsed ? 2 : 2.5,
+            my: 1.5,
+            height: '1px',
+            background: (th) =>
+              `linear-gradient(90deg, transparent, ${alpha(th.palette.divider, 0.4)}, transparent)`,
+          }}
+        />
+      )}
+
+      {/* Section header — drag handle for entire section */}
+      {!collapsed && (
+        <Typography
+          {...(dndEnabled ? attributes : {})}
+          {...(dndEnabled ? listeners : {})}
+          sx={{
+            fontSize: '0.625rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'text.disabled',
+            px: 2.5,
+            pt: isFirst ? 1.5 : 0,
+            pb: 0.75,
+            cursor: dndEnabled ? 'grab' : undefined,
+            '&:active': dndEnabled ? { cursor: 'grabbing' } : {},
+            '&:hover': dndEnabled ? { color: 'text.secondary' } : {},
+            userSelect: 'none',
+          }}
+        >
+          {sectionLabel}
+        </Typography>
+      )}
+
+      {/* Items within this section — their own DndContext for item-level reorder */}
+      {dndEnabled ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={makeDragEndHandler(reorder)}
+        >
+          <SortableContext items={order} strategy={verticalListSortingStrategy}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {items.map((item) => (
+                <SortableNavItem key={item.href} item={item} renderNavItem={renderNavItem} />
+              ))}
+            </Box>
+          </SortableContext>
+        </DndContext>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {items.map((item) => renderNavItem(item))}
+        </Box>
+      )}
+    </Box>
+  );
 }

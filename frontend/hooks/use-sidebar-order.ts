@@ -3,7 +3,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 
 const STORAGE_KEY_PREFIX = 'pmsync:sidebar-order-';
 
-type SectionKey = 'main' | 'crm' | 'ai';
+type SectionKey = 'main' | 'crm' | 'ai' | 'sections';
 
 /**
  * Persists sidebar nav item order per section to localStorage.
