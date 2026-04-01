@@ -171,7 +171,7 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
 - [ ] **Phase 138: Tasks Page & Views** - Frontend Tasks pillar with list/kanban, filters, quick-add
   Plans:
   - [ ] 0138-01-PLAN.md — Tasks API module, query hooks, translations, and barrel exports
-  - [ ] 0138-02-PLAN.md — TaskCard, CreateTaskDialog, TasksKanbanBoard, TasksList, and page wiring
+  - [x] 0138-02-PLAN.md — TaskCard, CreateTaskDialog, TasksKanbanBoard, TasksList, and page wiring
 - [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
 - [ ] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view
 - [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
