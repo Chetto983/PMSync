@@ -129,35 +129,38 @@ export class ReminderEmailMonitorService implements OnModuleInit {
     emailMittente: string | null;
     createdAt: Date;
   }): Promise<{ subject: string | null } | null> {
-    // Build search conditions
-    const where: Record<string, unknown> = {
-      tenantId: reminder.tenantId,
-      isDeleted: false,
-      receivedAt: { gte: reminder.createdAt },
-    };
+    if (!reminder.emailKeywords.length && !reminder.emailMittente) return null;
 
-    // Filter by sender if specified
+    // Use raw SQL with ILIKE ANY to avoid O(N*K) OR expansion per keyword.
+    // Single query regardless of keyword count.
+    const patterns = reminder.emailKeywords.map((kw) => `%${kw}%`);
+    const params: unknown[] = [reminder.tenantId, reminder.createdAt];
+    const conditions: string[] = [
+      `"tenantId" = $1`,
+      `"isDeleted" = false`,
+      `"receivedAt" >= $2`,
+    ];
+
+    let paramIdx = 3;
+
     if (reminder.emailMittente) {
-      where.from = { contains: reminder.emailMittente, mode: 'insensitive' };
+      conditions.push(`"from" ILIKE $${paramIdx}`);
+      params.push(`%${reminder.emailMittente}%`);
+      paramIdx++;
     }
 
-    // Search for emails matching keywords in subject or snippet
-    if (reminder.emailKeywords.length > 0) {
-      where.OR = reminder.emailKeywords.map((keyword) => ({
-        OR: [
-          { subject: { contains: keyword, mode: 'insensitive' } },
-          { snippet: { contains: keyword, mode: 'insensitive' } },
-        ],
-      }));
+    if (patterns.length > 0) {
+      conditions.push(
+        `("subject" ILIKE ANY($${paramIdx}::text[]) OR "snippet" ILIKE ANY($${paramIdx}::text[]))`,
+      );
+      params.push(patterns);
+      paramIdx++;
     }
 
-    const email = await this.prisma.email.findFirst({
-      where,
-      select: { subject: true },
-      orderBy: { receivedAt: 'desc' },
-    });
+    const sql = `SELECT "subject" FROM "Email" WHERE ${conditions.join(' AND ')} ORDER BY "receivedAt" DESC LIMIT 1`;
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ subject: string | null }>>(sql, ...params);
 
-    return email;
+    return rows.length > 0 ? rows[0] : null;
   }
 
   private async checkDeadlineExpiry(reminder: {

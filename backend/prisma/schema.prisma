@@ -575,6 +575,7 @@ model Email {
   @@index([tenantId, isBodyFetched])
   @@index([tenantId, isFlagged])
   @@index([tenantId, aiPriority])
+  @@index([tenantId, isDeleted, receivedAt])
   @@index([tenantId, aiLane])
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
