@@ -284,7 +284,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 129. Replica Activation | v11.0 | 1/2 | Complete    | 2026-03-31 |
 | 130. Frontend Performance | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 131. Billing Frontend | v11.0 | 2/2 | Complete    | 2026-03-31 |
-| 132. Billing Backend Hardening | v11.0 | 2/2 | Complete   | 2026-04-01 |
+| 132. Billing Backend Hardening | v11.0 | 2/2 | Complete    | 2026-04-01 |
 | 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
 
 ---
