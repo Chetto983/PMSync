@@ -9,7 +9,7 @@ import {
   Tooltip,
   Checkbox,
 } from '@mui/material';
-import { CheckCircle2, Trash2, Send } from 'lucide-react';
+import { CheckCircle2, Pencil, Trash2, Send } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
@@ -19,6 +19,7 @@ interface ReminderCardProps {
   reminder: Reminder;
   selected?: boolean;
   onSelect?: (id: string) => void;
+  onEdit: (reminder: Reminder) => void;
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -32,7 +33,7 @@ function prioritaColor(p: string): 'error' | 'warning' | 'success' | 'default' {
   }
 }
 
-export function ReminderCard({ reminder, selected, onSelect, onComplete, onDelete }: ReminderCardProps) {
+export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete, onDelete }: ReminderCardProps) {
   const t = useTranslations();
   const tr = t.ai.reminders;
   const tz = useUserTimezone();
@@ -73,6 +74,11 @@ export function ReminderCard({ reminder, selected, onSelect, onComplete, onDelet
           </Box>
           {!isCompleted && (
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+              <Tooltip title={tr.actions.edit}>
+                <IconButton size="small" color="primary" onClick={() => onEdit(reminder)} sx={{ minWidth: 44, minHeight: 44 }}>
+                  <Pencil size={18} />
+                </IconButton>
+              </Tooltip>
               <Tooltip title={tr.actions.complete}>
                 <IconButton size="small" color="success" onClick={() => onComplete(reminder.id)} sx={{ minWidth: 44, minHeight: 44 }}>
                   <CheckCircle2 size={18} />

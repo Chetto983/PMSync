@@ -19,9 +19,10 @@ import { PageContainer } from '@/components/common';
 import { EmptyState } from '@/components/common/EmptyState';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import { useReminders, useCompleteReminder, useDeleteReminder, useBulkDeleteReminders } from '@/hooks/queries/use-reminders';
-import type { ReminderStatus } from '@/lib/api/reminders';
+import type { Reminder, ReminderStatus } from '@/lib/api/reminders';
 import { ReminderCard } from './ReminderCard';
 import { ReminderCreateDialog } from './ReminderCreateDialog';
+import { ReminderEditDialog } from './ReminderEditDialog';
 
 const STATUS_FILTERS: Array<ReminderStatus | 'all'> = ['all', 'attivo', 'completato', 'annullato'];
 
@@ -30,6 +31,7 @@ export function RemindersBoard() {
   const tr = t.ai.reminders;
   const [statusFilter, setStatusFilter] = useState<ReminderStatus | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
@@ -180,6 +182,7 @@ export function RemindersBoard() {
               reminder={r}
               selected={selectedIds.has(r.id)}
               onSelect={handleToggleSelect}
+              onEdit={setEditingReminder}
               onComplete={(id) => completeMutation.mutate(id)}
               onDelete={handleDeleteRequest}
             />
@@ -197,6 +200,7 @@ export function RemindersBoard() {
       </Fab>
 
       <ReminderCreateDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <ReminderEditDialog open={editingReminder !== null} reminder={editingReminder} onClose={() => setEditingReminder(null)} />
 
       {/* Single delete confirmation dialog */}
       <Dialog open={deleteConfirmId !== null} onClose={handleDeleteCancel} maxWidth="xs" fullWidth>

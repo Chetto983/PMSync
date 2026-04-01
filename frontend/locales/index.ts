@@ -3295,6 +3295,19 @@ export interface AppTranslations {
         create: string;
         cancel: string;
       };
+      editDialog: {
+        title: string;
+        save: string;
+        cancel: string;
+        titleField: string;
+        descriptionField: string;
+        contactField: string;
+        deadlineField: string;
+        priorityField: string;
+        actionField: string;
+        statusField: string;
+        telegramMessageField: string;
+      };
       status: {
         attivo: string;
         completato: string;
