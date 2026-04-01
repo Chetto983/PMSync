@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
+import { EntityContextSidebar } from '@/components/common/EntityContextSidebar';
 import { ThreadView } from '@/components/email/thread';
 import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
 import { LabelPickerDialog } from '@/components/email/labels/LabelPickerDialog';
-import type { ThreadMessageData } from '@/components/email/thread';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useEmailThread,
@@ -21,73 +21,33 @@ import {
 } from '@/hooks/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
-import { CircularProgress, Box, Typography, Button } from '@mui/material';
+import { CircularProgress, Box, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ArrowLeft } from 'lucide-react';
-import type { Email } from '@/lib/api/emails';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
-import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
-import { isValidHexColor } from '@/lib/label-colors';
+import { extractEmailAddress, extractSenderDisplayName, mapEmailToThreadMessage } from '@/components/email/utils/email-formatters';
 
-/**
- * Thread Detail Page
- *
- * Displays a full email thread/conversation with all messages.
- * Uses ThreadView component with virtual scrolling for performance.
- * Connects to realtime updates via WebSocket.
- */
 
-// Map Email from API to ThreadMessageData for ThreadView component
-function mapEmailToThreadMessage(email: Email, timezone: string): ThreadMessageData {
-  return {
-    id: email.id,
-    from: email.from,
-    to: email.to || [],
-    cc: email.cc,
-    date: formatDateTimeInTz(email.receivedAt, timezone),
-    subject: email.subject || '(No subject)',
-    body: email.bodyHtml || email.bodyText || '',
-    isUnread: !email.isRead,
-    isFlagged: email.isFlagged || email.isStarred,
-    hasAttachments: (email.attachments?.length ?? 0) > 0,
-    attachments: email.attachments?.map((att) => ({
-      id: att.id,
-      name: att.filename,
-      size: att.size,
-    })),
-    labels: email.emailLabels?.map((el) => {
-      const bg = el.label?.color?.backgroundColor;
-      return {
-        id: el.label?.id || '',
-        name: el.label?.name || 'Label',
-        color: bg && isValidHexColor(bg) ? bg : '#9E9E9E',
-      };
-    }).filter((l) => l.id),
-  };
-}
 
 export default function ThreadDetailPage() {
   const router = useRouter();
   const toast = useGlobalToast();
   const t = useTranslations();
   const tz = useUserTimezone();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Get threadId from URL - may be string or string[] from Next.js
   const threadId = typeof router.query.threadId === 'string' ? router.query.threadId : '';
-
-  // Enable realtime updates for this thread
   useEmailRealtime({ enabled: !!threadId });
 
-  // Dialog state
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  // Fetch thread emails
-  const { data: emails, isLoading, error, refetch } = useEmailThread(threadId);
 
-  // Mutations for email operations
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const { data: emails, isLoading, error, refetch } = useEmailThread(threadId);
   const moveEmails = useBulkMoveEmails();
   const markRead = useBulkMarkRead();
   const bulkFlag = useBulkMarkImportant();
@@ -98,22 +58,36 @@ export default function ThreadDetailPage() {
   const addEmailsToLabel = useAddEmailsToLabel();
   const queryClient = useQueryClient();
 
-  // Map emails to ThreadMessageData format
   const messages = useMemo(() => {
     if (!emails?.length) return [];
     return emails.map((e) => mapEmailToThreadMessage(e, tz));
   }, [emails, tz]);
 
-  // Get thread subject from first email
   const subject = useMemo(() => {
     if (!emails?.length) return '';
     return emails[0].subject || '(No subject)';
   }, [emails]);
 
-  // Get all email IDs for bulk operations
   const emailIds = useMemo(() => {
     return emails?.map((e) => e.id) || [];
   }, [emails]);
+
+  // Extract sender info from the most recent message for CRM sidebar
+  const senderEmail = useMemo(() => {
+    if (!emails?.length) return '';
+    const lastEmail = emails[emails.length - 1];
+    return extractEmailAddress(lastEmail.from);
+  }, [emails]);
+
+  const senderName = useMemo(() => {
+    if (!emails?.length) return null;
+    const lastEmail = emails[emails.length - 1];
+    return extractSenderDisplayName(lastEmail.from);
+  }, [emails]);
+
+  const handleSidebarToggle = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
 
   const hasFlaggedMessages = useMemo(
     () => emails?.some((email) => email.isFlagged || email.isStarred) ?? false,
@@ -125,17 +99,14 @@ export default function ThreadDetailPage() {
     [emails]
   );
 
-  // Get providerId from thread (all emails in a thread belong to same provider)
   const providerId = useMemo(() => {
     return emails?.[0]?.providerId;
   }, [emails]);
 
-  // Navigate back to email list
   const handleBack = useCallback(() => {
     router.push('/dashboard/email');
   }, [router]);
 
-  // Toggle flag on single message
   const handleFlag = useCallback(
     async (messageId: string) => {
       const email = emails?.find((e) => e.id === messageId);
@@ -153,7 +124,6 @@ export default function ThreadDetailPage() {
     [emails, updateEmail, toast, t]
   );
 
-  // Reply handler - navigate to compose with reply context
   const handleReply = useCallback(
     (messageId: string) => {
       router.push(`/dashboard/email/compose?mode=reply&emailId=${messageId}`);
@@ -161,7 +131,6 @@ export default function ThreadDetailPage() {
     [router]
   );
 
-  // Forward handler - navigate to compose with forward context
   const handleForward = useCallback(
     (messageId: string) => {
       router.push(`/dashboard/email/compose?mode=forward&emailId=${messageId}`);
@@ -169,7 +138,6 @@ export default function ThreadDetailPage() {
     [router]
   );
 
-  // Reply All handler - navigate to compose with reply all context
   const handleReplyAll = useCallback(
     (messageId: string) => {
       router.push(`/dashboard/email/compose?mode=replyAll&emailId=${messageId}`);
@@ -177,7 +145,6 @@ export default function ThreadDetailPage() {
     [router]
   );
 
-  // Download attachment handler
   const handleDownloadAttachment = useCallback(
     async (messageId: string, attachmentId: string) => {
       try {
@@ -205,13 +172,11 @@ export default function ThreadDetailPage() {
     [emails, toast, t]
   );
 
-  // Delete entire thread — opens confirmation dialog
   const handleDeleteThread = useCallback(() => {
     if (!emailIds.length) return;
     setDeleteDialogOpen(true);
   }, [emailIds]);
 
-  // Confirmed delete — actually performs the deletion
   const handleConfirmDelete = useCallback(async () => {
     if (!emailIds.length) return;
 
@@ -225,18 +190,15 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, bulkDelete, toast, t, router]);
 
-  // Move thread to folder
   const handleMoveThread = useCallback(() => {
     setFolderPickerOpen(true);
   }, []);
 
-  // Archive entire thread — opens confirmation dialog
   const handleArchiveThread = useCallback(() => {
     if (!emailIds.length) return;
     setArchiveDialogOpen(true);
   }, [emailIds]);
 
-  // Confirmed archive — actually performs the archive
   const handleConfirmArchive = useCallback(async () => {
     if (!emailIds.length) return;
 
@@ -250,7 +212,6 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, moveEmails, toast, t, router]);
 
-  // Mark all messages as read
   const handleMarkThreadRead = useCallback(async () => {
     if (!emailIds.length) return;
 
@@ -262,7 +223,6 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, markRead, toast, t]);
 
-  // Mark all messages as unread
   const handleMarkThreadUnread = useCallback(async () => {
     if (!emailIds.length) return;
 
@@ -274,7 +234,6 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, markRead, toast, t]);
 
-  // Flag all messages - using bulk API for efficiency
   const handleFlagAllMessages = useCallback(async () => {
     if (!emailIds.length) return;
 
@@ -286,7 +245,6 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, bulkFlag, toast, t]);
 
-  // Unflag all messages - using bulk API for efficiency
   const handleUnflagAllMessages = useCallback(async () => {
     if (!emailIds.length) return;
 
@@ -298,12 +256,10 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, bulkFlag, toast, t]);
 
-  // Add labels
   const handleAddLabelsToThread = useCallback(() => {
     setLabelPickerOpen(true);
   }, []);
 
-  // Remove label from a single message
   const handleRemoveLabel = useCallback(async (_messageId: string, labelId: string) => {
     try {
       await removeEmailFromLabel.mutateAsync({ labelId, emailId: _messageId });
@@ -349,7 +305,6 @@ export default function ThreadDetailPage() {
     }
   }, [updateEmail, emails, toast, t, refetch]);
 
-  // Loading state
   if (isLoading || !router.isReady) {
     return (
       <Layout>
@@ -373,7 +328,6 @@ export default function ThreadDetailPage() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <Layout>
@@ -408,7 +362,6 @@ export default function ThreadDetailPage() {
     );
   }
 
-  // Empty thread (shouldn't happen normally)
   if (!messages.length) {
     return (
       <Layout>
@@ -435,29 +388,43 @@ export default function ThreadDetailPage() {
   return (
     <PageErrorBoundary pageName="Thread">
       <Layout>
-        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', minHeight: 0, overflow: 'hidden' }}>
-          <ThreadView
-            threadId={threadId}
-            subject={subject}
-            messages={messages}
-            onBack={handleBack}
-            onFlag={handleFlag}
-            onReply={handleReply}
-            onReplyAll={handleReplyAll}
-            onForward={handleForward}
-            onDownloadAttachment={handleDownloadAttachment}
-            onDeleteThread={handleDeleteThread}
-            onMoveThread={handleMoveThread}
-            onArchiveThread={handleArchiveThread}
-            onMarkThreadRead={handleMarkThreadRead}
-            onMarkThreadUnread={handleMarkThreadUnread}
-            onFlagAllMessages={hasUnflaggedMessages ? handleFlagAllMessages : undefined}
-            onUnflagAllMessages={hasFlaggedMessages ? handleUnflagAllMessages : undefined}
-            onAddLabelsToThread={handleAddLabelsToThread}
-            onRemoveLabel={handleRemoveLabel}
-            onAcceptAiLabel={handleAcceptAiLabel}
-            onDismissAiLabel={handleDismissAiLabel}
-          />
+        <Box sx={{ display: 'flex', flex: 1, height: '100%', minHeight: 0, overflow: 'hidden' }}>
+          {/* Thread content area */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <ThreadView
+              threadId={threadId}
+              subject={subject}
+              messages={messages}
+              onBack={handleBack}
+              onFlag={handleFlag}
+              onReply={handleReply}
+              onReplyAll={handleReplyAll}
+              onForward={handleForward}
+              onDownloadAttachment={handleDownloadAttachment}
+              onDeleteThread={handleDeleteThread}
+              onMoveThread={handleMoveThread}
+              onArchiveThread={handleArchiveThread}
+              onMarkThreadRead={handleMarkThreadRead}
+              onMarkThreadUnread={handleMarkThreadUnread}
+              onFlagAllMessages={hasUnflaggedMessages ? handleFlagAllMessages : undefined}
+              onUnflagAllMessages={hasFlaggedMessages ? handleUnflagAllMessages : undefined}
+              onAddLabelsToThread={handleAddLabelsToThread}
+              onRemoveLabel={handleRemoveLabel}
+              onAcceptAiLabel={handleAcceptAiLabel}
+              onDismissAiLabel={handleDismissAiLabel}
+            />
+          </Box>
+
+          {/* CRM Context Sidebar */}
+          {!isMobile && (
+            <EntityContextSidebar
+              email={senderEmail}
+              contactName={senderName}
+              open={sidebarOpen}
+              onToggle={handleSidebarToggle}
+            />
+          )}
+
           <FolderPickerDialog
             open={folderPickerOpen}
             onClose={() => setFolderPickerOpen(false)}

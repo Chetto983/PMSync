@@ -1,8 +1,9 @@
 import type { Email } from '@/lib/api/emails';
 import type { SenderContactMap } from '@/lib/api/contacts';
 import type { ThreadListItemData } from '@/components/email/list';
+import type { ThreadMessageData } from '@/components/email/thread';
 import { getAvatarUrl } from '@/lib/utils/gravatar';
-import { formatDateInTz } from '@/lib/utils/format-date-tz';
+import { formatDateInTz, formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import { isValidHexColor } from '@/lib/label-colors';
 
 /**
@@ -13,6 +14,13 @@ export function extractEmailAddress(from: string): string {
   if (match) return match[1].toLowerCase();
   // If no brackets, treat the whole string as email
   return from.toLowerCase().trim();
+}
+
+export function extractSenderDisplayName(from: string): string | null {
+  const match = from.match(/^(.*)\s+<[^>]+>$/);
+  if (!match) return null;
+  const value = match[1]?.trim();
+  return value ? value.replace(/^"|"$/g, '') : null;
 }
 
 /**
@@ -51,5 +59,36 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
     aiPriority: email.aiPriority,
     aiSentiment: email.aiSentiment,
     aiLabels: email.aiLabels,
+  };
+}
+
+/**
+ * Map Email from API to ThreadMessageData for ThreadView component
+ */
+export function mapEmailToThreadMessage(email: Email, timezone: string): ThreadMessageData {
+  return {
+    id: email.id,
+    from: email.from,
+    to: email.to || [],
+    cc: email.cc,
+    date: formatDateTimeInTz(email.receivedAt, timezone),
+    subject: email.subject || '(No subject)',
+    body: email.bodyHtml || email.bodyText || '',
+    isUnread: !email.isRead,
+    isFlagged: email.isFlagged || email.isStarred,
+    hasAttachments: (email.attachments?.length ?? 0) > 0,
+    attachments: email.attachments?.map((att) => ({
+      id: att.id,
+      name: att.filename,
+      size: att.size,
+    })),
+    labels: email.emailLabels?.map((el) => {
+      const bg = el.label?.color?.backgroundColor;
+      return {
+        id: el.label?.id || '',
+        name: el.label?.name || 'Label',
+        color: bg && isValidHexColor(bg) ? bg : '#9E9E9E',
+      };
+    }).filter((l) => l.id),
   };
 }
