@@ -5373,4 +5373,23 @@ export const it: AppTranslations = {
       stage_change: 'Cambio fase',
     },
   },
+  crmSuggestions: {
+    title: 'Suggerimenti AI',
+    pendingCount: '{count} in sospeso',
+    noPending: 'Nessun suggerimento in sospeso',
+    accept: 'Accetta',
+    dismiss: 'Ignora',
+    acceptAll: 'Accetta Tutti',
+    dismissAll: 'Ignora Tutti',
+    accepted: 'Suggerimento accettato',
+    dismissed: 'Suggerimento ignorato',
+    bulkComplete: 'Azione completata',
+    types: {
+      account: 'Nuovo Account',
+      deal: 'Nuova Trattativa',
+      ticket: 'Nuovo Ticket',
+      link: 'Collega Contatto',
+    },
+    confidence: 'Affidabilità',
+  },
 };

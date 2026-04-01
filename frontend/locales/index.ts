@@ -5175,6 +5175,25 @@ export interface AppTranslations {
     strengthModerate?: string;
     strengthStrong?: string;
   };
+  crmSuggestions?: {
+    title?: string;
+    pendingCount?: string;
+    noPending?: string;
+    accept?: string;
+    dismiss?: string;
+    acceptAll?: string;
+    dismissAll?: string;
+    accepted?: string;
+    dismissed?: string;
+    bulkComplete?: string;
+    types?: {
+      account?: string;
+      deal?: string;
+      ticket?: string;
+      link?: string;
+    };
+    confidence?: string;
+  };
   activityTimeline?: {
     title?: string;
     noActivities?: string;

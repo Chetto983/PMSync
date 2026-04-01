@@ -5396,4 +5396,23 @@ export const en: AppTranslations = {
       stage_change: 'Stage changed',
     },
   },
+  crmSuggestions: {
+    title: 'AI Suggestions',
+    pendingCount: '{count} pending',
+    noPending: 'No pending suggestions',
+    accept: 'Accept',
+    dismiss: 'Dismiss',
+    acceptAll: 'Accept All',
+    dismissAll: 'Dismiss All',
+    accepted: 'Suggestion accepted',
+    dismissed: 'Suggestion dismissed',
+    bulkComplete: 'Bulk action complete',
+    types: {
+      account: 'New Account',
+      deal: 'New Deal',
+      ticket: 'New Ticket',
+      link: 'Link Contact',
+    },
+    confidence: 'Confidence',
+  },
 };
