@@ -21,7 +21,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
 } from '@mui/material';
-import { Search, Plus, Trash2, List, Kanban } from 'lucide-react';
+import { Search, Plus, Trash2, List, Kanban, Handshake } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
@@ -31,6 +31,7 @@ import { useDeals, useDeleteDeal } from '@/hooks/queries/use-crm-deals';
 import { usePipelines } from '@/hooks/queries/use-crm-pipelines';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { CrmBreadcrumb, EmptyState } from '@/components/common';
 import { CreateDealDialog } from './CreateDealDialog';
 import { KanbanBoard } from './KanbanBoard';
 import { DealScoreBadge } from './DealScoreBadge';
@@ -129,7 +130,7 @@ export function DealsList() {
   // Loading state
   if (isLoading) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
         <Skeleton width="30%" height={32} animation="wave" sx={{ mb: 2 }} />
         <Skeleton width="100%" height={48} animation="wave" sx={{ mb: 1 }} />
         {Array.from({ length: 6 }).map((_, i) => (
@@ -142,7 +143,7 @@ export function DealsList() {
   // Error state
   if (isError) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
         <Alert severity="error">{(error as Error)?.message ?? 'Error loading deals'}</Alert>
       </Box>
     );
@@ -152,7 +153,9 @@ export function DealsList() {
   const total = data?.total ?? 0;
 
   return (
-    <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CrmBreadcrumb section={td?.title ?? 'Deals'} sectionHref="/dashboard/crm/deals" />
+
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box>
@@ -262,21 +265,13 @@ export function DealsList() {
       <>
       {/* Empty state */}
       {rows.length === 0 && !search && !filterPipeline ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {td?.noDealsFound}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {td?.noDealsDescription}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setCreateOpen(true)}
-          >
-            {td?.newDeal}
-          </Button>
-        </Box>
+        <EmptyState
+          icon={Handshake}
+          title={td?.noDealsFound ?? 'No deals yet'}
+          description={td?.noDealsDescription}
+          actionLabel={td?.newDeal}
+          onAction={() => setCreateOpen(true)}
+        />
       ) : (
         <>
           <TableContainer sx={{ flex: 1 }}>
