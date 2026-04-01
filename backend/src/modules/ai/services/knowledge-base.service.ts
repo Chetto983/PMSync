@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
@@ -10,6 +10,8 @@ import { EmbeddingCrudService } from './embedding-crud.service';
 import { EmbeddingSearchService, SearchOptions, SearchResult, KnowledgeBaseSearchHit } from './embedding-search.service';
 // Phase 109: Entity extraction for graph RAG
 import { EntityExtractionService } from './entity-extraction.service';
+// T-0401: Query cache invalidation on email deletion
+import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
 // Re-export for backward compatibility with controllers
 export type { KnowledgeBaseSearchHit };
 import { EmbeddingBackfillService, BackfillOptions, BackfillResult, EmbeddingStats } from './embedding-backfill.service';
@@ -46,6 +48,8 @@ export class KnowledgeBaseService {
     private readonly backfillService: EmbeddingBackfillService,
     // Phase 109: Entity extraction for graph RAG
     private readonly entityExtractionService: EntityExtractionService,
+    // T-0401: Query cache invalidation on email deletion
+    @Optional() private readonly queryEmbeddingCache?: QueryEmbeddingCacheService,
   ) {}
 
   // ============================================================================
@@ -362,11 +366,25 @@ export class KnowledgeBaseService {
   }
 
   async deleteEmbeddingsForEmail(tenantId: string, emailId: string): Promise<number> {
-    return this.crudService.deleteEmbeddingsForEmail(tenantId, emailId);
+    const deleted = await this.crudService.deleteEmbeddingsForEmail(tenantId, emailId);
+    // T-0401: Invalidate query cache so next search generates fresh vectors
+    if (deleted > 0) {
+      this.queryEmbeddingCache?.clearCache(tenantId).catch((err) =>
+        this.logger.warn(`Query cache invalidation failed for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`),
+      );
+    }
+    return deleted;
   }
 
   async deleteEmbeddingsForEmails(tenantId: string, emailIds: string[]): Promise<number> {
-    return this.crudService.deleteEmbeddingsForEmails(tenantId, emailIds);
+    const deleted = await this.crudService.deleteEmbeddingsForEmails(tenantId, emailIds);
+    // T-0401: Invalidate query cache after bulk deletion
+    if (deleted > 0) {
+      this.queryEmbeddingCache?.clearCache(tenantId).catch((err) =>
+        this.logger.warn(`Query cache invalidation failed for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`),
+      );
+    }
+    return deleted;
   }
 
   async bulkDeleteEmbeddingsByEmailIds(
@@ -374,7 +392,14 @@ export class KnowledgeBaseService {
     emailIds: string[],
     batchSize?: number,
   ): Promise<number> {
-    return this.crudService.bulkDeleteEmbeddingsByEmailIds(tenantId, emailIds, batchSize);
+    const deleted = await this.crudService.bulkDeleteEmbeddingsByEmailIds(tenantId, emailIds, batchSize);
+    // T-0401: Invalidate query cache after bulk deletion
+    if (deleted > 0) {
+      this.queryEmbeddingCache?.clearCache(tenantId).catch((err) =>
+        this.logger.warn(`Query cache invalidation failed for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`),
+      );
+    }
+    return deleted;
   }
 
   async deleteEmbeddingsForContact(tenantId: string, contactId: string): Promise<number> {
