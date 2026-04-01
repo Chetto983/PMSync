@@ -300,6 +300,53 @@ export class ContextService {
     return (contact.sentCount ?? 0) + (contact.receivedCount ?? 0);
   }
 
+  async getActivityTimeline(
+    tenantId: string,
+    entityType: 'account' | 'deal',
+    entityId: string,
+    cursor?: string,
+    limit = 50,
+  ): Promise<{ data: Array<{ id: string; type: string; content: string | null; metadata: unknown; createdAt: string }>; nextCursor: string | null }> {
+    const where: Prisma.CrmActivityWhereInput = { tenantId };
+
+    if (entityType === 'account') {
+      where.accountId = entityId;
+    } else {
+      where.dealId = entityId;
+    }
+
+    const take = Math.min(limit, 100);
+
+    const activities = await this.prisma.crmActivity.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        type: true,
+        content: true,
+        metadata: true,
+        createdAt: true,
+      },
+    });
+
+    const hasMore = activities.length > take;
+    const items = hasMore ? activities.slice(0, take) : activities;
+    const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+    return {
+      data: items.map((a) => ({
+        id: a.id,
+        type: a.type,
+        content: a.content,
+        metadata: a.metadata,
+        createdAt: a.createdAt.toISOString(),
+      })),
+      nextCursor,
+    };
+  }
+
   private formatAmount(amount: Prisma.Decimal | null): string | null {
     return amount ? amount.toString() : null;
   }
