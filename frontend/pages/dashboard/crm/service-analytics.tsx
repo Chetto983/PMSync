@@ -1,5 +1,7 @@
 import dynamic from 'next/dynamic';
 import { Skeleton, Box } from '@mui/material';
+import { Layout } from '@/components/layout/Layout';
+import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 
 const ServiceAnalyticsDashboard = dynamic(
   () =>
@@ -18,5 +20,15 @@ const ServiceAnalyticsDashboard = dynamic(
 );
 
 export default function ServiceAnalyticsPage() {
-  return <ServiceAnalyticsDashboard />;
+  return (
+    <Layout>
+      <PageErrorBoundary pageName="Service Analytics">
+        <ServiceAnalyticsDashboard />
+      </PageErrorBoundary>
+    </Layout>
+  );
 }
+
+export const getServerSideProps = async () => {
+  return { props: {} };
+};

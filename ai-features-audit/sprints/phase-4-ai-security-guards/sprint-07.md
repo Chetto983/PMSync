@@ -40,24 +40,24 @@
 - [x] Addresses: **SEC-H3** ✅ DONE
 
 ### T-0705: Audit @RequiresConsent coverage on all AI endpoints [2 SP]
-- [ ] Read `ai.controller.ts` — list all endpoints
-- [ ] Read `ai-chat.controller.ts` — list all endpoints
-- [ ] Read `knowledge-base.controller.ts` — list all endpoints
-- [ ] Verify every mutating/AI-processing endpoint has `@RequiresConsent('ai_email_processing')`
-- [ ] Add missing decorators
-- [ ] Addresses: **SEC-M1**
+- [x] Read `ai.controller.ts` — list all endpoints ✅ DONE
+- [x] Read `ai-chat.controller.ts` — list all endpoints ✅ DONE
+- [x] Read `knowledge-base.controller.ts` — list all endpoints ✅ DONE
+- [x] Verify every mutating/AI-processing endpoint has `@RequiresConsent` ✅ 8 missing found
+- [x] Add missing decorators ✅ 8 decorators added
+- [x] Addresses: **SEC-M1** ✅ DONE
 
 ### T-0706: Version defensive system prompt [1 SP]
-- [ ] Read `prompt-guard-sentinel.service.ts` `getDefensiveSystemPrompt()` — locate prompt
-- [ ] Add version constant: `DEFENSIVE_PROMPT_VERSION = 'v1.0'`
-- [ ] Log version with every AI run in AiRunLedger
-- [ ] Addresses: **SEC-M2**
+- [x] Read `prompt-guard-sentinel.service.ts` `getDefensiveSystemPrompt()` — locate prompt ✅ DONE
+- [x] Add version constant: `DEFENSIVE_PROMPT_VERSION = 'v1.0'` ✅ Static readonly
+- [x] Log version with every AI run in AiRunLedger ✅ Via promptHash() + version tag
+- [x] Addresses: **SEC-M2** ✅ DONE
 
 ### T-0707: Externalize prompt guard patterns to config [2 SP]
-- [ ] Read patterns in `prompt-guard-sentinel.service.ts`
-- [ ] Extract to JSON config file: `backend/src/modules/ai/config/prompt-guard-patterns.json`
-- [ ] Load patterns at module init, allow hot-reload via admin endpoint
-- [ ] Addresses: **SEC-L1**
+- [x] Read patterns in `prompt-guard-sentinel.service.ts` ✅ DONE
+- [x] Extract to JSON config file: `backend/src/modules/ai/config/prompt-guard-patterns.json` ✅ DONE
+- [x] Load patterns at module init, allow hot-reload via admin endpoint ✅ reloadPatterns()
+- [x] Addresses: **SEC-L1** ✅ DONE
 
 ---
 
