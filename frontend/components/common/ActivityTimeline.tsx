@@ -4,6 +4,7 @@ import {
   Typography,
   Button,
   Skeleton,
+  CircularProgress,
 } from '@mui/material';
 import {
   Timeline,
@@ -57,6 +58,7 @@ export interface ActivityEvent {
 export interface ActivityTimelineProps {
   activities: ActivityEvent[];
   isLoading?: boolean;
+  isLoadingMore?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
 }
@@ -192,6 +194,7 @@ const TimelineEventItem = memo(function TimelineEventItem({
 export const ActivityTimeline = memo(function ActivityTimeline({
   activities,
   isLoading,
+  isLoadingMore,
   hasMore,
   onLoadMore,
 }: ActivityTimelineProps) {
@@ -244,8 +247,13 @@ export const ActivityTimeline = memo(function ActivityTimeline({
 
       {hasMore && onLoadMore && (
         <Box sx={{ textAlign: 'center', py: 1 }}>
-          <Button size="small" onClick={handleLoadMore}>
-            {ta?.loadMore ?? 'Load more'}
+          <Button
+            size="small"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            startIcon={isLoadingMore ? <CircularProgress size={14} color="inherit" /> : undefined}
+          >
+            {isLoadingMore ? (ta?.loading ?? 'Loading...') : (ta?.loadMore ?? 'Load more')}
           </Button>
         </Box>
       )}

@@ -219,6 +219,7 @@ export const ContactCrmTab = memo(function ContactCrmTab({ contactId }: ContactC
       <ActivityTimeline
         activities={timelineActivities}
         isLoading={!!accountId && timelineQuery.isLoading}
+        isLoadingMore={timelineQuery.isFetchingNextPage}
         hasMore={!!accountId && !!timelineQuery.hasNextPage}
         onLoadMore={accountId ? handleLoadMore : undefined}
       />
