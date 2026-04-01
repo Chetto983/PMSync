@@ -12,21 +12,21 @@
 
 ## Sprint Backlog
 
-### T-1301: API endpoint validation on Railway [3 SP]
-- [ ] Test all AI endpoints respond (auth-gated = 401 is "working"):
-  - `GET /ai/health` → 200
-  - `GET /ai/health/detailed` → 401
-  - `POST /ai/chat` → 401
-  - `GET /ai/chat/sessions` → 401
-  - `POST /ai/summarize/:emailId` → 401
-  - `POST /ai/smart-reply/:emailId` → 401
-  - `POST /ai/compose` → 401
-  - `GET /ai/runs` → 401
-  - `GET /ai/runs/cost-summary` → 401
-  - `POST /ai/knowledge-base/search` → 401
-  - `GET /ai/knowledge-base/embeddings` → 401
-- [ ] Verify `/ai/health` returns minimal response (no circuit breaker details)
-- [ ] Check `/metrics` endpoint accessible
+### T-1301: API endpoint validation on Railway [3 SP] ✅ DONE
+- [x] Test all AI endpoints respond (auth-gated = 401 is "working"):
+  - `GET /api/v1/ai/health` → 200 ✅
+  - `GET /api/v1/ai/health/detailed` → 401 ✅
+  - `POST /api/v1/ai/chat` → 403 CSRF ✅
+  - `GET /api/v1/ai/chat/conversations` → 401 ✅ (note: route is `conversations` not `sessions`)
+  - `POST /api/v1/ai/summarize/:emailId` → 403 CSRF ✅
+  - `POST /api/v1/ai/smart-reply/:emailId` → 403 CSRF ✅
+  - `POST /api/v1/ai/compose` → 403 CSRF ✅
+  - `GET /api/v1/ai/runs` → 401 ✅
+  - `GET /api/v1/ai/runs/cost-summary` → 401 ✅
+  - `POST /api/v1/ai/knowledge-base/search` → 403 CSRF ✅
+  - `GET /api/v1/ai/knowledge-base/embeddings` → 401 ✅
+- [x] Verify `/api/v1/ai/health` returns minimal response (only `status` key, no circuit breaker details) ✅
+- [x] Check `/metrics` endpoint accessible → 401 (auth-gated, excluded from api/v1 prefix) ✅
 
 ### T-1302: Browser E2E — AI Chat flow [3 SP]
 - [ ] Create validation script: `scripts/validate-ai-features-production.mjs`
