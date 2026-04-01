@@ -110,8 +110,8 @@ export function AiTriageWidget() {
 
   const getFollowUpTypeLabel = (followUpType?: string | null) => {
     const labels = t.dashboard.widgets.aiTriage?.followUpTypes;
-    if (followUpType === 'WAITING_FOR') return labels?.waitingFor ?? 'Waiting';
-    if (followUpType === 'TODO') return labels?.todo ?? 'To do';
+    if (followUpType === 'WAITING_FOR') return labels?.waitingFor;
+    if (followUpType === 'TODO') return labels?.todo;
     return null;
   };
 
