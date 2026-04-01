@@ -79,9 +79,16 @@ export class AiRunLedgerService {
     @Optional() @InjectMetric('ai_requests_total') private readonly requestsCounter?: Counter,
   ) {}
 
+  /** Max retries for DB writes before giving up. */
+  private static readonly MAX_RETRIES = 1;
+  /** Delay between retries in ms. */
+  private static readonly RETRY_DELAY_MS = 500;
+
   /**
    * Record an AI run to the ledger. Fire-and-forget -- callers should
    * `.catch()` so failures never affect user responses.
+   *
+   * Retries once on DB failure with 500ms delay to avoid silent telemetry loss (OBS-H1).
    */
   async recordRun(params: RecordRunParams): Promise<void> {
     const promptTokens = this.safeInt(params.promptTokens);
@@ -107,29 +114,46 @@ export class AiRunLedgerService {
       CorrelationContext.getContext()?.correlationId ??
       undefined;
 
-    await this.prisma.aiRunLedger.create({
-      data: {
-        tenantId: params.tenantId,
-        userId: params.userId,
-        runType: params.runType,
-        predictionType: this.resolvePredictionType(params.runType),
-        model: params.model,
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        estimatedCostUsd,
-        latencyMs: this.safeInt(params.latencyMs),
-        toolCallCount: this.safeInt(params.toolCallCount ?? 0),
-        hitlRequired: params.hitlRequired ?? false,
-        requestId,
-        status: params.status ?? AiRunStatus.SUCCESS,
-        errorCode: params.errorCode,
-        errorMessage: params.errorMessage,
-        promptVersion: params.promptVersion,
-        rawContextTokens: params.rawContextTokens != null ? this.safeInt(params.rawContextTokens) : null,
-        assembledContextTokens: params.assembledContextTokens != null ? this.safeInt(params.assembledContextTokens) : null,
-      },
-    });
+    const data = {
+      tenantId: params.tenantId,
+      userId: params.userId,
+      runType: params.runType,
+      predictionType: this.resolvePredictionType(params.runType),
+      model: params.model,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      estimatedCostUsd,
+      latencyMs: this.safeInt(params.latencyMs),
+      toolCallCount: this.safeInt(params.toolCallCount ?? 0),
+      hitlRequired: params.hitlRequired ?? false,
+      requestId,
+      status: params.status ?? AiRunStatus.SUCCESS,
+      errorCode: params.errorCode,
+      errorMessage: params.errorMessage,
+      promptVersion: params.promptVersion,
+      rawContextTokens: params.rawContextTokens != null ? this.safeInt(params.rawContextTokens) : null,
+      assembledContextTokens: params.assembledContextTokens != null ? this.safeInt(params.assembledContextTokens) : null,
+    };
+
+    for (let attempt = 0; attempt <= AiRunLedgerService.MAX_RETRIES; attempt++) {
+      try {
+        await this.prisma.aiRunLedger.create({ data });
+        return;
+      } catch (error) {
+        if (attempt < AiRunLedgerService.MAX_RETRIES) {
+          this.logger.warn(
+            `Ledger write failed (attempt ${attempt + 1}), retrying in ${AiRunLedgerService.RETRY_DELAY_MS}ms: ${error instanceof Error ? error.message : error}`,
+          );
+          await this.delay(AiRunLedgerService.RETRY_DELAY_MS);
+        } else {
+          this.logger.error(
+            `Ledger write permanently failed after ${AiRunLedgerService.MAX_RETRIES + 1} attempts — telemetry lost for ${params.runType} (model=${params.model}, tenant=${params.tenantId})`,
+            error instanceof Error ? error.stack : undefined,
+          );
+        }
+      }
+    }
   }
 
   /** Map runType to PredictionType enum for governance attribution. */
@@ -153,5 +177,10 @@ export class AiRunLedgerService {
   /** Coerce non-finite values to 0. */
   private safeInt(value: number): number {
     return Number.isFinite(value) ? Math.round(value) : 0;
+  }
+
+  /** Non-blocking delay for retry backoff. */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
