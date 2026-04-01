@@ -44,9 +44,13 @@ export function ContentPreview({
   const [instruction, setInstruction] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus input when opened
+  // Focus refinement input when loading finishes (content generated or initial open)
+  const prevLoadingRef = useRef(isLoading);
   useEffect(() => {
-    if (!isLoading && !content) {
+    const wasLoading = prevLoadingRef.current;
+    prevLoadingRef.current = isLoading;
+    // Focus when: loading finishes, or component opens with no content
+    if ((wasLoading && !isLoading) || (!isLoading && !content)) {
       inputRef.current?.focus();
     }
   }, [isLoading, content]);
@@ -107,7 +111,7 @@ export function ContentPreview({
         >
           <AutoAwesomeIcon size={18} />
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            {composer.aiComposeTitle || 'AI Assistant'}
+            {composer.aiComposeTitle}
           </Typography>
           <IconButton size="small" onClick={() => onReject?.()} sx={{ color: 'inherit' }}>
             <CloseIcon size={18} />
@@ -120,7 +124,7 @@ export function ContentPreview({
             inputRef={inputRef}
             fullWidth
             size="small"
-            placeholder={content ? (composer.aiChatPlaceholder || 'Tell AI how to modify...') : (composer.aiComposePlaceholderCompose || 'Describe what to write...')}
+            placeholder={content ? composer.aiChatPlaceholder : composer.aiComposePlaceholderCompose}
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             onKeyDown={handleKeyDown}
