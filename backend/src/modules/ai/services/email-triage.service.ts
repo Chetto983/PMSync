@@ -23,7 +23,7 @@ import { TriageActionService } from './triage-action.service';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 
 // Cost control constants
-const MAX_TRIAGE_PER_BATCH = 50;
+const MAX_TRIAGE_PER_BATCH = 20;
 const TRIAGE_MAX_AGE_HOURS = 24;
 // Skip folders for auto-triage (based on actual DB values - all UPPERCASE)
 const SKIP_FOLDERS = [
