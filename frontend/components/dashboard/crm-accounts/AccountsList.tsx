@@ -17,18 +17,15 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
 } from '@mui/material';
-import { Search, Plus, Trash2, ExternalLink, Download } from 'lucide-react';
+import { Search, Plus, Trash2, ExternalLink, Download, Building2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAccounts, useDeleteAccount } from '@/hooks/queries/use-crm-accounts';
 import { crmImportExportApi } from '@/lib/api/crm-import-export';
 import { CreateAccountDialog } from './CreateAccountDialog';
+import { CrmBreadcrumb, EmptyState } from '@/components/common';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CrmAccount } from '@/lib/api/crm-accounts';
 
 export function AccountsList() {
@@ -73,7 +70,7 @@ export function AccountsList() {
   // Loading state
   if (isLoading) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
         <Skeleton width="30%" height={32} animation="wave" sx={{ mb: 2 }} />
         <Skeleton width="100%" height={48} animation="wave" sx={{ mb: 1 }} />
         {Array.from({ length: 6 }).map((_, i) => (
@@ -86,7 +83,7 @@ export function AccountsList() {
   // Error state
   if (isError) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
         <Alert severity="error">{(error as Error)?.message ?? 'Error loading accounts'}</Alert>
       </Box>
     );
@@ -96,7 +93,9 @@ export function AccountsList() {
   const total = data?.total ?? 0;
 
   return (
-    <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CrmBreadcrumb section={ta?.title ?? 'Accounts'} sectionHref="/dashboard/crm/accounts" />
+
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box>
@@ -156,21 +155,13 @@ export function AccountsList() {
 
       {/* Empty state */}
       {rows.length === 0 && !search ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {ta?.noAccountsFound}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {ta?.noAccountsDescription}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setCreateOpen(true)}
-          >
-            {ta?.newAccount}
-          </Button>
-        </Box>
+        <EmptyState
+          icon={Building2}
+          title={ta?.noAccountsFound ?? 'No accounts yet'}
+          description={ta?.noAccountsDescription}
+          actionLabel={ta?.newAccount}
+          onAction={() => setCreateOpen(true)}
+        />
       ) : (
         <>
           <TableContainer sx={{ flex: 1 }}>
@@ -278,23 +269,18 @@ export function AccountsList() {
 
       <CreateAccountDialog open={createOpen} onClose={() => setCreateOpen(false)} />
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>{ta?.deleteAccount ?? 'Delete Account'}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {ta?.deleteConfirm ?? 'Are you sure? This action cannot be undone.'}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteId(null)} disabled={deleteAccount.isPending}>
-            {tc?.cancel ?? 'Cancel'}
-          </Button>
-          <Button onClick={handleDelete} color="error" variant="contained" disabled={deleteAccount.isPending}>
-            {ta?.deleteAccount ?? 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={handleDelete}
+        title={ta?.deleteAccount ?? 'Delete Account'}
+        message={ta?.deleteConfirm ?? 'Are you sure? This action cannot be undone.'}
+        confirmText={ta?.deleteAccount ?? 'Delete'}
+        cancelText={tc?.cancel ?? 'Cancel'}
+        variant="danger"
+        isLoading={deleteAccount.isPending}
+      />
     </Box>
   );
 }
