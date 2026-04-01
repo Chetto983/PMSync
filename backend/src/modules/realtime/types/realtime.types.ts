@@ -204,6 +204,16 @@ export interface CrmTicketEventPayload {
   timestamp?: string;
 }
 
+export interface ReminderEventPayload {
+  reminderId: string;
+  titolo: string;
+  contatto: string | null;
+  scadenzaDatetime: string;
+  tenantId: string;
+  userId: string;
+  timestamp: string;
+}
+
 /** AI cost threshold alert payload (OBS-M1) */
 export interface AiCostAlertPayload {
   currentCost: number;
@@ -299,6 +309,12 @@ export interface RealtimeEventPayloads {
   'crm:ticket:assigned': CrmTicketEventPayload;
   // AI Cost Alerting (OBS-M1)
   'ai:cost:alert': AiCostAlertPayload;
+  // Reminder Lifecycle Events
+  'reminder:upcoming': ReminderEventPayload;
+  'reminder:imminent': ReminderEventPayload;
+  'reminder:overdue': ReminderEventPayload;
+  'reminder:completed': ReminderEventPayload;
+  'reminder:telegram-sent': ReminderEventPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

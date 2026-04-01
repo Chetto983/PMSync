@@ -17,6 +17,7 @@ import {
   CrmImportProgressPayload,
   CrmTicketEventPayload,
   AiCostAlertPayload,
+  ReminderEventPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -38,6 +39,7 @@ export type {
   CrmImportProgressPayload,
   CrmTicketEventPayload,
   AiCostAlertPayload,
+  ReminderEventPayload,
 } from '../types/realtime.types';
 
 /**
@@ -574,6 +576,30 @@ export class RealtimeEventsService implements OnModuleDestroy {
   /** OBS-M1: Notify tenant when AI cost approaches monthly cap. */
   emitAiCostAlert(tenantId: string, payload: AiCostAlertPayload) {
     void this.emitToTenant(tenantId, 'ai:cost:alert', payload);
+  }
+
+  /**
+   * REMINDER LIFECYCLE EVENTS
+   */
+
+  emitReminderUpcoming(tenantId: string, payload: ReminderEventPayload): void {
+    void this.emitToTenant(tenantId, 'reminder:upcoming', payload);
+  }
+
+  emitReminderImminent(tenantId: string, payload: ReminderEventPayload): void {
+    void this.emitToTenant(tenantId, 'reminder:imminent', payload);
+  }
+
+  emitReminderOverdue(tenantId: string, payload: ReminderEventPayload): void {
+    void this.emitToTenant(tenantId, 'reminder:overdue', payload);
+  }
+
+  emitReminderCompleted(tenantId: string, payload: ReminderEventPayload): void {
+    void this.emitToTenant(tenantId, 'reminder:completed', payload);
+  }
+
+  emitReminderTelegramSent(tenantId: string, payload: ReminderEventPayload): void {
+    void this.emitToTenant(tenantId, 'reminder:telegram-sent', payload);
   }
 
   /**
