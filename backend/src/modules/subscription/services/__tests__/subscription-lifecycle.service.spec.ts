@@ -118,6 +118,101 @@ describe('SubscriptionLifecycleService', () => {
     });
   });
 
+  describe('runExpiryCheck — checkCancelledSubscriptions', () => {
+    it('downgrades ACTIVE subscription with cancelAt in the past to FREE/CANCELED', async () => {
+      const tenant = await createTestTenant();
+      tenantIds.push(tenant.id);
+
+      const pastDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000); // 2 days ago
+      const sub = await prisma.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          plan: SubscriptionPlan.PROFESSIONAL,
+          status: SubscriptionStatus.ACTIVE,
+          monthlyEmailLimit: 10000,
+          monthlyAICallLimit: 5000,
+          maxUsers: 5,
+          cancelAt: pastDate,
+          usageResetAt: new Date(),
+        },
+      });
+      subscriptionIds.push(sub.id);
+
+      const result = await service.runExpiryCheck();
+
+      expect(result.cancelled).toBe(1);
+      expect(mockSubscriptionService.updatePlan).toHaveBeenCalledWith(
+        tenant.id,
+        SubscriptionPlan.FREE,
+      );
+      expect(mockSubscriptionService.updateStatus).toHaveBeenCalledWith(
+        tenant.id,
+        SubscriptionStatus.CANCELED,
+      );
+    });
+
+    it('does NOT downgrade ACTIVE subscription with cancelAt in the future', async () => {
+      const tenant = await createTestTenant();
+      tenantIds.push(tenant.id);
+
+      const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const sub = await prisma.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          plan: SubscriptionPlan.PROFESSIONAL,
+          status: SubscriptionStatus.ACTIVE,
+          monthlyEmailLimit: 10000,
+          monthlyAICallLimit: 5000,
+          maxUsers: 5,
+          cancelAt: futureDate,
+          usageResetAt: new Date(),
+        },
+      });
+      subscriptionIds.push(sub.id);
+
+      await service.runExpiryCheck();
+
+      const updatePlanCalledForTenant = (
+        mockSubscriptionService.updatePlan.mock.calls as [string, ...unknown[]][]
+      ).some(([id]) => id === tenant.id);
+
+      expect(updatePlanCalledForTenant).toBe(false);
+    });
+
+    it('does NOT downgrade subscription with cancelAt null', async () => {
+      const tenant = await createTestTenant();
+      tenantIds.push(tenant.id);
+
+      const sub = await prisma.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          plan: SubscriptionPlan.PROFESSIONAL,
+          status: SubscriptionStatus.ACTIVE,
+          monthlyEmailLimit: 10000,
+          monthlyAICallLimit: 5000,
+          maxUsers: 5,
+          cancelAt: null,
+          usageResetAt: new Date(),
+        },
+      });
+      subscriptionIds.push(sub.id);
+
+      await service.runExpiryCheck();
+
+      const updatePlanCalledForTenant = (
+        mockSubscriptionService.updatePlan.mock.calls as [string, ...unknown[]][]
+      ).some(([id]) => id === tenant.id);
+
+      expect(updatePlanCalledForTenant).toBe(false);
+    });
+
+    it('includes cancelled count in runExpiryCheck return value', async () => {
+      const result = await service.runExpiryCheck();
+      expect(result).toHaveProperty('cancelled');
+      expect(typeof result.cancelled).toBe('number');
+    });
+  });
+
   describe('runExpiryCheck — processPastDueSubscriptions', () => {
     it('cancels PAST_DUE subscription when updatedAt is beyond the 7-day grace period', async () => {
       const tenant = await createTestTenant();
