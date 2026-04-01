@@ -4,8 +4,8 @@
  * Public probe endpoint for load balancers and monitoring systems.
  * Admin-only detailed endpoint for circuit breaker and service diagnostics.
  */
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Delete, Query, UseGuards, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { Public } from '../../../common/auth/public.decorator';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
@@ -197,5 +197,92 @@ export class AiHealthController {
         embeddingQueues,
       },
     };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // DLQ Management (admin only)
+  // ──────────────────────────────────────────────────────────────────────
+
+  /**
+   * List DLQ jobs with stats and error breakdown.
+   * Use this to diagnose failure patterns before deciding to retry or clean.
+   */
+  @Get('health/dlq')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @ApiOperation({ summary: 'List DLQ jobs with error breakdown (admin only)' })
+  @ApiQuery({ name: 'queue', required: false, description: 'Filter by original queue (e.g. email-embedding)' })
+  @ApiQuery({ name: 'errorType', required: false, description: 'Filter by error type (e.g. RateLimit, Timeout)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  async getDlqJobs(
+    @Query('queue') queue?: string,
+    @Query('errorType') errorType?: string,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset?: number,
+  ) {
+    const safeLimit = Math.min(limit ?? 50, 100);
+    const [stats, jobs] = await Promise.all([
+      this.dlqService.getStats(),
+      this.dlqService.getJobs({ queue, errorType, limit: safeLimit, offset: offset ?? 0 }),
+    ]);
+
+    return {
+      stats,
+      jobs: jobs.map((j) => ({
+        originalJobId: j.originalJobId,
+        originalQueue: j.originalQueue,
+        failedAt: j.failedAt,
+        attemptsMade: j.attemptsMade,
+        lastError: j.lastError,
+        metadata: j.metadata,
+      })),
+      pagination: { limit: safeLimit, offset: offset ?? 0, returned: jobs.length },
+    };
+  }
+
+  /**
+   * Retry DLQ jobs, optionally filtered by queue.
+   * Re-enqueues failed jobs into their original queue with fresh retry budget.
+   */
+  @Post('health/dlq/retry')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @ApiOperation({ summary: 'Retry DLQ jobs (admin only)' })
+  @ApiQuery({ name: 'queue', required: false, description: 'Filter by original queue name' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max jobs to retry (default 100)' })
+  async retryDlqJobs(
+    @Query('queue') queue?: string,
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit?: number,
+  ) {
+    const safeLimit = Math.min(limit ?? 100, 500);
+    const jobs = await this.dlqService.getJobs({ queue, limit: safeLimit });
+
+    if (jobs.length === 0) {
+      return { retried: 0, total: 0, message: 'No matching DLQ jobs found' };
+    }
+
+    const retried = await this.dlqService.retryBulk(
+      jobs.map((j) => j.originalJobId),
+      { maxRetries: 3, retryDelay: 5000 },
+    );
+
+    return { retried, total: jobs.length };
+  }
+
+  /**
+   * Remove old DLQ failures.
+   * Use olderThanDays=0 to purge all, or a positive value to keep recent failures for analysis.
+   */
+  @Delete('health/dlq')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @ApiOperation({ summary: 'Clean DLQ failures (admin only)' })
+  @ApiQuery({ name: 'olderThanDays', required: false, type: Number, description: 'Remove jobs older than N days (0 = all)' })
+  async cleanDlq(
+    @Query('olderThanDays', new DefaultValuePipe(0), ParseIntPipe) olderThanDays?: number,
+  ) {
+    const removed = await this.dlqService.cleanOldFailures(olderThanDays ?? 0);
+    return { removed, olderThanDays: olderThanDays ?? 0 };
   }
 }

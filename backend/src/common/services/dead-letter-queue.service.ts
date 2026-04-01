@@ -195,9 +195,11 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Retry a failed job from the DLQ
+   * Retry a failed job from the DLQ.
    *
-   * Removes the job from DLQ and re-queues it with new options.
+   * Re-enqueues the original job data into the original queue with fresh retry
+   * budget, then removes the DLQ entry. If the original queue doesn't exist or
+   * the re-enqueue fails, the DLQ entry is kept so data is never silently lost.
    */
   async retryJob(dlqJobId: string, options?: RetryOptions): Promise<boolean> {
     try {
@@ -214,6 +216,20 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
         `Retrying job ${dlqData.originalJobId} from ${dlqData.originalQueue} (failure count: ${dlqData.failureCount})`,
       );
 
+      // Re-enqueue into the original queue with fresh retry budget
+      const targetQueue = this.getOrCreateQueue(dlqData.originalQueue);
+      await targetQueue.add(
+        `dlq-retry:${dlqData.originalJobId}`,
+        dlqData.originalData,
+        {
+          attempts: options?.maxRetries ?? 3,
+          backoff: { type: 'exponential', delay: options?.retryDelay ?? 5000 },
+          priority: options?.priority,
+          removeOnComplete: { age: 3600, count: 200 },
+          removeOnFail: { age: 86400, count: 500 },
+        },
+      );
+
       // Store retry attempt for tracking
       await this.cache.set(
         `retry:${dlqData.originalJobId}`,
@@ -223,21 +239,36 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
           options,
         },
         {
-          namespace: CacheNamespace.WEBHOOK_NONCE, // Reuse namespace
+          namespace: CacheNamespace.WEBHOOK_NONCE,
           ttl: 3600,
         },
       );
 
-      // Remove from DLQ
+      // Only remove from DLQ after successful re-enqueue
       await job.remove();
 
-      this.logger.log(`Successfully retried job ${dlqJobId}`);
+      this.logger.log(`Successfully retried job ${dlqJobId} → ${dlqData.originalQueue}`);
       return true;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       this.logger.error(`Failed to retry job ${dlqJobId}: ${error.message}`, error.stack);
       return false;
     }
+  }
+
+  /**
+   * Get or create a transient BullMQ Queue handle for re-enqueuing.
+   * Uses the shared Redis connection so no new connections are opened.
+   */
+  private readonly transientQueues = new Map<string, Queue>();
+
+  private getOrCreateQueue(queueName: string): Queue {
+    let q = this.transientQueues.get(queueName);
+    if (!q) {
+      q = new Queue(queueName, { connection: this.redisConnection });
+      this.transientQueues.set(queueName, q);
+    }
+    return q;
   }
 
   /**
@@ -542,6 +573,16 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
           `DLQ queue close skipped: ${error instanceof Error ? error.message : error}`,
         );
       }
+
+      // Close transient retry queues
+      for (const [name, q] of this.transientQueues) {
+        try {
+          await q.close();
+        } catch (error) {
+          this.logger.debug(`Transient queue ${name} close skipped: ${error instanceof Error ? error.message : error}`);
+        }
+      }
+      this.transientQueues.clear();
 
       // Release shared Redis connection reference (AUDIT-03)
       // Connection only closes when all references are released
