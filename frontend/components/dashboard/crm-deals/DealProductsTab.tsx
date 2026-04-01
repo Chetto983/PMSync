@@ -295,7 +295,7 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
   }
 
   if (isError) {
-    return <Alert severity="error">{t.common.genericError}</Alert>;
+    return <Alert severity="error">{tp?.loadError ?? 'Failed to load deal products'}</Alert>;
   }
 
   const products = links ?? [];
