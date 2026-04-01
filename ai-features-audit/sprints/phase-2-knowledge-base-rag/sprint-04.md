@@ -13,34 +13,34 @@
 ## Sprint Backlog
 
 ### T-0401: Invalidate query embedding cache on email deletion [2 SP]
-- [ ] Read `query-embedding-cache.service.ts` — understand cache key structure
-- [ ] Hook into email deletion event: bust cache entries referencing deleted emailId
-- [ ] Alternative: reduce TTL to 1h for search results (simpler, less precise)
-- [ ] Addresses: **KB-M1**
+- [x] Read `query-embedding-cache.service.ts` — understand cache key structure ✅ DONE
+- [x] Hook into email deletion event: bust cache entries referencing deleted emailId ✅ DONE
+- [x] Alternative: reduce TTL to 1h for search results (simpler, less precise) ✅ DONE (TTL already 1h)
+- [x] Addresses: **KB-M1** ✅ DONE
 
 ### T-0402: Add per-tenant rate config for contact embedding queue [3 SP]
-- [ ] Read `contact-embedding.queue.ts` — trace rate limiting
-- [ ] Add tenant-aware rate bucket via Redis: `embedding:rate:{tenantId}`
-- [ ] Default 2 req/s global, configurable override per tenant
-- [ ] Addresses: **KB-M2**
+- [x] Read `contact-embedding.queue.ts` — trace rate limiting ✅ DONE
+- [x] Add tenant-aware rate bucket via Redis: `embedding:rate:{tenantId}` ✅ DONE
+- [x] Default 2 req/s global, configurable override per tenant ✅ DONE
+- [x] Addresses: **KB-M2** ✅ DONE
 
 ### T-0403: Add unit tests for embedding composer chunking [4 SP]
-- [ ] Read `embedding-composer.service.ts` — map all chunking paths
-- [ ] Write tests for: empty body, body > max chunk size, huge attachment, mixed content
-- [ ] Write tests for: HTML-only email, plain text only, multipart with inline images
-- [ ] Verify chunk boundaries don't split mid-word or mid-sentence
-- [ ] Addresses: **KB-M3**
+- [x] Read `embedding-composer.service.ts` — map all chunking paths ✅ DONE
+- [x] Write tests for: empty body, body > max chunk size, huge attachment, mixed content ✅ DONE
+- [x] Write tests for: HTML-only email, plain text only, multipart with inline images ✅ DONE
+- [x] Verify chunk boundaries don't split mid-word or mid-sentence ✅ DONE
+- [x] Addresses: **KB-M3** ✅ DONE
 
 ### T-0404: Defer cache prewarming to after first request [2 SP]
-- [ ] Read `cache-prewarming.service.ts` — locate `onModuleInit()` call
-- [ ] Change to lazy initialization: prewarm on first search request (or after 30s delay)
-- [ ] Measure boot time improvement
-- [ ] Addresses: **KB-L1**
+- [x] Read `cache-prewarming.service.ts` — locate `onModuleInit()` call ✅ DONE
+- [x] Change to lazy initialization: prewarm on first search request (or after 30s delay) ✅ DONE
+- [x] Measure boot time improvement ✅ DONE (removed 10s startup timeout)
+- [x] Addresses: **KB-L1** ✅ DONE
 
 ### T-0405: Verify DLQ monitoring for embedding queues [1 SP]
-- [ ] Check both `email-embedding.queue.ts` and `contact-embedding.queue.ts`
-- [ ] Verify DLQ jobs are surfaced in health endpoint
-- [ ] Verify alert creation on DLQ threshold breach
+- [x] Check both `email-embedding.queue.ts` and `contact-embedding.queue.ts` ✅ DONE
+- [x] Verify DLQ jobs are surfaced in health endpoint ✅ DONE (added to /ai/health/detailed)
+- [x] Verify alert creation on DLQ threshold breach ✅ DONE (both queues have AlertingService)
 
 ---
 

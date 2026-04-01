@@ -1,41 +1,40 @@
-# Sprint 03 Checkpoint — Embeddings & Vector Search
+# Sprint 04 Checkpoint — Backfill, Queues & Orphan Cleanup
 
 | Field | Value |
 |-------|-------|
 | **Status** | COMPLETE |
-| **Last Task** | T-0305 |
-| **Next Task** | Sprint 04 (T-0401) |
+| **Last Task** | T-0405 |
+| **Next Task** | Sprint 05 (T-0501) |
 | **Tasks Done** | 5/5 |
-| **SP Done** | 14 |
+| **SP Done** | 12 |
 
 ## Findings Addressed
 
 | Finding | Status | Notes |
 |---------|--------|-------|
-| KB-C1 | Fixed | Per-tenant Redis counter (100/hr default, configurable EMBEDDING_BACKFILL_PER_TENANT_LIMIT). Fails open. |
-| KB-H1 | Fixed | findSimilarContent filters by embeddingModel. POST /ai/knowledge-base/migrate-embeddings deletes stale. |
-| KB-H2 | Fixed | Orphan cleanup now every 6h (was daily). Results logged to AiRunLedger. |
-| KB-H3 | Fixed | Redis SET dedup (pmsync:embedding:pending:{emailId}, 1h TTL). Cleared on completion/final failure. |
+| KB-M1 | Fixed | Query cache invalidated per-tenant after embedding deletions. Note: cache stores query vectors (not results), so search was already fresh. TTL already 1h (not 24h as audit claimed). Defense-in-depth. |
+| KB-M2 | Fixed | Per-tenant Redis rate limiter for contact embedding queue. Key: `pmsync:contact-embed:rate:{tenantId}`, 1min TTL. Default 120/min, configurable via `CONTACT_EMBEDDING_PER_TENANT_PER_MINUTE`. Fails open. |
+| KB-M3 | Fixed | 17 new edge case tests for embedding composer chunking: exact/over max size, whitespace, unicode, long words, overlap, newline boundaries, HTML-only, plain-text-only, all-null fields. |
+| KB-L1 | Fixed | Cache prewarming deferred from startup (10s setTimeout) to lazy trigger on first search via `triggerInitialWarmIfNeeded()`. Fire-and-forget, does not block search. |
 
 ## Last Modified Files
 
-- `backend/src/modules/ai/services/embedding-backfill-scheduler.service.ts` — per-tenant throttle + refactored SQL
-- `backend/src/modules/ai/services/embeddings.service.ts` — model version filter + stale management
-- `backend/src/modules/ai/controllers/knowledge-base.controller.ts` — migrate-embeddings endpoint
-- `backend/src/modules/ai/services/orphan-embedding-cleanup.service.ts` — 6h schedule + ledger
-- `backend/src/common/services/scheduled-jobs.queue.ts` — updated cron pattern
-- `backend/src/modules/ai/services/email-embedding.queue.ts` — Redis dedup guard
-- `backend/src/modules/ai/services/__tests__/embedding-tenant-isolation.test.ts` — tenant isolation test
+- `backend/src/modules/ai/services/knowledge-base.service.ts` — query cache invalidation on delete
+- `backend/src/modules/ai/services/contact-embedding.queue.ts` — per-tenant Redis rate limiter
+- `backend/src/modules/ai/services/__tests__/embedding-composer.service.spec.ts` — 17 new chunking tests
+- `backend/src/modules/ai/services/cache-prewarming.service.ts` — lazy initialization
+- `backend/src/modules/ai/services/embedding-search.service.ts` — lazy prewarm trigger
+- `backend/src/modules/ai/controllers/ai-health.controller.ts` — DLQ stats in health endpoint
 
 ## Key Decisions
 
-- Used existing `embeddingModel` column as version key (no schema migration needed)
-- Per-tenant throttle fails open (backfill is best-effort, not critical path)
-- Dedup guard fails open (worst case: re-embed, not data loss)
-- Orphan cleanup every 6h instead of daily (audit asked for "daily or every 6 hours")
-- AiRunLedger logs maintenance runs with totalTokens = deleted count (no LLM cost)
+- KB-M1: Query embedding cache stores vectors, not results — finding overstated severity. Added invalidation as defense-in-depth.
+- KB-M2: Used 1-minute sliding window (not hourly like backfill) since contact embedding is more latency-sensitive.
+- KB-L1: Lazy prewarm fires after first search completes, not on a timer. Eliminates any boot-time impact.
+- T-0405: Both queues already had DLQ + AlertingService. Added DLQ stats to /ai/health/detailed (admin only).
 
 ## Validation Status
 
-- `npx tsc --noEmit` — PASS (all 5 commits)
-- Tenant isolation — verified via code audit + integration test
+- `npx tsc --noEmit` — PASS (all 4 code commits)
+- Unit tests — 41/41 pass (embedding-composer.service.spec.ts)
+- Phase 2 Knowledge Base & RAG — COMPLETE (S03 + S04)
