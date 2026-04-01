@@ -473,4 +473,7 @@ export const QUEUE_NAMES = {
 
   // Contact relationship score recalculation (S09 T-0903)
   RELATIONSHIP_SCORE: 'relationship-score',
+
+  // Reminder notification (delayed jobs — fires at exact scadenzaDatetime)
+  REMINDER_NOTIFY: 'reminder-notify',
 } as const;

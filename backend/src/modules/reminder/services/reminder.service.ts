@@ -4,10 +4,11 @@
  * Handles creation (with optional AI parsing), listing, updating,
  * completing, and soft-deleting reminders. All queries are tenant-scoped.
  */
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma, ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ReminderAiParserService } from './reminder-ai-parser.service';
+import { ReminderNotifyQueueService } from '../../telegram/services/reminder-notify.queue';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
 
@@ -26,6 +27,7 @@ export class ReminderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiParser: ReminderAiParserService,
+    @Optional() private readonly reminderNotifyQueue?: ReminderNotifyQueueService,
   ) {}
 
   /**
@@ -134,6 +136,14 @@ export class ReminderService {
 
     this.logger.log(`Created reminder ${reminder.id} for user ${userId} in tenant ${tenantId}`);
 
+    // Schedule Telegram notification at exact scadenzaDatetime
+    if (reminder.scadenzaDatetime && this.reminderNotifyQueue) {
+      await this.reminderNotifyQueue.scheduleNotification(
+        reminder.id,
+        reminder.scadenzaDatetime,
+      );
+    }
+
     return { reminder, rispostaChat, failed: false as const };
   }
 
@@ -189,14 +199,36 @@ export class ReminderService {
     if (dto.messaggioTelegram !== undefined) data.messaggioTelegram = dto.messaggioTelegram;
     if (dto.status !== undefined) data.status = dto.status;
 
-    return this.prisma.reminder.update({
+    const updated = await this.prisma.reminder.update({
       where: { id },
       data,
     });
+
+    // Reschedule notification if scadenzaDatetime changed
+    if (dto.scadenzaDatetime !== undefined && this.reminderNotifyQueue) {
+      if (updated.scadenzaDatetime) {
+        await this.reminderNotifyQueue.scheduleNotification(
+          id,
+          updated.scadenzaDatetime,
+        );
+      } else {
+        await this.reminderNotifyQueue.cancelNotification(id);
+      }
+    }
+
+    // Cancel notification if status changed to non-active
+    if (dto.status && dto.status !== 'attivo' && this.reminderNotifyQueue) {
+      await this.reminderNotifyQueue.cancelNotification(id);
+    }
+
+    return updated;
   }
 
   async completeReminder(tenantId: string, userId: string, id: string) {
     await this.getReminder(tenantId, userId, id);
+    if (this.reminderNotifyQueue) {
+      await this.reminderNotifyQueue.cancelNotification(id);
+    }
     return this.prisma.reminder.update({
       where: { id },
       data: { status: 'completato', completatoAt: new Date() },
@@ -205,12 +237,21 @@ export class ReminderService {
 
   async deleteReminder(tenantId: string, userId: string, id: string) {
     await this.getReminder(tenantId, userId, id);
+    if (this.reminderNotifyQueue) {
+      await this.reminderNotifyQueue.cancelNotification(id);
+    }
     return this.prisma.reminder.delete({
       where: { id },
     });
   }
 
   async bulkDeleteReminders(tenantId: string, userId: string, ids: string[]) {
+    // Cancel all pending notifications
+    if (this.reminderNotifyQueue) {
+      await Promise.all(
+        ids.map((id) => this.reminderNotifyQueue!.cancelNotification(id)),
+      );
+    }
     const result = await this.prisma.reminder.deleteMany({
       where: { id: { in: ids }, tenantId, userId },
     });

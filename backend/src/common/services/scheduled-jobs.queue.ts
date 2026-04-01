@@ -55,9 +55,6 @@ export enum ScheduledJobType {
   LOG_ROTATION = 'log-rotation',
 
   // Telegram reminder system
-  TELEGRAM_SLOT_MATTINA = 'telegram-slot-mattina',
-  TELEGRAM_SLOT_POMERIGGIO = 'telegram-slot-pomeriggio',
-  TELEGRAM_SLOT_SERA = 'telegram-slot-sera',
   REMINDER_EMAIL_MONITOR = 'reminder-email-monitor',
 
   // Label consistency monitoring (Sprint 08 — T-0804)
@@ -102,9 +99,6 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.MEMORY_CLEANUP]: '0 1 * * *', // Daily at 1 AM - cleanup expired memories
   [ScheduledJobType.LOG_ROTATION]: '0 0 * * *', // Daily at midnight
   // Telegram reminder system
-  [ScheduledJobType.TELEGRAM_SLOT_MATTINA]: '30 8 * * *', // 08:30 daily
-  [ScheduledJobType.TELEGRAM_SLOT_POMERIGGIO]: '0 14 * * *', // 14:00 daily
-  [ScheduledJobType.TELEGRAM_SLOT_SERA]: '0 18 * * *', // 18:00 daily
   [ScheduledJobType.REMINDER_EMAIL_MONITOR]: '*/5 * * * *', // Every 5 minutes
   [ScheduledJobType.LABEL_CONSISTENCY_CHECK]: '30 2 * * *', // Daily at 2:30 AM
   [ScheduledJobType.LEAD_FEATURE_COMPUTE]: '0 3 * * *', // Daily at 3 AM

@@ -174,6 +174,41 @@ export class TelegramBotService implements OnModuleInit {
   }
 
   /**
+   * Send a single reminder notification at its exact scheduled time.
+   */
+  async sendReminderNotification(
+    chatId: string,
+    reminder: ReminderDigestItem & { messaggioTelegram: string | null },
+  ): Promise<boolean> {
+    const emoji = this.getActionEmoji(reminder.azione);
+    const contactLine = reminder.contatto ? ` — ${reminder.contatto}` : '';
+    const dateLine = reminder.scadenzaDatetime
+      ? `\nScadenza: ${this.formatDate(reminder.scadenzaDatetime)}`
+      : '';
+    const condLine = reminder.condizioneDettaglio
+      ? `\n${reminder.condizioneDettaglio}`
+      : '';
+
+    // Use custom Telegram message if set, otherwise build default
+    const body = reminder.messaggioTelegram
+      ? `\n${reminder.messaggioTelegram}`
+      : `${condLine}${dateLine}`;
+
+    const text =
+      `*PROMEMORIA*\n\n` +
+      `${emoji} *${reminder.titolo}*${contactLine}${body}`;
+
+    const inlineKeyboard = [
+      [{ text: `Done: ${reminder.titolo.substring(0, 25)}`, callback_data: `done:${reminder.id}` }],
+    ];
+
+    return this.sendMessage(chatId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: inlineKeyboard },
+    });
+  }
+
+  /**
    * Send an immediate alert when an email condition triggers.
    */
   async sendImmediateAlert(

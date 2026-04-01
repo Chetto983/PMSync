@@ -6,6 +6,7 @@ import { TelegramBotService } from './services/telegram-bot.service';
 import { TelegramSchedulerService } from './services/telegram-scheduler.service';
 import { TelegramWebhookService } from './services/telegram-webhook.service';
 import { ReminderEmailMonitorService } from './services/reminder-email-monitor.service';
+import { ReminderNotifyQueueService } from './services/reminder-notify.queue';
 import { TelegramWebhookController } from './controllers/telegram-webhook.controller';
 import { TelegramSettingsController } from './controllers/telegram-settings.controller';
 
@@ -17,10 +18,11 @@ import { TelegramSettingsController } from './controllers/telegram-settings.cont
   controllers: [TelegramWebhookController, TelegramSettingsController],
   providers: [
     TelegramBotService,
+    ReminderNotifyQueueService,
     TelegramSchedulerService,
     TelegramWebhookService,
     ReminderEmailMonitorService,
   ],
-  exports: [TelegramBotService],
+  exports: [TelegramBotService, ReminderNotifyQueueService],
 })
 export class TelegramModule {}
