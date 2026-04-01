@@ -16,9 +16,12 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { ConsentEnforcementService } from '../../compliance/services/consent-enforcement.service';
 
 // ============================================================================
 // Interfaces
@@ -163,7 +166,11 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
     return items
   `;
 
-  constructor(private readonly redisConnection: RedisConnectionService) {}
+  constructor(
+    private readonly redisConnection: RedisConnectionService,
+    @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly consentService?: ConsentEnforcementService,
+  ) {}
 
   onModuleInit() {
     this.redis = this.redisConnection.client;
@@ -205,8 +212,37 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   /**
    * Record an implicit user action as a triage signal.
    * Signals are buffered in Redis lists and flushed in batches at threshold.
+   *
+   * Privacy controls (EI-M3):
+   * 1. Requires 'ai_auto_triage' consent (same as auto-triage feature)
+   * 2. Respects aiBehavioralTrackingEnabled user preference (independent toggle)
+   * Silently skips if either check fails — no error thrown.
    */
   async recordSignal(signal: TriageSignal): Promise<void> {
+    // Privacy gate: check AI triage consent
+    if (this.consentService) {
+      const hasConsent = await this.consentService.hasConsent(
+        signal.userId, signal.tenantId, 'ai_auto_triage',
+      );
+      if (!hasConsent) {
+        this.logger.debug(`Signal skipped for ${signal.userId}: no ai_auto_triage consent`);
+        return;
+      }
+    }
+
+    // Privacy gate: check behavioral tracking preference
+    if (this.prisma) {
+      const prefs = await this.prisma.userPreferences.findUnique({
+        where: { userId: signal.userId },
+        select: { aiBehavioralTrackingEnabled: true },
+      });
+      // Default to enabled if preference doesn't exist yet (opt-out model)
+      if (prefs && prefs.aiBehavioralTrackingEnabled === false) {
+        this.logger.debug(`Signal skipped for ${signal.userId}: behavioral tracking disabled`);
+        return;
+      }
+    }
+
     const senderEmail = signal.senderEmail.toLowerCase();
     const bufferKey = `${REDIS_BUFFER_PREFIX}:${signal.tenantId}:${senderEmail}`;
 

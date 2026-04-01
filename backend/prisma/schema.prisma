@@ -175,6 +175,7 @@ model UserPreferences {
   workingDays                 String[] @default(["MON", "TUE", "WED", "THU", "FRI"])
   proactivityLevel            String?  @default("MEDIUM")
   notificationFrequency       String?  @default("DIGEST")
+  aiBehavioralTrackingEnabled Boolean  @default(true) // Implicit signal tracking for triage learning (opt-out)
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
   user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
