@@ -8,7 +8,7 @@
  * Single LLM call with pre-fetched email context.
  * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateObject, generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
@@ -72,6 +72,10 @@ Rules:
 
 Return valid JSON matching the exact schema.`;
 
+// Prompt length limits
+const INSTRUCTION_SOFT_LIMIT = 2000;
+const INSTRUCTION_HARD_LIMIT = 10000;
+
 export interface GenerateDraftParams {
   emailId: string;
   instruction: string;
@@ -99,6 +103,19 @@ export class DraftGenerationService {
     tenantId: string,
     params: GenerateDraftParams,
   ): Promise<AiServiceResult<DraftGenerationOutput>> {
+    // 0. Enforce instruction length limits
+    if (params.instruction && params.instruction.length > INSTRUCTION_HARD_LIMIT) {
+      throw new BadRequestException(
+        `Instruction exceeds maximum length (${INSTRUCTION_HARD_LIMIT} chars)`,
+      );
+    }
+    if (params.instruction && params.instruction.length > INSTRUCTION_SOFT_LIMIT) {
+      this.logger.warn(
+        `Draft instruction truncated from ${params.instruction.length} to ${INSTRUCTION_SOFT_LIMIT} chars`,
+      );
+      params = { ...params, instruction: params.instruction.slice(0, INSTRUCTION_SOFT_LIMIT) };
+    }
+
     // 1. Load the original email
     const email = await this.prisma.email.findFirst({
       where: { id: params.emailId, tenantId },
