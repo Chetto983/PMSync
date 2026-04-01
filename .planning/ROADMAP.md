@@ -143,7 +143,7 @@
 - [x] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints (completed 2026-03-31)
 - [x] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect (completed 2026-03-31)
 - [x] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening (completed 2026-04-01)
-- [ ] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel
+- [x] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel (completed 2026-04-01)
 
 ## Phase Details
 
@@ -270,7 +270,7 @@ Plans:
   3. Subscription state remains consistent after payment failure simulation and retry
 **Plans**: 1 plan
 Plans:
-- [ ] 133-01-PLAN.md — E2E billing validation script (attach, check, track, cancel, portal, webhook, cost protection)
+- [x] 133-01-PLAN.md — E2E billing validation script (attach, check, track, cancel, portal, webhook, cost protection)
 
 ## Progress
 
@@ -287,7 +287,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 130. Frontend Performance | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 131. Billing Frontend | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 132. Billing Backend Hardening | v11.0 | 2/2 | Complete    | 2026-04-01 |
-| 133. Billing E2E Validation | v11.0 | 0/1 | In progress | - |
+| 133. Billing E2E Validation | v11.0 | 1/1 | Complete   | 2026-04-01 |
 
 ---
 *Roadmap created: 2026-02-09*
