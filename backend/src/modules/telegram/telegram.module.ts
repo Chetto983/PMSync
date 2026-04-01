@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AiChatModule } from '../ai-chat/ai-chat.module';
 import { AuditModule } from '../audit/audit.module';
@@ -14,7 +14,7 @@ import { TelegramSettingsController } from './controllers/telegram-settings.cont
 // AiChatModule: for relaying Telegram messages to the AI chat pipeline
 // AuditModule: for HITL decision audit logging
 @Module({
-  imports: [PrismaModule, AiChatModule, AuditModule],
+  imports: [PrismaModule, forwardRef(() => AiChatModule), AuditModule],
   controllers: [TelegramWebhookController, TelegramSettingsController],
   providers: [
     TelegramBotService,
