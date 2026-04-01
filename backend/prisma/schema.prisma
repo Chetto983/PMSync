@@ -2371,6 +2371,7 @@ model KBArticle {
   publishedAt DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  searchVector Unsupported("tsvector")? @map("search_vector")
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category    KBCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
