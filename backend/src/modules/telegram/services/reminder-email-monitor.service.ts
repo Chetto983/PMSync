@@ -44,32 +44,56 @@ export class ReminderEmailMonitorService implements OnModuleInit {
     return withoutTenantScopingAsync(() => this.checkEmailsInternal());
   }
 
+  private static readonly MAX_PER_TENANT = 50;
+
   private async checkEmailsInternal(): Promise<void> {
-    // Find all reminders with email monitoring enabled
-    const reminders = await this.prisma.reminder.findMany({
+    // Get distinct tenants with active email-monitoring reminders
+    const tenantIds = await this.prisma.reminder.findMany({
       where: {
         monitoraEmail: true,
         status: ReminderStatus.attivo,
         emailRilevata: false,
         condizioneTipo: { in: ['se_risponde_mail', 'se_non_risponde_mail'] },
       },
-      take: 100, // Process in batches to avoid memory issues
+      select: { tenantId: true },
+      distinct: ['tenantId'],
     });
 
-    if (!reminders.length) {
+    if (!tenantIds.length) {
       this.logger.debug('No reminders to monitor for email conditions');
       return;
     }
 
-    this.logger.log(`Checking email conditions for ${reminders.length} reminders`);
+    // Fair round-robin: max MAX_PER_TENANT reminders per tenant
+    let totalProcessed = 0;
+    for (const { tenantId } of tenantIds) {
+      const reminders = await this.prisma.reminder.findMany({
+        where: {
+          tenantId,
+          monitoraEmail: true,
+          status: ReminderStatus.attivo,
+          emailRilevata: false,
+          condizioneTipo: { in: ['se_risponde_mail', 'se_non_risponde_mail'] },
+        },
+        take: ReminderEmailMonitorService.MAX_PER_TENANT,
+        orderBy: { createdAt: 'asc' },
+      });
 
-    for (const reminder of reminders) {
-      try {
-        await this.checkSingleReminder(reminder);
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Error checking reminder ${reminder.id}: ${msg}`);
+      for (const reminder of reminders) {
+        try {
+          await this.checkSingleReminder(reminder);
+          totalProcessed++;
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          this.logger.error(`Error checking reminder ${reminder.id}: ${msg}`);
+        }
       }
+    }
+
+    if (totalProcessed > 0) {
+      this.logger.log(
+        `Checked email conditions for ${totalProcessed} reminders across ${tenantIds.length} tenant(s)`,
+      );
     }
   }
 
