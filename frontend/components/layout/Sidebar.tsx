@@ -137,7 +137,8 @@ export function Sidebar({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const isActive = (href: string) => router.pathname === href;
+  const isActive = (href: string) =>
+    router.pathname === href || router.asPath.startsWith(href + '/');
 
   const drawerWidth = collapsed ? RAIL_WIDTH : EXPANDED_WIDTH;
 
