@@ -631,6 +631,10 @@ export interface AppTranslations {
         aiTriagedSection: string;
         userPinnedSection: string;
         noStarredEmails: string;
+        followUpTypes?: {
+          waitingFor?: string;
+          todo?: string;
+        };
       };
       todayEvents: {
         title: string;

@@ -104,17 +104,14 @@ export function AiTriageWidget() {
     if (!dueDate) return null;
     const parsed = new Date(dueDate);
     if (Number.isNaN(parsed.getTime())) return null;
-    if (parsed.getTime() < Date.now()) return locale === 'it' ? 'Scaduto' : 'Overdue';
-    return parsed.toLocaleDateString(locale === 'it' ? 'it-IT' : 'en-US', { month: 'short', day: 'numeric' });
+    if (parsed.getTime() < Date.now()) return t.dashboard.widgets.common.overdue;
+    return parsed.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
   };
 
   const getFollowUpTypeLabel = (followUpType?: string | null) => {
-    if (followUpType === 'WAITING_FOR') {
-      return locale === 'it' ? 'In attesa' : 'Waiting';
-    }
-    if (followUpType === 'TODO') {
-      return locale === 'it' ? 'Da fare' : 'To do';
-    }
+    const labels = t.dashboard.widgets.aiTriage?.followUpTypes;
+    if (followUpType === 'WAITING_FOR') return labels?.waitingFor ?? 'Waiting';
+    if (followUpType === 'TODO') return labels?.todo ?? 'To do';
     return null;
   };
 

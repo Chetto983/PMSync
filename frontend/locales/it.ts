@@ -698,6 +698,10 @@ export const it: AppTranslations = {
         aiTriagedSection: 'Priorità AI',
         userPinnedSection: 'Preferiti',
         noStarredEmails: 'Nessuna email preferita',
+        followUpTypes: {
+          waitingFor: 'In attesa',
+          todo: 'Da fare',
+        },
       },
       todayEvents: {
         title: 'Eventi di Oggi',

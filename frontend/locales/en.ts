@@ -705,6 +705,10 @@ export const en: AppTranslations = {
         aiTriagedSection: 'AI Priority',
         userPinnedSection: 'Starred',
         noStarredEmails: 'No starred emails',
+        followUpTypes: {
+          waitingFor: 'Waiting',
+          todo: 'To do',
+        },
       },
       todayEvents: {
         title: "Today's Events",
