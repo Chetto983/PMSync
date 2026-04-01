@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
 import { HtmlContentExtractor } from './html-content-extractor';
+import { CachePrewarmingService } from './cache-prewarming.service';
 
 /**
  * Options for knowledge base search
@@ -81,6 +82,8 @@ export class EmbeddingSearchService {
     private readonly prisma: PrismaService,
     private readonly mistralService: MistralService,
     private readonly embeddingsService: EmbeddingsService,
+    // T-0404: Lazy cache prewarming on first search
+    @Optional() private readonly cachePrewarming?: CachePrewarmingService,
   ) {}
 
   /**
@@ -131,6 +134,9 @@ export class EmbeddingSearchService {
 
     // Hydrate results from source tables (GDPR-compliant)
     const items = await this.hydrateKnowledgeHits(matches, options.tenantId);
+
+    // T-0404: Lazy cache prewarming — trigger on first search (fire-and-forget)
+    this.cachePrewarming?.triggerInitialWarmIfNeeded();
 
     return {
       usedQuery: searchText,

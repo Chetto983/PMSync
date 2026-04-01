@@ -22,6 +22,8 @@ import { ScheduledJobsQueueService, ScheduledJobType } from '../../../common/ser
 export class CachePrewarmingService implements OnModuleInit {
   private readonly logger = new Logger(CachePrewarmingService.name);
   private readonly enabled: boolean;
+  /** T-0404: Lazy initialization — prewarm on first search, not at boot */
+  private initialWarmDone = false;
 
   constructor(
     private readonly config: ConfigService,
@@ -46,10 +48,22 @@ export class CachePrewarmingService implements OnModuleInit {
       ScheduledJobType.CACHE_PREWARM_TENANT,
       async () => { await this.warmTenantQueries(); },
     );
-    this.logger.log('Cache pre-warming handlers registered with BullMQ scheduler');
+    this.logger.log('Cache pre-warming handlers registered (lazy: warms on first search, not at boot)');
+    // T-0404: Removed startup setTimeout — now triggered lazily via triggerInitialWarmIfNeeded()
+  }
 
-    // Initial warm-up after short delay (let other services start)
-    setTimeout(() => this.warmCommonQueries(), 10000);
+  /**
+   * T-0404: Trigger initial warm-up lazily on first search request.
+   * Called by EmbeddingSearchService after first vector search completes.
+   * Fire-and-forget — does not block the search response.
+   */
+  triggerInitialWarmIfNeeded(): void {
+    if (!this.enabled || this.initialWarmDone) return;
+    this.initialWarmDone = true;
+    this.logger.log('First search detected — triggering lazy cache pre-warming');
+    this.warmCommonQueries().catch((err) =>
+      this.logger.warn(`Lazy pre-warming failed: ${err instanceof Error ? err.message : String(err)}`),
+    );
   }
 
   /**
