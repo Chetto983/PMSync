@@ -142,7 +142,7 @@
 - [x] **Phase 129: Replica Activation** - Enable multi-replica deployment with tuned workers and per-replica observability (completed 2026-03-31)
 - [x] **Phase 130: Frontend Performance** - Bundle optimization, dynamic imports, and cache headers for read-heavy endpoints (completed 2026-03-31)
 - [x] **Phase 131: Billing Frontend** - Build pricing table, upgrade flow, usage dashboard, and billing portal redirect (completed 2026-03-31)
-- [ ] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening
+- [x] **Phase 132: Billing Backend Hardening** - Webhook endpoint with idempotency and edge case hardening (completed 2026-04-01)
 - [ ] **Phase 133: Billing E2E Validation** - End-to-end validation scripts for all billing flows on Railway/Vercel
 
 ## Phase Details
@@ -258,7 +258,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 132-01-PLAN.md — Autumn webhook endpoint with Svix verification, idempotent event processing, and scenario routing
-- [ ] 132-02-PLAN.md — Cancellation period-end enforcement + wire billing alert emails
+- [x] 132-02-PLAN.md — Cancellation period-end enforcement + wire billing alert emails
 
 ### Phase 133: Billing E2E Validation
 **Goal**: All billing flows verified end-to-end against real Autumn test mode on Railway/Vercel
@@ -284,7 +284,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 129. Replica Activation | v11.0 | 1/2 | Complete    | 2026-03-31 |
 | 130. Frontend Performance | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 131. Billing Frontend | v11.0 | 2/2 | Complete    | 2026-03-31 |
-| 132. Billing Backend Hardening | v11.0 | 1/2 | In Progress|  |
+| 132. Billing Backend Hardening | v11.0 | 2/2 | Complete   | 2026-04-01 |
 | 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
 
 ---
