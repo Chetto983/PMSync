@@ -353,11 +353,12 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
         <Tooltip title={tc?.expand ?? 'Show CRM context'} placement="left">
           <IconButton
             onClick={onToggle}
-            size="small"
             sx={{
               position: 'absolute',
               right: 8,
               top: 12,
+              width: 44,
+              height: 44,
               zIndex: (theme) => theme.zIndex.drawer - 1,
               bgcolor: 'background.paper',
               border: 1,
@@ -402,8 +403,8 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
             </Typography>
           </Box>
           <Tooltip title={tc?.collapse ?? 'Collapse sidebar'}>
-            <IconButton size="small" onClick={onToggle}>
-              <PanelRightClose size={16} />
+            <IconButton onClick={onToggle} sx={{ width: 44, height: 44 }}>
+              <PanelRightClose size={18} />
             </IconButton>
           </Tooltip>
         </Box>

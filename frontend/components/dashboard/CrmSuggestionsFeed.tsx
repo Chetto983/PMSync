@@ -114,7 +114,7 @@ const SuggestionItem = memo(function SuggestionItem({
               color="success"
               onClick={() => onAccept(suggestion.id)}
               disabled={isPending}
-              sx={{ minWidth: 32, minHeight: 32 }}
+              sx={{ width: 44, height: 44 }}
             >
               {isPending ? <CircularProgress size={14} color="inherit" /> : <Check size={16} />}
             </IconButton>
@@ -125,7 +125,7 @@ const SuggestionItem = memo(function SuggestionItem({
               color="error"
               onClick={() => onDismiss(suggestion.id)}
               disabled={isPending}
-              sx={{ minWidth: 32, minHeight: 32 }}
+              sx={{ width: 44, height: 44 }}
             >
               <X size={16} />
             </IconButton>
