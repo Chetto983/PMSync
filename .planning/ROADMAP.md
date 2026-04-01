@@ -154,7 +154,7 @@
 
 See `milestones/v12.0-ROADMAP.md` for full phase details.
 
-**Plans:** 4 plans
+**Plans:** 6 plans
 
 - [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
   Plans:
@@ -165,6 +165,9 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
   - [x] 0136-01-PLAN.md — i18n, types, command registry, and CommandList component
   - [ ] 0136-02-PLAN.md — Parallel search hook, SearchResults component, and index.tsx refactor
 - [ ] **Phase 137: Unified Task Model (Backend)** - Backend API for consolidated task types
+  Plans:
+  - [ ] 0137-01-PLAN.md — Prisma ManualTask model, DTOs, normalizers, and ManualTask CRUD service
+  - [ ] 0137-02-PLAN.md — Aggregation service, controller, and module wiring
 - [ ] **Phase 138: Tasks Page & Views** - Frontend Tasks pillar with list/kanban, filters, quick-add
 - [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
 - [ ] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view
