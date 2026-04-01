@@ -24,7 +24,9 @@ describe('AiAnalyticsService', () => {
     mockConfig = {
       get: vi.fn().mockReturnValue(50),
     };
-    service = new AiAnalyticsService(mockPrisma as any, mockConfig as any);
+    const mockCache = { exists: vi.fn().mockResolvedValue(false), set: vi.fn().mockResolvedValue(true) };
+    const mockRealtime = { emitAiCostAlert: vi.fn() };
+    service = new AiAnalyticsService(mockPrisma as any, mockConfig as any, mockCache as any, mockRealtime as any);
   });
 
   it('scores successful non-chat runs as schema-complete', async () => {

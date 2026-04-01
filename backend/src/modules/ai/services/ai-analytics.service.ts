@@ -324,7 +324,7 @@ export class AiAnalyticsService {
     const cooldownKey = `cost-alert:${tenantId}`;
     const alreadyAlerted = await this.cacheService.exists(
       cooldownKey,
-      CacheNamespace.AI_COST_ALERT,
+      { namespace: CacheNamespace.AI_COST_ALERT },
     );
     if (alreadyAlerted) return;
 

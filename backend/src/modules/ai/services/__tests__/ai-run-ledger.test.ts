@@ -24,7 +24,8 @@ describe('AiRunLedgerService', () => {
     mockPrisma = {
       aiRunLedger: { create: vi.fn().mockResolvedValue({ id: 'led-001' }) },
     };
-    service = new AiRunLedgerService(mockPrisma as any);
+    const mockAnalytics = { checkCostThreshold: vi.fn().mockResolvedValue(undefined) };
+    service = new AiRunLedgerService(mockPrisma as any, mockAnalytics as any);
     vi.clearAllMocks();
   });
 

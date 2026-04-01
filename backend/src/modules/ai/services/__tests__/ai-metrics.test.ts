@@ -38,6 +38,8 @@ const sampleParams: RecordRunParams = {
   latencyMs: 1200,
 };
 
+const createMockAnalytics = () => ({ checkCostThreshold: vi.fn().mockResolvedValue(undefined) });
+
 describe('AiRunLedgerService - prom-client counters', () => {
   it('should increment tokensCounter for prompt and completion tokens', async () => {
     const prisma = createMockPrisma();
@@ -47,6 +49,7 @@ describe('AiRunLedgerService - prom-client counters', () => {
 
     const service = new AiRunLedgerService(
       prisma as any,
+      createMockAnalytics() as any,
       tokensCounter as any,
       costCounter as any,
       requestsCounter as any,
@@ -73,6 +76,7 @@ describe('AiRunLedgerService - prom-client counters', () => {
 
     const service = new AiRunLedgerService(
       prisma as any,
+      createMockAnalytics() as any,
       tokensCounter as any,
       costCounter as any,
       requestsCounter as any,
@@ -101,6 +105,7 @@ describe('AiRunLedgerService - prom-client counters', () => {
 
     const service = new AiRunLedgerService(
       prisma as any,
+      createMockAnalytics() as any,
       tokensCounter as any,
       costCounter as any,
       requestsCounter as any,
@@ -120,8 +125,10 @@ describe('AiRunLedgerService - prom-client counters', () => {
     const prisma = createMockPrisma();
 
     // Counters not injected (undefined)
+    const mockAnalytics = { checkCostThreshold: vi.fn().mockResolvedValue(undefined) };
     const service = new AiRunLedgerService(
       prisma as any,
+      mockAnalytics as any,
       undefined,
       undefined,
       undefined,
