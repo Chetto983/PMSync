@@ -591,6 +591,7 @@ export const it: AppTranslations = {
     widgets: {
       briefing: {
         title: 'Briefing Giornaliero',
+        description: 'Riepilogo AI della tua giornata',
         dismiss: 'Ignora per Oggi',
         showDetails: 'Mostra Dettagli',
         refresh: 'Aggiorna',
@@ -611,6 +612,7 @@ export const it: AppTranslations = {
       },
       deadlines: {
         title: 'Scadenze',
+        description: 'Scadenze imminenti',
         subtitle: '{todayCount} oggi, {weekCount} questa settimana',
         noDeadlines: 'Nessuna scadenza urgente',
         noUpcoming: 'Nessuna scadenza in arrivo',
@@ -629,6 +631,7 @@ export const it: AppTranslations = {
       },
       followUps: {
         title: 'Follow-up',
+        description: 'Follow-up in sospeso',
         subtitle: '{pendingCount} in sospeso',
         subtitleWithOverdue: '{pendingCount} in sospeso, {overdueCount} scaduti',
         noPending: 'Nessun follow-up in sospeso',
@@ -642,6 +645,7 @@ export const it: AppTranslations = {
       },
       crm: {
         title: 'Avvisi CRM',
+        description: 'Contatti da riattivare',
         subtitle: '{count} contatto inattivo',
         subtitlePlural: '{count} contatti inattivi',
         avgScore: 'Punteggio medio: {score}%',
@@ -734,6 +738,21 @@ export const it: AppTranslations = {
       addAnother: 'Aggiungi Altro',
       addToDashboard: 'Aggiungi alla Dashboard',
       noResults: 'Nessun widget trovato per la ricerca.',
+      events: {
+        description: 'Eventi di oggi a calendario',
+      },
+      emails: {
+        description: 'Conteggio email non lette',
+      },
+      trendCharts: {
+        description: 'Andamento dell’attività email',
+      },
+      aiTriage: {
+        description: 'Inbox email prioritaria gestita dall’AI',
+      },
+      crmSuggestions: {
+        description: 'Rivedi i suggerimenti CRM pendenti generati dalla posta reale',
+      },
     },
   },
   email: {
@@ -3313,6 +3332,7 @@ export const it: AppTranslations = {
     },
   },
   commandPalette: {
+    title: 'Palette Comandi',
     searchPlaceholder: 'Digita un comando o cerca...',
     navigation: 'Navigazione',
     actions: 'Azioni',

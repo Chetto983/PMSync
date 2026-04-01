@@ -270,6 +270,7 @@ export function CommandPalette() {
       onClose={() => setOpen(false)}
       maxWidth="sm"
       fullWidth
+      aria-label={t.commandPalette.title}
       slotProps={{
         paper: {
           sx: {
@@ -294,11 +295,14 @@ export function CommandPalette() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         variant="outlined"
+        aria-label={t.commandPalette.searchPlaceholder}
+        aria-controls="command-palette-list"
+        aria-activedescendant={flatItems[focusedIndex] ? `cmd-item-${flatItems[focusedIndex].id}` : undefined}
         slotProps={{
           input: {
             startAdornment: (
               <InputAdornment position="start">
-                <Search size={20} />
+                <Search size={20} aria-hidden="true" />
               </InputAdornment>
             ),
             sx: {
@@ -315,6 +319,9 @@ export function CommandPalette() {
       <List
         ref={listRef}
         dense
+        id="command-palette-list"
+        role="listbox"
+        aria-label={t.commandPalette.title}
         sx={{ maxHeight: 320, overflow: 'auto', py: 1, px: 1 }}
       >
         {isSearching && (
@@ -357,6 +364,9 @@ export function CommandPalette() {
               return (
                 <ListItemButton
                   key={result.id}
+                  id={`cmd-item-${result.id}`}
+                  role="option"
+                  aria-selected={focusedIndex === idx}
                   data-command-item
                   selected={focusedIndex === idx}
                   onClick={() => runCommand(result.action)}
@@ -405,6 +415,9 @@ export function CommandPalette() {
                 return (
                   <ListItemButton
                     key={item.id}
+                    id={`cmd-item-${item.id}`}
+                    role="option"
+                    aria-selected={focusedIndex === idx}
                     data-command-item
                     selected={focusedIndex === idx}
                     onClick={() => runCommand(item.action)}

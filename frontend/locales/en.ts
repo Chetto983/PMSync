@@ -598,6 +598,7 @@ export const en: AppTranslations = {
     widgets: {
       briefing: {
         title: 'Daily Briefing',
+        description: 'AI-powered summary of your day',
         dismiss: 'Dismiss for Today',
         showDetails: 'Show Details',
         refresh: 'Refresh',
@@ -618,6 +619,7 @@ export const en: AppTranslations = {
       },
       deadlines: {
         title: 'Deadlines',
+        description: 'Upcoming deadlines',
         subtitle: '{todayCount} today, {weekCount} this week',
         noDeadlines: 'No urgent deadlines',
         noUpcoming: 'No upcoming deadlines',
@@ -636,6 +638,7 @@ export const en: AppTranslations = {
       },
       followUps: {
         title: 'Follow-ups',
+        description: 'Pending follow-ups',
         subtitle: '{pendingCount} pending',
         subtitleWithOverdue: '{pendingCount} pending, {overdueCount} overdue',
         noPending: 'No pending follow-ups',
@@ -649,6 +652,7 @@ export const en: AppTranslations = {
       },
       crm: {
         title: 'CRM Alerts',
+        description: 'Contacts needing reconnection',
         subtitle: '{count} stale contact',
         subtitlePlural: '{count} stale contacts',
         avgScore: 'Avg score: {score}%',
@@ -674,6 +678,7 @@ export const en: AppTranslations = {
       },
       unreadEmails: {
         title: 'Unread Emails',
+        description: 'Your unread email count',
         noSubject: '(No subject)',
         allCaughtUp: 'All caught up!',
       },
@@ -689,6 +694,7 @@ export const en: AppTranslations = {
       },
       aiTriage: {
         title: 'Email Priority',
+        description: 'AI-prioritized email inbox',
         subtitle: '{count} triaged emails',
         noSubject: '(No subject)',
         empty: 'No triaged emails',
@@ -707,10 +713,12 @@ export const en: AppTranslations = {
       },
       todayEvents: {
         title: "Today's Events",
+        description: 'Calendar events for today',
         noEvents: 'No events scheduled for today',
       },
       trendCharts: {
         title: 'Email Activity',
+        description: 'Email activity trends',
         subtitle: 'Last 7 days',
         received: 'Received',
         sent: 'Sent',
@@ -741,6 +749,9 @@ export const en: AppTranslations = {
       addAnother: 'Add Another',
       addToDashboard: 'Add to Dashboard',
       noResults: 'No widgets found matching your search.',
+      crmSuggestions: {
+        description: 'Review pending CRM suggestions from real inbox activity',
+      },
     },
   },
   email: {
@@ -3332,6 +3343,7 @@ export const en: AppTranslations = {
     },
   },
   commandPalette: {
+    title: 'Command Palette',
     searchPlaceholder: 'Type a command or search...',
     navigation: 'Navigation',
     actions: 'Actions',

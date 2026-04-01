@@ -3405,6 +3405,7 @@ export interface AppTranslations {
     };
   };
   commandPalette: {
+    title: string;
     searchPlaceholder: string;
     navigation: string;
     actions: string;
