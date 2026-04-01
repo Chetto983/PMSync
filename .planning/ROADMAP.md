@@ -257,7 +257,7 @@ Plans:
   5. Cancellation flow works end-to-end: user cancels, access continues until period end, then features restrict
 **Plans**: 2 plans
 Plans:
-- [ ] 132-01-PLAN.md — Autumn webhook endpoint with Svix verification, idempotent event processing, and scenario routing
+- [x] 132-01-PLAN.md — Autumn webhook endpoint with Svix verification, idempotent event processing, and scenario routing
 - [ ] 132-02-PLAN.md — Cancellation period-end enforcement + wire billing alert emails
 
 ### Phase 133: Billing E2E Validation
@@ -284,7 +284,7 @@ Phases 125-129 are sequential (scaling dependency chain). Phase 130-131 can run 
 | 129. Replica Activation | v11.0 | 1/2 | Complete    | 2026-03-31 |
 | 130. Frontend Performance | v11.0 | 2/2 | Complete    | 2026-03-31 |
 | 131. Billing Frontend | v11.0 | 2/2 | Complete    | 2026-03-31 |
-| 132. Billing Backend Hardening | v11.0 | 0/2 | Not started | - |
+| 132. Billing Backend Hardening | v11.0 | 1/2 | In Progress|  |
 | 133. Billing E2E Validation | v11.0 | 0/TBD | Not started | - |
 
 ---
