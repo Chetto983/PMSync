@@ -63,6 +63,7 @@ export function Sidebar(_props: PmSyncSidebarProps) {
   const theme = useTheme();
   const t = useTranslations();
   const isDark = theme.palette.mode === 'dark';
+  const currentPath = router.asPath.split('?')[0].split('#')[0];
 
   const defaultOrder = useMemo(() => PILLAR_ITEMS.map((pillar) => pillar.href), []);
   const { order, handleReorder } = useSidebarOrder(defaultOrder);
@@ -72,9 +73,13 @@ export function Sidebar(_props: PmSyncSidebarProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const isActive = (href: string) => (
-    router.pathname === href || router.asPath.startsWith(`${href}/`)
-  );
+  const isActive = (href: string) => {
+    if (href === '/dashboard') {
+      return currentPath === '/dashboard';
+    }
+
+    return currentPath === href || currentPath.startsWith(`${href}/`);
+  };
 
   const activeBg = isDark
     ? `linear-gradient(165deg, ${alpha('#14212b', 0.92)} 0%, ${alpha('#0e171f', 0.98)} 100%)`
@@ -102,7 +107,7 @@ export function Sidebar(_props: PmSyncSidebarProps) {
       sx={{
         width: RAIL_WIDTH,
         flexShrink: 0,
-        display: 'block',
+        display: { xs: 'none', md: 'block' },
         '& .MuiDrawer-paper': {
           width: RAIL_WIDTH,
           boxSizing: 'border-box',
