@@ -1701,6 +1701,88 @@ export interface AppTranslations {
     statsPending: string;
     statsOverdue: string;
     untitled?: string;
+
+    // Phase 138 additions
+    description: string;
+    searchPlaceholder: string;
+    createTask: string;
+    editTask: string;
+    deleteTask: string;
+    completeTask: string;
+    deleteConfirm: string;
+    deleted: string;
+    deleteError: string;
+    completed: string;
+    completeError: string;
+    created: string;
+    createError: string;
+    updated: string;
+    updateError: string;
+    viewList: string;
+    viewKanban: string;
+
+    sourceTypes: {
+      all: string;
+      follow_up: string;
+      reminder: string;
+      deal_action: string;
+      ticket: string;
+      manual: string;
+    };
+
+    statuses: {
+      all: string;
+      pending: string;
+      in_progress: string;
+      completed: string;
+      dismissed: string;
+      expired: string;
+    };
+
+    priorities: {
+      all: string;
+      low: string;
+      medium: string;
+      high: string;
+      urgent: string;
+    };
+
+    kanban: {
+      noTasks: string;
+      dragRestricted: string;
+      movedSuccess: string;
+      moveError: string;
+    };
+
+    filters: {
+      sourceType: string;
+      status: string;
+      priority: string;
+      dueBefore: string;
+      dueAfter: string;
+      contact: string;
+      clearAll: string;
+    };
+
+    dialog: {
+      titleLabel: string;
+      titlePlaceholder: string;
+      descriptionLabel: string;
+      descriptionPlaceholder: string;
+      priorityLabel: string;
+      dueDateLabel: string;
+      contactLabel: string;
+      dealLabel: string;
+      emailLabel: string;
+      cancel: string;
+      create: string;
+      save: string;
+    };
+
+    counts: {
+      total: string;
+      filtered: string;
+    };
   };
   contacts: {
     title: string;
