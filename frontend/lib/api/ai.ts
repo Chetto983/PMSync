@@ -1,4 +1,4 @@
-import { apiClient, API_BASE_URL, getCsrfToken } from '../api-client';
+import { apiClient, API_BASE_URL, getCsrfToken, clearCsrfToken } from '../api-client';
 
 // ============ Types (kept for Settings/component compatibility) ============
 
@@ -228,18 +228,35 @@ async function createChatStreamResponse(
   payload: ChatRequestPayload,
   signal?: AbortSignal,
 ): Promise<Response> {
-  const csrfToken = await getCsrfToken();
+  const token = await getCsrfToken();
 
-  return fetch(AI_CHAT_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-    },
-    credentials: 'include',
-    body: JSON.stringify(payload),
-    signal,
-  });
+  const doFetch = (csrf: string) =>
+    fetch(AI_CHAT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+      signal,
+    });
+
+  const response = await doFetch(token);
+
+  // CSRF 403 retry: clear stale token, fetch fresh one, replay once (FE-C1)
+  if (response.status === 403) {
+    const body = await response.clone().json().catch(() => null);
+    if (body?.error?.code === 'CSRF_TOKEN_INVALID') {
+      clearCsrfToken();
+      const freshToken = await getCsrfToken();
+      if (freshToken) {
+        return doFetch(freshToken);
+      }
+    }
+  }
+
+  return response;
 }
 
 async function consumeChatStream(
