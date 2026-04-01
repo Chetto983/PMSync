@@ -1,23 +1,12 @@
-'use client';
-
-import {
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  ListSubheader,
-  Box,
-  alpha,
-} from '@mui/material';
-import type { CommandItem } from './types';
+import { Box, List, ListItemButton, ListItemIcon, ListItemText, ListSubheader, alpha } from '@mui/material';
+import type { CommandItem, CommandGroup } from './types';
 import { GROUP_ORDER } from './commands';
 
 interface CommandListProps {
   commands: CommandItem[];
   focusedIndex: number;
   onSelect: (command: CommandItem) => void;
-  groupLabels: Record<string, string>;
-  listRef: React.RefObject<HTMLUListElement | null>;
+  groupLabels: Record<CommandGroup, string>;
 }
 
 export function CommandList({
@@ -25,80 +14,87 @@ export function CommandList({
   focusedIndex,
   onSelect,
   groupLabels,
-  listRef,
 }: CommandListProps) {
-  // Group commands by group key
-  const grouped = commands.reduce<Record<string, CommandItem[]>>((acc, cmd) => {
-    if (!acc[cmd.group]) acc[cmd.group] = [];
-    acc[cmd.group].push(cmd);
+  const grouped = commands.reduce<Record<CommandGroup, CommandItem[]>>((acc, command) => {
+    acc[command.group].push(command);
     return acc;
-  }, {});
+  }, {
+    navigation: [],
+    crm: [],
+    actions: [],
+    ai: [],
+    productivity: [],
+    system: [],
+  });
 
-  // Render in GROUP_ORDER, skip empty groups
   let flatIndex = 0;
 
   return (
-    <List
-      dense
-      ref={listRef}
-      sx={{ maxHeight: 320, overflow: 'auto', py: 1, px: 1 }}
-    >
-      {GROUP_ORDER.map((groupKey) => {
-        const items = grouped[groupKey];
-        if (!items || items.length === 0) return null;
-
-        const label = groupLabels[groupKey] || groupKey;
+    <List dense disablePadding sx={{ py: 1, px: 1 }}>
+      {GROUP_ORDER.map((group) => {
+        const groupCommands = grouped[group];
+        if (!groupCommands.length) return null;
 
         return (
-          <li key={groupKey}>
+          <Box key={group}>
             <ListSubheader
+              disableGutters
               sx={{
+                lineHeight: '28px',
                 fontSize: '0.7rem',
                 fontWeight: 700,
                 letterSpacing: '0.08em',
-                lineHeight: '28px',
                 textTransform: 'uppercase',
+                color: 'text.secondary',
                 bgcolor: 'transparent',
+                px: 1,
               }}
             >
-              {label}
+              {groupLabels[group]}
             </ListSubheader>
-            {items.map((cmd) => {
-              const currentIndex = flatIndex++;
+
+            {groupCommands.map((command) => {
+              const selected = focusedIndex === flatIndex;
+              flatIndex += 1;
+
               return (
                 <ListItemButton
-                  key={cmd.id}
-                  selected={currentIndex === focusedIndex}
-                  onClick={() => onSelect(cmd)}
+                  key={command.id}
+                  selected={selected}
+                  data-command-palette-item="true"
+                  data-focused={selected ? 'true' : 'false'}
+                  onClick={() => onSelect(command)}
                   sx={{ borderRadius: 2, mb: 0.5 }}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
-                    <cmd.icon size={18} />
+                    <command.icon size={18} />
                   </ListItemIcon>
                   <ListItemText
-                    primary={cmd.name}
+                    primary={command.name}
                     primaryTypographyProps={{ fontSize: '0.875rem' }}
                   />
-                  {cmd.shortcut && (
+                  {command.shortcut ? (
                     <Box
+                      component="kbd"
                       sx={{
-                        bgcolor: (theme) =>
-                          alpha(theme.palette.text.primary, 0.06),
+                        ml: 'auto',
+                        bgcolor: (theme) => alpha(theme.palette.text.primary, 0.06),
                         borderRadius: 1,
                         px: 0.75,
                         py: 0.25,
                         fontSize: '0.7rem',
-                        ml: 1,
-                        flexShrink: 0,
+                        fontFamily: 'inherit',
+                        color: 'text.secondary',
+                        border: 'none',
                       }}
                     >
-                      {cmd.shortcut}
+                      {command.shortcut}
                     </Box>
-                  )}
+                  ) : null}
                 </ListItemButton>
               );
             })}
-          </li>
+          </Box>
         );
       })}
     </List>

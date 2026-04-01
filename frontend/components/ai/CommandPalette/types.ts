@@ -1,26 +1,29 @@
-import type React from 'react';
+import type { ComponentType } from 'react';
+
+export type CommandGroup = 'navigation' | 'crm' | 'actions' | 'ai' | 'productivity' | 'system';
+export type SearchResultType = 'email' | 'contact' | 'deal' | 'ticket' | 'kb';
 
 export interface CommandItem {
   id: string;
   name: string;
   shortcut?: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: ComponentType<{ size?: number }>;
   action: () => void;
-  group: 'navigation' | 'crm' | 'actions' | 'ai' | 'productivity' | 'system';
+  group: CommandGroup;
   keywords?: string[];
 }
 
 export interface SearchResult {
   id: string;
-  type: 'email' | 'contact' | 'event' | 'deal' | 'ticket' | 'kb';
+  type: SearchResultType;
   title: string;
   subtitle: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: ComponentType<{ size?: number }>;
   action: () => void;
 }
 
 export interface SearchResultGroup {
-  type: SearchResult['type'];
+  type: SearchResultType;
   label: string;
   results: SearchResult[];
 }
