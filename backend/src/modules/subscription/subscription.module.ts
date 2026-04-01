@@ -17,6 +17,8 @@ import { BillingAlertService } from './services/billing-alert.service';
 import { SubscriptionLifecycleService } from './services/subscription-lifecycle.service';
 import { SubscriptionController } from './controllers/subscription.controller';
 import { AutumnController } from './controllers/autumn.controller';
+import { AutumnWebhookController } from './controllers/autumn-webhook.controller';
+import { AutumnWebhookService } from './services/autumn-webhook.service';
 import { QuotaGuard } from './guards/quota.guard';
 import { CacheModule } from '../../common/services/cache.module';
 
@@ -33,11 +35,13 @@ import { CacheModule } from '../../common/services/cache.module';
     CostProtectionService,
     BillingAlertService,
     SubscriptionLifecycleService,
+    AutumnWebhookService,
     QuotaGuard,
   ],
   controllers: [
     SubscriptionController,
     AutumnController,
+    AutumnWebhookController,
   ],
   exports: [
     SubscriptionService,
@@ -46,6 +50,7 @@ import { CacheModule } from '../../common/services/cache.module';
     CostProtectionService,
     BillingAlertService,
     SubscriptionLifecycleService,
+    AutumnWebhookService,
     QuotaGuard,
   ],
 })

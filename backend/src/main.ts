@@ -554,7 +554,15 @@ async function bootstrap() {
     // /api/auth requests are fully handled by the better-auth middleware
     // registered earlier on the raw Express instance and never reach here.
     const express = await import('express');
-    app.use(express.json({ limit: '10mb' }));
+    app.use(express.json({
+      limit: '10mb',
+      verify: (req: any, _res: any, buf: Buffer) => {
+        // Stash raw body for webhook signature verification (Svix)
+        if (req.url?.startsWith('/webhooks/')) {
+          req.rawBody = buf;
+        }
+      },
+    }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // CSRF Protection (SEC-04) - must be after cookieParser
