@@ -6,9 +6,11 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock generateText from 'ai' module
+// Mock generateObject/generateText from 'ai' module
+const mockGenerateObject = vi.fn();
 const mockGenerateText = vi.fn();
 vi.mock('ai', () => ({
+  generateObject: (...args: any[]) => mockGenerateObject(...args),
   generateText: (...args: any[]) => mockGenerateText(...args),
 }));
 
@@ -42,6 +44,7 @@ describe('BriefingService ledger wiring', () => {
       emailFollowUp: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0) },
       contact: { findMany: vi.fn().mockResolvedValue([]) },
     };
+    mockGenerateObject.mockReset();
     mockGenerateText.mockReset();
   });
 
@@ -59,8 +62,8 @@ describe('BriefingService ledger wiring', () => {
   }
 
   it('calls ledgerService.recordRun with runType=briefing on success', async () => {
-    mockGenerateText.mockResolvedValue({
-      text: JSON.stringify(validBriefingOutput),
+    mockGenerateObject.mockResolvedValue({
+      object: validBriefingOutput,
       usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
     });
 
@@ -78,20 +81,23 @@ describe('BriefingService ledger wiring', () => {
 
   it('calls ledgerService.recordRun with status=FAILED on error', async () => {
     const err = new Error('API down');
+    mockGenerateObject.mockRejectedValue(err);
     mockGenerateText.mockRejectedValue(err);
 
     briefingService = createService();
     await briefingService.generateBriefing('tenant-1');
 
-    expect(mockLedger.recordRun).toHaveBeenCalledOnce();
-    const call = mockLedger.recordRun.mock.calls[0][0];
-    expect(call.status).toBe(AiRunStatus.FAILED);
-    expect(call.errorMessage).toContain('API down');
+    const failedCalls = mockLedger.recordRun.mock.calls
+      .map(([payload]) => payload)
+      .filter((payload) => payload.status === AiRunStatus.FAILED);
+
+    expect(failedCalls.length).toBeGreaterThan(0);
+    expect(failedCalls[0].errorMessage).toContain('API down');
   });
 
   it('maps usage.inputTokens -> promptTokens and usage.outputTokens -> completionTokens', async () => {
-    mockGenerateText.mockResolvedValue({
-      text: JSON.stringify({ ...validBriefingOutput, executiveSummary: 'Test.' }),
+    mockGenerateObject.mockResolvedValue({
+      object: { ...validBriefingOutput, executiveSummary: 'Test.' },
       usage: { inputTokens: 200, outputTokens: 80, totalTokens: 280 },
     });
 
@@ -106,8 +112,8 @@ describe('BriefingService ledger wiring', () => {
 
   it('ledger write failure does NOT cause generateWithFallback to throw (fire-and-forget)', async () => {
     mockLedger.recordRun.mockRejectedValue(new Error('DB down'));
-    mockGenerateText.mockResolvedValue({
-      text: JSON.stringify({ ...validBriefingOutput, executiveSummary: 'Fine.' }),
+    mockGenerateObject.mockResolvedValue({
+      object: { ...validBriefingOutput, executiveSummary: 'Fine.' },
       usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
     });
 

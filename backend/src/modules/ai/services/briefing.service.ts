@@ -20,6 +20,7 @@ import { AiRunLedgerService } from './ai-run-ledger.service';
 import { parseJsonOutput } from '../utils/parse-json-output';
 import { promptHash } from '../utils/prompt-hash';
 import { buildAiResponseMeta, type AiServiceResult } from '../utils/ai-response-meta';
+import { CacheNamespace, CacheService } from '../../../common/services/cache.service';
 import {
   getLocale as resolveAiLocale,
   getTranslations as getAiTranslations,
@@ -127,6 +128,16 @@ type BriefingContext = {
   upcomingDeadlines: number;
   pendingActionItems: number;
   currentTime: Date;
+};
+
+type CachedBriefingResult = AiServiceResult<BriefingOutput>;
+
+type BriefingSlotWindow = {
+  cacheKey: string;
+  localDate: string;
+  slotIndex: number;
+  slotLabel: string;
+  ttlSeconds: number;
 };
 
 // ============ Safe Fallback ============
@@ -265,7 +276,9 @@ function buildBriefingSystemPrompt(locale?: string): string {
 export class BriefingService {
   private readonly logger = new Logger(BriefingService.name);
   private readonly briefingModelId: string;
-  private readonly briefingVersion = 'briefing-v1';
+  private readonly briefingVersion = 'briefing-v2';
+  private readonly briefingSlotsPerDay = 3;
+  private readonly briefingSlotHours = 24 / this.briefingSlotsPerDay;
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
@@ -273,9 +286,73 @@ export class BriefingService {
     private readonly configService: ConfigService,
     @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
     @Optional() private readonly ledgerService?: AiRunLedgerService,
+    @Optional() private readonly cacheService?: CacheService,
   ) {
     // Use fast/simple model for structured JSON — M2.7's Interleaved Thinking breaks JSON.
     this.briefingModelId = this.configService.get<string>('AI_MODEL_SIMPLE', 'mistralai/mistral-small-3.1-24b-instruct');
+  }
+
+  /**
+   * Return the cached briefing for the current local time slot.
+   * Page loads should reuse the same slot result instead of regenerating.
+   */
+  async getBriefing(
+    tenantId: string,
+    userId: string,
+    timezone?: string,
+    locale?: string,
+  ): Promise<AiServiceResult<BriefingOutput>> {
+    if (!this.cacheService) {
+      return this.generateBriefing(tenantId, timezone, locale);
+    }
+
+    const window = this.getSlotWindow(tenantId, userId, timezone, locale);
+    const cached = await this.cacheService.get<CachedBriefingResult>(window.cacheKey, {
+      namespace: CacheNamespace.AI_BRIEFING,
+    });
+
+    if (cached) {
+      return {
+        data: cached.data,
+        error: cached.error,
+        meta: {
+          ...cached.meta,
+          source: 'cache',
+          locale: locale || cached.meta.locale,
+        },
+      };
+    }
+
+    const generated = await this.generateBriefing(tenantId, timezone, locale);
+    await this.cacheService.set(window.cacheKey, generated, {
+      namespace: CacheNamespace.AI_BRIEFING,
+      ttl: window.ttlSeconds,
+    });
+    return generated;
+  }
+
+  /**
+   * Force regenerate the briefing for the current slot and replace the cached result.
+   */
+  async refreshBriefing(
+    tenantId: string,
+    userId: string,
+    timezone?: string,
+    locale?: string,
+  ): Promise<AiServiceResult<BriefingOutput>> {
+    const generated = await this.generateBriefing(tenantId, timezone, locale);
+
+    if (!this.cacheService) {
+      return generated;
+    }
+
+    const window = this.getSlotWindow(tenantId, userId, timezone, locale);
+    await this.cacheService.set(window.cacheKey, generated, {
+      namespace: CacheNamespace.AI_BRIEFING,
+      ttl: window.ttlSeconds,
+    });
+
+    return generated;
   }
 
   /**
@@ -444,6 +521,55 @@ export class BriefingService {
 
     // 3. Generate briefing with graceful fallback
     return this.generateWithFallback(dataContext, deterministicFallback, tenantId, locale);
+  }
+
+  private getSlotWindow(
+    tenantId: string,
+    userId: string,
+    timezone?: string,
+    locale?: string,
+    now = new Date(),
+  ): BriefingSlotWindow {
+    const tz = timezone || 'UTC';
+    const resolvedLocale = resolveBriefingLocale(locale);
+    const localDate = now.toLocaleDateString('en-CA', { timeZone: tz });
+    const localHour = Number.parseInt(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz,
+        hour: '2-digit',
+        hourCycle: 'h23',
+      }).format(now),
+      10,
+    );
+    const slotIndex = Math.min(
+      this.briefingSlotsPerDay - 1,
+      Math.floor(localHour / this.briefingSlotHours),
+    );
+    const startOfDay = this.getTimezoneStartOfDay(localDate, tz);
+    const slotEnd = new Date(
+      startOfDay.getTime() + (slotIndex + 1) * this.briefingSlotHours * 60 * 60 * 1000,
+    );
+    const ttlSeconds = Math.max(
+      60,
+      Math.ceil((slotEnd.getTime() - now.getTime()) / 1000),
+    );
+    const slotLabel = `slot-${slotIndex + 1}`;
+
+    return {
+      cacheKey: `${tenantId}:${userId}:${resolvedLocale}:${localDate}:${slotLabel}`,
+      localDate,
+      slotIndex,
+      slotLabel,
+      ttlSeconds,
+    };
+  }
+
+  private getTimezoneStartOfDay(localDate: string, timezone: string): Date {
+    const parts = localDate.split('-').map(Number);
+    const naive = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    const probe = new Date(naive.toLocaleString('en-US', { timeZone: timezone }));
+    const offsetMs = probe.getTime() - naive.getTime();
+    return new Date(naive.getTime() - offsetMs);
   }
 
   private buildDeterministicFallback(context: BriefingContext, locale?: string): BriefingOutput {

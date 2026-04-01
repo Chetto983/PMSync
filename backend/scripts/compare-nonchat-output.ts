@@ -233,7 +233,8 @@ async function main() {
   for (const input of briefingCases) {
     try {
       const prisma = createBriefingPrismaMock(input);
-      const service = new BriefingService(mistralProvider, prisma, undefined);
+      const mockConfig = { get: (_key: string, def?: string) => def } as any;
+      const service = new BriefingService(mistralProvider, prisma, mockConfig);
       const result = await service.generateBriefing('test-tenant');
       const parsed = briefingSchema.safeParse(result.data);
 

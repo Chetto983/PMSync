@@ -482,8 +482,9 @@ export class AiController {
       where: { tenantId: req.user.tenantId, userId: req.user.userId },
       select: { timezone: true, language: true },
     });
-    const result = await this.briefingService.generateBriefing(
+    const result = await this.briefingService.getBriefing(
       req.user.tenantId,
+      req.user.userId,
       prefs?.timezone || undefined,
       dto?.locale || prefs?.language || undefined,
     );
@@ -505,8 +506,9 @@ export class AiController {
       where: { tenantId: req.user.tenantId, userId: req.user.userId },
       select: { timezone: true, language: true },
     });
-    const result = await this.briefingService.generateBriefing(
+    const result = await this.briefingService.refreshBriefing(
       req.user.tenantId,
+      req.user.userId,
       prefs?.timezone || undefined,
       dto?.locale || prefs?.language || undefined,
     );

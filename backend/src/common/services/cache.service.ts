@@ -42,6 +42,8 @@ export enum CacheNamespace {
   DEADLINE_UPCOMING = 'deadline:upcoming',
   /** AI Analytics agents and results cache */
   AI_ANALYTICS = 'ai:analytics',
+  /** Daily AI briefing cache scoped by tenant:user:locale:time-slot */
+  AI_BRIEFING = 'ai:briefing',
   /** PII resolution mappings for agent tool execution (session-scoped) */
   PII_RESOLUTION = 'pii:resolution',
   /** Telegram QR link tokens for user→chatId binding (5 min TTL) */
