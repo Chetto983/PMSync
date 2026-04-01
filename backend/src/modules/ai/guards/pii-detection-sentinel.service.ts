@@ -32,7 +32,11 @@ export type PiiType =
   | 'PRIVATE_KEY'
   | 'JWT_TOKEN'
   | 'PASSPORT'
-  | 'DRIVER_LICENSE';
+  | 'DRIVER_LICENSE'
+  | 'CODICE_FISCALE'
+  | 'PARTITA_IVA'
+  | 'IBAN_IT'
+  | 'PHONE_IT';
 
 export interface PiiMatch {
   type: PiiType;
@@ -59,12 +63,73 @@ export interface PiiDetectionConfig {
   enableLogging: boolean;
 }
 
+const ITALIAN_PII_TYPES: PiiType[] = ['CODICE_FISCALE', 'PARTITA_IVA', 'IBAN_IT', 'PHONE_IT'];
+
 const DEFAULT_CONFIG: PiiDetectionConfig = {
-  detectTypes: getSupportedPIITypes() as PiiType[],
+  detectTypes: [...(getSupportedPIITypes() as PiiType[]), ...ITALIAN_PII_TYPES],
   enableRedaction: true,
   redactionStyle: 'HASH',
   enableLogging: true,
 };
+
+/**
+ * Italian PII patterns (SEC-H1).
+ * Sentinel only covers US-centric patterns; these add Italian document types.
+ */
+interface ItalianPiiPattern {
+  type: PiiType;
+  regex: RegExp;
+  validate?: (match: string) => boolean;
+  confidence: number;
+}
+
+const ITALIAN_PII_PATTERNS: ItalianPiiPattern[] = [
+  {
+    // Codice Fiscale: 6 alpha + 2 digits + 1 alpha + 2 digits + 1 alpha + 3 digits + 1 alpha
+    type: 'CODICE_FISCALE',
+    regex: /\b[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]\b/gi,
+    validate: (match: string) => {
+      // Basic structural validation: must be exactly 16 chars
+      return match.length === 16;
+    },
+    confidence: 0.9,
+  },
+  {
+    // Partita IVA: exactly 11 digits, optionally prefixed by "IT" or "P.IVA"
+    type: 'PARTITA_IVA',
+    regex: /(?:(?:IT|P\.?\s?IVA\s*:?\s*)(\d{11})\b|\b(\d{11})\b)/gi,
+    validate: (match: string) => {
+      // Extract just the 11 digits
+      const digits = match.replace(/\D/g, '');
+      if (digits.length !== 11) return false;
+      // Luhn-like check digit validation for Italian P.IVA
+      let sum = 0;
+      for (let i = 0; i < 11; i++) {
+        const d = parseInt(digits[i], 10);
+        if (i % 2 === 0) {
+          sum += d;
+        } else {
+          const doubled = d * 2;
+          sum += doubled > 9 ? doubled - 9 : doubled;
+        }
+      }
+      return sum % 10 === 0;
+    },
+    confidence: 0.85,
+  },
+  {
+    // Italian IBAN: IT + 2 check digits + 1 CIN letter + 5 ABI + 5 CAB + 12 account
+    type: 'IBAN_IT',
+    regex: /\bIT\s?\d{2}\s?[A-Z]\s?\d{5}\s?\d{5}\s?[A-Z0-9]{12}\b/gi,
+    confidence: 0.95,
+  },
+  {
+    // Italian phone: +39 prefix with various formats (mobile + landline)
+    type: 'PHONE_IT',
+    regex: /(?:\+39\s?|0039\s?)(?:3\d{2}|0\d{1,3})[\s.-]?\d{2,4}[\s.-]?\d{3,4}\b/g,
+    confidence: 0.85,
+  },
+];
 
 @Injectable()
 export class PiiDetectionService {
@@ -97,7 +162,26 @@ export class PiiDetectionService {
     // Use Sentinel for detection
     const sentinelResult = detectPII(text);
 
-    if (!sentinelResult.detected || !sentinelResult.matches.length) {
+    // Filter Sentinel matches by configured types and convert to our format
+    const matches: PiiMatch[] = (sentinelResult.detected && sentinelResult.matches.length > 0)
+      ? sentinelResult.matches
+          .filter((m) => this.config.detectTypes.includes(m.type as PiiType))
+          .filter((m) => !this.shouldIgnoreMatch(m.value, m.type as PiiType))
+          .map((m) => ({
+            type: m.type as PiiType,
+            value: m.value,
+            redactedValue: this.redactValue(m.value, m.type as PiiType),
+            startIndex: m.start,
+            endIndex: m.end,
+            confidence: m.confidence,
+          }))
+      : [];
+
+    // Italian PII patterns (SEC-H1) — always run alongside Sentinel
+    const italianMatches = this.detectItalianPii(text);
+    matches.push(...italianMatches);
+
+    if (matches.length === 0) {
       return {
         hasPii: false,
         detectedTypes: [],
@@ -107,19 +191,6 @@ export class PiiDetectionService {
         details: [],
       };
     }
-
-    // Filter by configured types and convert to our format
-    const matches: PiiMatch[] = sentinelResult.matches
-      .filter((m) => this.config.detectTypes.includes(m.type as PiiType))
-      .filter((m) => !this.shouldIgnoreMatch(m.value, m.type as PiiType))
-      .map((m) => ({
-        type: m.type as PiiType,
-        value: m.value,
-        redactedValue: this.redactValue(m.value, m.type as PiiType),
-        startIndex: m.start,
-        endIndex: m.end,
-        confidence: m.confidence,
-      }));
 
     // Apply redaction with unique placeholders
     let redactedText = text;
@@ -228,6 +299,32 @@ export class PiiDetectionService {
       hash = hash & hash;
     }
     return Math.abs(hash).toString(16).substring(0, 8);
+  }
+
+  /**
+   * Detect Italian PII patterns not covered by Sentinel.
+   */
+  private detectItalianPii(text: string): PiiMatch[] {
+    const results: PiiMatch[] = [];
+    for (const pattern of ITALIAN_PII_PATTERNS) {
+      if (!this.config.detectTypes.includes(pattern.type)) continue;
+      // Reset regex lastIndex for global patterns
+      pattern.regex.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = pattern.regex.exec(text)) !== null) {
+        const value = match[0];
+        if (pattern.validate && !pattern.validate(value)) continue;
+        results.push({
+          type: pattern.type,
+          value,
+          redactedValue: this.redactValue(value, pattern.type),
+          startIndex: match.index,
+          endIndex: match.index + value.length,
+          confidence: pattern.confidence,
+        });
+      }
+    }
+    return results;
   }
 
   private shouldIgnoreMatch(value: string, type: PiiType): boolean {

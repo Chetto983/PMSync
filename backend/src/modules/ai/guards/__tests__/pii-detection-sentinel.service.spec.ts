@@ -327,6 +327,67 @@ describe('PiiDetectionService', () => {
     });
   });
 
+  describe('detect - Italian PII (SEC-H1)', () => {
+    it('should detect codice fiscale', () => {
+      const result = service.detect('Il codice fiscale è RSSMRA85M01H501Z per la pratica');
+      expect(result.hasPii).toBe(true);
+      expect(result.detectedTypes).toContain('CODICE_FISCALE');
+      expect(result.details.some((d) => d.type === 'CODICE_FISCALE' && d.value === 'RSSMRA85M01H501Z')).toBe(true);
+    });
+
+    it('should detect codice fiscale in lowercase', () => {
+      const result = service.detect('CF: rssmra85m01h501z');
+      expect(result.detectedTypes).toContain('CODICE_FISCALE');
+    });
+
+    it('should not false-positive on random 16-char strings', () => {
+      const result = service.detect('The code is ABCDEF1234567890');
+      const cfMatches = result.details.filter((d) => d.type === 'CODICE_FISCALE');
+      expect(cfMatches.length).toBe(0);
+    });
+
+    it('should detect Italian IBAN', () => {
+      const result = service.detect('Bonifico su IT60X0542811101000000123456');
+      expect(result.hasPii).toBe(true);
+      expect(result.detectedTypes).toContain('IBAN_IT');
+    });
+
+    it('should detect Italian IBAN with spaces', () => {
+      const result = service.detect('IBAN: IT 60 X 05428 11101 000000123456');
+      expect(result.detectedTypes).toContain('IBAN_IT');
+    });
+
+    it('should detect partita IVA with IT prefix', () => {
+      const result = service.detect('P.IVA: IT02118311006');
+      expect(result.hasPii).toBe(true);
+      expect(result.detectedTypes).toContain('PARTITA_IVA');
+    });
+
+    it('should detect Italian phone +39 mobile', () => {
+      const result = service.detect('Chiamami al +39 348 123 4567');
+      expect(result.hasPii).toBe(true);
+      expect(result.detectedTypes).toContain('PHONE_IT');
+    });
+
+    it('should detect Italian phone +39 landline', () => {
+      const result = service.detect('Ufficio: +39 06 1234 5678');
+      expect(result.hasPii).toBe(true);
+      expect(result.detectedTypes).toContain('PHONE_IT');
+    });
+
+    it('should detect Italian phone with 0039 prefix', () => {
+      const result = service.detect('Tel: 0039 333 456 7890');
+      expect(result.hasPii).toBe(true);
+      expect(result.detectedTypes).toContain('PHONE_IT');
+    });
+
+    it('should redact Italian PII types', () => {
+      const result = service.detect('CF: RSSMRA85M01H501Z IBAN: IT60X0542811101000000123456');
+      expect(result.redactedText).not.toContain('RSSMRA85M01H501Z');
+      expect(result.redactedText).toContain('[CODICE_FISCALE_REDACTED:');
+    });
+  });
+
   describe('multi-type detection', () => {
     it('should detect multiple PII types in same text', () => {
       const text = `
