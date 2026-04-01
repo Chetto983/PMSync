@@ -170,6 +170,7 @@ export class AiChatController {
    */
   @Post('chat/conversations')
   @RateTierDecorator('safe-write')
+  @RequiresConsent('ai_chat')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create a new AI chat conversation',
@@ -232,6 +233,7 @@ export class AiChatController {
    */
   @Post('chat/conversations/bulk-delete')
   @RateTierDecorator('destructive-write')
+  @RequiresConsent('ai_chat')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Bulk delete AI chat conversations',
@@ -340,6 +342,7 @@ export class AiChatController {
    */
   @Delete('chat/conversations/:id')
   @RateTierDecorator('destructive-write')
+  @RequiresConsent('ai_chat')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete an AI chat conversation',

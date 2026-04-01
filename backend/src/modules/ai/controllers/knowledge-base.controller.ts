@@ -17,6 +17,7 @@ import {
 import { ApiOkResponse, ApiOperation, ApiTags, ApiCookieAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
+import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
 import { EmbeddingsService } from '../services/embeddings.service';
@@ -47,6 +48,7 @@ export class KnowledgeBaseController {
 
   @Post('emails/backfill')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @ApiOperation({ summary: 'Backfill embeddings for emails that are missing vector representations' })
   @ApiOkResponse({
     schema: {
@@ -150,6 +152,7 @@ export class KnowledgeBaseController {
 
   @Post('search')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Search the tenant knowledge base using semantic similarity (RAG memory)',

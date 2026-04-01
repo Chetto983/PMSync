@@ -683,6 +683,7 @@ export class AiController {
 
   @Patch('follow-ups/:id/status')
   @RateTierDecorator('safe-write')
+  @RequiresConsent('ai_email_processing')
   @ApiOperation({ summary: 'Update follow-up status' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   @ApiResponse({ status: 200, description: 'Status updated' })
@@ -721,6 +722,7 @@ export class AiController {
 
   @Patch('follow-ups/:id/snooze')
   @RateTierDecorator('safe-write')
+  @RequiresConsent('ai_email_processing')
   @ApiOperation({ summary: 'Snooze a follow-up' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   @ApiResponse({ status: 200, description: 'Follow-up snoozed' })
@@ -753,6 +755,7 @@ export class AiController {
 
   @Delete('follow-ups/:id')
   @RateTierDecorator('destructive-write')
+  @RequiresConsent('ai_email_processing')
   @ApiOperation({ summary: 'Soft-delete a follow-up' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   @ApiResponse({ status: 200, description: 'Follow-up deleted' })
