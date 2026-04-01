@@ -31,6 +31,7 @@ import {
   QUEUE_NAMES,
 } from '../../../common/config/queue.config';
 import { TelegramBotService } from './telegram-bot.service';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
 interface ReminderNotifyJobData {
   reminderId: string;
@@ -49,6 +50,7 @@ export class ReminderNotifyQueueService
   constructor(
     private readonly prisma: PrismaService,
     private readonly telegramBot: TelegramBotService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   async onModuleInit() {
@@ -259,6 +261,16 @@ export class ReminderNotifyQueueService
           messaggioCompleto: `Notification: ${reminder.titolo}`,
           inviatoAt: new Date(),
         },
+      });
+
+      this.realtimeEvents.emitReminderTelegramSent(reminder.tenantId, {
+        reminderId,
+        titolo: reminder.titolo,
+        contatto: reminder.contatto,
+        scadenzaDatetime: reminder.scadenzaDatetime?.toISOString() ?? '',
+        tenantId: reminder.tenantId,
+        userId: reminder.userId,
+        timestamp: new Date().toISOString(),
       });
 
       this.logger.log(`Sent notification for reminder ${reminderId}`);

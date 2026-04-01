@@ -9,6 +9,7 @@ import { Prisma, ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ReminderAiParserService } from './reminder-ai-parser.service';
 import { ReminderNotifyQueueService } from '../../telegram/services/reminder-notify.queue';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
 
@@ -27,6 +28,7 @@ export class ReminderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiParser: ReminderAiParserService,
+    private readonly realtimeEvents: RealtimeEventsService,
     @Optional() private readonly reminderNotifyQueue?: ReminderNotifyQueueService,
   ) {}
 
@@ -225,14 +227,26 @@ export class ReminderService {
   }
 
   async completeReminder(tenantId: string, userId: string, id: string) {
-    await this.getReminder(tenantId, userId, id);
+    const reminder = await this.getReminder(tenantId, userId, id);
     if (this.reminderNotifyQueue) {
       await this.reminderNotifyQueue.cancelNotification(id);
     }
-    return this.prisma.reminder.update({
+    const updated = await this.prisma.reminder.update({
       where: { id },
       data: { status: 'completato', completatoAt: new Date() },
     });
+
+    this.realtimeEvents.emitReminderCompleted(tenantId, {
+      reminderId: id,
+      titolo: reminder.titolo,
+      contatto: reminder.contatto,
+      scadenzaDatetime: reminder.scadenzaDatetime?.toISOString() ?? '',
+      tenantId,
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+
+    return updated;
   }
 
   async deleteReminder(tenantId: string, userId: string, id: string) {
