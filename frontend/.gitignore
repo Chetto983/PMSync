@@ -3,3 +3,5 @@
 # Serwist generated service worker (rebuilt on each deploy)
 public/sw.js.map
 public/swe-worker-*.js.map
+
+.vercel

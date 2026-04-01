@@ -13,31 +13,31 @@
 ## Sprint Backlog
 
 ### T-0701: Harden prompt injection detection against encoding bypasses [4 SP]
-- [ ] Read `prompt-guard-sentinel.service.ts` — map all regex patterns
-- [ ] Add Unicode normalization before pattern matching (NFKC decomposition)
-- [ ] Add base64 decode check for suspicious payloads
-- [ ] Add token-splitting detection (e.g., `ig nore prev ious inst ructions`)
-- [ ] Write tests: 10+ bypass vectors (homoglyphs, base64, whitespace injection, etc.)
-- [ ] Addresses: **SEC-C1**
+- [x] Read `prompt-guard-sentinel.service.ts` — map all regex patterns ✅ DONE
+- [x] Add Unicode normalization before pattern matching (NFKC decomposition) ✅ Already present
+- [x] Add base64 decode check for suspicious payloads ✅ DONE
+- [x] Add token-splitting detection (e.g., `ig nore prev ious inst ructions`) ✅ DONE
+- [x] Write tests: 10+ bypass vectors (homoglyphs, base64, whitespace injection, etc.) ✅ 13 tests
+- [x] Addresses: **SEC-C1** ✅ DONE
 
 ### T-0702: Add Italian PII patterns to detection [3 SP]
-- [ ] Read `pii-detection-sentinel.service.ts` — map existing patterns
-- [ ] Add: codice fiscale (16 char alphanumeric), IBAN (IT + 25 chars), partita IVA (11 digits)
-- [ ] Add: Italian phone numbers (+39 prefix variants)
-- [ ] Write tests for each Italian PII type
-- [ ] Addresses: **SEC-H1**
+- [x] Read `pii-detection-sentinel.service.ts` — map existing patterns ✅ DONE
+- [x] Add: codice fiscale (16 char alphanumeric), IBAN (IT + 25 chars), partita IVA (11 digits) ✅ DONE
+- [x] Add: Italian phone numbers (+39 prefix variants) ✅ DONE
+- [x] Write tests for each Italian PII type ✅ 10 tests
+- [x] Addresses: **SEC-H1** ✅ DONE
 
 ### T-0703: Add prompt echo-back detection to output validation [2 SP]
-- [ ] Read `prompt-guard-sentinel.service.ts` `validateOutput()` — trace checks
-- [ ] Add check: if output contains > 50% of system prompt text, flag as prompt exfiltration
-- [ ] Add check: if output contains defensive prompt keywords, suppress
-- [ ] Addresses: **SEC-H2**
+- [x] Read `prompt-guard-sentinel.service.ts` `validateOutput()` — trace checks ✅ DONE
+- [x] Add check: if output contains > 50% of system prompt text, flag as prompt exfiltration ✅ DONE
+- [x] Add check: if output contains defensive prompt keywords, suppress ✅ DONE
+- [x] Addresses: **SEC-H2** ✅ DONE
 
 ### T-0704: Add PII access audit trail [2 SP]
-- [ ] Read `pii-resolution.service.ts` — trace unmasking flow
-- [ ] Log PII access events: who, when, which PII type, which record
-- [ ] Store in audit log (existing audit infrastructure or new table)
-- [ ] Addresses: **SEC-H3**
+- [x] Read `pii-resolution.service.ts` — trace unmasking flow ✅ DONE
+- [x] Log PII access events: who, when, which PII type, which record ✅ DONE
+- [x] Store in audit log (existing audit infrastructure or new table) ✅ Uses existing AuditLog table
+- [x] Addresses: **SEC-H3** ✅ DONE
 
 ### T-0705: Audit @RequiresConsent coverage on all AI endpoints [2 SP]
 - [ ] Read `ai.controller.ts` — list all endpoints
