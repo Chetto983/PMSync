@@ -295,9 +295,6 @@ export function CommandPalette() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         variant="outlined"
-        aria-label={t.commandPalette.searchPlaceholder}
-        aria-controls="command-palette-list"
-        aria-activedescendant={flatItems[focusedIndex] ? `cmd-item-${flatItems[focusedIndex].id}` : undefined}
         slotProps={{
           input: {
             startAdornment: (
@@ -309,6 +306,13 @@ export function CommandPalette() {
               fontSize: '1.1rem',
               '& fieldset': { border: 'none' },
             },
+          },
+          htmlInput: {
+            'aria-label': t.commandPalette.searchPlaceholder,
+            'aria-controls': 'command-palette-list',
+            'aria-activedescendant': flatItems[focusedIndex] ? `cmd-item-${flatItems[focusedIndex].id}` : undefined,
+            role: 'combobox',
+            'aria-expanded': true,
           },
         }}
         sx={{ px: 1, pt: 1 }}

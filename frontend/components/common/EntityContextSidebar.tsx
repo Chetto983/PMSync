@@ -378,6 +378,7 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
         sx={{
           width: open ? SIDEBAR_WIDTH : 0,
           flexShrink: 0,
+          transition: (theme) => theme.transitions.create('width', { duration: theme.transitions.duration.leavingScreen }),
           '& .MuiDrawer-paper': {
             width: SIDEBAR_WIDTH,
             position: 'relative',
