@@ -10,8 +10,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ## Current State
 
-**Version:** v11.0 in progress (started 2026-03-31)
-**Status:** Phase 130 complete — frontend performance quick-wins shipped. Calendar page code-split via next/dynamic (~150KB gzip saved from initial bundle). Cache-Control headers on labels/folders/pricing endpoints. Scaling chain 125-129 done. Production at numReplicas=2 with env-driven BullMQ concurrency scaling, graceful shutdown (25s), per-replica Prometheus labels.
+**Version:** v11.0 shipped (2026-04-01, 10 phases, 18 plans, 16/16 requirements)
+**Status:** Milestone complete. Legacy code removed (JWT, voltAgent, Tailwind), horizontal scaling active (2 Railway replicas, BullMQ concurrency tuning, Redis state externalization, graceful shutdown), billing system hardened and E2E validated against Autumn test mode.
 **Previous:** v10.0 shipped (2026-03-30, 13 phases, 49/50 requirements)
 **Known gap:** WRITE-03 (IMAP/SMTP send) — Railway blocks SMTP ports 465/587; code exists and compiles but cannot be live-validated
 
@@ -156,17 +156,15 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 - ✓ INFRA-01..10: BullMQ health, pause/resume, Gmail Pub/Sub, MS Graph webhooks, scheduling, signatures, templates — v10.0
 - ✓ XCUT-01..03: Tenant isolation, rate tier enforcement, response envelope compliance — v10.0
 
+**v11.0 - Legacy Cleanup, Scalability & Billing Hardening (shipped 2026-04-01):**
+- ✓ LEGC-01..04: JWT dead code removed, voltAgent aliases removed, Tailwind CSS removed, @Cron to BullMQ migration — v11.0
+- ✓ SCAL-01..04: WebSocket-only transport, DB pool per-replica, BullMQ concurrency tuned, in-memory state externalized to Redis — v11.0
+- ✓ PERF-01..04: Heavy deps code-split, Cache-Control headers, graceful shutdown, per-replica Prometheus labels — v11.0
+- ✓ BILL-01..04: Billing frontend UI, webhook with Svix verification, E2E validation scripts, edge cases hardened — v11.0
+
 ### Active
 
-## Current Milestone: v11.0 Legacy Cleanup, Scalability & Billing Hardening
-
-**Goal:** Remove all transitional legacy code, optimize for Railway horizontal scaling and performance, and harden + validate the billing system end-to-end.
-
-**Target features:**
-- Legacy removal: JWT dual-stack auth, deprecated API aliases, tailwindcss base injection
-- Horizontal scaling: Multi-instance backend on Railway, DB connection pooling, BullMQ tuning
-- Frontend performance: Bundle size, SSR optimization, CDN caching, Lighthouse targets
-- Billing hardening: E2E validation of Autumn flows + edge case hardening on Railway/Vercel
+(No active milestone — next: `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -306,6 +304,11 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v10.0: Accept 'failed' status as BullMQ evidence | Railway blocks SMTP; BullMQ processing the job (status change) proves scheduling works even if delivery fails | ✓ Good |
 | v10.0: Code-level evidence fallback for DB queries | When DATABASE_URL unavailable, document code path + partial qualifier instead of hard-failing | ✓ Good |
 | v10.0: WRITE-03/FOLD-03 infrastructure-blocked | Railway/Libero limitations documented as infrastructure gaps, not code gaps; consistent qualifier pattern | ✓ Good |
+| v11.0: scaleForReplicas() with env var control | WORKER_REPLICA_COUNT divides concurrency per-replica; defaults to 1 (safe) | ✓ Good |
+| v11.0: Redis Lua scripts for semaphore + triage | ACQUIRE/RELEASE sorted-set semaphore + RPUSH/DRAIN learning — no in-memory state divergence | ✓ Good |
+| v11.0: Svix webhook verification with soft-disable | AUTUMN_WEBHOOK_SECRET absent = verification disabled with warning; intentional dev/staging affordance | ✓ Good |
+| v11.0: E2E validation via Edge CDP session extraction | Reuses browser auth cookies for API validation; proven pattern from v10.0 | ✓ Good |
+| v11.0: BullMQ registerHandler over @Cron | Single-instance execution guarantee via Redis locks; @nestjs/schedule removed | ✓ Good |
 
 ## Evolution
 
@@ -325,4 +328,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after phase 130 (frontend-performance) complete*
+*Last updated: 2026-04-01 after v11.0 milestone complete*

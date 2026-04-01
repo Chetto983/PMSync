@@ -1,5 +1,24 @@
 # Project Milestones: PMSync
 
+## v11.0 Legacy Cleanup, Scalability & Billing Hardening (Shipped: 2026-04-01)
+
+**Phases completed:** 10 phases, 18 plans, 38 tasks
+
+**Key accomplishments:**
+
+- Replaced all 47 @ApiBearerAuth decorators with @ApiCookieAuth across 39 controllers, switched Swagger to cookie auth, deleted dead ES256 key gen script
+- All 8 @Cron decorators across 4 service files replaced with BullMQ registerHandler calls for single-instance execution on Railway horizontal scaling
+- WebSocket-only Socket.IO transport and explicit pg.Pool config via env vars for Railway multi-replica deployment
+- FullCalendar code-split via next/dynamic with ssr:false and Skeleton fallback, removing ~150KB gzip from initial bundle
+- Cache-Control headers on 4 read-heavy GET endpoints: labels (60s), folders (30s), pricing public (300s), pricing authenticated (120s)
+- Replaced 7 sub-4px spacing tokens (0.5 and 0.25) with valid 4px-multiple values across 4 billing components
+- Svix-verified webhook receiver at POST /webhooks/autumn with Redis-based idempotent event routing for plan changes, payment failures, and usage alerts
+- cancelAt period-end enforcement in daily lifecycle check + real SendGrid email delivery for billing alerts
+- E2E billing validation script exercising 10 test cases (subscription state, entitlement gating, usage tracking, billing portal, attach/cancel flows, webhook rejection, cost protection, pricing table) against Railway/Vercel production
+- Documented WORKER_REPLICA_COUNT, AUTUMN_WEBHOOK_SECRET, AUTUMN_PLAN_MAPPING in .env.example and removed dead cancelViaAutumn export
+
+---
+
 ## v10.0 Email & Sync Production Validation (Shipped: 2026-03-30)
 
 **Phases completed:** 13 phases, 27 plans, 48 tasks
