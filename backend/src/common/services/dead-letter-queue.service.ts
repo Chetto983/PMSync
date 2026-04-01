@@ -95,7 +95,7 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
   private dlqQueue: Queue<DLQJobData>;
   private queueEvents: QueueEvents;
   private cleanupTimer: NodeJS.Timeout | null = null;
-  private readonly DLQ_RETENTION_DAYS = 30; // Default retention
+  private readonly DLQ_RETENTION_DAYS = 7; // Keep DLQ items for 7 days (was 30)
   private readonly FAILURE_CACHE_TTL = 86400; // 24 hours
 
   constructor(
@@ -112,8 +112,8 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
       connection: this.redisConnection,
       defaultJobOptions: {
         attempts: 1, // No retries for DLQ jobs
-        removeOnComplete: false, // Keep completed jobs for audit
-        removeOnFail: false, // Keep failed jobs for analysis
+        removeOnComplete: { count: 500, age: 604800 }, // Keep 500 or 7 days
+        removeOnFail: { count: 500 }, // Keep last 500 failed for analysis
       },
     });
 
