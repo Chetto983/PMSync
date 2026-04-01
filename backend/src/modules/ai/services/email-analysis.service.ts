@@ -4,6 +4,7 @@
  * Extracted from EmailInsightsService (Phase 43).
  */
 import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { InsightUtilsService } from './insight-utils.service';
@@ -49,8 +50,12 @@ export class EmailAnalysisService {
         },
       },
     });
+    const labelDefs = await this.getUserLabels(tenantId);
+    const labelRulesSignature = this.computeLabelRulesSignature(labelDefs);
     const cachedLocale = (cached?.suggestedActions as Record<string, unknown>)?.locale as string | undefined;
-    if (cached?.summary && cachedLocale === lang) {
+    const cachedLabelRulesSignature =
+      (cached?.suggestedActions as Record<string, unknown>)?.labelRulesSignature as string | undefined;
+    if (cached?.summary && cachedLocale === lang && cachedLabelRulesSignature === labelRulesSignature) {
       this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId} (locale: ${lang})`);
       return {
         ...this.mapEmailAnalysisToUnified(cached, cached.email?.aiLabels ?? []),
@@ -65,12 +70,13 @@ export class EmailAnalysisService {
     }
     if (cached?.summary && cachedLocale !== lang) {
       this.logger.debug(`Cache miss - locale mismatch: cached=${cachedLocale}, requested=${lang}`);
+    } else if (cached?.summary && cachedLabelRulesSignature !== labelRulesSignature) {
+      this.logger.debug(`Cache miss - label rules changed for ${emailId}`);
     }
 
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
-    const labelDefs = await this.getUserLabels(tenantId);
     const allowedLabels = labelDefs.map((l) => l.name);
     const labelPromptBlock = this.buildLabelPromptBlock(labelDefs);
     const systemPrompt = t.insights.analyzeUnified.systemPrompt(allowedLabels.join(', '), labelPromptBlock);
@@ -151,7 +157,7 @@ export class EmailAnalysisService {
         suggestedActions: {
           locale: lang, smartReplies: result.smartReplies, intent: result.intent, urgency: result.urgency,
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,
-          followUpReason: result.followUpReason, labels: result.labels,
+          followUpReason: result.followUpReason, labels: result.labels, labelRulesSignature,
         },
         processedAt, latencyMs,
       };
@@ -218,6 +224,14 @@ export class EmailAnalysisService {
     if (withPrompts.length === 0) return '';
     const lines = withPrompts.map((l) => `- "${l.name}": ${l.aiPrompt}`).join('\n');
     return `\n<LABEL_RULES>\nApply these labels when the described conditions match:\n${lines}\n</LABEL_RULES>`;
+  }
+
+  private computeLabelRulesSignature(labels: Array<{ name: string; aiPrompt: string | null }>): string {
+    const payload = labels.map((label) => ({
+      name: label.name.trim().toLowerCase(),
+      aiPrompt: (label.aiPrompt || '').trim(),
+    }));
+    return createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
   }
 
   private async getEmailOrThrow(tenantId: string, emailId: string): Promise<EmailRecord> {
