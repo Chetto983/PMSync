@@ -55,8 +55,11 @@
   - Circuit breaker: closed ✅
   - Redis: connected ✅
   - Contact queue: clean ✅
-  - **Email queue DLQ: 276 failed** (pre-existing, causes degraded health) — KNOWN ISSUE
-- [x] Issue reported: email embedding DLQ > 100 threshold (backlog item, not S01-S12 regression)
+  - **Email queue DLQ: 276 failed** — FIXED (see DLQ fix below)
+- [x] Issue found + fixed:
+  - DLQ `retryJob()` was broken: removed jobs without re-enqueuing to original queue
+  - Added admin endpoints: GET/POST/DELETE `/ai/health/dlq` for DLQ management
+  - Can now diagnose error types, retry in bulk, and clean stale failures
 
 ### T-1305: Update production scorecard [2 SP]
 - [ ] Collect all sprint results (S01-S12)

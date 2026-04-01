@@ -44,6 +44,7 @@ export const it: AppTranslations = {
     account: 'Account',
     notifications: 'Notifiche',
     language: 'Lingua',
+    openSidebar: 'Apri barra laterale',
     lightMode: 'Modalità chiara',
     darkMode: 'Modalità scura',
     searchPlaceholder: 'Cerca email, contatti, eventi...',

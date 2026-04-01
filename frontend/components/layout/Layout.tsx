@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { usePrefetchQuery } from '@tanstack/react-query';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -27,11 +27,16 @@ export function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const t = useTranslations();
   const { lastStatus, clear } = useSyncStore();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // Prefetch consent early so Dashboard widgets don't waterfall on useConsent()
   usePrefetchQuery(consentOptions());
 
   // Wire up offline action replay (online event + SW message listeners)
   useOfflineActions();
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [router.asPath]);
 
   // Get translated sync status message
   const getSyncStatusMessage = useMemo(() => {
@@ -101,7 +106,10 @@ export function Layout({ children }: LayoutProps) {
           {t.common?.skipToContent || 'Skip to main content'}
         </Box>
         {/* Sidebar */}
-        <Sidebar />
+        <Sidebar
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
+        />
 
         {/* Main Content Area */}
         <Box
@@ -126,7 +134,7 @@ export function Layout({ children }: LayoutProps) {
           <ImpersonationBanner />
 
           {/* Header */}
-          <Header />
+          <Header onOpenSidebar={() => setMobileSidebarOpen(true)} />
 
           {/* Quota Alert Banner - shows when usage > 80% */}
           <QuotaAlertBanner />

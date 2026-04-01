@@ -44,6 +44,7 @@ export const en: AppTranslations = {
     account: 'Account',
     notifications: 'Notifications',
     language: 'Language',
+    openSidebar: 'Open sidebar',
     lightMode: 'Light Mode',
     darkMode: 'Dark Mode',
     searchPlaceholder: 'Search emails, contacts, events...',

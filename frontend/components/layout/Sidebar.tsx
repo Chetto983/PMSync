@@ -5,21 +5,24 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   Box,
+  Divider,
   Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   Tooltip,
+  Typography,
   useMediaQuery,
   useTheme,
   alpha,
   type Theme,
 } from '@mui/material';
 import {
-  Home,
-  Mail,
-  Calendar,
-  Users,
-  CheckSquare,
   Settings,
   GripVertical,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -40,26 +43,16 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSidebarOrder } from '@/hooks/use-sidebar-order';
+import { PILLAR_ITEMS, getActiveSidebarHref, type PillarItem } from './sidebar-navigation';
 
 const RAIL_WIDTH = 64;
 
-interface PillarItem {
-  href: string;
-  icon: typeof Home;
-  labelKey: 'home' | 'mail' | 'calendar' | 'contacts' | 'tasks';
+export interface PmSyncSidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-const PILLAR_ITEMS: PillarItem[] = [
-  { href: '/dashboard', icon: Home, labelKey: 'home' },
-  { href: '/dashboard/email', icon: Mail, labelKey: 'mail' },
-  { href: '/dashboard/calendar', icon: Calendar, labelKey: 'calendar' },
-  { href: '/dashboard/contacts', icon: Users, labelKey: 'contacts' },
-  { href: '/dashboard/tasks', icon: CheckSquare, labelKey: 'tasks' },
-];
-
-export interface PmSyncSidebarProps {}
-
-export function Sidebar(_props: PmSyncSidebarProps) {
+export function Sidebar({ mobileOpen = false, onMobileClose }: PmSyncSidebarProps) {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -75,19 +68,7 @@ export function Sidebar(_props: PmSyncSidebarProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const activeHref = useMemo(() => {
-    if (currentPath === '/dashboard') {
-      return '/dashboard';
-    }
-
-    const match = PILLAR_ITEMS
-      .filter((pillar) => pillar.href !== '/dashboard')
-      .find((pillar) => (
-        currentPath === pillar.href || currentPath.startsWith(`${pillar.href}/`)
-      ));
-
-    return match?.href ?? null;
-  }, [currentPath]);
+  const activeHref = useMemo(() => getActiveSidebarHref(currentPath), [currentPath]);
 
   const activeBg = isDark
     ? `linear-gradient(165deg, ${alpha('#14212b', 0.92)} 0%, ${alpha('#0e171f', 0.98)} 100%)`
@@ -104,12 +85,120 @@ export function Sidebar(_props: PmSyncSidebarProps) {
     }
   };
 
-  if (isMobile) return null;
-
   const pillarMap = new Map(PILLAR_ITEMS.map((pillar) => [pillar.href, pillar]));
   const orderedPillars = order
     .map((href) => pillarMap.get(href))
     .filter(Boolean) as PillarItem[];
+
+  if (isMobile) {
+    return (
+      <Drawer
+        anchor="left"
+        open={mobileOpen}
+        onClose={onMobileClose}
+        variant="temporary"
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': {
+            width: 280,
+            boxSizing: 'border-box',
+            borderRight: '1px solid',
+            borderColor: alpha(theme.palette.divider, isDark ? 0.16 : 0.1),
+            background: isDark
+              ? `linear-gradient(180deg, ${alpha('#081018', 0.98)} 0%, ${alpha(theme.palette.background.paper, 0.98)} 100%)`
+              : `linear-gradient(180deg, ${alpha('#fbfdfe', 0.99)} 0%, ${alpha('#eef6fb', 0.99)} 100%)`,
+          },
+        }}
+      >
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 2,
+              py: 1.5,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '14px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: isDark
+                    ? `linear-gradient(180deg, ${alpha('#152433', 0.92)} 0%, ${alpha('#0b1219', 0.98)} 100%)`
+                    : `linear-gradient(180deg, ${alpha('#ffffff', 0.98)} 0%, ${alpha('#eef6fb', 0.98)} 100%)`,
+                  border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.16 : 0.1)}`,
+                }}
+              >
+                <Image
+                  src="/Logo PMSync.svg"
+                  alt={t.app.name}
+                  width={22}
+                  height={22}
+                  priority
+                  style={{ objectFit: 'contain' }}
+                />
+              </Box>
+              <Box>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  {t.app.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {t.nav.openSidebar}
+                </Typography>
+              </Box>
+            </Box>
+
+            <IconButton aria-label={t.common.close} onClick={onMobileClose} edge="end">
+              <X size={18} />
+            </IconButton>
+          </Box>
+
+          <Divider />
+
+          <List sx={{ px: 1.25, py: 1.5 }}>
+            {orderedPillars.map((pillar) => (
+              <MobileNavItem
+                key={pillar.href}
+                pillar={pillar}
+                active={activeHref === pillar.href}
+                label={t.nav[pillar.labelKey]}
+                activeBg={activeBg}
+                activeBorder={activeBorder}
+                isDark={isDark}
+                theme={theme}
+                onClick={() => {
+                  onMobileClose?.();
+                  void router.push(pillar.href);
+                }}
+              />
+            ))}
+          </List>
+
+          <Box sx={{ mt: 'auto', px: 1.25, py: 1.5 }}>
+            <Divider sx={{ mb: 1.25 }} />
+            <MobileSettingsItem
+              active={currentPath === '/dashboard/settings' || currentPath.startsWith('/dashboard/settings/')}
+              label={t.nav.settings}
+              activeBg={activeBg}
+              activeBorder={activeBorder}
+              isDark={isDark}
+              theme={theme}
+              onClick={() => {
+                onMobileClose?.();
+                void router.push('/dashboard/settings');
+              }}
+            />
+          </Box>
+        </Box>
+      </Drawer>
+    );
+  }
 
   return (
     <Drawer
@@ -237,6 +326,73 @@ export function Sidebar(_props: PmSyncSidebarProps) {
   );
 }
 
+interface MobileNavItemProps {
+  pillar: PillarItem;
+  active: boolean;
+  label: string;
+  activeBg: string;
+  activeBorder: string;
+  isDark: boolean;
+  theme: Theme;
+  onClick: () => void;
+}
+
+function MobileNavItem({
+  pillar,
+  active,
+  label,
+  activeBg,
+  activeBorder,
+  isDark,
+  theme,
+  onClick,
+}: MobileNavItemProps) {
+  const Icon = pillar.icon;
+
+  return (
+    <ListItemButton
+      onClick={onClick}
+      selected={active}
+      aria-current={active ? 'page' : undefined}
+      sx={{
+        mb: 0.75,
+        borderRadius: 3,
+        minHeight: 48,
+        background: active ? activeBg : 'transparent',
+        border: '1px solid',
+        borderColor: active ? activeBorder : alpha(theme.palette.divider, isDark ? 0.1 : 0.08),
+        boxShadow: active
+          ? isDark
+            ? `0 18px 30px ${alpha('#02050a', 0.28)}`
+            : `0 18px 26px ${alpha('#d6e3eb', 0.28)}`
+          : 'none',
+        '&.Mui-selected, &.Mui-selected:hover': {
+          background: activeBg,
+        },
+        '&:hover': {
+          backgroundColor: active ? undefined : alpha(theme.palette.text.primary, isDark ? 0.06 : 0.04),
+        },
+      }}
+    >
+      <ListItemIcon
+        sx={{
+          minWidth: 40,
+          color: active ? 'primary.main' : 'text.secondary',
+        }}
+      >
+        <Icon size={19} strokeWidth={1.9} />
+      </ListItemIcon>
+      <ListItemText
+        primary={label}
+        primaryTypographyProps={{
+          fontWeight: active ? 700 : 600,
+          color: active ? 'text.primary' : 'text.secondary',
+        }}
+      />
+    </ListItemButton>
+  );
+}
+
 interface SortableItemProps {
   pillar: PillarItem;
   active: boolean;
@@ -358,6 +514,60 @@ function SortableItem({
         </Box>
       </Box>
     </Box>
+  );
+}
+
+interface MobileSettingsItemProps {
+  active: boolean;
+  label: string;
+  activeBg: string;
+  activeBorder: string;
+  isDark: boolean;
+  theme: Theme;
+  onClick: () => void;
+}
+
+function MobileSettingsItem({
+  active,
+  label,
+  activeBg,
+  activeBorder,
+  isDark,
+  theme,
+  onClick,
+}: MobileSettingsItemProps) {
+  return (
+    <ListItemButton
+      onClick={onClick}
+      selected={active}
+      aria-current={active ? 'page' : undefined}
+      sx={{
+        borderRadius: 3,
+        minHeight: 48,
+        background: active ? activeBg : 'transparent',
+        border: '1px solid',
+        borderColor: active ? activeBorder : alpha(theme.palette.divider, isDark ? 0.1 : 0.08),
+        '&.Mui-selected, &.Mui-selected:hover': {
+          background: activeBg,
+        },
+      }}
+    >
+      <ListItemIcon
+        sx={{
+          minWidth: 40,
+          color: active ? 'primary.main' : 'text.secondary',
+        }}
+      >
+        <Settings size={19} strokeWidth={1.9} />
+      </ListItemIcon>
+      <ListItemText
+        primary={label}
+        primaryTypographyProps={{
+          fontWeight: active ? 700 : 600,
+          color: active ? 'text.primary' : 'text.secondary',
+        }}
+      />
+    </ListItemButton>
   );
 }
 

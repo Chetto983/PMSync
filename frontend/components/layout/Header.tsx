@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import {
   Bell,
+  Menu,
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -36,9 +37,11 @@ interface HeaderNotification {
   receivedAt?: string;
 }
 
-export interface PmSyncHeaderProps {}
+export interface PmSyncHeaderProps {
+  onOpenSidebar?: () => void;
+}
 
-export function Header(_props: PmSyncHeaderProps) {
+export function Header({ onOpenSidebar }: PmSyncHeaderProps) {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -95,6 +98,20 @@ export function Header(_props: PmSyncHeaderProps) {
       }}
     >
       <Toolbar sx={{ minHeight: 64, gap: 1 }}>
+        {isMobile && onOpenSidebar ? (
+          <Tooltip title={t.nav.openSidebar}>
+            <IconButton
+              color="inherit"
+              onClick={onOpenSidebar}
+              edge="start"
+              aria-label={t.nav.openSidebar}
+              sx={{ mr: 0.25 }}
+            >
+              <Menu size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+
         {/* Org Switcher -- only visible for multi-org users */}
         <OrgSwitcher />
 

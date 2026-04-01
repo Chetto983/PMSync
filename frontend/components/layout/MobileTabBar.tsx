@@ -5,31 +5,11 @@ import {
   useTheme,
   alpha,
 } from '@mui/material';
-import {
-  Home,
-  Mail,
-  Calendar,
-  Users,
-  CheckSquare,
-  Settings,
-} from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useSidebarOrder } from '@/hooks/use-sidebar-order';
-
-interface PillarItem {
-  href: string;
-  icon: React.ElementType;
-  labelKey: 'home' | 'mail' | 'calendar' | 'contacts' | 'tasks';
-}
-
-const PILLAR_ITEMS: PillarItem[] = [
-  { href: '/dashboard', icon: Home, labelKey: 'home' },
-  { href: '/dashboard/email', icon: Mail, labelKey: 'mail' },
-  { href: '/dashboard/calendar', icon: Calendar, labelKey: 'calendar' },
-  { href: '/dashboard/contacts', icon: Users, labelKey: 'contacts' },
-  { href: '/dashboard/tasks', icon: CheckSquare, labelKey: 'tasks' },
-];
+import { PILLAR_ITEMS, getActiveSidebarHref, type PillarItem } from './sidebar-navigation';
 
 const DEFAULT_ORDER = PILLAR_ITEMS.map((p) => p.href);
 
@@ -40,9 +20,11 @@ export function MobileTabBar() {
   const { order } = useSidebarOrder(DEFAULT_ORDER);
 
   // Resolve current active path for BottomNavigation value
-  const currentPath =
-    PILLAR_ITEMS.find((p) => router.pathname === p.href)?.href ??
-    (router.pathname === '/dashboard/settings' ? '/dashboard/settings' : false);
+  const currentPath = router.asPath.split('?')[0].split('#')[0];
+  const activeValue = getActiveSidebarHref(currentPath)
+    ?? (currentPath === '/dashboard/settings' || currentPath.startsWith('/dashboard/settings/')
+      ? '/dashboard/settings'
+      : false);
 
   const orderedPillars = useMemo(() => {
     const pillarMap = new Map(PILLAR_ITEMS.map((p) => [p.href, p]));
@@ -53,7 +35,7 @@ export function MobileTabBar() {
 
   return (
     <BottomNavigation
-      value={currentPath}
+      value={activeValue}
       onChange={(_, newValue) => router.push(newValue)}
       sx={{
         position: 'fixed',

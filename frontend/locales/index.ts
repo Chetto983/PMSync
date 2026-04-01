@@ -312,6 +312,7 @@ export interface AppTranslations {
     account: string;
     notifications: string;
     language: string;
+    openSidebar: string;
     lightMode: string;
     darkMode: string;
     searchPlaceholder: string;
