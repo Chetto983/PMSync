@@ -86,10 +86,11 @@ export function ChatMobileLayout() {
           <div className="chat-mobile-sidebar-panel">
             <div className="chat-mobile-sidebar-header">
               <button
+                ref={backBtnRef}
                 type="button"
                 onClick={closeSidebar}
                 className="chat-mobile-back-btn"
-                aria-label={t.chat.threadList.title}
+                aria-label={closeLabel}
               >
                 <Box component={ArrowLeft} sx={{ width: 20, height: 20 }} />
               </button>
