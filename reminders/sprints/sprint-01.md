@@ -11,17 +11,17 @@
 
 ## Sprint Backlog
 
-- [ ] T-0101 — Creare `ReminderAlertSchedulerService` che ogni 5 min controlla `Reminder` con `scadenzaDatetime` futuro e emette Socket.IO events: `reminder:upcoming` (24h prima), `reminder:imminent` (1h prima), `reminder:overdue` (passata scadenza), `reminder:expired` (>48h auto-annulla). Salvare in `InAppNotification`. — [3 SP]
-- [ ] T-0102 — Registrare `ScheduledJobType.REMINDER_ALERT_CHECK` nel `ScheduledJobsQueueService` con cron `*/5 * * * *`. Handler delega a `ReminderAlertSchedulerService`. — [1 SP]
-- [ ] T-0103 — Aggiungere campi `lastRemindedAt` e `remindCount` al modello Prisma `Reminder` per evitare notifiche duplicate (max 3 per imminent, 1 per upcoming). Creare migration. — [2 SP]
-- [ ] T-0104 — Aggiungere Socket.IO event types in `realtime.types.ts`: `reminder:upcoming`, `reminder:imminent`, `reminder:overdue`, `reminder:completed`, `reminder:telegram-sent`. Payload: `{ reminderId, titolo, contatto, scadenzaDatetime, tenantId, userId }`. — [1 SP]
-- [ ] T-0105 — Emettere `reminder:completed` e `reminder:telegram-sent` da `ReminderService.completeReminder()` e `ReminderNotifyQueueService.processNotification()`. — [1 SP]
-- [ ] T-0106 — Fix email monitor query: sostituire `OR` per-keyword con singola query `subject ILIKE ANY(keywords) OR snippet ILIKE ANY(keywords)` usando raw SQL o Prisma `$queryRaw`. Aggiungere index `[tenantId, isDeleted, receivedAt]` sulla tabella Email. — [3 SP]
-- [ ] T-0107 — Fix email monitor batch: aggiungere cursor-based pagination per tenant equo. Ogni run processa max 50 reminders per tenant, round-robin. — [2 SP]
-- [ ] T-0108 — Fix scheduling transactional: wrappare `reminder.create` + `scheduleNotification` in try/catch. Se scheduling fallisce, loggare warning ma non far fallire la creazione. Aggiungere flag `notificationScheduled: boolean` al modello. — [2 SP]
-- [ ] T-0109 — Aggiungere jitter ±30 secondi random al delay dei delayed jobs in `ReminderNotifyQueueService.scheduleNotification()` per evitare spike simultanei su Telegram API. — [1 SP]
-- [ ] T-0110 — Locale-aware Telegram messages: leggere `locale` dalle preferenze utente (`User.preferences.locale` o default `it`). Creare dizionario `telegram-messages.ts` con tutte le stringhe (`PROMEMORIA`/`REMINDER`, `Scadenza:`/`Deadline:`, `EMAIL RILEVATA`/`EMAIL DETECTED`, `URGENTE`/`URGENT`, `attivi · monitora mail`/`active · monitoring mail`, `Controlla la mail`/`Check your email`). Usare in `TelegramBotService.sendReminderNotification()`, `sendDigest()`, `sendImmediateAlert()` e in `ReminderEmailMonitorService`. — [3 SP]
-- [ ] T-0111 — Type-check backend + frontend, test unitari per `ReminderAlertSchedulerService`. — [2 SP]
+- [x] T-0101 — Creare `ReminderAlertSchedulerService` — [3 SP] — DONE
+- [x] T-0102 — Registrare `REMINDER_ALERT_CHECK` nel ScheduledJobsQueueService — [1 SP] — DONE
+- [x] T-0103 — Aggiungere campi `lastRemindedAt` e `remindCount` + `notificationScheduled` al Reminder — [2 SP] — DONE
+- [x] T-0104 — Socket.IO event types per Reminder lifecycle — [1 SP] — DONE (pre-existing)
+- [x] T-0105 — Emettere `reminder:completed` e `reminder:telegram-sent` — [1 SP] — DONE
+- [x] T-0106 — Fix email monitor O(N*K) query con ILIKE ANY + index — [3 SP] — DONE
+- [x] T-0107 — Fix email monitor batch fairness per tenant (max 50/tenant) — [2 SP] — DONE
+- [x] T-0108 — Fix scheduling transactional + `notificationScheduled` flag — [2 SP] — DONE
+- [x] T-0109 — Jitter ±30s sui delayed jobs — [1 SP] — DONE
+- [x] T-0110 — Locale-aware Telegram messages (telegram-messages.ts) — [3 SP] — DONE
+- [x] T-0111 — Type-check + 7 unit tests per ReminderAlertSchedulerService — [2 SP] — DONE
 
 ---
 
