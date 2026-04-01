@@ -168,7 +168,7 @@ function AddContactDialog({
               <UserPlus size={16} />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="body2" fontWeight={500}>
-                  {contact.displayName || 'Unnamed'}
+                  {contact.displayName || t.common?.unnamedContact || 'Unnamed'}
                 </Typography>
                 {contact.company && (
                   <Typography variant="caption" sx={{ opacity: 0.7 }}>
@@ -313,7 +313,7 @@ export function DealContactsTab({ dealId }: { dealId: string }) {
                 <TableRow key={link.id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight={500}>
-                      {link.contact.displayName || 'Unnamed'}
+                      {link.contact.displayName || t.common?.unnamedContact || 'Unnamed'}
                     </Typography>
                   </TableCell>
                   <TableCell>

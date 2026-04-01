@@ -135,7 +135,7 @@ export function KBArticleEditor({ articleId }: KBArticleEditorProps) {
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <IconButton size="small" component={NextLink} href="/dashboard/crm/kb">
+        <IconButton size="small" aria-label={tk?.title ?? 'Back to Knowledge Base'} component={NextLink} href="/dashboard/crm/kb">
           <ArrowLeft size={20} />
         </IconButton>
         <Typography variant="h5" fontWeight={600}>

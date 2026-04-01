@@ -121,7 +121,7 @@ export function TicketDetail() {
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => router.push('/dashboard/crm/tickets')}>
+        <IconButton size="small" aria-label={tt?.title ?? 'Back to tickets'} onClick={() => router.push('/dashboard/crm/tickets')}>
           <ArrowLeft size={20} />
         </IconButton>
         <TicketIcon size={28} />
