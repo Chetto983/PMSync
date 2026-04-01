@@ -114,30 +114,70 @@ function slugifyLabel(name: string): string {
 }
 
 export async function ensureDefaultUserLabels(prisma: PrismaService, tenantId: string): Promise<void> {
-  const activeCount = await prisma.userLabel.count({
+  const existing = await prisma.userLabel.findMany({
     where: { tenantId, isArchived: false },
+    select: { id: true, name: true, category: true },
   });
 
-  if (activeCount > 0) {
+  if (existing.length === 0) {
+    // Fresh tenant: create all defaults
+    await prisma.userLabel.createMany({
+      data: DEFAULT_AI_USER_LABELS.map((label, index) => ({
+        tenantId,
+        name: label.name,
+        slug: slugifyLabel(label.name),
+        type: 'USER',
+        color: label.color as Prisma.InputJsonValue,
+        aiPrompt: label.aiPrompt,
+        category: label.category,
+        suppressUrgency: label.suppressUrgency,
+        mutuallyExclusiveWith: label.mutuallyExclusiveWith,
+        defaultLane: label.defaultLane,
+        orderIndex: index,
+        level: 0,
+        parentId: null,
+      })),
+      skipDuplicates: true,
+    });
     return;
   }
 
-  await prisma.userLabel.createMany({
-    data: DEFAULT_AI_USER_LABELS.map((label, index) => ({
-      tenantId,
-      name: label.name,
-      slug: slugifyLabel(label.name),
-      type: 'USER',
-      color: label.color as Prisma.InputJsonValue,
-      aiPrompt: label.aiPrompt,
-      category: label.category,
-      suppressUrgency: label.suppressUrgency,
-      mutuallyExclusiveWith: label.mutuallyExclusiveWith,
-      defaultLane: label.defaultLane,
-      orderIndex: index,
-      level: 0,
-      parentId: null,
-    })),
-    skipDuplicates: true,
-  });
+  // Existing tenant: backfill metadata on labels that still have category="custom"
+  // and add any missing default labels
+  const existingNames = new Set(existing.map((l) => l.name));
+
+  for (const def of DEFAULT_AI_USER_LABELS) {
+    const match = existing.find((l) => l.name === def.name);
+    if (match && match.category === 'custom') {
+      // Update metadata on existing label
+      await prisma.userLabel.update({
+        where: { id: match.id },
+        data: {
+          category: def.category,
+          suppressUrgency: def.suppressUrgency,
+          mutuallyExclusiveWith: def.mutuallyExclusiveWith,
+          defaultLane: def.defaultLane,
+        },
+      });
+    } else if (!existingNames.has(def.name)) {
+      // Create missing label
+      await prisma.userLabel.create({
+        data: {
+          tenantId,
+          name: def.name,
+          slug: slugifyLabel(def.name),
+          type: 'USER',
+          color: def.color as Prisma.InputJsonValue,
+          aiPrompt: def.aiPrompt,
+          category: def.category,
+          suppressUrgency: def.suppressUrgency,
+          mutuallyExclusiveWith: def.mutuallyExclusiveWith,
+          defaultLane: def.defaultLane,
+          orderIndex: existing.length + DEFAULT_AI_USER_LABELS.indexOf(def),
+          level: 0,
+          parentId: null,
+        },
+      });
+    }
+  }
 }

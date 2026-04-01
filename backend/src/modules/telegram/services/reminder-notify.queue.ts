@@ -32,6 +32,7 @@ import {
 } from '../../../common/config/queue.config';
 import { TelegramBotService } from './telegram-bot.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { TelegramLocale } from '../utils/telegram-messages';
 
 interface ReminderNotifyJobData {
   reminderId: string;
@@ -230,6 +231,9 @@ export class ReminderNotifyQueueService
       return;
     }
 
+    // Resolve user locale for localized messages
+    const locale = await this.resolveUserLocale(reminder.userId);
+
     // Send single-reminder notification
     const sent = await this.telegramBot.sendReminderNotification(
       tgSettings.telegramChatId,
@@ -244,6 +248,7 @@ export class ReminderNotifyQueueService
         monitoraEmail: reminder.monitoraEmail,
         messaggioTelegram: reminder.messaggioTelegram,
       },
+      locale,
     );
 
     if (sent) {
@@ -286,6 +291,18 @@ export class ReminderNotifyQueueService
           errorMessage: 'Telegram API send failed',
         },
       });
+    }
+  }
+
+  private async resolveUserLocale(userId: string): Promise<TelegramLocale> {
+    try {
+      const prefs = await this.prisma.userPreferences.findUnique({
+        where: { userId },
+        select: { language: true },
+      });
+      return (prefs?.language === 'it' ? 'it' : 'en') as TelegramLocale;
+    } catch {
+      return 'it'; // Default to Italian for backward compatibility
     }
   }
 }

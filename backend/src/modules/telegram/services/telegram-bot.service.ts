@@ -8,6 +8,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { formatToolPreview } from '../utils/tool-preview';
+import { t, getSlotLabel, formatDateLocale, TelegramLocale } from '../utils/telegram-messages';
 
 interface InlineButton {
   text: string;
@@ -133,16 +134,11 @@ export class TelegramBotService implements OnModuleInit {
     chatId: string,
     slot: string,
     reminders: ReminderDigestItem[],
+    locale: TelegramLocale = 'it',
   ): Promise<boolean> {
     if (!reminders.length) return true;
 
-    const slotLabels: Record<string, string> = {
-      mattina: 'Mattina',
-      pomeriggio: 'Pomeriggio',
-      sera: 'Sera',
-    };
-
-    const header = `*FOLLOW-UP AI — ${slotLabels[slot] ?? slot}*\n`;
+    const header = `*${t('FOLLOW_UP_AI', locale)} — ${getSlotLabel(slot, locale)}*\n`;
     const separator = '\n─────────────────────\n';
 
     const items = reminders.map((r) => {
@@ -152,14 +148,14 @@ export class TelegramBotService implements OnModuleInit {
         ? `\n${r.condizioneDettaglio}`
         : '';
       const dateLine = r.scadenzaDatetime
-        ? `\nScadenza: ${this.formatDate(r.scadenzaDatetime)}`
+        ? `\n${t('DEADLINE', locale)}: ${formatDateLocale(r.scadenzaDatetime, locale)}`
         : '';
       return `${emoji} *${r.titolo}*${contactLine}${condLine}${dateLine}`;
     });
 
     const activeCount = reminders.length;
     const monitorCount = reminders.filter((r) => r.monitoraEmail).length;
-    const footer = `\n${activeCount} attivi · ${monitorCount} monitora mail`;
+    const footer = `\n${activeCount} ${t('ACTIVE_MONITORING', locale)}`;
 
     const text = header + items.join(separator) + separator + footer;
 
@@ -179,11 +175,12 @@ export class TelegramBotService implements OnModuleInit {
   async sendReminderNotification(
     chatId: string,
     reminder: ReminderDigestItem & { messaggioTelegram: string | null },
+    locale: TelegramLocale = 'it',
   ): Promise<boolean> {
     const emoji = this.getActionEmoji(reminder.azione);
     const contactLine = reminder.contatto ? ` — ${reminder.contatto}` : '';
     const dateLine = reminder.scadenzaDatetime
-      ? `\nScadenza: ${this.formatDate(reminder.scadenzaDatetime)}`
+      ? `\n${t('DEADLINE', locale)}: ${formatDateLocale(reminder.scadenzaDatetime, locale)}`
       : '';
     const condLine = reminder.condizioneDettaglio
       ? `\n${reminder.condizioneDettaglio}`
@@ -195,7 +192,7 @@ export class TelegramBotService implements OnModuleInit {
       : `${condLine}${dateLine}`;
 
     const text =
-      `*PROMEMORIA*\n\n` +
+      `*${t('REMINDER', locale)}*\n\n` +
       `${emoji} *${reminder.titolo}*${contactLine}${body}`;
 
     const inlineKeyboard = [
@@ -215,14 +212,15 @@ export class TelegramBotService implements OnModuleInit {
     chatId: string,
     reminderTitolo: string,
     emailSubject?: string,
+    locale: TelegramLocale = 'it',
   ): Promise<boolean> {
     const subjectLine = emailSubject
-      ? `\nOggetto: _${emailSubject}_`
+      ? `\n${t('SUBJECT', locale)}: _${emailSubject}_`
       : '';
     const text =
-      `*EMAIL RILEVATA*\n\n` +
+      `*${t('EMAIL_DETECTED', locale)}*\n\n` +
       `${reminderTitolo}${subjectLine}\n` +
-      `Controlla la mail e aggiorna lo stato`;
+      `${t('CHECK_EMAIL', locale)}`;
 
     return this.sendMessage(chatId, text);
   }
@@ -417,13 +415,4 @@ export class TelegramBotService implements OnModuleInit {
     return map[azione] ?? '\u{1F4CB}';
   }
 
-  private formatDate(date: Date): string {
-    return date.toLocaleDateString('it-IT', {
-      weekday: 'short',
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }
 }

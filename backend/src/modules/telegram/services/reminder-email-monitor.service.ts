@@ -20,6 +20,7 @@ import {
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
 import { TelegramBotService } from './telegram-bot.service';
+import { t, TelegramLocale } from '../utils/telegram-messages';
 
 @Injectable()
 export class ReminderEmailMonitorService implements OnModuleInit {
@@ -119,11 +120,13 @@ export class ReminderEmailMonitorService implements OnModuleInit {
           data: { emailRilevata: true, emailRilevataAt: new Date() },
         });
 
+        const locale = await this.resolveUserLocale(reminder.userId);
         await this.sendImmediateNotification(
           reminder.tenantId,
           reminder.userId,
           reminder.titolo,
           emailMatch.subject,
+          locale,
         );
 
         this.logger.log(`Email detected for reminder ${reminder.id} (se_risponde_mail) — notified`);
@@ -200,12 +203,14 @@ export class ReminderEmailMonitorService implements OnModuleInit {
 
     // Deadline has passed
     if (reminder.condizioneTipo === 'se_non_risponde_mail') {
+      const locale = await this.resolveUserLocale(reminder.userId);
       // No response received by deadline — send urgent notification
       await this.sendImmediateNotification(
         reminder.tenantId,
         reminder.userId,
-        `URGENTE: ${reminder.titolo} — Nessuna risposta ricevuta`,
+        `${t('URGENT', locale)}: ${reminder.titolo} — ${t('NO_RESPONSE', locale)}`,
         null,
+        locale,
       );
 
       this.logger.log(`Deadline expired for reminder ${reminder.id} (se_non_risponde_mail) — urgent notification sent`);
@@ -217,6 +222,7 @@ export class ReminderEmailMonitorService implements OnModuleInit {
     userId: string,
     title: string,
     emailSubject: string | null,
+    locale: TelegramLocale = 'it',
   ): Promise<void> {
     if (!this.telegramBot.isEnabled) return;
 
@@ -231,6 +237,7 @@ export class ReminderEmailMonitorService implements OnModuleInit {
       settings.telegramChatId,
       title,
       emailSubject ?? undefined,
+      locale,
     );
 
     // Log
@@ -245,5 +252,17 @@ export class ReminderEmailMonitorService implements OnModuleInit {
         errorMessage: sent ? null : 'Send failed',
       },
     });
+  }
+
+  private async resolveUserLocale(userId: string): Promise<TelegramLocale> {
+    try {
+      const prefs = await this.prisma.userPreferences.findUnique({
+        where: { userId },
+        select: { language: true },
+      });
+      return (prefs?.language === 'it' ? 'it' : 'en') as TelegramLocale;
+    } catch {
+      return 'it';
+    }
   }
 }
