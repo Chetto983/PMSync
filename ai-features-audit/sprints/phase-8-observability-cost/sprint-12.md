@@ -12,18 +12,18 @@
 
 ## Sprint Backlog
 
-### T-1201: Add retry logic to AiRunLedger writes [2 SP]
-- [ ] Read `ai-run-ledger.service.ts` — trace `recordRun()` fire-and-forget
-- [ ] Add 1 retry with 500ms delay on DB write failure
-- [ ] On final failure: log error (don't lose telemetry silently)
-- [ ] Keep fire-and-forget pattern — don't block requests
-- [ ] Addresses: **OBS-H1**
+### T-1201: Add retry logic to AiRunLedger writes [2 SP] ✅ DONE
+- [x] Read `ai-run-ledger.service.ts` — trace `recordRun()` fire-and-forget
+- [x] Add 1 retry with 500ms delay on DB write failure
+- [x] On final failure: log error (don't lose telemetry silently)
+- [x] Keep fire-and-forget pattern — don't block requests
+- [x] Addresses: **OBS-H1**
 
-### T-1202: Secure AI health endpoint — minimize public exposure [2 SP]
-- [ ] Read `ai-health.controller.ts` — audit `/ai/health` vs `/ai/health/detailed`
-- [ ] Public `/ai/health`: return only `{ status: 'ok' | 'degraded' }` — no internal details
-- [ ] Auth-gated `/ai/health/detailed`: keep circuit breaker state, failure counts
-- [ ] Addresses: **OBS-H2**
+### T-1202: Secure AI health endpoint — minimize public exposure [2 SP] ✅ DONE (already addressed)
+- [x] Read `ai-health.controller.ts` — audit `/ai/health` vs `/ai/health/detailed`
+- [x] Public `/ai/health`: return only `{ status: 'ok' | 'degraded' }` — no internal details (already minimal)
+- [x] Auth-gated `/ai/health/detailed`: keep circuit breaker state, failure counts (already `@Roles('admin')`)
+- [x] Addresses: **OBS-H2** — no code change needed, already properly secured
 
 ### T-1203: Add proactive cost alerting per tenant [3 SP]
 - [ ] Read `ai-analytics.service.ts` — locate burn rate calculation

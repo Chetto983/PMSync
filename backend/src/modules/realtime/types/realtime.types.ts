@@ -204,6 +204,14 @@ export interface CrmTicketEventPayload {
   timestamp?: string;
 }
 
+/** AI cost threshold alert payload (OBS-M1) */
+export interface AiCostAlertPayload {
+  currentCost: number;
+  monthlyCap: number;
+  percentUsed: number;
+  timestamp: string;
+}
+
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
   'email:update': EmailEventPayload;
@@ -289,6 +297,8 @@ export interface RealtimeEventPayloads {
   'crm:ticket:created': CrmTicketEventPayload;
   'crm:ticket:updated': CrmTicketEventPayload;
   'crm:ticket:assigned': CrmTicketEventPayload;
+  // AI Cost Alerting (OBS-M1)
+  'ai:cost:alert': AiCostAlertPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

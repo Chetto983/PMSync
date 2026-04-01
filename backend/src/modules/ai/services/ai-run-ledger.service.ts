@@ -14,6 +14,7 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Counter } from 'prom-client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
+import { AiAnalyticsService } from './ai-analytics.service';
 
 /**
  * Per-million-token pricing (USD).
@@ -74,6 +75,7 @@ export class AiRunLedgerService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly analyticsService: AiAnalyticsService,
     @Optional() @InjectMetric('ai_tokens_total') private readonly tokensCounter?: Counter,
     @Optional() @InjectMetric('ai_cost_usd_total') private readonly costCounter?: Counter,
     @Optional() @InjectMetric('ai_requests_total') private readonly requestsCounter?: Counter,
@@ -139,6 +141,10 @@ export class AiRunLedgerService {
     for (let attempt = 0; attempt <= AiRunLedgerService.MAX_RETRIES; attempt++) {
       try {
         await this.prisma.aiRunLedger.create({ data });
+        // OBS-M1: Fire-and-forget cost threshold check after successful write
+        this.analyticsService.checkCostThreshold(params.tenantId).catch((err) => {
+          this.logger.warn(`Cost threshold check failed: ${err instanceof Error ? err.message : err}`);
+        });
         return;
       } catch (error) {
         if (attempt < AiRunLedgerService.MAX_RETRIES) {

@@ -16,6 +16,7 @@ import {
   CrmAutomationNotifyPayload,
   CrmImportProgressPayload,
   CrmTicketEventPayload,
+  AiCostAlertPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -36,6 +37,7 @@ export type {
   CrmAutomationNotifyPayload,
   CrmImportProgressPayload,
   CrmTicketEventPayload,
+  AiCostAlertPayload,
 } from '../types/realtime.types';
 
 /**
@@ -567,6 +569,11 @@ export class RealtimeEventsService implements OnModuleDestroy {
    */
   emitAiAgentStep(tenantId: string, payload: AiAgentStepEventPayload) {
     void this.emitToTenant(tenantId, 'ai:agent:step', payload);
+  }
+
+  /** OBS-M1: Notify tenant when AI cost approaches monthly cap. */
+  emitAiCostAlert(tenantId: string, payload: AiCostAlertPayload) {
+    void this.emitToTenant(tenantId, 'ai:cost:alert', payload);
   }
 
   /**

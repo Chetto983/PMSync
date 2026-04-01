@@ -9,6 +9,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AiRunStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
 // ── Response Types ──────────────────────────────────────────────────
 
@@ -65,12 +67,22 @@ interface QualityScorableRun {
 export class AiAnalyticsService {
   private readonly logger = new Logger(AiAnalyticsService.name);
   private readonly globalDailyCap: number;
+  /** Monthly cap derived from daily cap * 30. */
+  private readonly monthlyCap: number;
+  /** Threshold fraction (0-1) at which to fire cost alert. */
+  private readonly costAlertThreshold: number;
+  /** 24h cooldown between alerts for the same tenant. */
+  private static readonly COST_ALERT_COOLDOWN_S = 86_400;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly cacheService: CacheService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {
     this.globalDailyCap = this.configService.get<number>('AI_DAILY_COST_CAP') || 50.0;
+    this.monthlyCap = this.globalDailyCap * 30;
+    this.costAlertThreshold = this.configService.get<number>('AI_COST_ALERT_THRESHOLD') || 0.8;
   }
 
   async getAnalytics(tenantId: string, days = 30): Promise<AnalyticsResponse> {
@@ -299,5 +311,49 @@ export class AiAnalyticsService {
     else if (run.latencyMs <= 15_000) score += 0.05;
 
     return Number(Math.min(1, Math.max(0, score)).toFixed(2));
+  }
+
+  // ── Cost Alerting (OBS-M1) ─────────────────────────────────────
+
+  /**
+   * Check if a tenant has crossed the AI cost alert threshold this month.
+   * Fires a Socket.IO alert to the tenant, with 24h cooldown per tenant.
+   * Intended to be called fire-and-forget after ledger writes.
+   */
+  async checkCostThreshold(tenantId: string): Promise<void> {
+    const cooldownKey = `cost-alert:${tenantId}`;
+    const alreadyAlerted = await this.cacheService.exists(
+      cooldownKey,
+      CacheNamespace.AI_COST_ALERT,
+    );
+    if (alreadyAlerted) return;
+
+    const rows = await this.prisma.$queryRaw<Array<{ total_cost: number }>>`
+      SELECT COALESCE(SUM("estimatedCostUsd"), 0) AS total_cost
+      FROM ai_run_ledger
+      WHERE "tenantId" = ${tenantId}
+        AND "createdAt" >= DATE_TRUNC('month', NOW())
+    `;
+    const currentCost = Number(rows[0]?.total_cost ?? 0);
+    const percentUsed = this.monthlyCap > 0 ? currentCost / this.monthlyCap : 0;
+
+    if (percentUsed < this.costAlertThreshold) return;
+
+    this.logger.warn(
+      `[tenant:${tenantId}] AI cost alert: ${(percentUsed * 100).toFixed(1)}% of monthly cap ($${currentCost.toFixed(2)} / $${this.monthlyCap.toFixed(2)})`,
+    );
+
+    this.realtimeEvents.emitAiCostAlert(tenantId, {
+      currentCost,
+      monthlyCap: this.monthlyCap,
+      percentUsed: Number(percentUsed.toFixed(3)),
+      timestamp: new Date().toISOString(),
+    });
+
+    // Set 24h cooldown to prevent alert spam
+    await this.cacheService.set(cooldownKey, true, {
+      ttl: AiAnalyticsService.COST_ALERT_COOLDOWN_S,
+      namespace: CacheNamespace.AI_COST_ALERT,
+    });
   }
 }

@@ -159,7 +159,7 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
 - [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
   Plans:
   - [x] 0135-01-PLAN.md — Rewrite sidebar to 64px icon rail + refactor useSidebarOrder hook
-  - [ ] 0135-02-PLAN.md — Create mobile bottom tab bar + clean up Layout/Header
+  - [x] 0135-02-PLAN.md — Create mobile bottom tab bar + clean up Layout/Header
 - [ ] **Phase 136: Command Palette** - Cmd+K search, navigation, and action execution
 - [ ] **Phase 137: Unified Task Model (Backend)** - Backend API for consolidated task types
 - [ ] **Phase 138: Tasks Page & Views** - Frontend Tasks pillar with list/kanban, filters, quick-add

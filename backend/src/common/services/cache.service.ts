@@ -50,6 +50,8 @@ export enum CacheNamespace {
   TELEGRAM_LINK = 'telegram:link',
   /** Telegram HITL pending tool approvals (24h TTL) */
   TELEGRAM_APPROVAL = 'telegram:approval',
+  /** AI cost alert cooldown per tenant (24h TTL, OBS-M1) */
+  AI_COST_ALERT = 'ai:cost-alert',
 }
 
 /**
