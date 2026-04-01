@@ -214,4 +214,43 @@ describe('EmailAnalysisService', () => {
     expect(result.hasDeadline).toBe(true);
     expect(result.followUpReason).toBe('Provide ETA to the team');
   });
+
+  it('boosts failed CI system alerts to high priority even without a deadline', async () => {
+    prisma.email.findFirst.mockResolvedValue({
+      id: 'email-5',
+      subject: '[chetto1983/PMSync] Run failed: Frontend CI - main (f911fb8)',
+      from: 'davide marchetto <notifications@github.com>',
+      to: ['PMSync@noreply.github.com'],
+      bodyText: 'Frontend CI workflow run. build-and-test failed. View results: https://github.com/chetto1983/PMSync/actions/runs/123',
+      bodyHtml: null,
+      snippet: 'Frontend CI workflow run build-and-test failed.',
+      receivedAt: new Date('2026-04-01T09:28:00Z'),
+    });
+    mistral.completePrompt.mockResolvedValueOnce(JSON.stringify({
+      summary: 'GitHub Actions reported a failed frontend CI run.',
+      sentiment: 'neutral',
+      tone: 'cold',
+      priority: 3,
+      urgency: 'medium',
+      labels: ['Updates', 'Action Items'],
+      keyTopics: ['GitHub Actions', 'CI/CD pipeline', 'Frontend CI workflow'],
+      intent: 'action_required',
+      escalationRisk: false,
+      hasDeadline: false,
+      deadlineDate: null,
+      needsFollowUp: true,
+      followUpDate: null,
+      followUpReason: 'Investigate the failed build',
+      smartReplies: [],
+      confidence: 0.98,
+      reasoning: 'Routine but important system alert requiring investigation.',
+    }));
+
+    const result = await service.analyzeEmailUnified('tenant-1', 'email-5', 'en');
+
+    expect(result.priority).toBe(2);
+    expect(result.urgency).toBe('high');
+    expect(result.labels).toEqual(['Updates', 'Action Items']);
+    expect(result.needsFollowUp).toBe(true);
+  });
 });

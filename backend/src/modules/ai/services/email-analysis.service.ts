@@ -24,7 +24,7 @@ interface EmailRecord {
 @Injectable()
 export class EmailAnalysisService {
   private readonly logger = new Logger(EmailAnalysisService.name);
-  private readonly analysisVersion = 'unified-email-v1';
+  private readonly analysisVersion = 'unified-email-v2';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -424,6 +424,9 @@ export class EmailAnalysisService {
     const deliverySenderCue = /\b(no-?reply|noreply|do-not-reply|donotreply|notification|notifications|alerts?)\b/.test(sample);
     const systemSourceCue = /\b(github|vercel|railway|gitlab|bitbucket|jira|linear|buildkite)\b/.test(sample);
     const criticalIncidentCue = /\b(failed|failure|outage|incident|breach|security alert|data loss|broken|degraded|down|sev[0-9]|urgent|asap|immediately|action required|approval required|reply required|response needed)\b/.test(sample);
+    const actionableSystemAlert = systemSourceCue
+      && criticalIncidentCue
+      && (explicitActionIntent || hasActionLabel || /\b(build-and-test failed|run failed|workflow run|view results|view workflow run)\b/.test(sample));
     const passiveNotification = !signals.hasDeadline
       && !signals.escalationRisk
       && !explicitActionIntent
@@ -432,7 +435,18 @@ export class EmailAnalysisService {
       && (promotionalCue || (hasPassiveLabel && (routineNotificationCue || deliverySenderCue || systemSourceCue)));
 
     if (!passiveNotification) {
-      return signals;
+      if (!actionableSystemAlert) {
+        return signals;
+      }
+
+      return {
+        priority: Math.min(signals.priority, 2) as 1 | 2 | 3 | 4 | 5,
+        urgency: signals.urgency === 'critical' ? 'critical' : 'high',
+        deadlineDate: signals.deadlineDate,
+        needsFollowUp: signals.needsFollowUp,
+        followUpDate: signals.followUpDate,
+        followUpReason: signals.followUpReason,
+      };
     }
 
     if (promotionalCue) {
