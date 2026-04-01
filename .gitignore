@@ -160,6 +160,9 @@ frontend/.lighthouseci/
 *playwright*
 docs/screenshots/*
 .agents/*
+!.agents/skills/
+!.agents/skills/pmsync-email-triage/
+!.agents/skills/pmsync-email-triage/**
 frontend/e2e/screenshots/*
 frontend/docs/screenshots/*
 backend/tmp/*
@@ -209,3 +212,4 @@ artifacts/*
 backend/scripts/screenshots/*
 backups/*
 frontend/public/sw.js
+.agents/skills/*

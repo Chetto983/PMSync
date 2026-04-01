@@ -68,6 +68,8 @@ import { AiAnalyticsService } from './services/ai-analytics.service';
 import { RealtimeModule } from '../realtime/realtime.module';
 // Phase 109: Entity extraction for graph RAG
 import { EntityExtractionService } from './services/entity-extraction.service';
+// Phase 4 (CRM): Auto-population — suggestion trigger after email triage
+import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
 /**
  * AiModule - AI/ML services, embeddings, triage, and RAG.
@@ -81,6 +83,7 @@ import { EntityExtractionService } from './services/entity-extraction.service';
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
     ComplianceModule, // Phase 28: ConsentGuard + ConsentEnforcementService for @RequiresConsent
     RealtimeModule, // Phase 4: Socket.IO reminder events for follow-up notifications
+    SuggestionModule, // Phase 4 CRM: CrmSuggestionTriggerService for post-triage hooks
     // ToolRegistryModule is @Global() -- no import needed
   ],
   providers: [

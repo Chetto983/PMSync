@@ -6,23 +6,26 @@ Comprehensive audit and hardening of all AI functionality in PMSync. Covers back
 
 | Module | Backend | Frontend | Files | Lines |
 |--------|---------|----------|------:|------:|
-| AI Core (analysis, triage, embeddings) | `backend/src/modules/ai/` | — | 46 | ~13,000 |
+| AI Core (analysis, triage, embeddings) | `backend/src/modules/ai/` | - | 46 | ~13,000 |
 | AI Chat (conversations, tools, RAG) | `backend/src/modules/ai-chat/` | `frontend/src/components/chat/` | ~58 | ~10,700 |
 | Email AI (compose, drafts, widgets) | (in ai module) | `frontend/components/email/compose/` | ~8 | ~1,000 |
-| Dashboard AI (triage, briefing, follow-ups) | — | `frontend/components/dashboard/widgets/` | ~6 | ~600 |
-| Calendar AI (scheduling, time slots) | — | `frontend/components/calendar/ai/` | ~3 | ~783 |
+| Dashboard AI (triage, briefing, follow-ups) | - | `frontend/components/dashboard/widgets/` | ~6 | ~600 |
+| Calendar AI (scheduling, time slots) | - | `frontend/components/calendar/ai/` | ~3 | ~783 |
 | CRM AI (forecast, governance, NBA, lead score) | `backend/src/modules/crm/` | `frontend/components/dashboard/crm-*/` | ~8 | ~1,300 |
 | **Total** | | | **~130** | **~27,400** |
 
 ## Structure
 
-```
+```text
 ai-features-audit/
 ├── README.md                           # This file
 ├── docs/
-│   ├── 00-AUDIT-FINDINGS.md           # 66 findings (6C, 25H, 25M, 10L)
-│   ├── 01-ROADMAP.md                  # Gantt + sprint breakdown
-│   └── 02-PRODUCTION-SCORECARD.md     # Before/after scores
+│   ├── 00-AUDIT-FINDINGS.md            # 66 findings (6C, 25H, 25M, 10L)
+│   ├── 01-ROADMAP.md                   # Gantt + sprint breakdown
+│   ├── 02-PRODUCTION-SCORECARD.md      # Before/after scores
+│   ├── 03-PROFESSIONAL-TRIAGE-ROADMAP.md
+│   ├── 04-LABEL-FIRST-EMAIL-TRIAGE-ROADMAP.md
+│   └── 05-LABEL-FIRST-TRIAGE-EXECUTION-ROADMAP.md
 └── sprints/
     ├── phase-1-ai-chat-backend/        # S01-S02
     ├── phase-2-knowledge-base-rag/     # S03-S04
@@ -32,7 +35,12 @@ ai-features-audit/
     ├── phase-6-email-ai-frontend/      # S10
     ├── phase-7-crm-ai-frontend/        # S11
     ├── phase-8-observability-cost/     # S12
-    └── phase-9-production-validation/  # S13
+    ├── phase-9-production-validation/  # S13
+    ├── phase-10-triage-onboarding/     # S14-S15
+    ├── phase-11-label-first-backend/   # S16-S17
+    ├── phase-12-score-followup-views/  # S18-S19
+    ├── phase-13-correlation-learning/  # S20-S21
+    └── phase-14-validation-rollout/    # S22
 ```
 
 ## Sprint Executor

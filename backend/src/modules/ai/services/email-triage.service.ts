@@ -21,6 +21,7 @@ import { EmailInsightsService } from './email-insights.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
 import { TriageActionService } from './triage-action.service';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
+import { CrmSuggestionTriggerService } from '../../crm/suggestion/services/crm-suggestion-trigger.service';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 20;
@@ -116,6 +117,7 @@ export class EmailTriageService implements OnModuleInit {
     private readonly subscriptionService: SubscriptionService,
     private readonly redisConnection: RedisConnectionService,
     @Optional() private readonly triageActionService?: TriageActionService,
+    @Optional() private readonly crmSuggestionTrigger?: CrmSuggestionTriggerService,
   ) {}
 
   onModuleInit() {
@@ -274,21 +276,35 @@ export class EmailTriageService implements OnModuleInit {
         `Triaged email ${emailId}: priority=${analysis.priority}, labels=${analysis.labels.join(',')}, sentiment=${analysis.sentiment}`,
       );
 
-      // Phase CONSOLIDATION: Create follow-up records from triage signals (fire-and-forget)
-      if (this.triageActionService && (analysis.needsFollowUp || analysis.hasDeadline)) {
+      // Post-triage hooks: fetch email metadata once for all hooks
+      const needsFollowUp = this.triageActionService && (analysis.needsFollowUp || analysis.hasDeadline);
+      const needsCrmSuggestion = !!this.crmSuggestionTrigger;
+
+      if (needsFollowUp || needsCrmSuggestion) {
         const email = await this.prisma.email.findFirst({
           where: { id: emailId, tenantId },
           select: { from: true, subject: true },
         });
         if (email) {
-          this.triageActionService
-            .processTriageSignals(
-              { emailId, tenantId, userId: options.userId, from: email.from, subject: email.subject },
-              analysis,
-            )
-            .catch((err) =>
-              this.logger.warn(`Follow-up creation failed for ${emailId}: ${err instanceof Error ? err.message : String(err)}`),
-            );
+          // Phase CONSOLIDATION: Create follow-up records from triage signals (fire-and-forget)
+          if (needsFollowUp) {
+            this.triageActionService!
+              .processTriageSignals(
+                { emailId, tenantId, userId: options.userId, from: email.from, subject: email.subject },
+                analysis,
+              )
+              .catch((err) =>
+                this.logger.warn(`Follow-up creation failed for ${emailId}: ${err instanceof Error ? err.message : String(err)}`),
+              );
+          }
+          // Phase 4 CRM: Auto-populate CRM suggestions from triaged email (fire-and-forget)
+          if (needsCrmSuggestion) {
+            this.crmSuggestionTrigger!
+              .processTriagedEmail(tenantId, emailId, email.from, email.subject)
+              .catch((err) =>
+                this.logger.warn(`CRM suggestion trigger failed for ${emailId}: ${err instanceof Error ? err.message : String(err)}`),
+              );
+          }
         }
       }
 

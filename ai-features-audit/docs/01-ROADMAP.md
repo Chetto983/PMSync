@@ -49,6 +49,20 @@ gantt
 | S13 | E2E Production Validation | 9 | 13 | All — production verification |
 | **Total** | | | **177** | **66 findings** |
 
+## Extension Program
+
+The original audit roadmap above covers S01-S13. The label-first triage continuation is tracked separately in:
+
+- `ai-features-audit/docs/05-LABEL-FIRST-TRIAGE-EXECUTION-ROADMAP.md`
+
+That extension continues with:
+
+- `S14-S15` â€” onboarding and label taxonomy
+- `S16-S17` â€” label-first backend contract
+- `S18-S19` â€” score, follow-up, and inbox workflow
+- `S20-S21` â€” correlation, learning, and overrides
+- `S22` â€” production validation and rollout
+
 ## Audit Scores (Pre-Fix Baseline)
 
 | Component | Score | Critical | High | Medium | Low |
