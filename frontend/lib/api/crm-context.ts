@@ -39,6 +39,12 @@ export interface CrmContextActivity {
 }
 
 export interface CrmContactContext {
+  contact: {
+    id: string;
+    displayName: string | null;
+    company: string | null;
+    email: string | null;
+  };
   account: CrmContextAccount | null;
   deals: CrmContextDeal[];
   tickets: CrmContextTicket[];
@@ -55,7 +61,7 @@ export const crmContextApi = {
   },
 
   getByEmail(email: string) {
-    return apiClient.get<CrmContactContext & { contactId: string | null }>('/crm/context/by-email', {
+    return apiClient.get<CrmContactContext | null>('/crm/context/by-email', {
       params: { email },
     });
   },

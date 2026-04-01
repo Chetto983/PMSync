@@ -16,6 +16,7 @@ import { TicketModule } from './ticket/ticket.module';
 import { KBModule } from './kb/kb.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { SuggestionModule } from './suggestion/suggestion.module';
+import { ContextModule } from './context/context.module';
 
 /**
  * CrmModule - Umbrella module for all CRM sub-modules.
@@ -25,7 +26,7 @@ import { SuggestionModule } from './suggestion/suggestion.module';
  * Phase 4: Suggestion (Auto-Population).
  */
 @Module({
-  imports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule, GovernanceModule, TicketModule, KBModule, AnalyticsModule, SuggestionModule],
-  exports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule, GovernanceModule, TicketModule, KBModule, AnalyticsModule, SuggestionModule],
+  imports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule, GovernanceModule, TicketModule, KBModule, AnalyticsModule, SuggestionModule, ContextModule],
+  exports: [AccountModule, PipelineModule, DealModule, AutomationModule, ImportExportModule, CustomFieldsModule, ProductModule, ScoringModule, LeadScoringModule, ForecastingModule, ChurnModule, NBAModule, GovernanceModule, TicketModule, KBModule, AnalyticsModule, SuggestionModule, ContextModule],
 })
 export class CrmModule {}
