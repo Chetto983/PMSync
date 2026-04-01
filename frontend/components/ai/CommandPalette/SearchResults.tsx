@@ -23,7 +23,6 @@ interface SearchResultsProps {
   focusedIndex: number;
   onSelect: (result: SearchResult) => void;
   commandCount: number;
-  listRef: React.RefObject<HTMLUListElement | null>;
 }
 
 function getEntityColor(type: SearchResult['type'], theme: Theme): string {
@@ -44,7 +43,6 @@ export function SearchResults({
   focusedIndex,
   onSelect,
   commandCount,
-  listRef,
 }: SearchResultsProps) {
   const t = useTranslations();
   const theme = useTheme<Theme>();
@@ -84,8 +82,7 @@ export function SearchResults({
   return (
     <List
       dense
-      ref={listRef}
-      sx={{ maxHeight: 240, overflow: 'auto', py: 1, px: 1 }}
+      sx={{ py: 1, px: 1 }}
     >
       {groups.map((group) => (
         <li key={group.type}>

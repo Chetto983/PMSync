@@ -61,7 +61,7 @@ export function CommandList({
                 <ListItemButton
                   key={command.id}
                   selected={selected}
-                  data-command-palette-item="true"
+                  data-command-item
                   data-focused={selected ? 'true' : 'false'}
                   onClick={() => onSelect(command)}
                   sx={{ borderRadius: 2, mb: 0.5 }}

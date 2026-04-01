@@ -58,7 +58,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebounce(search, 300);
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const listRef = useRef<HTMLUListElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const t = useTranslations();
 
@@ -114,8 +114,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   // Scroll focused item into view
   useEffect(() => {
-    if (!listRef.current) return;
-    const items = document.querySelectorAll('[data-command-item]');
+    if (!scrollAreaRef.current) return;
+    const items = scrollAreaRef.current.querySelectorAll<HTMLElement>('[data-command-item]');
     items[focusedIndex]?.scrollIntoView({ block: 'nearest' });
   }, [focusedIndex]);
 
@@ -181,6 +181,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             borderRadius: 3,
             overflow: 'hidden',
             maxHeight: '60vh',
+            display: 'flex',
+            flexDirection: 'column',
           },
         },
         backdrop: {
@@ -214,29 +216,38 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         />
       </Box>
 
-      {/* Command list (always visible, filtered when typing) */}
-      <CommandList
-        commands={filteredCommands}
-        focusedIndex={focusedIndex}
-        onSelect={handleCommandSelect}
-        groupLabels={groupLabels}
-      />
+      <Box
+        ref={scrollAreaRef}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+        }}
+      >
+        {/* Command list (always visible, filtered when typing) */}
+        <CommandList
+          commands={filteredCommands}
+          focusedIndex={focusedIndex}
+          onSelect={handleCommandSelect}
+          groupLabels={groupLabels}
+        />
 
-      {/* Search results (visible when query >= 2 chars) */}
-      {showSearchResults && (
-        <>
-          <Divider />
-          <SearchResults
-            groups={searchResults}
-            isSearching={isSearching}
-            hasError={hasError}
-            focusedIndex={focusedIndex}
-            onSelect={handleSearchResultSelect}
-            commandCount={filteredCommands.length}
-            listRef={listRef}
-          />
-        </>
-      )}
+        {/* Search results (visible when query >= 2 chars) */}
+        {showSearchResults && (
+          <>
+            <Divider />
+            <SearchResults
+              groups={searchResults}
+              isSearching={isSearching}
+              hasError={hasError}
+              focusedIndex={focusedIndex}
+              onSelect={handleSearchResultSelect}
+              commandCount={filteredCommands.length}
+            />
+          </>
+        )}
+      </Box>
 
       {/* Footer hints bar */}
       <Divider />
