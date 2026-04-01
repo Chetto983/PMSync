@@ -8,29 +8,31 @@ import {
   Button,
   Tooltip,
   Stack,
+  useTheme,
+  type Palette,
 } from '@mui/material';
 import { RefreshCw } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLeadScore, useComputeLeadScore } from '@/hooks/queries';
 import type { ComputedFeatures, LeadScoreTier } from '@/lib/api/crm-lead-scores';
 
-// ---- Score color helpers ----
+// ---- Score color helpers (theme-aware) ----
 
-function getTierColor(tier: LeadScoreTier): string {
+function getTierColor(tier: LeadScoreTier, palette: Palette): string {
   switch (tier) {
     case 'hot':
-      return '#4caf50';
+      return palette.success.main;
     case 'warm':
-      return '#ff9800';
+      return palette.warning.main;
     case 'cold':
-      return '#9e9e9e';
+      return palette.grey[500];
   }
 }
 
-function getScoreArcColor(score: number): string {
-  if (score >= 70) return '#4caf50';
-  if (score >= 40) return '#ff9800';
-  return '#f44336';
+function getScoreArcColor(score: number, palette: Palette): string {
+  if (score >= 70) return palette.success.main;
+  if (score >= 40) return palette.warning.main;
+  return palette.error.main;
 }
 
 // ---- Factor extraction ----
@@ -80,15 +82,16 @@ function extractTopFactors(
 interface GaugeSvgProps {
   score: number;
   size?: number;
+  palette: Palette;
 }
 
-function GaugeSvg({ score, size = 120 }: GaugeSvgProps) {
+function GaugeSvg({ score, size = 120, palette }: GaugeSvgProps) {
   const center = size / 2;
   const radius = center - 10;
   const circumference = 2 * Math.PI * radius;
   const progress = Math.min(Math.max(score, 0), 100) / 100;
   const strokeDashoffset = circumference * (1 - progress);
-  const arcColor = getScoreArcColor(score);
+  const arcColor = getScoreArcColor(score, palette);
 
   return (
     <Box sx={{ position: 'relative', width: size, height: size }}>
@@ -190,6 +193,7 @@ interface LeadScoreGaugeProps {
 
 export function LeadScoreGauge({ contactId }: LeadScoreGaugeProps) {
   const t = useTranslations();
+  const theme = useTheme();
   const tl = t.leadScore;
   const { data: scoreData, isLoading, error } = useLeadScore(contactId);
   const computeMutation = useComputeLeadScore();
@@ -239,7 +243,7 @@ export function LeadScoreGauge({ contactId }: LeadScoreGaugeProps) {
   }
 
   const tierLabel = tl?.tier?.[scoreData.tier] ?? scoreData.tier;
-  const tierColor = getTierColor(scoreData.tier);
+  const tierColor = getTierColor(scoreData.tier, theme.palette);
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -248,7 +252,7 @@ export function LeadScoreGauge({ contactId }: LeadScoreGaugeProps) {
       </Typography>
 
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-        <GaugeSvg score={scoreData.score} />
+        <GaugeSvg score={scoreData.score} palette={theme.palette} />
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Tooltip title={`${tl?.confidence ?? 'Confidence'}: ${Math.round(scoreData.confidence * 100)}%`}>

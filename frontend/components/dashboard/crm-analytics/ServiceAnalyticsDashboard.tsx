@@ -119,7 +119,7 @@ export function ServiceAnalyticsDashboard() {
               icon={<Clock size={24} />}
               label={sa?.firstResponseTime ?? 'Avg First Response'}
               value={formatMinutes(metrics?.avgFirstResponseMinutes ?? null, sa ?? {})}
-              color="#1976d2"
+              color="info.main"
             />
           )}
         </Grid>
@@ -129,7 +129,7 @@ export function ServiceAnalyticsDashboard() {
               icon={<CheckCircle size={24} />}
               label={sa?.resolutionTime ?? 'Avg Resolution Time'}
               value={formatMinutes(metrics?.avgResolutionMinutes ?? null, sa ?? {})}
-              color="#2e7d32"
+              color="success.main"
             />
           )}
         </Grid>
@@ -139,7 +139,7 @@ export function ServiceAnalyticsDashboard() {
               icon={<Shield size={24} />}
               label={sa?.slaCompliance ?? 'SLA Compliance'}
               value={metrics?.slaComplianceRate !== null ? `${metrics?.slaComplianceRate}%` : (sa?.noData ?? 'N/A')}
-              color="#ed6c02"
+              color="warning.main"
             />
           )}
         </Grid>
@@ -149,7 +149,7 @@ export function ServiceAnalyticsDashboard() {
               icon={<Star size={24} />}
               label={sa?.csatAverage ?? 'CSAT Average'}
               value={metrics?.csatAverage !== null ? `${metrics?.csatAverage}/5` : (sa?.noData ?? 'N/A')}
-              color="#0097a7"
+              color="primary.main"
             />
           )}
         </Grid>

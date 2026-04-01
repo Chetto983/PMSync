@@ -4,6 +4,7 @@ import {
   Typography,
   Skeleton,
   Box,
+  useTheme,
 } from '@mui/material';
 import {
   LineChart,
@@ -28,6 +29,7 @@ function formatDate(dateStr: string): string {
 
 export function ScoreHistoryChart({ contactId }: ScoreHistoryChartProps) {
   const t = useTranslations();
+  const theme = useTheme();
   const tl = t.leadScore;
   const { data, isLoading } = useLeadScoreHistory(contactId);
 
@@ -88,7 +90,7 @@ export function ScoreHistoryChart({ contactId }: ScoreHistoryChartProps) {
             <Line
               type="monotone"
               dataKey="score"
-              stroke="#26a69a"
+              stroke={theme.palette.primary.main}
               strokeWidth={2}
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}

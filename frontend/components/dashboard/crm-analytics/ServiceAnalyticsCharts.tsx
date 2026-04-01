@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, Paper, Grid } from '@mui/material';
+import { Box, Typography, Paper, Grid, useTheme } from '@mui/material';
 import {
   BarChart,
   Bar,
@@ -21,6 +21,8 @@ interface Props {
 }
 
 export function ServiceAnalyticsCharts({ csat, sa }: Props) {
+  const theme = useTheme();
+  const chartColor = theme.palette.primary.main;
   // Transform distribution for bar chart
   const distributionData = [1, 2, 3, 4, 5].map((star) => ({
     name: `${star} ${sa?.stars ?? 'stars'}`,
@@ -49,9 +51,9 @@ export function ServiceAnalyticsCharts({ csat, sa }: Props) {
                   <Line
                     type="monotone"
                     dataKey="avg"
-                    stroke="#0097a7"
+                    stroke={chartColor}
                     strokeWidth={2}
-                    dot={{ fill: '#0097a7', r: 4 }}
+                    dot={{ fill: chartColor, r: 4 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -76,7 +78,7 @@ export function ServiceAnalyticsCharts({ csat, sa }: Props) {
                 <XAxis dataKey="name" fontSize={12} />
                 <YAxis allowDecimals={false} fontSize={12} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#0097a7" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill={chartColor} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Box>
