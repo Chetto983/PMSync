@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { useFollowUps, useSnoozeFollowUp } from '@/hooks/queries';
 import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useGlobalToast } from '@/lib/context/toast-context';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import { BaseWidget } from './BaseWidget';
@@ -22,6 +23,7 @@ import {
   MenuItem,
   ListItemIcon,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import { formatDistanceToNow, addHours, startOfTomorrow, nextMonday } from 'date-fns';
 import { it as itLocale } from 'date-fns/locale';
@@ -31,6 +33,7 @@ import { useRouter } from 'next/navigation';
 
 export function FollowUpWidget() {
   const t = useTranslations();
+  const toast = useGlobalToast();
   const { locale } = useLocale();
   const timezone = useUserTimezone();
   const dl = locale === 'it' ? { locale: itLocale } : undefined;
@@ -73,7 +76,7 @@ export function FollowUpWidget() {
       await snoozeMutation.mutateAsync({ id: selectedId, dueDate: dueDate.toISOString() });
       refetch();
     } catch {
-      // Error handled by mutation
+      toast.error(t.common.genericError);
     }
 
     handleMenuClose();
@@ -129,9 +132,12 @@ export function FollowUpWidget() {
                   <IconButton
                     size="small"
                     onClick={(e) => handleMenuOpen(e, followUp.id)}
+                    disabled={snoozeMutation.isPending && selectedId === followUp.id}
                     sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
                   >
-                    <Clock size={16} />
+                    {snoozeMutation.isPending && selectedId === followUp.id
+                      ? <CircularProgress size={16} />
+                      : <Clock size={16} />}
                   </IconButton>
                 </Tooltip>
               }
