@@ -35,6 +35,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   private readonly ENABLED: boolean;
   private readonly INTERVAL_MS: number;
   private readonly BATCH_SIZE: number;
+  private readonly MAX_AGE_HOURS: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -52,6 +53,11 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       this.configService.get<string>('TRIAGE_BACKFILL_BATCH_SIZE', '20'),
       10,
     );
+    const maxAgeDays = parseInt(
+      this.configService.get<string>('TRIAGE_BACKFILL_MAX_AGE_DAYS', '7'),
+      10,
+    );
+    this.MAX_AGE_HOURS = maxAgeDays * 24;
   }
 
   async onModuleInit() {
@@ -110,7 +116,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     await this.setupRepeatableJob();
 
     this.logger.log(
-      `TriageBackfillScheduler enabled: interval ${this.INTERVAL_MS / 60000} minutes`,
+      `TriageBackfillScheduler enabled: interval ${this.INTERVAL_MS / 60000}min, max age ${this.MAX_AGE_HOURS / 24}d`,
     );
 
     // Run immediately on startup (don't wait for first interval)
@@ -236,7 +242,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     specificTenantId?: string,
   ): Promise<Array<{ tenantId: string; userId: string | null; count: number }>> {
     const cutoff = new Date();
-    cutoff.setHours(cutoff.getHours() - 168); // Temporarily 1 week for PST dataset validation (was 48)
+    cutoff.setHours(cutoff.getHours() - this.MAX_AGE_HOURS);
 
     const whereClause: Record<string, unknown> = {
       isAutoTriaged: false,
@@ -442,7 +448,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     } | null;
   }> {
     const cutoff = new Date();
-    cutoff.setHours(cutoff.getHours() - 168); // Temporarily 1 week for PST dataset validation (was 48)
+    cutoff.setHours(cutoff.getHours() - this.MAX_AGE_HOURS);
 
     const pendingEmails = await this.prisma.email.count({
       where: {
