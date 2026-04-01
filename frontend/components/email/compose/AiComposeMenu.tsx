@@ -62,11 +62,12 @@ export default function AiComposeMenu({
     // to avoid "setState in effect" lint error
 
     const handleQuickAction = (action: AiActionType, promptLabel: string) => {
-        // Construct a specific prompt based on the action
-        const fullPrompt = promptLabel;
+        // Derive tone from tone-type actions
+        const tone: ToneType = action === 'tone_professional' ? 'professional'
+            : action === 'tone_friendly' ? 'friendly'
+            : selectedTone;
 
-        // We pass the "intent" label to the parent, which will construct the final prompt context
-        onCompose(fullPrompt, action);
+        onCompose(promptLabel, action, tone);
     };
 
     const handleCustomSubmit = () => {
@@ -167,7 +168,7 @@ export default function AiComposeMenu({
                         display: 'flex',
                         alignItems: 'center',
                         gap: 1,
-                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                        background: (theme) => `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.light} 90%)`,
                         color: 'white'
                     }}
                 >
