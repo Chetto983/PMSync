@@ -70,6 +70,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { EntityExtractionService } from './services/entity-extraction.service';
 // Phase 10 Label-First Triage: Onboarding rules management
 import { TriageRuleService } from './services/triage-rule.service';
+import { TriageRulesController } from './controllers/triage-rules.controller';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
@@ -145,7 +146,7 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     // Phase 10 Label-First Triage: Onboarding rules management
     TriageRuleService,
   ],
-  controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController],
+  controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController],
   exports: [
     // Core AI services
     MistralService,
