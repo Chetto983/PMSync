@@ -1,45 +1,38 @@
-# Sprint 18 — Checkpoint
+# Sprint 18.1 — Checkpoint
 
 ## Stato
-- **Sprint:** 18 — CSAT, Reports & Beta Release
-- **Last Task Completed:** T-1810 — Beta release preparation
+- **Sprint:** 18.1 — CRM Sprint Executor Usability Fixes
+- **Last Task Completed:** T-1813 — Auto-advance between sprints
 - **Next Task:** Sprint complete — all tasks done
-- **Tasks Done:** 10/10
-- **SP Completed:** 20/20
-- **Last Updated:** 2026-03-31 17:15
+- **Tasks Done:** 6/6
+- **SP Completed:** 8/8
+- **Last Updated:** 2026-04-01 12:00
 
 ## Last Modified Files
-- backend/src/modules/crm/analytics/analytics.controller.ts (added @UseGuards)
-- backend/src/modules/crm/ticket/controllers/ticket-template.controller.ts (added @UseGuards)
-- backend/src/modules/crm/ticket/services/ticket.service.ts (tenantId in where clauses)
-- backend/src/modules/crm/ticket/services/sla-timer.service.ts (tenantId in escalation)
-- backend/src/modules/crm/ticket/services/ticket-template.service.ts (tenantId in where)
-- backend/src/modules/crm/kb/services/kb.service.ts (tenantId in update/delete)
-- backend/src/modules/crm/__tests__/phase-3-ticketing-integration.test.ts (new — 18 tests)
-- scripts/validate-crm-production.mjs (Phase 3 pages + API endpoints)
-- backend/prisma/seed.ts (tickets, KB, templates seed data)
+- C:\Users\Davide\.claude\skills\crm-sprint-executor\SKILL.md (all 6 tasks)
+- crm/docs/UI-DESIGN-SYSTEM.md (new — extracted from SKILL.md)
+- crm/docs/PRODUCTION-VALIDATION.md (new — extracted from SKILL.md)
+- crm/sprints/phase-3-service/sprint-18.1.md (task status updates)
 
 ## Key Decisions Made
-- T-1807: Fixed 2 auth bypass (AnalyticsController, TicketTemplateController) + 8 defense-in-depth tenantId additions
-- T-1808: Vitest integration tests with mocked Prisma (same pattern as Phase 2)
-- T-1809: Extended existing validation script rather than creating new one
-- T-1810: Seed data added inline in seed.ts (5 tickets, 2 KB cats, 3 articles, 3 templates)
+- SKILL.md is outside the git repo — changes tracked via sprint file commits only
+- T-1814 files got bundled into another agent's commit (0d6f28bd) due to concurrent work — content is correct
+- Sprint mapping table includes all sub-sprints (07.1, 14.1, 17.1, 18.1)
+- Auto-advance uses sprint-to-file mapping (not roadmap parsing) for robustness
 
 ## Patterns Established
-- Auth guards: ALL CRM controllers must have @UseGuards(TenantGuard, RolesGuard) — except @Public() portal controllers
-- Defense-in-depth: Prisma update/delete should include tenantId in where clause even when ensureExists is called first
-- Integration tests: vitest `.test.ts` files in `__tests__/` dirs, mocked Prisma
+- Reference docs extracted to `crm/docs/` and referenced from SKILL.md via "Read X before Y" pointers
+- Phase 0.5 dirty-tree check prevents cross-contamination in commits
 
 ## Blockers / Notes
-- Sprint 18 COMPLETE — Phase 3 done
-- Tag v0.3.0-beta created and pushed
-- Some seed/sprint-18 changes landed in wrong commit (e6553bb7 fix(131)) due to staging — content is correct
+- Sprint 18.1 COMPLETE — all CRM sprints (S01-S18.1) done
+- SKILL.md reduced from ~370 lines to 235 lines (36% reduction)
 
 ## Validation Status
-- Backend tsc: PASS
-- Frontend tsc: PASS
-- Prisma validate: PASS (schema valid)
-- Integration tests: PASS (18/18)
-- Migrations: 23 migration files verified
-- Git tag: v0.3.0-beta created
-- Push: origin/main updated, Railway + Vercel deploy triggered
+- SKILL.md: 235 lines (target was <250)
+- UI Design System: extracted to crm/docs/UI-DESIGN-SYSTEM.md
+- Production Validation: extracted to crm/docs/PRODUCTION-VALIDATION.md
+- Sprint mapping: 22 entries (S01-S18.1)
+- Graphviz: replaced with 1-line plain-text flow
+- Dirty-tree check: Phase 0.5 added
+- Auto-advance: Step 2f added after task completion
