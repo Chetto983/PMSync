@@ -2787,6 +2787,12 @@ export interface AppTranslations {
       failedToLoadFollowUps?: string;
       followUpsTitle?: string;
       noFollowUpsFound?: string;
+      running?: string;
+      complete?: string;
+      arguments?: string;
+      details?: string;
+      previousBranch?: string;
+      nextBranch?: string;
     };
     commandPalette?: {
       title?: string;
@@ -5107,6 +5113,7 @@ export interface AppTranslations {
       cancel?: string;
       delete?: string;
       confirmDelete?: string;
+      confirmDeleteTitle?: string;
     };
     browse?: {
       allCategories?: string;

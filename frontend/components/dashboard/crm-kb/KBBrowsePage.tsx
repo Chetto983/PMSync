@@ -26,6 +26,7 @@ import { Search, Plus, Edit2, Trash2, BookOpen } from 'lucide-react';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   useKBArticles,
   useKBCategories,
@@ -52,6 +53,7 @@ export function KBBrowsePage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Debounce search
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -78,11 +80,11 @@ export function KBBrowsePage() {
   const totalArticles = articlesData?.total ?? 0;
   const searchResults = searchData?.data ?? [];
 
-  const handleDelete = async (id: string) => {
-    const confirmed = window.confirm(tf?.confirmDelete ?? 'Are you sure you want to delete this article?');
-    if (confirmed) {
-      await deleteMutation.mutateAsync(id);
-    }
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return;
+    const id = deleteConfirmId;
+    setDeleteConfirmId(null);
+    await deleteMutation.mutateAsync(id);
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -305,7 +307,7 @@ export function KBBrowsePage() {
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => handleDelete(article.id)}
+                          onClick={() => setDeleteConfirmId(article.id)}
                         >
                           <Trash2 size={16} />
                         </IconButton>
@@ -329,6 +331,17 @@ export function KBBrowsePage() {
           )}
         </TableContainer>
       )}
+
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={handleDeleteConfirm}
+        variant="danger"
+        title={tf?.confirmDeleteTitle ?? 'Delete article'}
+        message={tf?.confirmDelete ?? 'Are you sure you want to delete this article?'}
+        confirmText={t.common?.delete ?? 'Delete'}
+        isLoading={deleteMutation.isPending}
+      />
     </Box>
   );
 }

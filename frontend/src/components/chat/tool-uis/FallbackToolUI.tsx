@@ -5,6 +5,7 @@ import { Code, Loader2 } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import { HitlApprovalWrapper, HIGH_RISK_TOOLS } from '../HitlApprovalCard';
 
 /**
@@ -54,6 +55,8 @@ export function FallbackToolRenderer({
     );
   }
 
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   const isRunning = status.type === 'running';
 
   return (
@@ -79,7 +82,7 @@ export function FallbackToolRenderer({
             color: 'text.secondary',
           }}
         >
-          {isRunning ? 'Running' : 'Complete'}
+          {isRunning ? (tu?.running ?? 'Running') : (tu?.complete ?? 'Complete')}
         </Typography>
       </Box>
       <Box component="details" sx={{ mt: 1 }}>
@@ -92,7 +95,7 @@ export function FallbackToolRenderer({
             cursor: 'pointer',
           }}
         >
-          {isRunning ? 'Arguments' : 'Details'}
+          {isRunning ? (tu?.arguments ?? 'Arguments') : (tu?.details ?? 'Details')}
         </Typography>
         <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {args != null && (
