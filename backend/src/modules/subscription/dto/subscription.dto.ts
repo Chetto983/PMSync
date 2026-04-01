@@ -236,3 +236,28 @@ export class PlanDto {
     aiCalls: number;
   };
 }
+
+// ==========================================================================
+// Autumn Webhook DTOs (via Svix)
+// ==========================================================================
+
+export type AutumnWebhookEventType =
+  | 'customer.products.updated'
+  | 'balances.limit_reached'
+  | 'balances.usage_alert_triggered';
+
+export interface AutumnWebhookPayload {
+  type: AutumnWebhookEventType;
+  data: {
+    customer_id: string;
+    scenario?: 'new' | 'upgrade' | 'downgrade' | 'renew' | 'cancel' | 'expired' | 'past_due' | 'scheduled';
+    product_id?: string;
+    product_name?: string;
+    group?: string;
+    // balances events
+    feature_id?: string;
+    balance?: number;
+    limit?: number;
+    usage?: number;
+  };
+}
