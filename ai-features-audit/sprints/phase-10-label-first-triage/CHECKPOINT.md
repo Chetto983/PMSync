@@ -2,62 +2,22 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | PLANNED |
-| **Last Task** | — |
-| **Next Task** | Sprint 14 (T-1401) |
-| **Tasks Done** | 0/29 |
-| **SP Done** | 0/67 |
+| **Status** | IN PROGRESS |
+| **Last Task** | T-1406 — Integrate triage rules into LLM prompt |
+| **Next Task** | Sprint 15 (T-1501) |
+| **Tasks Done** | 6/29 |
+| **SP Done** | 13/67 |
 
-## Scope
+## Sprint 14 — COMPLETE (6/6 tasks, 13 SP)
 
-Phase 10 is the complete Label-First Triage implementation — all backend pipeline refactoring, frontend UI, and production validation in a single phase with 5 implementation sprints.
-
-### Sprint 14 (13 SP) — Label Taxonomy, Intent Schema & Onboarding Backend
-- Schema: lane, intent, actionability fields on Email + EmailAnalysis
-- Label metadata: category, suppressUrgency, mutuallyExclusiveWith, defaultLane
-- Triage rules backend service + REST endpoints
-- LLM prompt integration with triage rules, intent, actionability
-
-### Sprint 15 (14 SP) — Label-First Resolution Engine & Lane Assignment
-- Extract label resolution, score, lane assignment into dedicated services
-- Enforce pipeline: LLM → labels (with precedence) → score (label-subordinate) → lane
-- Contradiction handling and suppression propagation
-- Follow-up precision tied to actionability field
-
-### Sprint 16 (14 SP) — Onboarding UI & Label Prompt Authoring
-- First-run triage onboarding stepper (3 steps: contacts, topics, alerts)
-- Label prompt editor with aiPrompt, suppressUrgency, defaultLane
-- Triage rules API hooks and query integration
-- Settings integration and first-run detection banner
-
-### Sprint 17 (14 SP) — Inbox Lanes, Reasoning UI & Workflow Views
-- Lane tab bar in email list (All, Action Now, Waiting, VIP, Alerts, Review Later)
-- Lane filter API + lane count badges
-- Triage reasoning chip/tooltip per email
-- Follow-up workflow indicators (TODO/WAITING badges)
-
-### Sprint 18 (12 SP) — Learning, Overrides & Production Validation
-- Triage overrides (always-important, always-review-later, etc.) with CRUD
-- Override precedence in pipeline (before LLM labels)
-- Feedback capture from user corrections (label/lane/urgency changes)
-- Production validation script + live validation + scorecard
-
-## Exit Criteria
-
-- Triage pipeline follows: summary → intent → labels (with rules + precedence) → score → lane → follow-up
-- Users can set up triage rules via onboarding
-- Users can edit label AI prompts and metadata
-- Email list shows lane tabs with counts
-- Each email shows triage reasoning
-- User corrections create overrides that improve future triage
-- Production validation passes on Railway/Vercel
+All schema, taxonomy, service, API, and LLM integration tasks done.
 
 ## Findings Addressed
 
 | Finding | Sprint | Status |
 |---------|--------|--------|
-| LFT-A1: No onboarding rules | S14, S16 | PLANNED |
-| LFT-A2: Label taxonomy thin | S14, S16 | PLANNED |
+| LFT-A1: No onboarding rules | S14 | ✅ DONE (TriageRuleService + REST endpoints) |
+| LFT-A2: Label taxonomy thin | S14 | ✅ DONE (10 labels, operational metadata, triage rules) |
 | LFT-B1: No summary-first pipeline | S15 | PLANNED |
 | LFT-B2: No label precedence | S15 | PLANNED |
 | LFT-C1: Score overrides semantics | S15 | PLANNED |
@@ -65,3 +25,30 @@ Phase 10 is the complete Label-First Triage implementation — all backend pipel
 | LFT-D1: No correlation | S18 | PLANNED |
 | LFT-D2: No learning from corrections | S18 | PLANNED |
 | LFT-E1: No production validation | S18 | PLANNED |
+
+## Last Modified Files
+
+- `backend/prisma/schema.prisma` — Email (aiLane/aiIntent/aiActionability), EmailAnalysis (lane/intent/actionability), UserLabel (category/suppressUrgency/mutuallyExclusiveWith/defaultLane), Tenant (triageRules)
+- `backend/src/modules/labels/default-user-labels.ts` — 10 labels with operational metadata
+- `backend/src/modules/ai/services/triage-rule.service.ts` — NEW: TriageRuleService
+- `backend/src/modules/ai/controllers/triage-rules.controller.ts` — NEW: REST endpoints
+- `backend/src/modules/ai/dto/triage-rules.dto.ts` — NEW: DTOs
+- `backend/src/modules/ai/ai.module.ts` — Registered TriageRuleService + TriageRulesController
+- `backend/src/modules/ai/services/email-analysis.service.ts` — Triage context injection, intent/actionability parsing, lane derivation
+- `backend/src/modules/ai/types/email-insights.types.ts` — Added actionability + lane
+- `backend/src/modules/ai/locales/en.ts` — Updated prompt with intent/actionability/triageRules
+- `backend/src/modules/ai/locales/it.ts` — Updated prompt with intent/actionability/triageRules
+- `backend/src/modules/ai/locales/types.ts` — Updated systemPrompt signature
+
+## Key Decisions
+
+- `triageRules` stored as JSON on Tenant (not separate table) — simpler, max 50 rules enforced
+- Lane derived from label defaultLane metadata, with fallback to actionability
+- Intent values simplified from legacy (action_required → request, question → request, etc.)
+- Database migrated via `prisma db push` (not migration files)
+
+## Validation Status
+
+- Backend type-check: ✅ PASS (only pre-existing ManualTask errors)
+- Frontend type-check: ✅ PASS (only pre-existing email.tsx timer type error)
+- Database migration: ✅ DONE (Railway)
