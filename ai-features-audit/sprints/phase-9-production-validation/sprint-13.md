@@ -61,12 +61,13 @@
   - Added admin endpoints: GET/POST/DELETE `/ai/health/dlq` for DLQ management
   - Can now diagnose error types, retry in bulk, and clean stale failures
 
-### T-1305: Update production scorecard [2 SP]
-- [ ] Collect all sprint results (S01-S12)
-- [ ] Update `02-PRODUCTION-SCORECARD.md` with after scores
-- [ ] Update findings resolution counts
-- [ ] Calculate overall score improvement
-- [ ] Document any remaining issues or deferred items
+### T-1305: Update production scorecard [2 SP] ✅ DONE
+
+- [x] Collected all sprint results (S01-S12) from checkpoint files
+- [x] Updated `02-PRODUCTION-SCORECARD.md` with after scores (all 13 categories)
+- [x] Updated findings resolution: 66/66 (100%)
+- [x] Overall score: 6.5/10 → **9.3/10** (target >= 9.0 met)
+- [x] Documented remaining issues: email DLQ (medium), widget layout (low), NBA (low)
 
 ---
 
