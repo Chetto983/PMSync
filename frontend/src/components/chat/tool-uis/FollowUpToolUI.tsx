@@ -64,14 +64,14 @@ function FollowUpRow({ item, isFirst, tu }: { item: FollowUpItem; isFirst: boole
           variant="body2"
           sx={{ mt: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
-          {item.email.subject ?? tu?.noSubject ?? '(no subject)'}
+          {item.email?.subject ?? tu?.noSubject ?? '(no subject)'}
         </Typography>
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
         >
-          {(tu?.fromLabel ?? 'From: {value}').replace('{value}', item.email.from)}
+          {(tu?.fromLabel ?? 'From: {value}').replace('{value}', item.email?.from ?? 'unknown')}
         </Typography>
         {item.reason && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, fontStyle: 'italic', display: 'block' }}>

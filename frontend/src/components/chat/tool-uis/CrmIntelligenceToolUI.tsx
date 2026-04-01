@@ -256,10 +256,10 @@ export function ChurnAtRiskRenderer({
             {item.name}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-            <Typography variant="caption" fontWeight={600} color={`${riskColor(item.riskLevel)}.main`}>
-              {Math.round(item.probability * 100)}%
+            <Typography variant="caption" fontWeight={600} color={`${riskColor(item.riskLevel ?? 'LOW')}.main`}>
+              {Math.round((item.probability ?? 0) * 100)}%
             </Typography>
-            <Chip label={item.riskLevel} size="small" color={riskColor(item.riskLevel)} sx={{ minWidth: 48 }} />
+            <Chip label={item.riskLevel ?? 'LOW'} size="small" color={riskColor(item.riskLevel ?? 'LOW')} sx={{ minWidth: 48 }} />
           </Box>
         </Box>
       ))}
@@ -315,7 +315,7 @@ export function ForecastRenderer({
               </Typography>
             )}
             <Typography variant="body2" fontWeight={600}>
-              ${f.predicted.toLocaleString()}
+              ${(f.predicted ?? 0).toLocaleString()}
             </Typography>
             {f.confidenceLow != null && f.confidenceHigh != null && (
               <Typography variant="caption" color="text.secondary">

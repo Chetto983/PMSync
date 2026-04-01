@@ -87,9 +87,9 @@ function AskUserCard({
           {result.context}
         </Typography>
       )}
-      {result.options.length > 0 && (
+      {(result.options ?? []).length > 0 && (
         <Stack spacing={1} sx={{ mt: 1.5 }}>
-          {result.options.map((option) => (
+          {(result.options ?? []).map((option) => (
             <Button
               key={option}
               variant="outlined"

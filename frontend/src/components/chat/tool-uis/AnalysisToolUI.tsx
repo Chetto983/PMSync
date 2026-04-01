@@ -63,7 +63,8 @@ export function AnalysisRenderer({
     );
   }
 
-  const { analysis, subject, from, summary } = result;
+  const analysis = result.analysis ?? { sentiment: 'neutral', urgency: 'low', keyTopics: [], suggestedResponse: null, deadline: null, priority: 0 };
+  const { subject, from, summary } = result;
   const sentimentStyle = sentimentSx[(analysis.sentiment as SentimentKey)] ?? sentimentSx.neutral;
   const urgencyStyle = urgencySx[(analysis.urgency as UrgencyKey)] ?? urgencySx.low;
 
@@ -99,9 +100,9 @@ export function AnalysisRenderer({
 
         <Typography variant="body2" color="text.secondary">{summary}</Typography>
 
-        {analysis.keyTopics.length > 0 && (
+        {(analysis.keyTopics ?? []).length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {analysis.keyTopics.map((topic) => (
+            {(analysis.keyTopics ?? []).map((topic) => (
               <Box
                 key={topic}
                 component="span"

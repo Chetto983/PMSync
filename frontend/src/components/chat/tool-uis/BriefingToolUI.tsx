@@ -35,7 +35,12 @@ export function BriefingRenderer({
     );
   }
 
-  const { stats, summary, followUps, deadlines, actionItems, calendar } = result;
+  const stats = result.stats ?? { totalUnread: 0, highPriority: 0, newToday: 0 };
+  const summary = result.summary ?? { summary: '', highlights: [] };
+  const followUps = result.followUps ?? { message: '', overdue: 0 };
+  const deadlines = result.deadlines ?? { count: 0, items: [] };
+  const actionItems = result.actionItems ?? { count: 0, items: [] };
+  const calendar = result.calendar ?? { hasEvents: false, message: '' };
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
@@ -48,23 +53,23 @@ export function BriefingRenderer({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'info.light', color: 'info.main', px: 1, py: 0.5, borderRadius: 1 }}>
             <Mail size={12} />
-            <Typography variant="caption">{stats.totalUnread} {tu?.unread || 'unread'}</Typography>
+            <Typography variant="caption">{stats.totalUnread ?? 0} {tu?.unread || 'unread'}</Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'error.light', color: 'error.main', px: 1, py: 0.5, borderRadius: 1 }}>
             <Star size={12} />
-            <Typography variant="caption">{stats.highPriority} high priority</Typography>
+            <Typography variant="caption">{stats.highPriority ?? 0} high priority</Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'success.light', color: 'success.main', px: 1, py: 0.5, borderRadius: 1 }}>
             <Mail size={12} />
-            <Typography variant="caption">{stats.newToday} new</Typography>
+            <Typography variant="caption">{stats.newToday ?? 0} new</Typography>
           </Box>
         </Box>
 
         <Box>
           <Typography variant="body2" color="text.secondary">{summary.summary}</Typography>
-          {summary.highlights.length > 0 && (
+          {(summary.highlights ?? []).length > 0 && (
             <Box component="ul" sx={{ mt: 0.75, pl: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-              {summary.highlights.map((h, i) => (
+              {(summary.highlights ?? []).map((h, i) => (
                 <Box key={i} component="li" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
                   <Box component="span" sx={{ color: 'primary.main', mt: 0.25 }}>&#8226;</Box>
                   <Typography variant="caption" color="text.secondary">{h}</Typography>
@@ -86,13 +91,13 @@ export function BriefingRenderer({
           </Typography>
         </Box>
 
-        {deadlines.count > 0 && (
+        {(deadlines.count ?? 0) > 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Clock size={12} color="var(--mui-palette-warning-main)" />
-              <Typography variant="caption" fontWeight={500}>{(tu?.deadlinesCount || 'Deadlines ({count})').replace('{count}', String(deadlines.count))}</Typography>
+              <Typography variant="caption" fontWeight={500}>{(tu?.deadlinesCount || 'Deadlines ({count})').replace('{count}', String(deadlines.count ?? 0))}</Typography>
             </Box>
-            {deadlines.items.map((d, i) => (
+            {(deadlines.items ?? []).map((d, i) => (
               <Typography key={i} variant="caption" color="text.secondary" sx={{ pl: 2.5 }}>
                 <Box component="span" fontWeight={500}>{d.title}</Box>
                 {d.detail && <Box component="span" sx={{ ml: 0.5 }}>- {d.detail}</Box>}
@@ -101,13 +106,13 @@ export function BriefingRenderer({
           </Box>
         )}
 
-        {actionItems.count > 0 && (
+        {(actionItems.count ?? 0) > 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <CheckSquare size={12} color="var(--mui-palette-success-main)" />
-              <Typography variant="caption" fontWeight={500}>{(tu?.actionItemsCount || 'Action Items ({count})').replace('{count}', String(actionItems.count))}</Typography>
+              <Typography variant="caption" fontWeight={500}>{(tu?.actionItemsCount || 'Action Items ({count})').replace('{count}', String(actionItems.count ?? 0))}</Typography>
             </Box>
-            {actionItems.items.map((a, i) => (
+            {(actionItems.items ?? []).map((a, i) => (
               <Typography key={i} variant="caption" color="text.secondary" sx={{ pl: 2.5 }}>
                 <Box component="span" fontWeight={500}>{a.title}</Box>
                 {a.detail && <Box component="span" sx={{ ml: 0.5 }}>- {a.detail}</Box>}

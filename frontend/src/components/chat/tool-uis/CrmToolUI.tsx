@@ -105,12 +105,12 @@ export function CrmRenderer({
       )}
 
       <Box>
-        {result.contacts.map((c, i) => (
+        {(result.contacts ?? []).map((c, i) => (
           <ContactStatCard key={c.contactId} contact={c} isFirst={i === 0} />
         ))}
       </Box>
 
-      {result.contacts.some((c) => c.staleDays != null && c.staleDays > 30) && (
+      {(result.contacts ?? []).some((c) => c.staleDays != null && c.staleDays > 30) && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1, color: 'warning.main' }}>
           <Clock size={12} />
           <Typography variant="caption">{tu?.reEngagementHint || 'Some contacts may need re-engagement'}</Typography>

@@ -12,6 +12,7 @@ import { ChatActionBar } from './ChatActionBar';
 import { ChatBranchPicker } from './ChatBranchPicker';
 import { ChatReasoningGroup } from './ChatReasoningGroup';
 import { TOOL_RENDERERS, FallbackToolRenderer } from './tool-uis';
+import { ToolErrorBoundary } from './tool-uis/shared/ToolErrorBoundary';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MarkdownText = MarkdownTextPrimitive as any;
@@ -29,10 +30,17 @@ function ReasoningText({ text }: { type: 'reasoning'; text: string }) {
 /**
  * Dispatching tool renderer: routes tool calls to specific renderers by name,
  * falling back to FallbackToolRenderer for unregistered tools.
+ * Wrapped in ToolErrorBoundary so malformed data doesn't crash the chat.
  */
 function ToolDispatcher(props: ToolCallMessagePartProps) {
   const Renderer = (TOOL_RENDERERS as Record<string, React.ComponentType<ToolCallMessagePartProps> | undefined>)[props.toolName];
-  if (Renderer) return <Suspense fallback={<ToolLoadingSkeleton />}><Renderer {...props} /></Suspense>;
+  if (Renderer) {
+    return (
+      <ToolErrorBoundary toolName={props.toolName}>
+        <Suspense fallback={<ToolLoadingSkeleton />}><Renderer {...props} /></Suspense>
+      </ToolErrorBoundary>
+    );
+  }
   return <FallbackToolRenderer {...props} />;
 }
 

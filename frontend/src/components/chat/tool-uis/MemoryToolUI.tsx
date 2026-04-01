@@ -61,7 +61,7 @@ function MemoryCard({ memory, isFirst }: { memory: MemoryItem; isFirst: boolean 
             </Box>
           )}
           <Typography variant="caption" color="text.secondary">
-            {(memory.score * 100).toFixed(0)}% match
+            {((memory.score ?? 0) * 100).toFixed(0)}% match
           </Typography>
         </Box>
       </Box>
