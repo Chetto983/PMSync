@@ -140,10 +140,21 @@ export class ReminderService {
 
     // Schedule Telegram notification at exact scadenzaDatetime
     if (reminder.scadenzaDatetime && this.reminderNotifyQueue) {
-      await this.reminderNotifyQueue.scheduleNotification(
-        reminder.id,
-        reminder.scadenzaDatetime,
-      );
+      try {
+        await this.reminderNotifyQueue.scheduleNotification(
+          reminder.id,
+          reminder.scadenzaDatetime,
+        );
+        await this.prisma.reminder.update({
+          where: { id: reminder.id },
+          data: { notificationScheduled: true },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Failed to schedule notification for reminder ${reminder.id}: ${msg}`,
+        );
+      }
     }
 
     return { reminder, rispostaChat, failed: false as const };
@@ -208,13 +219,23 @@ export class ReminderService {
 
     // Reschedule notification if scadenzaDatetime changed
     if (dto.scadenzaDatetime !== undefined && this.reminderNotifyQueue) {
-      if (updated.scadenzaDatetime) {
-        await this.reminderNotifyQueue.scheduleNotification(
-          id,
-          updated.scadenzaDatetime,
-        );
-      } else {
-        await this.reminderNotifyQueue.cancelNotification(id);
+      try {
+        if (updated.scadenzaDatetime) {
+          await this.reminderNotifyQueue.scheduleNotification(id, updated.scadenzaDatetime);
+          await this.prisma.reminder.update({
+            where: { id },
+            data: { notificationScheduled: true },
+          });
+        } else {
+          await this.reminderNotifyQueue.cancelNotification(id);
+          await this.prisma.reminder.update({
+            where: { id },
+            data: { notificationScheduled: false },
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Failed to reschedule notification for reminder ${id}: ${msg}`);
       }
     }
 

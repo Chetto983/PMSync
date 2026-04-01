@@ -1642,6 +1642,13 @@ model Reminder {
   telegramInviato     Boolean               @default(false)
   telegramInviatoAt   DateTime?
 
+  // Notification scheduling
+  notificationScheduled Boolean             @default(false)
+
+  // Alert tracking (prevent duplicate alerts)
+  lastRemindedAt  DateTime?
+  remindCount     Int                       @default(0)
+
   // Status
   status              ReminderStatus        @default(attivo)
   completatoAt        DateTime?
