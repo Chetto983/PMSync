@@ -138,6 +138,7 @@ export class SubscriptionLifecycleService implements OnModuleInit {
   async runExpiryCheck(): Promise<{
     expired: number;
     downgraded: number;
+    cancelled: number;
     errors: number;
   }> {
     this.logger.log('Starting subscription expiry check');
@@ -145,6 +146,7 @@ export class SubscriptionLifecycleService implements OnModuleInit {
 
     let expired = 0;
     let downgraded = 0;
+    let cancelled = 0;
     const errors = 0;
 
     try {
@@ -156,12 +158,16 @@ export class SubscriptionLifecycleService implements OnModuleInit {
       const pastDueDowngrades = await this.checkPastDueSubscriptions();
       downgraded += pastDueDowngrades;
 
+      // Check for cancelled subscriptions past their cancelAt date
+      const cancelledDowngrades = await this.checkCancelledSubscriptions();
+      cancelled += cancelledDowngrades;
+
       const duration = Date.now() - startTime;
       this.logger.log(
-        `Expiry check completed: ${expired} expired, ${downgraded} downgraded, ${errors} errors, ${duration}ms`,
+        `Expiry check completed: ${expired} expired, ${downgraded} downgraded, ${cancelled} cancelled, ${errors} errors, ${duration}ms`,
       );
 
-      return { expired, downgraded, errors };
+      return { expired, downgraded, cancelled, errors };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Expiry check failed: ${msg}`);
@@ -245,6 +251,47 @@ export class SubscriptionLifecycleService implements OnModuleInit {
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.error(`Failed to downgrade past-due ${sub.tenantId}: ${msg}`);
+      }
+    }
+
+    return processed;
+  }
+
+  /**
+   * Check for subscriptions that were cancelled and have passed their cancelAt date.
+   * User retains access until cancelAt; after that, downgrade to FREE.
+   */
+  private async checkCancelledSubscriptions(): Promise<number> {
+    const now = new Date();
+
+    const cancelledSubs = await this.prisma.subscription.findMany({
+      where: {
+        status: SubscriptionStatus.ACTIVE,
+        cancelAt: { lte: now },
+        plan: { not: SubscriptionPlan.FREE },
+      },
+      select: { tenantId: true, id: true, plan: true, cancelAt: true },
+    });
+
+    if (cancelledSubs.length === 0) {
+      return 0;
+    }
+
+    this.logger.log(`Found ${cancelledSubs.length} cancelled subscriptions past cancelAt date`);
+
+    let processed = 0;
+    for (const sub of cancelledSubs) {
+      try {
+        await this.subscriptionService.updatePlan(sub.tenantId, SubscriptionPlan.FREE);
+        await this.subscriptionService.updateStatus(sub.tenantId, SubscriptionStatus.CANCELED);
+
+        this.logger.log(
+          `Cancelled subscription ${sub.tenantId} (${sub.plan}) downgraded to FREE after cancelAt ${sub.cancelAt?.toISOString()}`,
+        );
+        processed++;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to downgrade cancelled ${sub.tenantId}: ${msg}`);
       }
     }
 
