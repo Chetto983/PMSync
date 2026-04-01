@@ -232,13 +232,55 @@ gantt
 
 #### Go/No-Go Criteria per Beta Release
 
-- [ ] Tutti i milestone Phase 1-3 soddisfatti
-- [ ] Zero bug P0, max 3 bug P1 aperti
-- [ ] Performance: tutte le pagine CRM <1s load time
+- [x] Tutti i milestone Phase 1-3 soddisfatti ✅ (2026-03-31)
+- [x] Zero bug P0, max 3 bug P1 aperti ✅
+- [x] Performance: tutte le pagine CRM <1s load time ✅
 - [ ] SLA engine testato con scenario realistici (100+ ticket)
-- [ ] CSAT survey funzionante end-to-end
+- [x] CSAT survey funzionante end-to-end ✅
 - [ ] Backup e recovery testato
 - [ ] Documentazione utente base completata
+
+---
+
+### Phase 4 — UX Unification & Auto-Population (Sprint 19-22, ~2 mesi)
+
+> **Design principle:** Il sistema si auto-popola da email, calendario e contatti. L'utente non crea manualmente dati CRM — il sistema li suggerisce e l'utente conferma.
+> **Ref:** `docs/Sistema_Logico_PMS_COMPLETO.md`, Phase 133 requirements in `.planning/phases/133-ux-unification/`
+
+#### Sprint Breakdown
+
+| Sprint | Titolo | Complessita | SP Stimati | Deliverable Chiave |
+|---|---|---|---|---|
+| S19 | Auto-Population Engine | L | 20 | CrmSuggestion model, email→account/deal/ticket, contact→account linking, calendar→activity |
+| S20 | Contextual Sidebar & Timeline | L | 18 | Entity context sidebar, activity timeline, contact CRM tab, AI suggestions feed |
+| S21 | UX Consistency Pass | M | 15 | Sidebar fix, breadcrumbs, layout normalization, i18n, theme compliance, URL state |
+| S22 | Empty States & Dashboard Polish | M | 12 | Dashboard health card, onboarding checklist, guided empty states, mobile validation |
+
+#### Milestones
+
+| Milestone | Sprint | Acceptance Criteria |
+|---|---|---|
+| Auto-population operativo | S19 | Email triage crea suggerimenti CRM (account, deal, ticket). Contact-account linking funziona. Calendar sync logga attivita. |
+| Sidebar contestuale | S20 | Email thread view mostra dati CRM del sender. Contact detail ha tab CRM con timeline. Dashboard mostra suggerimenti AI. |
+| Consistenza visuale | S21 | Tutte le pagine CRM: maxWidth 1200, breadcrumb, empty state con CTA, filtri in URL, zero colori hardcoded. |
+| Dashboard viva | S22 | Dashboard mostra metriche CRM + checklist onboarding. Ogni pagina vuota spiega perche e come popolarla. |
+
+#### Rischi Phase 4
+
+| # | Rischio | Prob. | Impatto | P x I | Mitigazione |
+|---|---|---|---|---|---|
+| R18 | Keyword-based intent detection ha bassa precisione | Alta | Medio | 6 | Confidence score su suggerimenti. User feedback (accept/dismiss) per migliorare. |
+| R19 | Context sidebar rallenta email view | Bassa | Alto | 4 | Query parallele, TanStack cache 5min. Sidebar carica async dopo il contenuto email. |
+| R20 | Auto-population crea troppo rumore | Media | Medio | 4 | Configurable per-tenant. Soglia confidenza. Dismissal facile. |
+| R21 | Layout changes rompono visual consistency | Bassa | Medio | 2 | Browser validation obbligatoria con Edge CDP a fine sprint. |
+
+#### Go/No-Go Criteria per v1.0 Release
+
+- [ ] Auto-population genera suggerimenti da almeno 50% delle email business
+- [ ] Context sidebar carica in <200ms
+- [ ] Zero pagine CRM con layout inconsistente
+- [ ] Dashboard mostra metriche reali, non placeholder
+- [ ] Mobile validation passata su tutte le pagine modificate
 
 ---
 
