@@ -18,6 +18,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../../../common/services/cache.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { EmailService } from '../../email/services/email.service';
 import type { CostProtectionStatus } from '../types/cost-protection.types';
 
 export type AlertLevel = 'warning' | 'critical' | 'blocked';
@@ -44,6 +45,7 @@ export class BillingAlertService {
   constructor(
     private readonly config: ConfigService,
     private readonly cache: CacheService,
+    private readonly emailService: EmailService,
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(PrismaService) private readonly prisma?: PrismaService,
   ) {
@@ -116,7 +118,8 @@ export class BillingAlertService {
   }
 
   /**
-   * Send email alerts to appropriate recipients
+   * Send email alerts to appropriate recipients via SendGrid transactional email.
+   * Non-blocking: email failures are logged but do not break billing flow.
    */
   private async sendAlertEmails(
     alert: BillingAlert,
@@ -124,30 +127,36 @@ export class BillingAlertService {
   ): Promise<void> {
     const { tenantId, level } = alert;
 
-    // DEBT: Integrate with actual email service - tracked in BUG-037
-    // For now, log what would be sent
-
     if (tenantAdminEmail) {
-      this.logger.log(
-        `[ALERT EMAIL] To: ${tenantAdminEmail} | ${this.formatEmailSubject(level)} | Tenant: ${tenantId}`,
-      );
+      try {
+        await this.emailService.sendEmail(
+          tenantAdminEmail,
+          this.formatEmailSubject(level),
+          this.formatEmailBody(alert),
+        );
+        this.logger.log(`Billing alert email sent to ${tenantAdminEmail} | Level: ${level} | Tenant: ${tenantId}`);
+      } catch (err) {
+        this.logger.error(
+          `Failed to send billing alert email to ${tenantAdminEmail}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     // Admin notification for critical/blocked
     if ((level === 'critical' || level === 'blocked') && this.adminEmail) {
-      this.logger.log(
-        `[ADMIN ALERT] To: ${this.adminEmail} | ${this.formatEmailSubject(level)} | Tenant: ${tenantId}`,
-      );
+      try {
+        await this.emailService.sendEmail(
+          this.adminEmail,
+          `[ADMIN] ${this.formatEmailSubject(level)}`,
+          this.formatEmailBody(alert),
+        );
+        this.logger.log(`Admin billing alert email sent to ${this.adminEmail} | Level: ${level} | Tenant: ${tenantId}`);
+      } catch (err) {
+        this.logger.error(
+          `Failed to send admin alert email: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
-
-    // In production, this would call EmailSendService:
-    // await this.emailService.queueSend({
-    //   tenantId: 'system',
-    //   providerId: 'system',
-    //   to: [tenantAdminEmail],
-    //   subject: this.formatEmailSubject(level),
-    //   bodyHtml: this.formatEmailBody(alert),
-    // });
   }
 
   // ==========================================================================
