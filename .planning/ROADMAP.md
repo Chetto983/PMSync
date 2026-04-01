@@ -167,7 +167,7 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
 - [ ] **Phase 137: Unified Task Model (Backend)** - Backend API for consolidated task types
   Plans:
   - [x] 0137-01-PLAN.md — Prisma ManualTask model, DTOs, normalizers, and ManualTask CRUD service
-  - [ ] 0137-02-PLAN.md — Aggregation service, controller, and module wiring
+  - [x] 0137-02-PLAN.md — Aggregation service, controller, and module wiring
 - [ ] **Phase 138: Tasks Page & Views** - Frontend Tasks pillar with list/kanban, filters, quick-add
 - [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
 - [ ] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view
