@@ -7,6 +7,7 @@ import {
   Box,
   Drawer,
   Tooltip,
+  useMediaQuery,
   useTheme,
   alpha,
   type Theme,
@@ -61,6 +62,7 @@ export interface PmSyncSidebarProps {}
 export function Sidebar(_props: PmSyncSidebarProps) {
   const router = useRouter();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const t = useTranslations();
   const isDark = theme.palette.mode === 'dark';
   const currentPath = router.asPath.split('?')[0].split('#')[0];
@@ -73,13 +75,19 @@ export function Sidebar(_props: PmSyncSidebarProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const isActive = (href: string) => {
-    if (href === '/dashboard') {
-      return currentPath === '/dashboard';
+  const activeHref = useMemo(() => {
+    if (currentPath === '/dashboard') {
+      return '/dashboard';
     }
 
-    return currentPath === href || currentPath.startsWith(`${href}/`);
-  };
+    const match = PILLAR_ITEMS
+      .filter((pillar) => pillar.href !== '/dashboard')
+      .find((pillar) => (
+        currentPath === pillar.href || currentPath.startsWith(`${pillar.href}/`)
+      ));
+
+    return match?.href ?? null;
+  }, [currentPath]);
 
   const activeBg = isDark
     ? `linear-gradient(165deg, ${alpha('#14212b', 0.92)} 0%, ${alpha('#0e171f', 0.98)} 100%)`
@@ -95,6 +103,8 @@ export function Sidebar(_props: PmSyncSidebarProps) {
       handleReorder(active.id as string, over.id as string);
     }
   };
+
+  if (isMobile) return null;
 
   const pillarMap = new Map(PILLAR_ITEMS.map((pillar) => [pillar.href, pillar]));
   const orderedPillars = order
@@ -188,7 +198,7 @@ export function Sidebar(_props: PmSyncSidebarProps) {
                 <SortableItem
                   key={pillar.href}
                   pillar={pillar}
-                  active={isActive(pillar.href)}
+                  active={activeHref === pillar.href}
                   label={t.nav[pillar.labelKey]}
                   dragLabel={t.nav.dragToReorder ?? 'Drag to reorder'}
                   activeBg={activeBg}
@@ -214,7 +224,7 @@ export function Sidebar(_props: PmSyncSidebarProps) {
         />
 
         <SettingsItem
-          active={isActive('/dashboard/settings')}
+          active={currentPath === '/dashboard/settings' || currentPath.startsWith('/dashboard/settings/')}
           label={t.nav.settings}
           activeBg={activeBg}
           activeGlow={activeGlow}
