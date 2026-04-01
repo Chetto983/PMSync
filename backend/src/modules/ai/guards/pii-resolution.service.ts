@@ -16,8 +16,9 @@
  * @security Mappings are tenant-isolated and session-scoped
  * @see pii-detection.service.ts
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { AuditService } from '../../../common/services/audit.service';
 import { PiiMatch, PiiType } from './pii-detection-sentinel.service';
 
 export interface PiiMapping {
@@ -47,7 +48,10 @@ const PII_MAPPING_TTL_SECONDS = 1800;
 export class PiiResolutionService {
   private readonly logger = new Logger(PiiResolutionService.name);
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    private readonly cacheService: CacheService,
+    @Optional() private readonly auditService?: AuditService,
+  ) {}
 
   /**
    * Generate Redis key for PII store (tenant+session isolated)
@@ -199,6 +203,9 @@ export class PiiResolutionService {
       }
 
       const mapping = store.mappings.find((m) => m.placeholder === placeholder);
+      if (mapping) {
+        this.logPiiAccessEvent(tenantId, sessionId, [mapping], 1, 'direct_lookup');
+      }
       return mapping?.originalValue ?? null;
     } catch (error) {
       this.logger.error(`Failed to resolve PII placeholder: ${error}`);
@@ -240,6 +247,7 @@ export class PiiResolutionService {
         this.logger.debug(
           `Resolved ${resolutionCount} PII placeholders in text for session ${sessionId}`,
         );
+        this.logPiiAccessEvent(tenantId, sessionId, store.mappings, resolutionCount, 'text_resolution');
       }
 
       return resolved;
@@ -294,6 +302,7 @@ export class PiiResolutionService {
         this.logger.debug(
           `Resolved ${stats.resolutionCount} PII placeholders in payload for session ${sessionId}`,
         );
+        this.logPiiAccessEvent(tenantId, sessionId, store.mappings, stats.resolutionCount, 'payload_resolution');
       }
 
       return resolved;
@@ -334,6 +343,7 @@ export class PiiResolutionService {
         this.logger.debug(
           `Resolved ${stats.resolutionCount} PII placeholders in value for session ${sessionId}`,
         );
+        this.logPiiAccessEvent(tenantId, sessionId, store.mappings, stats.resolutionCount, 'text_resolution');
       }
 
       return resolved;
@@ -384,6 +394,29 @@ export class PiiResolutionService {
     } catch (error) {
       this.logger.error(`Failed to cleanup PII mappings: ${error}`);
     }
+  }
+
+  /**
+   * SEC-H3: Log PII access event to audit trail.
+   * Fire-and-forget — never blocks the caller.
+   */
+  private logPiiAccessEvent(
+    tenantId: string,
+    sessionId: string,
+    mappings: PiiMapping[],
+    resolutionCount: number,
+    context: 'tool_execution' | 'text_resolution' | 'payload_resolution' | 'direct_lookup',
+  ): void {
+    if (!this.auditService || resolutionCount === 0) return;
+    const piiTypes = [...new Set(mappings.map((m) => m.type))];
+    // Fire-and-forget — don't await
+    this.auditService.logPiiAccess({
+      tenantId,
+      sessionId,
+      piiTypes,
+      piiCount: resolutionCount,
+      accessContext: context,
+    }).catch((err) => this.logger.error(`PII audit log failed: ${err}`));
   }
 
   /**

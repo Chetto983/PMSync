@@ -29,6 +29,20 @@ export interface LogToolExecutionInput {
 }
 
 /**
+ * PII access audit input (SEC-H3: PII unmasking audit trail)
+ */
+export interface LogPiiAccessInput {
+  tenantId: string;
+  userId?: string;
+  sessionId: string;
+  piiTypes: string[];
+  piiCount: number;
+  accessContext: 'tool_execution' | 'text_resolution' | 'payload_resolution' | 'direct_lookup';
+  entityType?: string; // e.g., 'email', 'contact'
+  entityId?: string;
+}
+
+/**
  * HITL decision audit input (HITL-04: approval/rejection logging)
  */
 export interface LogHitlDecisionInput {
@@ -154,6 +168,37 @@ export class AuditService {
       });
     } catch (error) {
       this.logger.error(`Failed to log HITL decision: ${error}`);
+    }
+  }
+
+  /**
+   * SEC-H3: Log PII access/unmasking event.
+   *
+   * Records who accessed PII, when, which types, and in what context.
+   * GDPR accountability: audit trail for PII resolution (unmasking).
+   *
+   * Fire-and-forget: errors are logged but NEVER thrown.
+   * CRITICAL: Never log the actual PII values — only types and counts.
+   */
+  async logPiiAccess(data: LogPiiAccessInput): Promise<void> {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          tenantId: data.tenantId,
+          userId: data.userId ?? null,
+          action: `PII_ACCESS:${data.accessContext.toUpperCase()}`,
+          entity: data.entityType ?? 'PiiResolution',
+          entityId: data.entityId ?? data.sessionId,
+          changes: {
+            sessionId: data.sessionId,
+            piiTypes: data.piiTypes,
+            piiCount: data.piiCount,
+            context: data.accessContext,
+          },
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to log PII access: ${error}`);
     }
   }
 }
