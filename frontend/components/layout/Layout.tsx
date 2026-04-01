@@ -28,6 +28,7 @@ export function Layout({ children }: LayoutProps) {
   const t = useTranslations();
   const { lastStatus, clear } = useSyncStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   // Prefetch consent early so Dashboard widgets don't waterfall on useConsent()
   usePrefetchQuery(consentOptions());
 
@@ -37,6 +38,18 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [router.asPath]);
+
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    document.addEventListener('keydown', down);
+    return () => document.removeEventListener('keydown', down);
+  }, []);
 
   // Get translated sync status message
   const getSyncStatusMessage = useMemo(() => {
@@ -183,7 +196,10 @@ export function Layout({ children }: LayoutProps) {
         )}
         <InstallPromptBanner />
         <CookieConsent />
-        <CommandPalette />
+        <CommandPalette
+          open={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+        />
       </Box>
   );
 }

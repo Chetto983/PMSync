@@ -49,8 +49,12 @@ function HintBadge({ keys, label }: { keys: string; label: string }) {
   );
 }
 
-export function CommandPalette() {
-  const [open, setOpen] = useState(false);
+interface CommandPaletteProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebounce(search, 300);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -95,18 +99,6 @@ export function CommandPalette() {
   const totalSearchResults = searchResults.reduce((sum, g) => sum + g.results.length, 0);
   const totalItems = filteredCommands.length + totalSearchResults;
 
-  // Toggle command palette with Cmd+K or Ctrl+K
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((prev) => !prev);
-      }
-    };
-    document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
-  }, []);
-
   // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
@@ -127,20 +119,24 @@ export function CommandPalette() {
     items[focusedIndex]?.scrollIntoView({ block: 'nearest' });
   }, [focusedIndex]);
 
-  const handleClose = useCallback(() => setOpen(false), []);
-
   const handleCommandSelect = useCallback((cmd: CommandItem) => {
-    setOpen(false);
+    onClose();
     cmd.action();
-  }, []);
+  }, [onClose]);
 
   const handleSearchResultSelect = useCallback((result: SearchResult) => {
-    setOpen(false);
+    onClose();
     result.action();
-  }, []);
+  }, [onClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
       if (totalItems === 0) return;
 
       if (e.key === 'ArrowDown') {
@@ -166,13 +162,13 @@ export function CommandPalette() {
         }
       }
     },
-    [totalItems, focusedIndex, filteredCommands, searchResults, handleCommandSelect, handleSearchResultSelect],
+    [totalItems, focusedIndex, filteredCommands, searchResults, handleCommandSelect, handleSearchResultSelect, onClose],
   );
 
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={onClose}
       maxWidth="sm"
       fullWidth
       aria-label={t.commandPalette.title}
