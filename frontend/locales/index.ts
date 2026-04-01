@@ -3917,6 +3917,11 @@ export interface AppTranslations {
       noneDialogConfirm: string;
       noneDialogCancel: string;
       updateError: string;
+      waitingFor: string;
+      minutes: string;
+      seconds: string;
+      expiryWarning: string;
+      dismiss: string;
     };
     suggestions: {
       label: string;

@@ -4103,6 +4103,11 @@ export const en: AppTranslations = {
       noneDialogConfirm: 'Confirm: auto-execute all',
       noneDialogCancel: 'Keep current setting',
       updateError: 'Failed to update HITL settings. Try again.',
+      waitingFor: 'Waiting for',
+      minutes: 'min',
+      seconds: 'sec',
+      expiryWarning: 'This action will expire soon',
+      dismiss: 'Dismiss',
     },
     suggestions: {
       label: 'Suggested questions',

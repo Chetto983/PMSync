@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AlertTriangle, Check, X, Loader2, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { AlertTriangle, Check, X, Loader2, Shield, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -115,6 +115,39 @@ function getDisplayState(
 }
 
 // ---------------------------------------------------------------------------
+// Elapsed time display for pending approvals (FE-H4)
+// ---------------------------------------------------------------------------
+
+/** Threshold in ms after which we show an expiry warning (3 minutes). */
+const HITL_EXPIRY_WARNING_MS = 3 * 60 * 1000;
+
+function useElapsedSeconds(active: boolean): number {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (!active) return;
+    startRef.current = Date.now();
+    setElapsed(0);
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  return elapsed;
+}
+
+function formatElapsed(totalSeconds: number, t: { minutes: string; seconds: string }): string {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  if (mins > 0) {
+    return `${mins} ${t.minutes} ${secs} ${t.seconds}`;
+  }
+  return `${secs} ${t.seconds}`;
+}
+
+// ---------------------------------------------------------------------------
 // HitlApprovalWrapper -- SDK-native approval card with terminal states
 // ---------------------------------------------------------------------------
 
@@ -143,6 +176,9 @@ export function HitlApprovalWrapper({
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
   // Track local user action for display when SDK path doesn't update result prop
   const [localAction, setLocalAction] = useState<'approved' | 'rejected' | null>(null);
+  const isPending = status.type === 'requires-action' && localAction === null;
+  const elapsedSeconds = useElapsedSeconds(isPending);
+  const isNearExpiry = elapsedSeconds * 1000 >= HITL_EXPIRY_WARNING_MS;
 
   useEffect(() => {
     const decision = inferDecisionFromResult(result);
@@ -309,6 +345,24 @@ export function HitlApprovalWrapper({
         />
       </Box>
 
+      {/* Elapsed time (FE-H4) */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Clock size={12} style={{ opacity: 0.6 }} />
+        <Typography variant="caption" color="text.secondary">
+          {t.chat.hitl.waitingFor} {formatElapsed(elapsedSeconds, { minutes: t.chat.hitl.minutes, seconds: t.chat.hitl.seconds })}
+        </Typography>
+      </Box>
+
+      {/* Expiry warning */}
+      {isNearExpiry && (
+        <Typography
+          variant="caption"
+          sx={{ color: 'error.main', fontWeight: 500 }}
+        >
+          {t.chat.hitl.expiryWarning}
+        </Typography>
+      )}
+
       {/* Action summary */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <Typography variant="body2" color="text.secondary">
@@ -317,7 +371,7 @@ export function HitlApprovalWrapper({
         <ToolDetails toolName={toolName} args={args} />
       </Box>
 
-      {/* Approve / Deny buttons */}
+      {/* Approve / Deny / Dismiss buttons */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Button
           data-testid="hitl-approve"
@@ -362,6 +416,15 @@ export function HitlApprovalWrapper({
           }}
         >
           {t.chat.hitl.rejectLabel}
+        </Button>
+        <Button
+          variant="text"
+          size="small"
+          onClick={handleReject}
+          disabled={isBusy}
+          sx={{ ml: 'auto', textTransform: 'none', fontSize: '0.8rem', color: 'text.secondary' }}
+        >
+          {t.chat.hitl.dismiss}
         </Button>
       </Box>
     </Box>

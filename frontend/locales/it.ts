@@ -670,6 +670,7 @@ export const it: AppTranslations = {
         score: '{score}%',
       },
       unreadEmails: {
+        description: 'Conteggio email non lette',
         title: 'Email Non Lette',
         noSubject: '(Nessun oggetto)',
         allCaughtUp: 'Tutto in pari!',
@@ -685,6 +686,7 @@ export const it: AppTranslations = {
         important: 'Importante',
       },
       aiTriage: {
+        description: 'Inbox email prioritaria gestita dallâ€™AI',
         title: 'Priorità Email',
         subtitle: '{count} email analizzate',
         noSubject: '(Nessun oggetto)',
@@ -703,10 +705,12 @@ export const it: AppTranslations = {
         noStarredEmails: 'Nessuna email preferita',
       },
       todayEvents: {
+        description: 'Eventi di oggi a calendario',
         title: 'Eventi di Oggi',
         noEvents: 'Nessun evento programmato per oggi',
       },
       trendCharts: {
+        description: 'Andamento dellâ€™attivitÃ  email',
         title: 'Attività Email',
         subtitle: 'Ultimi 7 giorni',
         received: 'Ricevute',
@@ -738,17 +742,39 @@ export const it: AppTranslations = {
       addAnother: 'Aggiungi Altro',
       addToDashboard: 'Aggiungi alla Dashboard',
       noResults: 'Nessun widget trovato per la ricerca.',
-      events: {
-        description: 'Eventi di oggi a calendario',
-      },
-      emails: {
-        description: 'Conteggio email non lette',
-      },
       trendCharts: {
         description: 'Andamento dell’attività email',
       },
       aiTriage: {
         description: 'Inbox email prioritaria gestita dall’AI',
+      },
+      trendCharts: {
+        title: 'AttivitÃ  Email',
+        description: 'Andamento dellâ€™attivitÃ  email',
+        subtitle: 'Ultimi 7 giorni',
+        received: 'Ricevute',
+        sent: 'Inviate',
+        total: 'Totale',
+        noData: 'Nessun dato disponibile',
+      },
+      aiTriage: {
+        title: 'PrioritÃ  Email',
+        description: 'Inbox email prioritaria gestita dallâ€™AI',
+        subtitle: '{count} email analizzate',
+        noSubject: '(Nessun oggetto)',
+        empty: 'Nessuna email analizzata',
+        emptyDescription: 'Abilita Auto-Triage nelle Impostazioni AI per prioritizzare automaticamente le email in arrivo',
+        viewAll: 'Vedi Tutte le Analizzate',
+        priority: {
+          critical: 'Critico',
+          high: 'Alta',
+          medium: 'Media',
+          low: 'Bassa',
+          minimal: 'Minima',
+        },
+        aiTriagedSection: 'PrioritÃ  AI',
+        userPinnedSection: 'Preferiti',
+        noStarredEmails: 'Nessuna email preferita',
       },
       crmSuggestions: {
         description: 'Rivedi i suggerimenti CRM pendenti generati dalla posta reale',
@@ -4088,6 +4114,11 @@ export const it: AppTranslations = {
       noneDialogConfirm: 'Conferma: esegui tutto automaticamente',
       noneDialogCancel: 'Mantieni impostazione attuale',
       updateError: 'Aggiornamento impostazioni HITL fallito. Riprova.',
+      waitingFor: 'In attesa da',
+      minutes: 'min',
+      seconds: 'sec',
+      expiryWarning: 'Questa azione scadra presto',
+      dismiss: 'Annulla',
     },
     suggestions: {
       label: 'Domande suggerite',
