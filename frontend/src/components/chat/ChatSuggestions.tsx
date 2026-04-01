@@ -2,6 +2,7 @@
 
 import { ThreadPrimitive } from '@assistant-ui/react';
 import { useSuggestionTrigger } from '@assistant-ui/core/react';
+import { useAuiState } from '@assistant-ui/store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 type ChatSuggestionState = {
@@ -17,6 +18,37 @@ type ResolvedSuggestionCopy = {
 
 function normalize(value: string | undefined) {
   return value?.trim().toLowerCase() ?? '';
+}
+
+function buildFallbackSuggestions(
+  t: ReturnType<typeof useTranslations>,
+): ChatSuggestionState[] {
+  return [
+    {
+      title: t.chat.suggestions.summarizeInboxLabel,
+      prompt: t.chat.suggestions.summarizeInboxPrompt,
+    },
+    {
+      title: t.chat.suggestions.triageLabel,
+      prompt: t.chat.suggestions.triagePrompt,
+    },
+    {
+      title: t.chat.suggestions.followUpsLabel,
+      prompt: t.chat.suggestions.followUpsPrompt,
+    },
+    {
+      title: t.chat.suggestions.todayScheduleLabel,
+      prompt: t.chat.suggestions.todaySchedulePrompt,
+    },
+    {
+      title: t.chat.suggestions.recentContactsLabel,
+      prompt: t.chat.suggestions.recentContactsPrompt,
+    },
+    {
+      title: t.chat.suggestions.briefingLabel,
+      prompt: t.chat.suggestions.briefingPrompt,
+    },
+  ];
 }
 
 function resolveSuggestionCopy(
@@ -110,14 +142,25 @@ function SuggestionItem({ suggestion }: { suggestion: ChatSuggestionState }) {
  */
 export function ChatSuggestions() {
   const t = useTranslations();
+  const runtimeSuggestionCount = useAuiState((s) => s.suggestions.suggestions.length);
+  const fallbackSuggestions = buildFallbackSuggestions(t);
 
   return (
     <div className="chat-suggestions-row" aria-label={t.chat.suggestions.label}>
-      <ThreadPrimitive.Suggestions>
-        {({ suggestion }) => <SuggestionItem suggestion={suggestion as ChatSuggestionState} />}
-      </ThreadPrimitive.Suggestions>
+      {runtimeSuggestionCount > 0 ? (
+        <ThreadPrimitive.Suggestions>
+          {({ suggestion }) => <SuggestionItem suggestion={suggestion as ChatSuggestionState} />}
+        </ThreadPrimitive.Suggestions>
+      ) : (
+        fallbackSuggestions.map((suggestion) => (
+          <SuggestionItem
+            key={suggestion.title}
+            suggestion={suggestion}
+          />
+        ))
+      )}
     </div>
   );
 }
 
-export { resolveSuggestionCopy };
+export { buildFallbackSuggestions, resolveSuggestionCopy };

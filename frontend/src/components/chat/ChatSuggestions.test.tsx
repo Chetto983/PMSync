@@ -7,6 +7,7 @@ let mockSuggestion = {
   prompt: 'Show my unread emails from today',
   title: 'Summarize inbox',
 };
+let mockSuggestionCount = 1;
 
 const triggerSpy = jest.fn();
 const useSuggestionTriggerMock = jest.fn((_options: { prompt: string }) => ({
@@ -40,6 +41,10 @@ jest.mock('@assistant-ui/core/react', () => ({
   useSuggestionTrigger: (options: { prompt: string }) => useSuggestionTriggerMock(options),
 }));
 
+jest.mock('@assistant-ui/store', () => ({
+  useAuiState: () => mockSuggestionCount,
+}));
+
 jest.mock('@assistant-ui/react', () => ({
   ThreadPrimitive: {
     Suggestions: ({ children }: { children: ({ suggestion }: { suggestion: typeof mockSuggestion }) => React.ReactNode }) => (
@@ -55,6 +60,7 @@ describe('ChatSuggestions', () => {
       prompt: 'Show my unread emails from today',
       title: 'Summarize inbox',
     };
+    mockSuggestionCount = 1;
     triggerSpy.mockClear();
     useSuggestionTriggerMock.mockClear();
   });
@@ -84,5 +90,19 @@ describe('ChatSuggestions', () => {
     expect(useSuggestionTriggerMock).toHaveBeenCalledWith({
       prompt: 'Custom prompt',
     });
+  });
+
+  it('renders localized fallback suggestions when the runtime has none', () => {
+    mockSuggestionCount = 0;
+
+    render(<ChatSuggestions />);
+
+    expect(screen.getByRole('button', { name: 'Riepiloga casella' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cosa richiede attenzione' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mostra follow-up' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Programma di oggi' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Contatti recenti' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dammi un briefing' })).toBeInTheDocument();
+    expect(useSuggestionTriggerMock).toHaveBeenCalledTimes(6);
   });
 });
