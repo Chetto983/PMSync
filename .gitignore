@@ -206,6 +206,8 @@ scripts/*
 !scripts/lib/validate-templates.mjs
 !scripts/validate-cross-cutting.mjs
 !scripts/validate-ai-e2e-browser.mjs
+!scripts/audit/
+!scripts/audit/validate-ai-data-consistency.mjs
 !scripts/lib/validate-tenant-isolation.mjs
 !scripts/lib/validate-rate-tiers.mjs
 !scripts/lib/validate-response-envelope.mjs

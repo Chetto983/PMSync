@@ -46,17 +46,17 @@
   - Lead score badges: 50 badge/chip elements on deal list ✅
   - NBA: not visible on CRM dashboard — WARN (needs active deals)
 
-### T-1304: Data consistency validation [3 SP]
-- [ ] Create/update validation script: `scripts/audit/validate-ai-data-consistency.mjs`
-- [ ] Checks:
-  - No orphan embeddings (emailId/contactId references exist)
-  - No stale embedding versions (all match current model)
-  - AiRunLedger has recent entries (AI is actually being used)
-  - ChatSession records have valid tenantId
-  - No duplicate embedding jobs in queue
-  - No stale semaphore slots in Redis
-  - Circuit breaker in closed state
-- [ ] Report any issues found
+### T-1304: Data consistency validation [3 SP] ✅ DONE
+
+- [x] Created validation script: `scripts/audit/validate-ai-data-consistency.mjs`
+- [x] Results: 10 PASS / 2 WARN / 1 FAIL
+  - 897 embeddings, 0 orphans, consistent model ✅
+  - 741 AI runs, latest 2h ago, $4.49 total cost ✅
+  - Circuit breaker: closed ✅
+  - Redis: connected ✅
+  - Contact queue: clean ✅
+  - **Email queue DLQ: 276 failed** (pre-existing, causes degraded health) — KNOWN ISSUE
+- [x] Issue reported: email embedding DLQ > 100 threshold (backlog item, not S01-S12 regression)
 
 ### T-1305: Update production scorecard [2 SP]
 - [ ] Collect all sprint results (S01-S12)
