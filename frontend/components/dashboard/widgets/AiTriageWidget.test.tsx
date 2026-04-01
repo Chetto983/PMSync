@@ -8,42 +8,46 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+const mockUseConsent = jest.fn().mockReturnValue({
+  data: [{ feature: 'ai_email_processing', granted: true }],
+  isLoading: false,
+});
 jest.mock('@/hooks/queries/use-consent', () => ({
-  useConsent: () => ({
-    data: [{ feature: 'ai_email_processing', granted: true }],
-    isLoading: false,
-  }),
+  useConsent: (...args: unknown[]) => mockUseConsent(...args),
 }));
 
-jest.mock('@/hooks/queries/use-dashboard', () => ({
-  useTriagedEmails: () => ({
-    data: {
-      emails: [
-        {
-          id: 'email-1',
-          subject: 'Renewal at risk',
-          from: 'Alice Example <alice@example.com>',
-          aiPriority: 1,
-          aiPriorityReason: 'Customer mentioned a contract deadline this afternoon.',
-          aiSentiment: 'negative',
-          aiLabels: ['Renewal'],
-          isRead: false,
-          receivedAt: '2026-03-31T09:00:00.000Z',
-        },
-      ],
-      total: 1,
-      byPriority: { 1: 1 },
+const defaultTriageData = {
+  emails: [
+    {
+      id: 'email-1',
+      subject: 'Renewal at risk',
+      from: 'Alice Example <alice@example.com>',
+      aiPriority: 1,
+      aiPriorityReason: 'Customer mentioned a contract deadline this afternoon.',
+      aiSentiment: 'negative',
+      aiLabels: ['Renewal'],
+      isRead: false,
+      receivedAt: '2026-03-31T09:00:00.000Z',
     },
-    isLoading: false,
-    error: undefined,
-    refetch: jest.fn(),
-  }),
-  useImportantEmails: () => ({
-    data: { emails: [], total: 0 },
-    isLoading: false,
-    error: undefined,
-    refetch: jest.fn(),
-  }),
+  ],
+  total: 1,
+  byPriority: { 1: 1 },
+};
+const mockUseTriagedEmails = jest.fn().mockReturnValue({
+  data: defaultTriageData,
+  isLoading: false,
+  error: undefined,
+  refetch: jest.fn(),
+});
+const mockUseImportantEmails = jest.fn().mockReturnValue({
+  data: { emails: [], total: 0 },
+  isLoading: false,
+  error: undefined,
+  refetch: jest.fn(),
+});
+jest.mock('@/hooks/queries/use-dashboard', () => ({
+  useTriagedEmails: (...args: unknown[]) => mockUseTriagedEmails(...args),
+  useImportantEmails: (...args: unknown[]) => mockUseImportantEmails(...args),
 }));
 
 jest.mock('@/hooks/queries/use-follow-ups', () => ({
@@ -134,6 +138,45 @@ describe('AiTriageWidget', () => {
     expect(screen.getByText('Action now')).toBeInTheDocument();
     expect(screen.getByText('To do')).toBeInTheDocument();
     expect(screen.getByText('Need to reply before the customer deadline.')).toBeInTheDocument();
+  });
+
+  it('shows consent message when AI consent is denied', () => {
+    mockUseConsent.mockReturnValueOnce({
+      data: [{ feature: 'ai_email_processing', granted: false }],
+      isLoading: false,
+    });
+
+    render(
+      <ThemeProvider theme={createTheme()}>
+        <AiTriageWidget />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText('Enable AI email processing.')).toBeInTheDocument();
+  });
+
+  it('shows empty state when no triaged or starred emails', () => {
+    mockUseTriagedEmails.mockReturnValueOnce({
+      data: { emails: [], total: 0, byPriority: {} },
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    });
+    mockUseImportantEmails.mockReturnValueOnce({
+      data: { emails: [], total: 0 },
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    });
+
+    render(
+      <ThemeProvider theme={createTheme()}>
+        <AiTriageWidget />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText('No triaged emails')).toBeInTheDocument();
+    expect(screen.getByText('Enable Auto-Triage in AI Settings')).toBeInTheDocument();
   });
 
   it('navigates to the email detail and triaged inbox view', () => {
