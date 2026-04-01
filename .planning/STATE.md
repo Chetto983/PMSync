@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
-status: executing
-stopped_at: Phase 136 UI-SPEC approved
-last_updated: "2026-04-01T20:19:54.433Z"
-last_activity: 2026-04-01 -- Phase 0137 execution started
+status: verifying
+stopped_at: Completed 0137-02-PLAN.md
+last_updated: "2026-04-01T20:39:12.317Z"
+last_activity: 2026-04-01
 progress:
   total_phases: 13
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 24
-  completed_plans: 22
+  completed_plans: 24
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 0137 — unified-task-model
+**Current focus:** Phase 0136 — command-palette
 
 ## Current Position
 
-Phase: 0137 (unified-task-model) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 0137
-Last activity: 2026-04-01 -- Phase 0137 execution started
+Phase: 0136 (command-palette) — EXECUTING
+Plan: 2 of 2
+Status: Phase complete — ready for verification
+Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,8 @@ Progress: [░░░░░░░░░░] 0%
 - v12.0: Sidebar reduction first (most visible, motivates all other changes)
 - [Phase 0135]: Sidebar always 64px icon rail — no collapsed/expanded modes, mobile returns null
 - [Phase 0135]: Settings pinned at bottom via flex spacer, excluded from DnD reorder
+- [Phase 0137]: UncheckedUpdateInput for ManualTask FK updates -- Prisma UpdateInput requires relation objects, unchecked variant allows raw FK assignment
+- [Phase 0137]: Parallel source aggregation pattern: Promise.all over filtered source queries with status reverse-mapping
 
 ### Blockers/Concerns
 
@@ -59,6 +61,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-01T15:55:46.576Z
-Stopped at: Phase 136 UI-SPEC approved
-Resume file: .planning/phases/0136-command-palette/0136-UI-SPEC.md
+Last session: 2026-04-01T20:39:12.309Z
+Stopped at: Completed 0137-02-PLAN.md
+Resume file: None
