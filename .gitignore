@@ -213,3 +213,4 @@ backend/scripts/screenshots/*
 backups/*
 frontend/public/sw.js
 .agents/skills/*
+frontend/public/sw.js
