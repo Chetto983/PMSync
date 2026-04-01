@@ -123,12 +123,12 @@ export function Sidebar({
   ], []);
   const defaultAiOrder = useMemo(() => ['/dashboard/ai/follow-ups', '/dashboard/reminders', '/dashboard/ai'], []);
 
-  const { order: mainOrder, handleReorder: reorderMain } = useSidebarOrder('main', defaultMainOrder);
-  const { order: crmOrder, handleReorder: reorderCrm } = useSidebarOrder('crm', defaultCrmOrder);
-  const { order: aiOrder, handleReorder: reorderAi } = useSidebarOrder('ai', defaultAiOrder);
+  const { order: mainOrder, handleReorder: reorderMain } = useSidebarOrder(defaultMainOrder);
+  const { order: crmOrder, handleReorder: reorderCrm } = useSidebarOrder(defaultCrmOrder);
+  const { order: aiOrder, handleReorder: reorderAi } = useSidebarOrder(defaultAiOrder);
 
   const defaultSectionOrder = useMemo(() => ['main', 'crm', 'ai'], []);
-  const { order: sectionOrder, handleReorder: reorderSections } = useSidebarOrder('sections', defaultSectionOrder);
+  const { order: sectionOrder, handleReorder: reorderSections } = useSidebarOrder(defaultSectionOrder);
 
   const dndEnabled = !collapsed && !isMobile;
 

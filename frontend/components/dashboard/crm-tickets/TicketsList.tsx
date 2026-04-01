@@ -16,11 +16,15 @@ import {
   TableRow,
   TablePagination,
   MenuItem,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Trash2, Ticket as TicketIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useTickets } from '@/hooks/queries/use-crm-tickets';
+import { useTickets, useDeleteTicket } from '@/hooks/queries/use-crm-tickets';
+import { CrmBreadcrumb, EmptyState } from '@/components/common';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CreateTicketDialog } from './CreateTicketDialog';
 import type { Ticket } from '@/lib/api/crm-tickets';
 
@@ -54,6 +58,15 @@ export function TicketsList() {
   });
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const deleteTicket = useDeleteTicket();
+
+  const handleDelete = () => {
+    if (!deleteTargetId) return;
+    deleteTicket.mutate(deleteTargetId, {
+      onSettled: () => setDeleteTargetId(null),
+    });
+  };
 
   useEffect(() => {
     const params: Record<string, string> = {};
@@ -75,7 +88,7 @@ export function TicketsList() {
 
   if (isLoading) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
         <Skeleton width="30%" height={32} animation="wave" sx={{ mb: 2 }} />
         <Skeleton width="100%" height={48} animation="wave" sx={{ mb: 1 }} />
         {Array.from({ length: 6 }).map((_, i) => (
@@ -87,7 +100,7 @@ export function TicketsList() {
 
   if (isError) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
         <Alert severity="error">{(error as Error)?.message ?? tt?.loadError ?? 'Error'}</Alert>
       </Box>
     );
@@ -103,6 +116,8 @@ export function TicketsList() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CrmBreadcrumb section={tt?.title ?? 'Tickets'} sectionHref="/dashboard/crm/tickets" />
+
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box>
@@ -170,12 +185,13 @@ export function TicketsList() {
 
       {/* Table */}
       {rows.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography color="text.secondary">{tt?.noTickets ?? 'No tickets found'}</Typography>
-          <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>
-            {tt?.noTicketsHint}
-          </Typography>
-        </Box>
+        <EmptyState
+          icon={TicketIcon}
+          title={tt?.noTickets ?? 'No tickets found'}
+          description={tt?.noTicketsHint}
+          actionLabel={tt?.newTicket ?? 'Create Ticket'}
+          onAction={() => setCreateOpen(true)}
+        />
       ) : (
         <>
           <TableContainer sx={{ flex: 1 }}>
@@ -188,6 +204,7 @@ export function TicketsList() {
                   <TableCell>{tt?.columns?.assignee ?? 'Assignee'}</TableCell>
                   <TableCell>{tt?.columns?.contact ?? 'Contact'}</TableCell>
                   <TableCell>{tt?.columns?.createdAt ?? 'Created'}</TableCell>
+                  <TableCell width={50} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -234,6 +251,18 @@ export function TicketsList() {
                         {new Date(ticket.createdAt).toLocaleDateString()}
                       </Typography>
                     </TableCell>
+                    <TableCell>
+                      <Tooltip title={tt?.actions?.delete ?? 'Delete'}>
+                        <IconButton
+                          size="small"
+                          aria-label={tt?.actions?.delete ?? 'Delete ticket'}
+                          sx={{ minWidth: 44, minHeight: 44 }}
+                          onClick={(e) => { e.stopPropagation(); setDeleteTargetId(ticket.id); }}
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -257,6 +286,17 @@ export function TicketsList() {
       <CreateTicketDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={handleDelete}
+        title={tt?.actions?.delete ?? 'Delete Ticket'}
+        message={tt?.actions?.confirmDelete ?? 'Are you sure? This action cannot be undone.'}
+        confirmText={tt?.actions?.delete ?? 'Delete'}
+        variant="danger"
+        isLoading={deleteTicket.isPending}
       />
     </Box>
   );
