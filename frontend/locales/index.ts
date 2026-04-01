@@ -5199,6 +5199,8 @@ export interface AppTranslations {
       link?: string;
     };
     confidence?: string;
+    dismissConfirmTitle?: string;
+    dismissConfirmMessage?: string;
   };
   activityTimeline?: {
     title?: string;

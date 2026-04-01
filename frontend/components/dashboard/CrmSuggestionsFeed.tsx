@@ -25,6 +25,7 @@ import {
   useBulkSuggestionAction,
 } from '@/hooks/queries/use-crm-suggestions';
 import { useGlobalToast } from '@/lib/context/toast-context';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CrmSuggestion } from '@/lib/api/crm-suggestions';
 
 // ---- Icon Map ----
@@ -166,6 +167,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
   const dismissMutation = useDismissSuggestion();
   const bulkMutation = useBulkSuggestionAction();
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [dismissConfirmId, setDismissConfirmId] = useState<string | null>(null);
 
   const suggestions = useMemo(() => data?.data ?? [], [data]);
   const grouped = useMemo(() => {
@@ -198,7 +200,14 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
     }
   }, [acceptMutation, toast, ts, t.common, pendingIds]);
 
-  const handleDismiss = useCallback(async (id: string) => {
+  const handleDismissClick = useCallback((id: string) => {
+    setDismissConfirmId(id);
+  }, []);
+
+  const handleDismissConfirm = useCallback(async () => {
+    const id = dismissConfirmId;
+    if (!id) return;
+    setDismissConfirmId(null);
     if (pendingIds.has(id)) return;
     setPendingIds((prev) => new Set(prev).add(id));
     try {
@@ -213,7 +222,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
         return next;
       });
     }
-  }, [dismissMutation, toast, ts, t.common, pendingIds]);
+  }, [dismissConfirmId, dismissMutation, toast, ts, t.common, pendingIds]);
 
   const handleBulkAccept = useCallback(async () => {
     const ids = suggestions.map((s) => s.id);
@@ -308,7 +317,7 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
                   key={suggestion.id}
                   suggestion={suggestion}
                   onAccept={handleAccept}
-                  onDismiss={handleDismiss}
+                  onDismiss={handleDismissClick}
                   acceptLabel={ts?.accept ?? 'Accept'}
                   dismissLabel={ts?.dismiss ?? 'Dismiss'}
                   typeLabels={typeLabels}
@@ -319,6 +328,15 @@ export const CrmSuggestionsFeed = memo(function CrmSuggestionsFeed() {
           ))}
         </List>
       )}
+      <ConfirmDialog
+        open={dismissConfirmId !== null}
+        onClose={() => setDismissConfirmId(null)}
+        onConfirm={handleDismissConfirm}
+        variant="warning"
+        title={ts?.dismissConfirmTitle ?? 'Dismiss suggestion'}
+        message={ts?.dismissConfirmMessage ?? 'Dismiss this suggestion? This cannot be undone.'}
+        confirmText={ts?.dismiss ?? 'Dismiss'}
+      />
     </Paper>
   );
 });

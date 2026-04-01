@@ -2680,6 +2680,12 @@ export const en: AppTranslations = {
       failedToLoadFollowUps: 'Failed to load follow-ups: {error}',
       followUpsTitle: 'Follow-ups',
       noFollowUpsFound: 'No follow-ups found.',
+      running: 'Running',
+      complete: 'Complete',
+      arguments: 'Arguments',
+      details: 'Details',
+      previousBranch: 'Previous branch',
+      nextBranch: 'Next branch',
     },
     commandPalette: {
       title: 'Quick Commands',
@@ -5431,5 +5437,7 @@ export const en: AppTranslations = {
       link: 'Link Contact',
     },
     confidence: 'Confidence',
+    dismissConfirmTitle: 'Dismiss suggestion',
+    dismissConfirmMessage: 'Dismiss this suggestion? This cannot be undone.',
   },
 };
