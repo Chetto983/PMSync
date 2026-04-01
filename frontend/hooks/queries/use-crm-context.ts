@@ -3,6 +3,12 @@ import { useQuery, queryOptions } from '@tanstack/react-query';
 import { crmContextApi, type CrmContactContext } from '@/lib/api/crm-context';
 import { crmContextKeys } from './crm-context-keys';
 
+// Simple email format check — prevents sending raw "Name <email>" strings to the API
+const EMAIL_RE = /^[\w.+-]+@[\w.-]+\.\w+$/;
+function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email);
+}
+
 // ---- Query Options ----
 
 export function crmContextByContactOptions(contactId: string) {
@@ -32,7 +38,7 @@ export function crmContextByEmailOptions(email: string) {
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     retry: 1,
-    enabled: !!email,
+    enabled: !!email && isValidEmail(email),
   });
 }
 

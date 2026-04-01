@@ -7,12 +7,20 @@ import { formatDateInTz, formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import { isValidHexColor } from '@/lib/label-colors';
 
 /**
- * Extract email address from "Name <email@domain.com>" format
+ * Extract email address from "Name <email@domain.com>" format.
+ * Also handles malformed cases like missing closing > bracket.
  */
 export function extractEmailAddress(from: string): string {
+  // Standard: "Name" <email@domain.com>
   const match = from.match(/<([^>]+)>/);
-  if (match) return match[1].toLowerCase();
-  // If no brackets, treat the whole string as email
+  if (match) return match[1].toLowerCase().trim();
+  // Malformed: missing closing > (e.g. "Name" <email@domain.com)
+  const openMatch = from.match(/<([^<]+)$/);
+  if (openMatch) return openMatch[1].toLowerCase().trim();
+  // Fallback: extract anything that looks like an email
+  const emailMatch = from.match(/[\w.+-]+@[\w.-]+\.\w+/);
+  if (emailMatch) return emailMatch[0].toLowerCase();
+  // Last resort: return trimmed string
   return from.toLowerCase().trim();
 }
 
