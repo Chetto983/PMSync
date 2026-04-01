@@ -27,7 +27,7 @@ Requirements for UX Unification — 4-Pillar Simplification. Each maps to roadma
 
 ### Unified Tasks
 
-- [ ] **TASK-01**: User sees a single Tasks page listing follow-ups, reminders, CRM deal actions, ticket actions, and manual to-dos
+- [x] **TASK-01**: User sees a single Tasks page listing follow-ups, reminders, CRM deal actions, ticket actions, and manual to-dos
 - [ ] **TASK-02**: User can create a manual task from anywhere via Cmd+K or quick-add button
 - [ ] **TASK-03**: User can filter tasks by type (follow-up, reminder, deal, ticket, manual), contact, due date, and status
 - [ ] **TASK-04**: User can save filter combinations as named smart views (e.g., "My Follow-ups", "Open Tickets")
@@ -88,7 +88,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CTX-04 | Phase 141 | Pending |
 | CTX-05 | Phase 141 | Pending |
 | CTX-06 | Phase 140 | Pending |
-| TASK-01 | Phase 137 | Pending |
+| TASK-01 | Phase 137 | Complete |
 | TASK-02 | Phase 138 | Pending |
 | TASK-03 | Phase 138 | Pending |
 | TASK-04 | Phase 139 | Pending |

@@ -83,6 +83,7 @@ model Tenant {
   inAppNotifications       InAppNotification[]
   crmSuggestions           CrmSuggestion[]
   triageRules              Json                      @default("[]") // TriageRule[] — onboarding triage rules
+  manualTasks              ManualTask[]
 
   @@map("tenants")
 }
@@ -139,6 +140,7 @@ model User {
   assignedTickets     Ticket[]
   ticketComments      TicketComment[]
   kbArticles          KBArticle[]
+  manualTasks         ManualTask[]
 
   /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
   @@unique([tenantId, email])
@@ -554,6 +556,7 @@ model Email {
   embeddings           Embedding[]
   tickets              Ticket[]
   crmSuggestions       CrmSuggestion[]
+  manualTasks          ManualTask[]
 
   @@id([id, tenantId])
   @@unique([tenantId, messageId, folder])
@@ -913,6 +916,7 @@ model Contact {
   churnSignals        ChurnSignal[]
   nbaActions          NBAAction[]
   tickets             Ticket[]
+  manualTasks         ManualTask[]
 
   @@id([id, tenantId])
   @@index([tenantId, displayName])
@@ -1661,6 +1665,36 @@ model Reminder {
   @@map("reminders")
 }
 
+model ManualTask {
+  id            String    @id @default(cuid())
+  tenantId      String
+  userId        String
+  title         String
+  description   String?
+  status        String    @default("pending")  // pending, in_progress, completed, dismissed
+  priority      String    @default("medium")   // low, medium, high, urgent
+  dueDate       DateTime?
+  contactId     String?
+  contactTenant String?
+  dealId        String?
+  emailId       String?
+  emailTenant   String?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contact       Contact?  @relation(fields: [contactId, contactTenant], references: [id, tenantId], onDelete: SetNull)
+  deal          CrmDeal?  @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  email         Email?    @relation(fields: [emailId, emailTenant], references: [id, tenantId], onDelete: SetNull)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, status])
+  @@index([tenantId, userId, dueDate])
+  @@map("manual_tasks")
+}
+
 model TelegramSettings {
   id               String   @id @default(cuid())
   tenantId         String
@@ -1836,6 +1870,7 @@ model CrmDeal {
   dealProducts      DealProduct[]
   dealContacts      DealContact[]
   nbaActions        NBAAction[]
+  manualTasks       ManualTask[]
 
   @@index([tenantId])
   @@index([tenantId, pipelineId])
