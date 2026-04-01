@@ -8,12 +8,14 @@
  * One LLM call per batch -- not per email.
  * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { generateObject, generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
+import { Redis } from 'ioredis';
 import { z } from 'zod';
 import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
 import { getLocale } from '../locales';
@@ -96,20 +98,60 @@ function buildSystemPrompt(locale?: string): string {
   return SYSTEM_PROMPT + (LOCALE_SUFFIXES[lang] || '');
 }
 
+// Per-tenant concurrency: max 1 concurrent detection per tenant
+const TENANT_LOCK_PREFIX = 'pmsync:followup-detect:lock:';
+const TENANT_LOCK_TTL_S = 120; // 2 min auto-expire (safety net)
+// Batch size limit: prevent large tenants from overloading a single LLM call
+const MAX_EMAILS_PER_BATCH = 50;
+
 @Injectable()
-export class FollowUpDetectionService {
+export class FollowUpDetectionService implements OnModuleInit {
   private readonly logger = new Logger(FollowUpDetectionService.name);
   private readonly detectionVersion = 'follow-up-detection-v1';
+  private redis!: Redis;
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly redisConnection?: RedisConnectionService,
     @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
     @Optional() private readonly ledgerService?: AiRunLedgerService,
   ) {}
 
+  onModuleInit() {
+    if (this.redisConnection) {
+      this.redis = this.redisConnection.client;
+    }
+  }
+
+  /**
+   * Acquire per-tenant lock. Returns true if acquired, false if another detection is running.
+   * Lock auto-expires after TENANT_LOCK_TTL_S to prevent deadlock from crashed workers.
+   */
+  private async acquireTenantLock(tenantId: string): Promise<boolean> {
+    if (!this.redis) return true; // No Redis = no locking (test/dev)
+    try {
+      const result = await this.redis.set(
+        `${TENANT_LOCK_PREFIX}${tenantId}`, '1', 'EX', TENANT_LOCK_TTL_S, 'NX',
+      );
+      return result === 'OK';
+    } catch (err) {
+      this.logger.warn(`Follow-up lock acquire failed for ${tenantId}: ${err instanceof Error ? err.message : String(err)}`);
+      return true; // Fail open — don't block detection if Redis is down
+    }
+  }
+
+  private releaseTenantLock(tenantId: string): void {
+    if (!this.redis) return;
+    this.redis.del(`${TENANT_LOCK_PREFIX}${tenantId}`).catch((err) => {
+      this.logger.warn(`Follow-up lock release failed for ${tenantId}: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }
+
   /**
    * Detect follow-ups in recent emails within a time window.
+   * Per-tenant concurrency: max 1 concurrent detection per tenant.
+   * Batch limit: max 50 emails per LLM call to prevent prompt overflow.
    * @param tenantId Tenant ID
    * @param hoursWindow Hours to look back (default: 24)
    */
@@ -118,9 +160,42 @@ export class FollowUpDetectionService {
     hoursWindow = 24,
     locale?: string,
   ): Promise<AiServiceResult<FollowUpDetectionOutput>> {
+    // Per-tenant concurrency guard
+    const lockAcquired = await this.acquireTenantLock(tenantId);
+    if (!lockAcquired) {
+      this.logger.debug(`Follow-up detection skipped for tenant ${tenantId}: already running`);
+      return {
+        data: {
+          detectedFollowUps: [],
+          batchSummary: { totalAnalyzed: 0, totalDetected: 0, highUrgencyCount: 0 },
+        },
+        meta: buildAiResponseMeta({
+          operation: 'follow-up-detection',
+          version: this.detectionVersion,
+          source: 'cache',
+          locale,
+          model: this.mistralProvider.getChatModelName(),
+          warnings: ['concurrent_detection_skipped'],
+        }),
+      };
+    }
+
+    try {
+      return await this.detectFollowUpsInternal(tenantId, hoursWindow, locale);
+    } finally {
+      this.releaseTenantLock(tenantId);
+    }
+  }
+
+  private async detectFollowUpsInternal(
+    tenantId: string,
+    hoursWindow: number,
+    locale?: string,
+  ): Promise<AiServiceResult<FollowUpDetectionOutput>> {
     const cutoffDate = new Date(Date.now() - hoursWindow * 60 * 60 * 1000);
 
     // 1. Fetch recent emails — skip already-triaged (they get follow-ups from TriageActionService)
+    //    Batch limit: cap at MAX_EMAILS_PER_BATCH to prevent prompt overflow
     const recentEmails = await this.prisma.email.findMany({
       where: {
         tenantId,
@@ -138,6 +213,7 @@ export class FollowUpDetectionService {
         receivedAt: true,
       },
       orderBy: { receivedAt: 'desc' },
+      take: MAX_EMAILS_PER_BATCH,
     });
 
     if (recentEmails.length === 0) {
