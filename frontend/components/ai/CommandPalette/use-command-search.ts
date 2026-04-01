@@ -95,7 +95,7 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
       // Deals
       if (settled[2].status === 'fulfilled') {
         allRejected = false;
-        const deals = settled[2].value.data;
+        const deals = settled[2].value.data.data;
         if (deals.length > 0) {
           groups.push({
             type: 'deal',
@@ -115,7 +115,7 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
       // Tickets
       if (settled[3].status === 'fulfilled') {
         allRejected = false;
-        const tickets = settled[3].value.data;
+        const tickets = settled[3].value.data.data;
         if (tickets.length > 0) {
           groups.push({
             type: 'ticket',
@@ -135,7 +135,7 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
       // KB Articles
       if (settled[4].status === 'fulfilled') {
         allRejected = false;
-        const articles = settled[4].value.data;
+        const articles = settled[4].value.data.data;
         if (articles.length > 0) {
           groups.push({
             type: 'kb',

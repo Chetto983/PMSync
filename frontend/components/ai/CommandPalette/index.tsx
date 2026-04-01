@@ -17,7 +17,7 @@ import { authClient } from '@/lib/auth-client';
 import { clearOfflineData } from '@/lib/logout-cleanup';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { createLogger } from '@/lib/logger';
-import type { CommandItem, SearchResult } from './types';
+import type { CommandGroup, CommandItem, SearchResult } from './types';
 import { buildCommands, GROUP_LABELS } from './commands';
 import { CommandList } from './CommandList';
 import { SearchResults } from './SearchResults';
@@ -75,7 +75,7 @@ export function CommandPalette() {
   const { results: searchResults, isSearching, hasError } = useCommandSearch(debouncedSearch);
 
   const groupLabels = useMemo(
-    () => Object.fromEntries(Object.entries(GROUP_LABELS).map(([k, fn]) => [k, fn(t)])),
+    () => Object.fromEntries(Object.entries(GROUP_LABELS).map(([k, fn]) => [k, fn(t)])) as Record<CommandGroup, string>,
     [t],
   );
 
@@ -224,7 +224,6 @@ export function CommandPalette() {
         focusedIndex={focusedIndex}
         onSelect={handleCommandSelect}
         groupLabels={groupLabels}
-        listRef={listRef}
       />
 
       {/* Search results (visible when query >= 2 chars) */}

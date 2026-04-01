@@ -10,8 +10,8 @@ import {
   Box,
   CircularProgress,
   Chip,
-  alpha,
   useTheme,
+  type Theme,
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { SearchResult, SearchResultGroup } from './types';
@@ -26,7 +26,7 @@ interface SearchResultsProps {
   listRef: React.RefObject<HTMLUListElement | null>;
 }
 
-function getEntityColor(type: SearchResult['type'], theme: ReturnType<typeof useTheme>): string {
+function getEntityColor(type: SearchResult['type'], theme: Theme): string {
   switch (type) {
     case 'email': return theme.palette.primary.main;
     case 'contact': return theme.palette.secondary.main;
@@ -47,7 +47,7 @@ export function SearchResults({
   listRef,
 }: SearchResultsProps) {
   const t = useTranslations();
-  const theme = useTheme();
+  const theme = useTheme<Theme>();
 
   // Loading state
   if (isSearching && groups.length === 0) {
