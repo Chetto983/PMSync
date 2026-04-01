@@ -2152,6 +2152,7 @@ export interface AppTranslations {
       lastAnalyzed: string;
       manualSamples: string;
       manualSamplesHelp: string;
+      manualSamplesPlaceholder: string;
       manualSamplesSave: string;
       manualSamplesSaved: string;
       selectAccount: string;
@@ -4934,6 +4935,8 @@ export interface AppTranslations {
   nba?: {
     title?: string;
     subtitle?: string;
+    loadError?: string;
+    noRecommendations?: string;
     empty?: string;
     emptyDescription?: string;
     actionTypes?: {

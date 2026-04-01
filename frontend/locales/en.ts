@@ -2379,6 +2379,7 @@ export const en: AppTranslations = {
       lastAnalyzed: 'Last analyzed',
       manualSamples: 'Manual writing samples',
       manualSamplesHelp: 'Paste examples of your writing style. These override auto-detected patterns.',
+      manualSamplesPlaceholder: 'Dear John, I hope this email finds you well...',
       manualSamplesSave: 'Save samples',
       manualSamplesSaved: 'Samples saved',
       selectAccount: 'Select email account',
@@ -5138,6 +5139,8 @@ export const en: AppTranslations = {
   nba: {
     title: 'Recommended Actions',
     subtitle: 'AI-powered suggestions to advance this deal',
+    loadError: 'Unable to load recommendations',
+    noRecommendations: 'No recommendations at this time',
     empty: 'No recommendations available',
     emptyDescription: 'This deal is progressing well — no urgent actions needed.',
     actionTypes: {

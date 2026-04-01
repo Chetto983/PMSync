@@ -261,7 +261,7 @@ export function WritingStyleSettings() {
             fullWidth
             value={samples}
             onChange={(e) => setSamples(e.target.value)}
-            placeholder="Dear John, I hope this email finds you well..."
+            placeholder={ws.manualSamplesPlaceholder}
             sx={{ mb: 2 }}
           />
 

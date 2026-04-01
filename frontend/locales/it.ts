@@ -2367,6 +2367,7 @@ export const it: AppTranslations = {
       lastAnalyzed: 'Ultima analisi',
       manualSamples: 'Campioni di scrittura manuali',
       manualSamplesHelp: 'Incolla esempi del tuo stile di scrittura. Questi sovrascrivono i pattern rilevati automaticamente.',
+      manualSamplesPlaceholder: 'Gentile Giovanni, spero che questa email ti trovi bene...',
       manualSamplesSave: 'Salva campioni',
       manualSamplesSaved: 'Campioni salvati',
       selectAccount: 'Seleziona account email',
@@ -5115,6 +5116,8 @@ export const it: AppTranslations = {
   nba: {
     title: 'Azioni Consigliate',
     subtitle: 'Suggerimenti AI per far avanzare questa trattativa',
+    loadError: 'Impossibile caricare i suggerimenti',
+    noRecommendations: 'Nessun suggerimento al momento',
     empty: 'Nessuna raccomandazione disponibile',
     emptyDescription: 'Questa trattativa procede bene — nessuna azione urgente necessaria.',
     actionTypes: {

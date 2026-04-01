@@ -5,8 +5,10 @@ import {
   Typography,
   Skeleton,
   Paper,
+  Alert,
+  Button,
 } from '@mui/material';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, RefreshCw } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useNbaRecommendations, useUpdateNbaStatus } from '@/hooks/queries/use-crm-nba';
 import { useGlobalToast } from '@/lib/context/toast-context';
@@ -21,7 +23,7 @@ export function NBASection({ dealId }: NBASectionProps) {
   const tn = t.nba;
   const toast = useGlobalToast();
 
-  const { data, isLoading, error } = useNbaRecommendations(dealId);
+  const { data, isLoading, error, refetch } = useNbaRecommendations(dealId);
   const updateStatus = useUpdateNbaStatus();
 
   const handleExecute = (actionId: string) => {
@@ -54,10 +56,37 @@ export function NBASection({ dealId }: NBASectionProps) {
     );
   }
 
-  if (error) return null; // Silently fail — NBA is non-critical
+  if (error) {
+    console.error('[NBASection] Failed to load recommendations:', error);
+    return (
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Alert
+          severity="warning"
+          action={
+            <Button size="small" startIcon={<RefreshCw size={14} />} onClick={() => refetch()}>
+              {t.common.retry}
+            </Button>
+          }
+        >
+          {tn?.loadError ?? 'Unable to load recommendations'}
+        </Alert>
+      </Paper>
+    );
+  }
 
   const actions = data?.actions ?? [];
-  if (actions.length === 0) return null; // No recommendations = don't show section
+  if (actions.length === 0) {
+    return (
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Lightbulb size={16} color="var(--mui-palette-text-secondary)" />
+          <Typography variant="body2" color="text.secondary">
+            {tn?.noRecommendations ?? 'No recommendations at this time'}
+          </Typography>
+        </Box>
+      </Paper>
+    );
+  }
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
