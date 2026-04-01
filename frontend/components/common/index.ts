@@ -16,3 +16,4 @@ export {
   type ColorOption,
 } from './ColorPicker';
 export { SlaBadge } from './SlaBadge';
+export { EntityContextSidebar, type EntityContextSidebarProps } from './EntityContextSidebar';

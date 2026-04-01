@@ -59,6 +59,8 @@ export * from './crm-tickets-keys';
 export * from './use-crm-tickets';
 export * from './crm-kb-keys';
 export * from './use-crm-kb';
+export * from './crm-context-keys';
+export * from './use-crm-context';
 // Note: use-providers exports are NOT re-exported here because use-settings already
 // exports useProviders, useSyncAllProviders, useDeleteProvider. Import directly from
 // './use-providers' if you need the dedicated provider hooks (useProvider, useUpdateProvider etc).

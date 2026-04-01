@@ -5152,6 +5152,29 @@ export interface AppTranslations {
     surveyNotFound?: string;
     surveyYourRating?: string;
   };
+  crmContext?: {
+    sidebarTitle?: string;
+    contactCard?: string;
+    linkedAccount?: string;
+    openDeals?: string;
+    activeTickets?: string;
+    relationshipStrength?: string;
+    noAccount?: string;
+    noDeals?: string;
+    noTickets?: string;
+    unknownContact?: string;
+    createContact?: string;
+    noCrmData?: string;
+    emailCount?: string;
+    lastInteraction?: string;
+    dealValue?: string;
+    ticketCount?: string;
+    collapse?: string;
+    expand?: string;
+    strengthWeak?: string;
+    strengthModerate?: string;
+    strengthStrong?: string;
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
