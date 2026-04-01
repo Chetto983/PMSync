@@ -1,21 +1,32 @@
 import { useState, useCallback } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
 
-const STORAGE_KEY_PREFIX = 'pmsync:sidebar-order-';
+const STORAGE_KEY = 'pmsync:sidebar-order-pillars';
 
-type SectionKey = 'main' | 'crm' | 'ai' | 'sections';
+/** Stale keys from the old multi-section sidebar — removed on first load. */
+const STALE_KEYS = [
+  'pmsync:sidebar-order-main',
+  'pmsync:sidebar-order-crm',
+  'pmsync:sidebar-order-ai',
+  'pmsync:sidebar-order-sections',
+  'pmsync:sidebar-collapsed',
+];
 
 /**
- * Persists sidebar nav item order per section to localStorage.
+ * Persists sidebar pillar icon order to localStorage.
  * Returns the ordered href list and a reorder handler for DndContext.onDragEnd.
  */
-export function useSidebarOrder(section: SectionKey, defaultOrder: string[]) {
-  const storageKey = STORAGE_KEY_PREFIX + section;
-
+export function useSidebarOrder(defaultOrder: string[]) {
   const [order, setOrder] = useState<string[]>(() => {
     if (typeof window === 'undefined') return defaultOrder;
+
+    // Clean up stale localStorage keys from old multi-section sidebar
+    STALE_KEYS.forEach((key) => {
+      localStorage.removeItem(key);
+    });
+
     try {
-      const stored = localStorage.getItem(storageKey);
+      const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) return defaultOrder;
       const parsed: string[] = JSON.parse(stored);
       // Validate: must contain exactly the same hrefs (handles added/removed items)
@@ -26,7 +37,7 @@ export function useSidebarOrder(section: SectionKey, defaultOrder: string[]) {
         !parsed.every((h) => defaultSet.has(h)) ||
         !defaultOrder.every((h) => storedSet.has(h))
       ) {
-        localStorage.removeItem(storageKey);
+        localStorage.removeItem(STORAGE_KEY);
         return defaultOrder;
       }
       return parsed;
@@ -43,24 +54,24 @@ export function useSidebarOrder(section: SectionKey, defaultOrder: string[]) {
         if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return prev;
         const next = arrayMove(prev, oldIndex, newIndex);
         try {
-          localStorage.setItem(storageKey, JSON.stringify(next));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         } catch {
           // quota exceeded — silently ignore
         }
         return next;
       });
     },
-    [storageKey],
+    [],
   );
 
   const resetOrder = useCallback(() => {
     setOrder(defaultOrder);
     try {
-      localStorage.removeItem(storageKey);
+      localStorage.removeItem(STORAGE_KEY);
     } catch {
       // ignore
     }
-  }, [storageKey, defaultOrder]);
+  }, [defaultOrder]);
 
   return { order, handleReorder, resetOrder } as const;
 }
