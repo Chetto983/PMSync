@@ -280,9 +280,11 @@ async function main() {
   }
   console.log(`Created ${tickets.length} sample tickets`);
 
-  // KB Categories
-  const gettingStarted = await prisma.kBCategory.create({
-    data: {
+  // KB Categories (upsert to avoid P2002 on re-seed)
+  const gettingStarted = await prisma.kBCategory.upsert({
+    where: { tenantId_slug: { tenantId: defaultTenant.id, slug: 'getting-started' } },
+    update: {},
+    create: {
       tenantId: defaultTenant.id,
       name: 'Getting Started',
       slug: 'getting-started',
@@ -291,8 +293,10 @@ async function main() {
     },
   });
 
-  const troubleshooting = await prisma.kBCategory.create({
-    data: {
+  const troubleshooting = await prisma.kBCategory.upsert({
+    where: { tenantId_slug: { tenantId: defaultTenant.id, slug: 'troubleshooting' } },
+    update: {},
+    create: {
       tenantId: defaultTenant.id,
       name: 'Troubleshooting',
       slug: 'troubleshooting',
@@ -332,8 +336,10 @@ async function main() {
   ];
 
   for (const a of articles) {
-    await prisma.kBArticle.create({
-      data: {
+    await prisma.kBArticle.upsert({
+      where: { tenantId_slug: { tenantId: defaultTenant.id, slug: a.slug } },
+      update: {},
+      create: {
         tenantId: defaultTenant.id,
         authorId: adminUser.id,
         ...a,
@@ -350,14 +356,19 @@ async function main() {
   ];
 
   for (const t of templates) {
-    await prisma.ticketTemplate.create({
-      data: {
-        tenantId: defaultTenant.id,
-        name: t.name,
-        body: t.body,
-        category: t.category,
-      },
+    const existing = await prisma.ticketTemplate.findFirst({
+      where: { tenantId: defaultTenant.id, name: t.name },
     });
+    if (!existing) {
+      await prisma.ticketTemplate.create({
+        data: {
+          tenantId: defaultTenant.id,
+          name: t.name,
+          body: t.body,
+          category: t.category,
+        },
+      });
+    }
   }
   console.log(`Created ${templates.length} canned response templates`);
 
