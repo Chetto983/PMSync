@@ -26,6 +26,7 @@ import { TabPanel, getContactName, getPrimaryEmail } from './contact-detail/cont
 import { ContactInfoPanel } from './contact-detail/ContactInfoPanel';
 import { ContactActivityFeed } from './contact-detail/ContactActivityFeed';
 import { ContactNotesTab } from './contact-detail/ContactNotesTab';
+import { ContactCrmTab } from './contact-detail/ContactCrmTab';
 import { ChurnRiskBadge } from '../dashboard/crm-churn/ChurnRiskBadge';
 import { ContactDuplicatesDialog } from './ContactDuplicatesDialog';
 import { ContactMergeDialog } from './ContactMergeDialog';
@@ -185,6 +186,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           <Tab label={detailsCopy.tabs?.details || 'Details'} />
           <Tab label={detailsCopy.tabs?.activity || 'Activity'} />
           <Tab label={detailsCopy.tabs?.notes || 'Notes'} />
+          <Tab label="CRM" />
         </Tabs>
       </Box>
 
@@ -203,6 +205,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
 
         <TabPanel value={tabValue} index={2}>
           <ContactNotesTab />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
+          <ContactCrmTab contactId={contact.id} />
         </TabPanel>
       </Box>
 
