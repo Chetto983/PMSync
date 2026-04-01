@@ -155,7 +155,7 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
           },
         });
         result.imminent++;
-        this.realtimeEvents?.emitFollowUpReminderImminent(followUp.tenantId, {
+        const imminentPayload = {
           followUpId: followUp.id,
           emailId: followUp.emailId,
           subject: followUp.email?.subject ?? null,
@@ -164,7 +164,12 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
           tenantId: followUp.tenantId,
           userId: followUp.userId,
           timestamp: new Date().toISOString(),
-        });
+        };
+        this.realtimeEvents?.emitFollowUpReminderImminent(followUp.tenantId, imminentPayload);
+        this.persistNotification(followUp.tenantId, followUp.userId, 'reminder:imminent',
+          `Due in ${Math.round(timeUntilDue / 60000)}min: ${followUp.email?.subject ?? 'Follow-up'}`,
+          imminentPayload,
+        );
         this.logger.debug(
           `Imminent reminder: ${followUp.emailId} (${followUp.email?.subject}), due in ${Math.round(timeUntilDue / 60000)}min`,
         );
@@ -178,7 +183,7 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
           },
         });
         result.upcoming++;
-        this.realtimeEvents?.emitFollowUpReminderUpcoming(followUp.tenantId, {
+        const upcomingPayload = {
           followUpId: followUp.id,
           emailId: followUp.emailId,
           subject: followUp.email?.subject ?? null,
@@ -187,7 +192,12 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
           tenantId: followUp.tenantId,
           userId: followUp.userId,
           timestamp: new Date().toISOString(),
-        });
+        };
+        this.realtimeEvents?.emitFollowUpReminderUpcoming(followUp.tenantId, upcomingPayload);
+        this.persistNotification(followUp.tenantId, followUp.userId, 'reminder:upcoming',
+          `Due in ${Math.round((followUp.dueDate.getTime() - now) / MS_1H)}h: ${followUp.email?.subject ?? 'Follow-up'}`,
+          upcomingPayload,
+        );
       }
     }
 
@@ -215,7 +225,7 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
         result.expired++;
       } else {
         result.overdue++;
-        this.realtimeEvents?.emitFollowUpReminderOverdue(followUp.tenantId, {
+        const overduePayload = {
           followUpId: followUp.id,
           emailId: followUp.emailId,
           subject: followUp.email?.subject ?? null,
@@ -224,10 +234,29 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
           tenantId: followUp.tenantId,
           userId: followUp.userId,
           timestamp: new Date().toISOString(),
-        });
+        };
+        this.realtimeEvents?.emitFollowUpReminderOverdue(followUp.tenantId, overduePayload);
+        this.persistNotification(followUp.tenantId, followUp.userId, 'reminder:overdue',
+          `Overdue: ${followUp.email?.subject ?? 'Follow-up'}`,
+          overduePayload,
+        );
       }
     }
 
     return result;
+  }
+
+  /**
+   * Persist notification to DB so offline users receive it on reconnect.
+   * Fire-and-forget: errors are logged but don't block the scheduler.
+   */
+  private persistNotification(
+    tenantId: string, userId: string, type: string, title: string, data: Record<string, unknown>,
+  ): void {
+    this.prisma.inAppNotification.create({
+      data: { tenantId, userId, type, title, data: data as any },
+    }).catch((err) => {
+      this.logger.warn(`Failed to persist notification: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 }

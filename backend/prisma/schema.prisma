@@ -80,6 +80,7 @@ model Tenant {
   kbArticles               KBArticle[]
   csatSurveys              CSATSurvey[]
   ticketTemplates          TicketTemplate[]
+  inAppNotifications       InAppNotification[]
   crmSuggestions           CrmSuggestion[]
 
   @@map("tenants")
@@ -110,6 +111,7 @@ model User {
   learningProfiles    AgentLearningProfile[]
   auditLogs           AuditLog[]
   dashboardPreference DashboardPreference?
+  inAppNotifications  InAppNotification[]
   emailSignatures     EmailSignature[]
   emailTemplates      EmailTemplate[]
   mfaBackupCodes      MfaBackupCode[]
@@ -2414,4 +2416,23 @@ model TicketTemplate {
   @@index([tenantId])
   @@index([tenantId, category])
   @@map("ticket_templates")
+}
+
+model InAppNotification {
+  id         String    @id @default(cuid())
+  tenantId   String
+  userId     String
+  type       String    // reminder:upcoming, reminder:imminent, reminder:overdue
+  title      String
+  body       String?
+  data       Json?     // Arbitrary payload (followUpId, emailId, etc.)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, readAt])
+  @@index([tenantId, userId, createdAt])
+  @@map("in_app_notifications")
 }

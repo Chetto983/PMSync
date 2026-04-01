@@ -1034,4 +1034,39 @@ export class AiController {
     return { success: true };
   }
 
+  // ==========================================
+  // In-App Notifications (persistent queue for offline users)
+  // ==========================================
+
+  @Get('notifications')
+  @ApiOperation({ summary: 'Get unread notifications' })
+  @ApiResponse({ status: 200, description: 'Unread notifications list' })
+  async getUnreadNotifications(@Request() req: AuthenticatedRequest) {
+    const notifications = await this.prisma.inAppNotification.findMany({
+      where: { tenantId: req.user.tenantId, userId: req.user.userId, readAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return { success: true, notifications };
+  }
+
+  @Post('notifications/mark-read')
+  @ApiOperation({ summary: 'Mark notifications as read' })
+  @ApiResponse({ status: 200, description: 'Notifications marked as read' })
+  async markNotificationsRead(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: { ids: string[] },
+  ) {
+    const { count } = await this.prisma.inAppNotification.updateMany({
+      where: {
+        id: { in: dto.ids },
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        readAt: null,
+      },
+      data: { readAt: new Date() },
+    });
+    return { success: true, marked: count };
+  }
+
 }
