@@ -1,10 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
+import { BACKEND_ORIGIN } from '@/lib/backend-origin';
 
-const backendOrigin =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : '');
+const backendOrigin = BACKEND_ORIGIN;
 
 const hopByHopHeaders = new Set([
   'connection',
@@ -94,10 +93,6 @@ function getSetCookies(response: Response): string[] {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (!backendOrigin) {
-    return res.status(500).json({ error: 'NEXT_PUBLIC_API_URL is not configured' });
-  }
-
   try {
     const targetUrl = buildTargetUrl(req);
     const headers = copyRequestHeaders(req);

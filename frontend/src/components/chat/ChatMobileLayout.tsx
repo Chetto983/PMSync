@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { MessagesSquare, ArrowLeft } from 'lucide-react';
 import Box from '@mui/material/Box';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -14,11 +14,33 @@ import { ChatThread } from './ChatThread';
  */
 export function ChatMobileLayout() {
   const [showSidebar, setShowSidebar] = useState(false);
+  const backBtnRef = useRef<HTMLButtonElement>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
   const t = useTranslations();
   const closeLabel = t.common?.close || 'Close';
 
   const openSidebar = useCallback(() => setShowSidebar(true), []);
   const closeSidebar = useCallback(() => setShowSidebar(false), []);
+
+  // Escape closes sidebar; focus moves back to hamburger button
+  useEffect(() => {
+    if (!showSidebar) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeSidebar();
+        menuBtnRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showSidebar, closeSidebar]);
+
+  // Auto-focus back button when sidebar opens
+  useEffect(() => {
+    if (showSidebar) {
+      backBtnRef.current?.focus();
+    }
+  }, [showSidebar]);
 
   return (
     <div
@@ -30,10 +52,13 @@ export function ChatMobileLayout() {
         <div className="chat-mobile-slide-thread">
           <div className="chat-mobile-thread-panel">
             <button
+              ref={menuBtnRef}
               type="button"
               onClick={openSidebar}
               className="chat-mobile-menu-btn"
               aria-label={t.chat.threadList.title}
+              aria-expanded={showSidebar ? 'true' : 'false'}
+              aria-controls="chat-mobile-sidebar"
             >
               <Box component={MessagesSquare} sx={{ width: 20, height: 20 }} />
             </button>
@@ -51,9 +76,12 @@ export function ChatMobileLayout() {
         />
 
         <div
+          id="chat-mobile-sidebar"
           className="chat-mobile-slide-sidebar"
           data-visible={showSidebar ? 'true' : 'false'}
           aria-hidden={showSidebar ? 'false' : 'true'}
+          role="dialog"
+          aria-label={t.chat.threadList.title}
         >
           <div className="chat-mobile-sidebar-panel">
             <div className="chat-mobile-sidebar-header">

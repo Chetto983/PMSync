@@ -96,7 +96,7 @@ function AddContactDialog({
       if (axiosErr?.response?.status === 409) {
         toast.error(tc?.alreadyLinked ?? 'Already linked');
       } else {
-        toast.error(t.common.genericError);
+        toast.error(tc?.linkError ?? 'Failed to link contact to deal');
       }
     }
   };
@@ -237,7 +237,7 @@ export function DealContactsTab({ dealId }: { dealId: string }) {
       await unlinkContact.mutateAsync(confirmUnlinkId);
       toast.success(tc?.unlinked ?? 'Contact removed');
     } catch {
-      toast.error(t.common.genericError);
+      toast.error(tc?.unlinkError ?? 'Failed to remove contact from deal');
     } finally {
       setConfirmUnlinkId(null);
     }
@@ -259,7 +259,7 @@ export function DealContactsTab({ dealId }: { dealId: string }) {
   }
 
   if (isError) {
-    return <Alert severity="error">{t.common.genericError}</Alert>;
+    return <Alert severity="error">{tc?.loadError ?? 'Failed to load deal contacts'}</Alert>;
   }
 
   const contacts = links ?? [];

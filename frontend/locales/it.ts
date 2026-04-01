@@ -4419,6 +4419,8 @@ export const it: AppTranslations = {
     created: 'Account creato con successo',
     updated: 'Account aggiornato con successo',
     deleted: 'Account eliminato con successo',
+    updateError: 'Impossibile aggiornare l\'account',
+    loadError: 'Impossibile caricare l\'account',
     detail: {
       tabs: {
         info: 'Info',
@@ -4447,6 +4449,9 @@ export const it: AppTranslations = {
         linked: 'Contatto collegato con successo',
         unlinked: 'Contatto rimosso dall\'account',
         alreadyLinked: 'Il contatto è già collegato a questo account',
+        linkError: 'Impossibile collegare il contatto all\'account',
+        unlinkError: 'Impossibile rimuovere il contatto dall\'account',
+        loadError: 'Impossibile caricare i contatti dell\'account',
       },
       contactRoles: {
         label: 'Ruolo',
@@ -4717,6 +4722,9 @@ export const it: AppTranslations = {
         linked: 'Contatto collegato con successo',
         unlinked: 'Contatto rimosso dalla trattativa',
         alreadyLinked: 'Contatto già collegato a questa trattativa',
+        linkError: 'Impossibile collegare il contatto alla trattativa',
+        unlinkError: 'Impossibile rimuovere il contatto dalla trattativa',
+        loadError: 'Impossibile caricare i contatti della trattativa',
       },
       contactRoles: {
         label: 'Ruolo',
@@ -4741,6 +4749,9 @@ export const it: AppTranslations = {
         linked: 'Prodotto collegato con successo',
         unlinked: 'Prodotto rimosso dalla trattativa',
         alreadyLinked: 'Prodotto già collegato a questa trattativa',
+        linkError: 'Impossibile collegare il prodotto alla trattativa',
+        unlinkError: 'Impossibile rimuovere il prodotto dalla trattativa',
+        loadError: 'Impossibile caricare i prodotti della trattativa',
         columns: {
           name: 'Prodotto',
           code: 'Codice',

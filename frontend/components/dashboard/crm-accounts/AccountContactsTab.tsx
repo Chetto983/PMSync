@@ -90,7 +90,7 @@ function AddContactDialog({
       if (err?.response?.status === 409) {
         toast.error(tc?.alreadyLinked ?? 'Already linked');
       } else {
-        toast.error(t.common.genericError);
+        toast.error(tc?.linkError ?? 'Failed to link contact to account');
       }
     }
   };
@@ -238,7 +238,7 @@ export function AccountContactsTab({ accountId }: { accountId: string }) {
       await unlinkContact.mutateAsync({ accountId, contactId: confirmUnlinkId });
       toast.success(tc?.unlinked ?? 'Contact removed');
     } catch {
-      toast.error(t.common.genericError);
+      toast.error(tc?.unlinkError ?? 'Failed to remove contact from account');
     } finally {
       setConfirmUnlinkId(null);
     }
@@ -260,7 +260,7 @@ export function AccountContactsTab({ accountId }: { accountId: string }) {
   }
 
   if (isError) {
-    return <Alert severity="error">{t.common.genericError}</Alert>;
+    return <Alert severity="error">{tc?.loadError ?? 'Failed to load account contacts'}</Alert>;
   }
 
   const contacts = links ?? [];

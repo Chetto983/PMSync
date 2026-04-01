@@ -4266,6 +4266,8 @@ export interface AppTranslations {
     created?: string;
     updated?: string;
     deleted?: string;
+    updateError?: string;
+    loadError?: string;
     detail?: {
       tabs?: {
         info?: string;
@@ -4294,6 +4296,9 @@ export interface AppTranslations {
         linked?: string;
         unlinked?: string;
         alreadyLinked?: string;
+        linkError?: string;
+        unlinkError?: string;
+        loadError?: string;
       };
       contactRoles?: {
         label?: string;
@@ -4564,6 +4569,9 @@ export interface AppTranslations {
         linked?: string;
         unlinked?: string;
         alreadyLinked?: string;
+        linkError?: string;
+        unlinkError?: string;
+        loadError?: string;
       };
       contactRoles?: {
         label?: string;
@@ -4588,6 +4596,9 @@ export interface AppTranslations {
         linked?: string;
         unlinked?: string;
         alreadyLinked?: string;
+        linkError?: string;
+        unlinkError?: string;
+        loadError?: string;
         columns?: {
           name?: string;
           code?: string;

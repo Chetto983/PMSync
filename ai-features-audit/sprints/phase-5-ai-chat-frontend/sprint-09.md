@@ -12,19 +12,19 @@
 
 ## Sprint Backlog
 
-### T-0901: Add data validation to all tool renderers [4 SP]
-- [ ] Read all 14 tool UI components in `frontend/src/components/chat/tool-uis/`
-- [ ] Add runtime type checking: validate expected fields before destructuring
-- [ ] Show FallbackToolUI on malformed data (not crash)
-- [ ] Add error boundary wrapper around each tool renderer
-- [ ] Test: pass malformed data to each renderer, verify graceful degradation
-- [ ] Addresses: **FE-H3**
+### T-0901: Add data validation to all tool renderers [4 SP] ✅ DONE
+- [x] Read all 14 tool UI components in `frontend/src/components/chat/tool-uis/`
+- [x] Add runtime type checking: validate expected fields before destructuring
+- [x] Show FallbackToolUI on malformed data (not crash)
+- [x] Add error boundary wrapper around each tool renderer
+- [x] Test: pass malformed data to each renderer, verify graceful degradation
+- [x] Addresses: **FE-H3**
 
-### T-0902: Add ARIA labels to interactive tool elements [2 SP]
-- [ ] Audit all buttons, links, and clickable elements in tool UIs
-- [ ] Add `aria-label` to icon-only buttons (e.g., copy, expand, navigate)
-- [ ] Add `role` attributes where missing
-- [ ] Addresses: **FE-M1**
+### T-0902: Add ARIA labels to interactive tool elements [2 SP] ✅ DONE
+- [x] Audit all buttons, links, and clickable elements in tool UIs
+- [x] Add `aria-label` to icon-only buttons (e.g., copy, expand, navigate)
+- [x] Add `role` attributes where missing
+- [x] Addresses: **FE-M1**
 
 ### T-0903: Fix mobile chat layout keyboard accessibility [2 SP]
 - [ ] Read `ChatMobileLayout` — trace hamburger menu interaction

@@ -109,7 +109,7 @@ function AddProductDialog({
       if (axiosErr?.response?.status === 409) {
         toast.error(tp?.alreadyLinked ?? 'Already linked');
       } else {
-        toast.error(t.common.genericError);
+        toast.error(tp?.linkError ?? 'Failed to link product to deal');
       }
     }
   };
@@ -278,7 +278,7 @@ export function DealProductsTab({ dealId }: { dealId: string }) {
       await unlinkProduct.mutateAsync({ dealId, linkId: confirmUnlinkId });
       toast.success(tp?.unlinked ?? 'Product removed');
     } catch {
-      toast.error(t.common.genericError);
+      toast.error(tp?.unlinkError ?? 'Failed to remove product from deal');
     } finally {
       setConfirmUnlinkId(null);
     }

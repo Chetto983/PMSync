@@ -404,7 +404,7 @@ export function AccountDetail() {
         await updateAccount.mutateAsync({ id, dto });
         toast.success(ta?.updated ?? 'Updated');
       } catch {
-        toast.error(t.common.genericError);
+        toast.error(ta?.updateError ?? 'Failed to update account');
       }
     },
     [id, updateAccount, toast, ta, t],
@@ -427,7 +427,7 @@ export function AccountDetail() {
         <Alert severity="error" sx={{ mb: 2 }}>
           {(error as { status?: number })?.status === 404
             ? 'Account not found'
-            : t.common.genericError}
+            : (ta?.loadError ?? 'Failed to load account')}
         </Alert>
         <Button
           startIcon={<ArrowLeft size={16} />}

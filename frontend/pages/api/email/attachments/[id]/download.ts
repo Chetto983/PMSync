@@ -11,12 +11,9 @@
  * 4. Streams response back to client with proper headers
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { BACKEND_ORIGIN } from '@/lib/backend-origin';
 
-// CRITICAL: Only fallback to localhost in development mode
-// In production, NEXT_PUBLIC_API_URL must be set via Vercel environment variables
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : '');
+const API_BASE_URL = BACKEND_ORIGIN;
 
 export default async function handler(
   req: NextApiRequest,

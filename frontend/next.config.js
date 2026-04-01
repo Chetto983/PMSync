@@ -18,10 +18,17 @@ const withSerwist = withSerwistInit({
 });
 
 /** @type {import('next').NextConfig} */
+const backendOrigin =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.BACKEND_API_URL ||
+  (process.env.NODE_ENV === 'development'
+    ? 'http://localhost:3000'
+    : 'https://backend-production-78e1.up.railway.app');
+
 const nextConfig = {
   reactStrictMode: true,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_API_URL: backendOrigin,
   },
   images: {
     remotePatterns: [],

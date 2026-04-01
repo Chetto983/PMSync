@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { BACKEND_ORIGIN } from '@/lib/backend-origin';
 import { logger } from '@/lib/logger';
 
 /**
@@ -377,17 +378,7 @@ class WebSocketClient {
 
       this.isConnecting = true;
 
-      // CRITICAL: Only fallback to localhost in development mode
-      // In production, NEXT_PUBLIC_API_URL must be set
-      const backendUrl =
-        process.env.NEXT_PUBLIC_API_URL ||
-        (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : undefined);
-
-      if (!backendUrl) {
-        logger.error('[WebSocket] NEXT_PUBLIC_API_URL is not configured for production');
-        reject(new Error('WebSocket: API URL not configured'));
-        return;
-      }
+      const backendUrl = BACKEND_ORIGIN;
 
       // Clean up any stale socket before creating a new one to prevent connection leaks
       if (this.socket) {

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { authClient } from '@/lib/auth-client';
+import { BACKEND_ORIGIN } from '@/lib/backend-origin';
 import { clearOfflineData } from '@/lib/logout-cleanup';
 
 // =============================================================================
@@ -10,18 +11,10 @@ let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
 let csrfRetryAfterMs = 0;
 
-const serverApiOrigin =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : undefined);
+const serverApiOrigin = BACKEND_ORIGIN;
 
 // Browser traffic goes through the Next.js proxy so Better Auth cookies stay first-party.
 export const API_BASE_URL = typeof window !== 'undefined' ? '' : serverApiOrigin;
-
-if (typeof window === 'undefined' && !serverApiOrigin) {
-  throw new Error(
-    'NEXT_PUBLIC_API_URL is not configured. Set it for the frontend proxy or rely on the default http://localhost:3000 in development.',
-  );
-}
 
 export const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,

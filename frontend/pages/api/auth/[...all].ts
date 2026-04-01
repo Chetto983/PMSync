@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { BACKEND_ORIGIN } from '@/lib/backend-origin';
 
 const hopByHopHeaders = new Set([
   'connection',
@@ -127,7 +128,7 @@ const CALLBACK_PROVIDER_MAP: Record<string, string> = {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const backendUrl = BACKEND_ORIGIN;
 
   // --- Provider-link callback interception ---
   // OAuth callbacks hit /api/auth/callback/{provider}?code=...&state=pl_...

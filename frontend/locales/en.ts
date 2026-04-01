@@ -4442,6 +4442,8 @@ export const en: AppTranslations = {
     created: 'Account created successfully',
     updated: 'Account updated successfully',
     deleted: 'Account deleted successfully',
+    updateError: 'Failed to update account',
+    loadError: 'Failed to load account',
     detail: {
       tabs: {
         info: 'Info',
@@ -4470,6 +4472,9 @@ export const en: AppTranslations = {
         linked: 'Contact linked successfully',
         unlinked: 'Contact removed from account',
         alreadyLinked: 'Contact is already linked to this account',
+        linkError: 'Failed to link contact to account',
+        unlinkError: 'Failed to remove contact from account',
+        loadError: 'Failed to load account contacts',
       },
       contactRoles: {
         label: 'Role',
@@ -4740,6 +4745,9 @@ export const en: AppTranslations = {
         linked: 'Contact linked successfully',
         unlinked: 'Contact removed from deal',
         alreadyLinked: 'Contact is already linked to this deal',
+        linkError: 'Failed to link contact to deal',
+        unlinkError: 'Failed to remove contact from deal',
+        loadError: 'Failed to load deal contacts',
       },
       contactRoles: {
         label: 'Role',
@@ -4764,6 +4772,9 @@ export const en: AppTranslations = {
         linked: 'Product linked successfully',
         unlinked: 'Product removed from deal',
         alreadyLinked: 'Product is already linked to this deal',
+        linkError: 'Failed to link product to deal',
+        unlinkError: 'Failed to remove product from deal',
+        loadError: 'Failed to load deal products',
         columns: {
           name: 'Product',
           code: 'Code',
