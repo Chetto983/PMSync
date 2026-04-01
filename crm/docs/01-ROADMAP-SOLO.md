@@ -253,6 +253,7 @@ gantt
 |---|---|---|---|---|
 | S19 | Auto-Population Engine | L | 20 | CrmSuggestion model, email→account/deal/ticket, contact→account linking, calendar→activity |
 | S20 | Contextual Sidebar & Timeline | L | 18 | Entity context sidebar, activity timeline, contact CRM tab, AI suggestions feed |
+| S20.1 | UX Anti-Patterns Remediation | H | 14 | Feedback guards, destructive safety, touch targets, URL state sync, a11y, race conditions |
 | S21 | UX Consistency Pass | M | 15 | Sidebar fix, breadcrumbs, layout normalization, i18n, theme compliance, URL state |
 | S22 | Empty States & Dashboard Polish | M | 12 | Dashboard health card, onboarding checklist, guided empty states, mobile validation |
 
@@ -262,6 +263,7 @@ gantt
 |---|---|---|
 | Auto-population operativo | S19 | Email triage crea suggerimenti CRM (account, deal, ticket). Contact-account linking funziona. Calendar sync logga attivita. |
 | Sidebar contestuale | S20 | Email thread view mostra dati CRM del sender. Contact detail ha tab CRM con timeline. Dashboard mostra suggerimenti AI. |
+| UX anti-pattern zero | S20.1 | Zero double-submit, zero destructive senza conferma, touch target ≥44px, filtri in URL su tutte le liste, sidebar keyboard-navigable. |
 | Consistenza visuale | S21 | Tutte le pagine CRM: maxWidth 1200, breadcrumb, empty state con CTA, filtri in URL, zero colori hardcoded. |
 | Dashboard viva | S22 | Dashboard mostra metriche CRM + checklist onboarding. Ogni pagina vuota spiega perche e come popolarla. |
 
