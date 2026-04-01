@@ -178,6 +178,23 @@ export class EmailAnalysisService {
     }
   }
 
+  /**
+   * Invalidate analysis cache for specific email IDs.
+   * Called when labels or folder change, so next analysis request regenerates.
+   * Sets processedAt to epoch (effectively expiring the 24h cache window).
+   */
+  async invalidateCache(tenantId: string, emailIds: string[]): Promise<number> {
+    if (emailIds.length === 0) return 0;
+    const { count } = await this.prisma.emailAnalysis.updateMany({
+      where: { tenantId, emailId: { in: emailIds } },
+      data: { processedAt: new Date(0) },
+    });
+    if (count > 0) {
+      this.logger.debug(`Invalidated analysis cache for ${count} emails (tenant: ${tenantId})`);
+    }
+    return count;
+  }
+
   // --- Private helpers ---
 
   private async getUserLabels(tenantId: string): Promise<Array<{ name: string; aiPrompt: string | null }>> {

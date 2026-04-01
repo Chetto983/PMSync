@@ -349,6 +349,9 @@ export class EmailBulkService {
       this.logger.error(`Failed to sync bulk move to provider: ${error.message}`);
     });
 
+    // Invalidate AI analysis cache (folder change may affect triage relevance)
+    this.invalidateAnalysisCache(tenantId, emailIds);
+
     const updatedEmails = await this.emailCrud.getEmailsByIds(emailIds, tenantId);
     const sourceFolderByEmailId = new Map(emails.map((email) => [email.id, email.folder]));
 
@@ -531,6 +534,9 @@ export class EmailBulkService {
     // Sync-back: resolve Gmail label IDs via Folder model and call syncOperationsBatch
     await this.syncLabelOperationsToProviders(emails, labels, uniqueProviderIds, tenantId, 'addLabel');
 
+    // Invalidate AI analysis cache (label change may affect priority/categorization)
+    this.invalidateAnalysisCache(tenantId, validatedEmailIds);
+
     const updatedEmails = await this.emailCrud.getEmailsByIds(validatedEmailIds, tenantId);
 
     for (const email of updatedEmails) {
@@ -596,6 +602,9 @@ export class EmailBulkService {
 
     // Sync-back: resolve Gmail label IDs via Folder model and call syncOperationsBatch
     await this.syncLabelOperationsToProviders(emails, validatedLabels, uniqueProviderIds, tenantId, 'removeLabel');
+
+    // Invalidate AI analysis cache (label change may affect priority/categorization)
+    this.invalidateAnalysisCache(tenantId, validatedEmailIds);
 
     const updatedEmails = await this.emailCrud.getEmailsByIds(validatedEmailIds, tenantId);
 
@@ -697,5 +706,19 @@ export class EmailBulkService {
         this.logger.error(`Failed to sync label ${operation} to provider: ${error.message}`);
       });
     }
+  }
+
+  /**
+   * Fire-and-forget: invalidate AI analysis cache for affected emails.
+   * Uses Prisma directly to avoid circular AI module dependency.
+   */
+  private invalidateAnalysisCache(tenantId: string, emailIds: string[]): void {
+    if (emailIds.length === 0) return;
+    this.prisma.emailAnalysis.updateMany({
+      where: { tenantId, emailId: { in: emailIds } },
+      data: { processedAt: new Date(0) },
+    }).catch((err) => {
+      this.logger.warn(`Failed to invalidate analysis cache: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 }
