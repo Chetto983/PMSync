@@ -11,6 +11,7 @@ import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
 import { MistralService } from '../services/mistral.service';
 import { CacheService } from '../../../common/services/cache.service';
+import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 
 /**
  * Detailed AI health status response (admin only)
@@ -29,6 +30,11 @@ export interface AiHealthDetailedResponse {
       status: string;
       connected: boolean;
     };
+    /** T-0405: DLQ stats for embedding queues */
+    dlq?: {
+      totalFailed: number;
+      byQueue: Record<string, number>;
+    };
   };
 }
 
@@ -38,6 +44,7 @@ export class AiHealthController {
   constructor(
     private readonly mistralService: MistralService,
     private readonly cacheService: CacheService,
+    private readonly dlqService: DeadLetterQueueService,
   ) { }
 
   /**
@@ -120,7 +127,7 @@ export class AiHealthController {
       },
     },
   })
-  getHealthDetailed(): AiHealthDetailedResponse {
+  async getHealthDetailed(): Promise<AiHealthDetailedResponse> {
     const circuitBreaker = this.mistralService.getCircuitBreakerStatus();
     const mistralHealthy = circuitBreaker.state === 'closed';
     const mistralDegraded = circuitBreaker.state === 'half-open';
@@ -133,6 +140,15 @@ export class AiHealthController {
       overallStatus = 'unhealthy';
     } else {
       overallStatus = 'degraded';
+    }
+
+    // T-0405: Include DLQ stats for embedding queues
+    let dlq: { totalFailed: number; byQueue: Record<string, number> } | undefined;
+    try {
+      const stats = await this.dlqService.getStats();
+      dlq = { totalFailed: stats.totalFailed, byQueue: stats.byQueue };
+    } catch {
+      // DLQ stats are non-critical — omit on failure
     }
 
     return {
@@ -149,6 +165,7 @@ export class AiHealthController {
           status: cacheConnected ? 'healthy' : 'unhealthy',
           connected: cacheConnected,
         },
+        dlq,
       },
     };
   }
