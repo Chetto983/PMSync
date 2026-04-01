@@ -1,73 +1,53 @@
-# Phase 5 — AI Chat Frontend COMPLETE (S08)
+# Phase 5 — AI Chat Frontend COMPLETE (S08 + S09)
 
 | Field | Value |
 |-------|-------|
 | **Status** | COMPLETE |
-| **Sprint** | S08 (14 SP) |
-| **Tasks** | 5/5 |
-| **Next** | Sprint 09 (Phase 5 — AI Chat Frontend, continued) |
+| **Sprint** | S09 (12 SP) |
+| **Tasks** | 6/6 |
+| **SP Done** | 12 |
+| **Next** | Sprint 10 (Phase 6 — Email AI Frontend) |
 
 ## Findings Addressed
 
 | Finding | Severity | Status | Notes |
 |---------|----------|--------|-------|
-| FE-C1 | Critical | Fixed | CSRF caching already existed in api-client.ts. Added CSRF 403 retry to SSE stream's raw fetch (createChatStreamResponse) which was the only gap. |
-| FE-H1 | High | Fixed | CommandPalette: aria-label on Dialog/input/list, role="listbox"/role="option", aria-activedescendant, aria-selected. MUI Dialog already provides focus trap. |
-| FE-H2 | High | False Positive | aiResponse IS rendered in SchedulingDrawer (lines 444-449, Alert with Sparkles icon). No dead code found. |
-| FE-H4 | High | Fixed | HitlApprovalCard: elapsed time counter (useElapsedSeconds hook), expiry warning after 3 min, Dismiss button. |
-| N/A | Low | Fixed | FallbackToolUI and ChatBranchPicker hardcoded strings replaced with i18n keys (6 new keys in en/it). |
+| FE-H3 | High | Fixed | ToolErrorBoundary wraps all renderers in ToolDispatcher. Defensive optional chaining added to BriefingToolUI, AnalysisToolUI, CrmToolUI, ConversationToolUI, MemoryToolUI, FollowUpToolUI, CrmIntelligenceToolUI. Malformed data shows fallback, not crash. |
+| FE-M1 | Medium | Fixed | SenderAvatar: role="img" + aria-label. EmailRow: aria-label on links. FallbackToolUI: aria-label on details. AnalysisToolUI: role="status" on sentiment/urgency badges. |
+| FE-M2 | Medium | Fixed | ChatMobileLayout: Escape closes sidebar + returns focus to hamburger. Tab focus trapped inside sidebar. aria-expanded, aria-controls, aria-modal, role="dialog". Auto-focus back button on open. |
+| FE-M3 | Medium | Fixed | ChatSuggestions: 6 preset suggestion pairs resolved to i18n keys via resolveSuggestionCopy(). Unknown runtime suggestions pass through unmodified. aria-label on chips. |
+| FE-L1 | Low | Fixed | ChatPage: removed mounted ref guard. Dynamic page loader is the only loading state (no double skeleton flash). |
 
 ## Last Modified Files
 
-- `frontend/lib/api/ai.ts` — CSRF 403 retry for SSE streams
-- `frontend/components/ai/CommandPalette/index.tsx` — ARIA labels, listbox roles, activedescendant
-- `frontend/src/components/chat/HitlApprovalCard.tsx` — elapsed time, expiry warning, dismiss button
-- `frontend/src/components/chat/tool-uis/FallbackToolUI.tsx` — i18n for Running/Complete/Arguments/Details
-- `frontend/src/components/chat/ChatBranchPicker.tsx` — i18n for aria-labels
-- `frontend/locales/en.ts` — new keys: commandPalette.title, toolUi.running/complete/arguments/details/previousBranch/nextBranch, hitl.waitingFor/minutes/seconds/expiryWarning/dismiss
+- `frontend/src/components/chat/tool-uis/shared/ToolErrorBoundary.tsx` — error boundary with errorLabel/fallbackMessage props
+- `frontend/src/components/chat/AssistantMessage.tsx` — ToolDispatcher wraps renderers in ToolErrorBoundary with i18n
+- `frontend/src/components/chat/tool-uis/BriefingToolUI.tsx` — defensive defaults on all nested destructuring
+- `frontend/src/components/chat/tool-uis/AnalysisToolUI.tsx` — defensive analysis default, role="status" badges
+- `frontend/src/components/chat/tool-uis/CrmToolUI.tsx` — nullsafe contacts array
+- `frontend/src/components/chat/tool-uis/ConversationToolUI.tsx` — nullsafe options array
+- `frontend/src/components/chat/tool-uis/MemoryToolUI.tsx` — nullsafe score multiplication
+- `frontend/src/components/chat/tool-uis/FollowUpToolUI.tsx` — nullsafe email nested access
+- `frontend/src/components/chat/tool-uis/CrmIntelligenceToolUI.tsx` — nullsafe probability/riskLevel/predicted
+- `frontend/src/components/chat/tool-uis/shared/SenderAvatar.tsx` — role="img" + aria-label
+- `frontend/src/components/chat/tool-uis/EmailSearchToolUI.tsx` — aria-label on email row links
+- `frontend/src/components/chat/tool-uis/FallbackToolUI.tsx` — aria-label on details toggle
+- `frontend/src/components/chat/ChatMobileLayout.tsx` — Escape, focus trap, aria-expanded/controls/modal
+- `frontend/src/components/chat/ChatSuggestions.tsx` — resolveSuggestionCopy() with 6 i18n presets
+- `frontend/src/components/chat/ChatPage.tsx` — removed mounted guard
+- `frontend/locales/en.ts` — suggestion keys + threadList open/close labels
 - `frontend/locales/it.ts` — Italian translations for all new keys
 - `frontend/locales/index.ts` — type definitions for new keys
 
 ## Key Decisions
 
-- FE-C1: Session-level CSRF cache was already in place. The real gap was SSE streams using raw fetch without CSRF 403 retry. Fixed by detecting CSRF_TOKEN_INVALID response, clearing cache, and replaying once.
-- FE-H1: MUI Dialog already provides focus trap and aria-modal. Added role="listbox"/option pattern with aria-activedescendant for screen reader keyboard nav. **Post-CDP fix**: ARIA attrs were initially on MUI TextField wrapper (wrong), moved to `slotProps.htmlInput` to target native `<input>`.
-- FE-H2: Marked as false positive — aiResponse is rendered in an Alert component. No code changes needed.
-- FE-H4: Used useElapsedSeconds custom hook with 1s interval. Expiry warning threshold at 3 minutes. Dismiss calls handleReject (same as deny). CDP confirmed "In attesa da 2 sec" visible live.
-- T-0805: Placed new translation keys in toolUi namespace (not chat) since that's where tool UI strings live.
+- T-0901: Created ToolErrorBoundary as class component (React requirement for error boundaries). Wraps at ToolDispatcher level so ALL registered renderers get protection. Added defensive optional chaining to 7 renderers with highest crash risk.
+- T-0902: No icon-only buttons found in tool UIs (all use Button with text). Added role="img" to SenderAvatar, aria-label to EmailRow links, role="status" to status badges.
+- T-0903: Full focus trap inside sidebar (Tab cycles between focusable elements). Escape returns focus to hamburger button. aria-modal="true" + role="dialog" on sidebar.
+- T-0904: Used preset-matching approach: known prompts resolve to i18n, unknown pass through. 6 preset pairs covering inbox, triage, follow-ups, schedule, contacts, briefing.
+- T-0905: Removed the mounted ref guard entirely — the dynamic import page loader already handles the loading state.
+- T-0906: ToolErrorBoundary enhanced with optional errorLabel/fallbackMessage props wired through translations.
 
 ## Validation Status
 
-- `npx tsc --noEmit` — PASS (no new errors; pre-existing widget-registry errors unrelated)
-
-## CDP Deep Validation (Vercel Production)
-
-Script: `scripts/validate-sprint08-cdp.mjs` via Edge CDP on port 9222.
-
-**Result: 22 PASS, 0 FAIL, 5 WARN**
-
-| Check | Result | Detail |
-|-------|--------|--------|
-| T-0802 Dialog role="dialog" | PASS | MUI Dialog renders correctly |
-| T-0802 aria-labelledby | PASS | MUI pattern (auto-generated ID) |
-| T-0802 aria-modal="true" | PASS | |
-| T-0802 input aria-label | PASS | "Digita un comando o cerca..." on native input |
-| T-0802 input aria-controls | PASS | Points to #command-palette-list |
-| T-0802 list role="listbox" | PASS | |
-| T-0802 list aria-label | PASS | "Palette Comandi" (Italian locale) |
-| T-0802 aria-activedescendant | PASS | "cmd-item-home" (first item) |
-| T-0802 role="option" items | PASS | 16 items found |
-| T-0802 aria-selected | PASS | First item selected |
-| T-0802 ArrowDown navigation | PASS | activedescendant changes to "cmd-item-inbox" |
-| T-0802 focus trap | PASS | Tab stays within dialog |
-| T-0802 Escape closes | PASS | |
-| T-0801 chat composer | PASS | Loads and accepts input |
-| T-0801 CSRF flow | PASS | Code review confirmed |
-| T-0803 false positive | PASS | aiResponse rendered in SchedulingDrawer |
-| T-0804 HITL timeout | WARN | No pending HITL in this session; confirmed "In attesa da 2 sec" in prior run |
-| T-0805 locale detection | PASS | Locale "en" detected, translation keys deployed |
-
-**Warnings** (all expected — depend on AI behavior or UI state):
-- T-0803: SchedulingDrawer triggered via AI chat, not calendar page button
-- T-0804: HITL requires high-risk tool call; AI chose to explain instead of auto-delete
-- T-0805: No tool cards visible in current conversation (no tool calls made)
+- `npx tsc --noEmit` — PASS (no new errors)
