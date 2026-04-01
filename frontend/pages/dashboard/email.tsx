@@ -98,6 +98,41 @@ export default function EmailPage() {
     void router.replace(`/dashboard/email/thread/${emailId}`);
   }, [router.isReady, router.query.id, isDesktop, router]);
 
+  useEffect(() => {
+    if (!router.isReady || router.query.focus !== 'search') return;
+
+    let disposed = false;
+    let retryTimer: number | undefined;
+
+    const focusSearch = () => {
+      if (disposed) return;
+
+      const searchInput =
+        document.querySelector<HTMLInputElement>('[data-testid="email-search"] input') ??
+        document.querySelector<HTMLInputElement>('[data-testid="email-search"]');
+
+      if (!searchInput) {
+        retryTimer = window.setTimeout(focusSearch, 50);
+        return;
+      }
+
+      searchInput.focus();
+      searchInput.select?.();
+
+      const { focus, ...nextQuery } = router.query;
+      void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+    };
+
+    retryTimer = window.setTimeout(focusSearch, 0);
+
+    return () => {
+      disposed = true;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [router.isReady, router.pathname, router.query]);
+
   const filters = useEmailFilters();
   const setFilters = useEmailUIStore((s) => s.setFilters);
   const clearFilters = useEmailUIStore((s) => s.clearFilters);

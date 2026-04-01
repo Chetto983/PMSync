@@ -106,7 +106,7 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
               title: deal.name,
               subtitle: `${deal.stage?.name || ''} - ${deal.amount ? '$' + Number(deal.amount).toLocaleString() : ''}`.trim(),
               icon: Handshake,
-              action: () => router.push(`/dashboard/crm/deals?id=${deal.id}`),
+              action: () => router.push(`/dashboard/crm/deals/${deal.id}`),
             })),
           });
         }
@@ -126,7 +126,7 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
               title: ticket.subject,
               subtitle: `${ticket.status} - ${ticket.priority}`,
               icon: Ticket,
-              action: () => router.push(`/dashboard/crm/tickets?id=${ticket.id}`),
+              action: () => router.push(`/dashboard/crm/tickets/${ticket.id}`),
             })),
           });
         }
@@ -146,7 +146,7 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
               title: article.title,
               subtitle: article.snippet?.substring(0, 80) || '',
               icon: BookOpen,
-              action: () => router.push(`/dashboard/crm/kb?id=${article.id}`),
+              action: () => router.push(`/dashboard/crm/kb/articles/${article.id}/edit`),
             })),
           });
         }

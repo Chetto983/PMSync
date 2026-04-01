@@ -12,6 +12,7 @@ import {
   contactsListOptions,
   contactDetailOptions,
 } from '@/hooks/queries/use-contacts';
+import { useStaleContacts } from '@/hooks/queries/use-dashboard';
 import { logger } from '@/lib/logger';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useContactStore } from '@/stores/contact-store';
@@ -61,6 +62,8 @@ export function useContactsPageData() {
 
   const selectedProviderId = (router.query.provider as string) || null;
   const selectedFilter = (router.query.filter as string) || null;
+  const selectedContactId = (router.query.id as string) || null;
+  const { data: staleContactsData } = useStaleContacts({ limit: 200 });
 
   const setSelectedProviderId = useCallback(
     (value: SetStateAction<string | null>) => {
@@ -209,13 +212,45 @@ export function useContactsPageData() {
   // Keep selection in sync with store updates
   useEffect(() => {
     if (!storeContacts.length) {
-      setSelectedContact(null);
+      if (!selectedContactId) {
+        setSelectedContact(null);
+      }
       return;
     }
-    if (selectedContact && !storeContacts.find((c) => c.id === selectedContact.id)) {
+    if (
+      selectedContact &&
+      !storeContacts.find((c) => c.id === selectedContact.id) &&
+      (!selectedContactId || selectedContact.id !== selectedContactId)
+    ) {
       setSelectedContact(storeContacts[0]);
     }
-  }, [storeContacts, selectedContact]);
+  }, [storeContacts, selectedContact, selectedContactId]);
+
+  useEffect(() => {
+    if (!router.isReady || !selectedContactId) return;
+
+    const existingContact = storeContacts.find((contact) => contact.id === selectedContactId);
+    if (existingContact) {
+      setSelectedContact(existingContact);
+      return;
+    }
+
+    let active = true;
+
+    void queryClient
+      .fetchQuery(contactDetailOptions(selectedContactId))
+      .then((contact) => {
+        if (!active) return;
+        setSelectedContact(contact);
+      })
+      .catch((error) => {
+        logger.error('Failed to load selected contact from route', { error, contactId: selectedContactId });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [queryClient, router.isReady, selectedContactId, storeContacts]);
 
   // Load more contacts (infinite scroll)
   const loadMore = useCallback(() => {
@@ -312,6 +347,7 @@ export function useContactsPageData() {
   // Filter contacts based on selected provider and quick filter
   const filteredContacts = useMemo(() => {
     let result = storeContacts;
+    const staleContactIds = new Set((staleContactsData?.contacts ?? []).map((contact) => contact.id));
 
     if (selectedProviderId) {
       result = result.filter((c) =>
@@ -325,10 +361,12 @@ export function useContactsPageData() {
       result = result.filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0);
     } else if (selectedFilter === 'hasCompany') {
       result = result.filter((c) => !!c.company);
+    } else if (selectedFilter === 'stale') {
+      result = result.filter((c) => staleContactIds.has(c.id));
     }
 
     return result;
-  }, [storeContacts, selectedProviderId, selectedFilter]);
+  }, [storeContacts, selectedProviderId, selectedFilter, staleContactsData?.contacts]);
 
   // Provider filters for sidebar
   const providerFilters: ProviderFilter[] = useMemo(() => {

@@ -67,6 +67,14 @@ export function TicketsList() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const deleteTicket = useDeleteTicket();
 
+  useEffect(() => {
+    if (!router.isReady || router.query.action !== 'create') return;
+
+    setCreateOpen(true);
+    const { action, ...nextQuery } = router.query;
+    void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [router.isReady, router.pathname, router.query]);
+
   const handleDelete = () => {
     if (!deleteTargetId) return;
     deleteTicket.mutate(deleteTargetId, {

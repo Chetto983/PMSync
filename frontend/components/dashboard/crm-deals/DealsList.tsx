@@ -81,6 +81,14 @@ export function DealsList() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => (q.view === 'kanban' ? 'kanban' : 'list'));
 
+  useEffect(() => {
+    if (!router.isReady || router.query.action !== 'create') return;
+
+    setCreateOpen(true);
+    const { action, ...nextQuery } = router.query;
+    void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [router.isReady, router.pathname, router.query]);
+
   // Sync state → URL (shallow, no navigation)
   useEffect(() => {
     const params: Record<string, string> = {};

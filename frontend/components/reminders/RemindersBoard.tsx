@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -23,12 +23,14 @@ import type { Reminder, ReminderStatus } from '@/lib/api/reminders';
 import { ReminderCard } from './ReminderCard';
 import { ReminderCreateDialog } from './ReminderCreateDialog';
 import { ReminderEditDialog } from './ReminderEditDialog';
+import { useRouter } from 'next/router';
 
 const STATUS_FILTERS: Array<ReminderStatus | 'all'> = ['all', 'attivo', 'completato', 'annullato'];
 
 export function RemindersBoard() {
   const t = useTranslations();
   const tr = t.ai.reminders;
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<ReminderStatus | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -45,6 +47,14 @@ export function RemindersBoard() {
   const reminders = data?.reminders ?? [];
   const hasSelection = selectedIds.size > 0;
   const allSelected = reminders.length > 0 && selectedIds.size === reminders.length;
+
+  useEffect(() => {
+    if (!router.isReady || router.query.action !== 'create') return;
+
+    setDialogOpen(true);
+    const { action, ...nextQuery } = router.query;
+    void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [router.isReady, router.pathname, router.query]);
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {

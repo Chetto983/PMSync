@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -32,12 +32,14 @@ import { useGlobalToast } from '@/lib/context/toast-context';
 import { crmImportExportApi } from '@/lib/api/crm-import-export';
 import { ImportContactsDialog } from './crm-import/ImportContactsDialog';
 import { useLeadScoreMap } from './crm-lead-score/useLeadScoreMap';
+import { useRouter } from 'next/router';
 // ComposeDialog removed during email rebuild
 
 export function Contacts() {
   const translations = useTranslations();
   const contactsCopy = translations.contacts;
   const toast = useGlobalToast();
+  const router = useRouter();
 
   const data = useContactsPageData();
   const form = useContactForm();
@@ -99,6 +101,14 @@ export function Contacts() {
     dismissUndo,
     undoDeletedIds,
   } = handlers;
+
+  useEffect(() => {
+    if (!router.isReady || router.query.action !== 'create') return;
+
+    openCreateContactDialog();
+    const { action, ...nextQuery } = router.query;
+    void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [openCreateContactDialog, router.isReady, router.pathname, router.query]);
 
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);

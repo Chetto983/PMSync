@@ -58,6 +58,10 @@ const t = {
 } as unknown as AppTranslations;
 
 describe('buildCommands', () => {
+  beforeEach(() => {
+    push.mockReset();
+  });
+
   it('includes CRM navigation and create actions', () => {
     const commands = buildCommands(router, t, jest.fn());
 
@@ -71,5 +75,17 @@ describe('buildCommands', () => {
     expect(GROUP_ORDER).toEqual(['navigation', 'crm', 'actions', 'ai', 'productivity', 'system']);
     expect(GROUP_LABELS.crm(t)).toBe('CRM');
     expect(GROUP_LABELS.navigation(t)).toBe('Navigation');
+  });
+
+  it('routes action commands to supported page contracts', () => {
+    const commands = buildCommands(router, t, jest.fn());
+
+    commands.find((command) => command.id === 'compose')?.action();
+    commands.find((command) => command.id === 'create-task')?.action();
+    commands.find((command) => command.id === 'deadlines')?.action();
+
+    expect(push).toHaveBeenNthCalledWith(1, '/dashboard/email/compose');
+    expect(push).toHaveBeenNthCalledWith(2, '/dashboard/reminders?action=create');
+    expect(push).toHaveBeenNthCalledWith(3, '/dashboard/reminders');
   });
 });
