@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -19,6 +19,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useGovernanceOverview } from '@/hooks/queries/use-crm-governance';
 import { AccuracyTab } from './AccuracyTab';
 import { CostsTab } from './CostsTab';
@@ -85,12 +86,25 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export function GovernanceDashboard() {
   const t = useTranslations();
   const tg = t.aiGovernance;
-  const [tab, setTab] = useState(0);
+  const { locale } = useLocale();
+
+  // Persist tab across navigations via localStorage
+  const storageKey = 'pmsync:governance-tab';
+  const [tab, setTab] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const saved = localStorage.getItem(storageKey);
+    const parsed = saved ? parseInt(saved, 10) : 0;
+    return parsed >= 0 && parsed <= 3 ? parsed : 0;
+  });
+  const handleTabChange = useCallback((_: unknown, v: number) => {
+    setTab(v);
+    localStorage.setItem(storageKey, String(v));
+  }, []);
 
   const { data: overview, isLoading, error } = useGovernanceOverview();
 
   const formatCost = (val: number) =>
-    `$${val.toFixed(2)}`;
+    new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(val);
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 3 } }}>
@@ -149,11 +163,11 @@ export function GovernanceDashboard() {
 
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-          <Tab label={tg?.tabs?.accuracy ?? 'Accuracy'} sx={{ minWidth: 'auto', px: 2 }} />
-          <Tab label={tg?.tabs?.costs ?? 'Costs'} sx={{ minWidth: 'auto', px: 2 }} />
-          <Tab label={tg?.tabs?.drift ?? 'Drift'} sx={{ minWidth: 'auto', px: 2 }} />
-          <Tab label={tg?.tabs?.models ?? 'Models'} sx={{ minWidth: 'auto', px: 2 }} />
+        <Tabs value={tab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile aria-label={tg?.title ?? 'AI Governance'}>
+          <Tab label={tg?.tabs?.accuracy ?? 'Accuracy'} aria-label={tg?.tabs?.accuracy ?? 'Accuracy'} sx={{ minWidth: 'auto', px: 2 }} />
+          <Tab label={tg?.tabs?.costs ?? 'Costs'} aria-label={tg?.tabs?.costs ?? 'Costs'} sx={{ minWidth: 'auto', px: 2 }} />
+          <Tab label={tg?.tabs?.drift ?? 'Drift'} aria-label={tg?.tabs?.drift ?? 'Drift'} sx={{ minWidth: 'auto', px: 2 }} />
+          <Tab label={tg?.tabs?.models ?? 'Models'} aria-label={tg?.tabs?.models ?? 'Models'} sx={{ minWidth: 'auto', px: 2 }} />
         </Tabs>
       </Box>
 

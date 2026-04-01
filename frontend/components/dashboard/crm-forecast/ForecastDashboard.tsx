@@ -23,12 +23,14 @@ import {
 } from '@/hooks/queries/use-crm-forecast';
 import { crmPipelineListOptions } from '@/hooks/queries/use-crm-pipelines';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { ForecastChart } from './ForecastChart';
 import { ForecastVsActuals } from './ForecastVsActuals';
 
 export function ForecastDashboard() {
   const t = useTranslations();
   const tf = t.forecast;
+  const { locale } = useLocale();
 
   const { data: pipelines, isLoading: pipelinesLoading } = useQuery(
     crmPipelineListOptions(),
@@ -45,6 +47,7 @@ export function ForecastDashboard() {
     data: forecast,
     isLoading: forecastLoading,
     error: forecastError,
+    refetch: refetchForecast,
   } = useForecast(activePipelineId, period);
 
   const { data: accuracy } = useForecastAccuracy(activePipelineId);
@@ -69,7 +72,7 @@ export function ForecastDashboard() {
   };
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('it-IT', {
+    new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
@@ -177,8 +180,8 @@ export function ForecastDashboard() {
           severity="error"
           sx={{ mb: 2 }}
           action={
-            <Button color="inherit" size="small" onClick={() => window.location.reload()}>
-              {tf?.refresh ?? 'Retry'}
+            <Button color="inherit" size="small" onClick={() => refetchForecast()}>
+              {t.common.retry}
             </Button>
           }
         >
