@@ -212,16 +212,6 @@ export async function openBillingPortal(): Promise<BillingPortalResponse> {
 }
 
 /**
- * Cancel via Autumn
- */
-export async function cancelViaAutumn(productId?: string): Promise<{ success: boolean }> {
-  const response = await apiClient.post<{ success: boolean }>('/autumn/cancel', {
-    productId,
-  });
-  return response.data;
-}
-
-/**
  * Get pricing table (public)
  */
 export async function getPricingTable(): Promise<PricingTable> {
@@ -258,7 +248,6 @@ export const billingApi = {
   trackUsage,
   getBillingPortalUrl,
   openBillingPortal,
-  cancelViaAutumn,
   getPricingTable,
   getPricingTableAuthenticated,
 };
