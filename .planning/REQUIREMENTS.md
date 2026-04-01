@@ -32,8 +32,8 @@ Requirements for UX Unification — 4-Pillar Simplification. Each maps to roadma
 - [x] **TASK-03**: User can filter tasks by type (follow-up, reminder, deal, ticket, manual), contact, due date, and status
 - [ ] **TASK-04**: User can save filter combinations as named smart views (e.g., "My Follow-ups", "Open Tickets")
 - [ ] **TASK-05**: User can pin smart views to the Tasks sidebar for quick access
-- [ ] **TASK-06**: User can toggle between list view and kanban board view on Tasks
-- [ ] **TASK-07**: User can drag tasks between kanban columns to change status
+- [x] **TASK-06**: User can toggle between list view and kanban board view on Tasks
+- [x] **TASK-07**: User can drag tasks between kanban columns to change status
 
 ### AI Automation
 
@@ -93,8 +93,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TASK-03 | Phase 138 | Complete |
 | TASK-04 | Phase 139 | Pending |
 | TASK-05 | Phase 139 | Pending |
-| TASK-06 | Phase 138 | Pending |
-| TASK-07 | Phase 138 | Pending |
+| TASK-06 | Phase 138 | Complete |
+| TASK-07 | Phase 138 | Complete |
 | AI-01 | Phase 142 | Pending |
 | AI-02 | Phase 142 | Pending |
 | AI-03 | Phase 142 | Pending |

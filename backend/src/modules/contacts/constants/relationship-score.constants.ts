@@ -1,0 +1,3 @@
+export const DEFAULT_STALE_CONTACT_DAYS = 30;
+export const MIN_STALE_CONTACT_DAYS = 7;
+export const MAX_STALE_CONTACT_DAYS = 365;

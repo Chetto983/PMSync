@@ -1,0 +1,1 @@
+export const DEFAULT_STALE_CONTACT_DAYS = 30;
