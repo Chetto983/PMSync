@@ -92,11 +92,10 @@ export function emailsListOptions(params?: ListEmailsParams) {
     queryFn: async ({ signal }) => {
       return await emailsApi.listEmails(params, { signal });
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    // 24h -- survives cold restart for offline reading (Phase 103)
-    gcTime: 1000 * 60 * 60 * 24,
+    staleTime: 60 * 1000, // 1 minute - email state changes frequently
+    gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData, // Show old list while new data loads (no skeleton flash)
-    persister: offlinePersister,
+    refetchOnMount: 'always' as const,
   });
 }
 
@@ -110,8 +109,7 @@ export function emailDetailOptions(id: string) {
       return await emailsApi.getEmail(id);
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    // 24h -- survives cold restart for offline reading (Phase 103)
-    gcTime: 1000 * 60 * 60 * 24,
+    gcTime: 1000 * 60 * 60 * 24, // 24h for offline reading
     enabled: !!id,
     persister: offlinePersister,
   });
