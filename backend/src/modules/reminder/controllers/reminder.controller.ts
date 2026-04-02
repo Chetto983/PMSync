@@ -18,6 +18,7 @@ import { RolesGuard } from '../../../common/auth/roles.guard';
 import { ReminderService } from '../services/reminder.service';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
+import { BulkUpdateReminderDto } from '../dto/bulk-update-reminder.dto';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 interface AuthenticatedRequest {
@@ -128,6 +129,19 @@ export class ReminderController {
       id,
     );
     return { data: reminder };
+  }
+
+  @Patch('bulk')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({ summary: 'Bulk-update reminders (status and/or priority)' })
+  async bulkUpdate(@Req() req: AuthenticatedRequest, @Body() dto: BulkUpdateReminderDto) {
+    const result = await this.reminderService.bulkUpdateReminders(
+      req.user.tenantId,
+      req.user.id,
+      dto.ids,
+      { status: dto.status, priorita: dto.priorita },
+    );
+    return { data: result };
   }
 
   @Delete('bulk')

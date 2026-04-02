@@ -319,6 +319,32 @@ export class ReminderService {
     });
   }
 
+  async bulkUpdateReminders(
+    tenantId: string,
+    userId: string,
+    ids: string[],
+    data: { status?: string; priorita?: string },
+  ) {
+    const updateData: Prisma.ReminderUpdateManyMutationInput = {};
+    if (data.status) updateData.status = data.status as any;
+    if (data.priorita) updateData.priorita = data.priorita as any;
+
+    const result = await this.prisma.reminder.updateMany({
+      where: { id: { in: ids }, tenantId, userId },
+      data: updateData,
+    });
+
+    // Cancel notifications for non-active status
+    if (data.status && data.status !== 'attivo' && this.reminderNotifyQueue) {
+      await Promise.all(
+        ids.map((id) => this.reminderNotifyQueue!.cancelNotification(id)),
+      );
+    }
+
+    this.logger.log(`Bulk-updated ${result.count} reminders for user ${userId}`);
+    return { updated: result.count };
+  }
+
   async bulkDeleteReminders(tenantId: string, userId: string, ids: string[]) {
     // Cancel all pending notifications
     if (this.reminderNotifyQueue) {
