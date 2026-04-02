@@ -1785,6 +1785,29 @@ export interface AppTranslations {
       total: string;
       filtered: string;
     };
+
+    smartViews: {
+      title: string;
+      saveView: string;
+      saveCurrentView: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      pinToSidebar: string;
+      filters: string;
+      applied: string;
+      createSuccess: string;
+      createError: string;
+      deleteTitle: string;
+      deleteConfirm: string;
+      deleteSuccess: string;
+      deleteError: string;
+      pinnedViews: string;
+      noPinnedViews: string;
+      noPinnedViewsHint: string;
+      pinLimitReached: string;
+      addViewAriaLabel: string;
+      deleteViewAriaLabel: string;
+    };
   };
   contacts: {
     title: string;
