@@ -98,7 +98,11 @@ export class ReminderNotifyQueueService
     });
 
     this.worker.on('completed', (job) => {
-      this.logger.debug(`Reminder notify job ${job.id} completed`);
+      this.logger.log(`Reminder notify job ${job.id} completed`);
+    });
+
+    this.worker.on('ready', () => {
+      this.logger.log('ReminderNotify worker READY and processing jobs');
     });
 
     this.logger.log('ReminderNotify worker started (concurrency: 5)');

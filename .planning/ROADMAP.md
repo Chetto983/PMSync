@@ -154,7 +154,7 @@
 
 See `milestones/v12.0-ROADMAP.md` for full phase details.
 
-**Plans:** 11 plans
+**Plans:** 12 plans
 
 - [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
   Plans:
@@ -192,6 +192,9 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
 **Goal**: When viewing an email, users see a contextual right sidebar showing the sender's contact profile, company, open deals, and recent tickets — collapsible for reading space
 **Depends on**: Phase 139
 **Requirements**: CTX-01, CTX-02, CTX-06
+**Plans:** 1 plan
+Plans:
+- [ ] 140-01-PLAN.md — Add contact tags to backend/frontend, display in sidebar, persist collapse state
 **Success Criteria** (what must be TRUE):
   1. User sees sender's contact profile (name, email, company, tags) in right sidebar when viewing an email
   2. User sees sender's company, open deals, and recent tickets in the sidebar
