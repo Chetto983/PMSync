@@ -43,6 +43,8 @@ import {
   BulkDeleteContactsDto,
   BulkRestoreContactsDto,
 } from '../dto/contact.dto';
+import { TimelineQueryDto } from '../dto/contact-timeline.dto';
+import { ContactTimelineService } from '../services/contact-timeline.service';
 
 @ApiTags('Contacts')
 @ApiCookieAuth()
@@ -54,6 +56,7 @@ export class ContactsController {
     private readonly contactsSyncQueue: ContactsSyncQueueService,
     private readonly relationshipScoreService: RelationshipScoreService,
     private readonly contactDedupService: ContactDedupService,
+    private readonly contactTimelineService: ContactTimelineService,
     private readonly prisma: PrismaService,
   ) { }
 
@@ -187,6 +190,23 @@ export class ContactsController {
   async getContact(@Req() req: any, @Param('id') contactId: string) {
     const tenantId = req.user.tenantId;
     return this.contactsService.getContact(tenantId, contactId);
+  }
+
+  /**
+   * Get unified timeline for a contact (emails, deals, tasks, meetings, tickets)
+   * GET /api/contacts/:id/timeline
+   */
+  @Get(':id/timeline')
+  @ApiOperation({ summary: 'Get contact timeline', description: 'Returns unified activity timeline for a contact' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
+  @ApiResponse({ status: 200, description: 'Timeline returned successfully' })
+  async getContactTimeline(
+    @Req() req: any,
+    @Param('id') contactId: string,
+    @Query() query: TimelineQueryDto,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.contactTimelineService.getTimeline(tenantId, contactId, query.cursor, query.limit);
   }
 
   /**
