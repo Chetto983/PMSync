@@ -26,5 +26,6 @@ export interface UnifiedEmailAnalysis {
   smartReplies?: string[];
   confidence: number;
   reasoning: string;
+  category?: 'support' | 'sales' | 'internal' | 'newsletter';
   meta?: AiResponseMeta;
 }

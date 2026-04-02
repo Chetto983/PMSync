@@ -551,12 +551,18 @@ model Email {
   aiLane               String? // action-now, waiting-on-reply, customer-vip, system-alerts, review-later
   aiIntent             String? // request, update, alert, sales, billing, personal, fyi
   aiActionability      String? // none, todo, waiting
+  aiCategory           String? // support, sales, internal, newsletter (AI-03)
+  contactId            String? // Auto-linked contact (AI-01)
+  contactTenantId      String? // Composite FK tenant for Contact
+  dealId               String? // Auto-linked deal (AI-02)
   analysis             EmailAnalysis?
   attachments          EmailAttachment[]
   followUp             EmailFollowUp?
   emailLabels          EmailLabel[]
   provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  linkedContact        Contact?                @relation("EmailLinkedContact", fields: [contactId, contactTenantId], references: [id, tenantId], onDelete: SetNull)
+  linkedDeal           CrmDeal?                @relation(fields: [dealId], references: [id], onDelete: SetNull)
   embeddings           Embedding[]
   tickets              Ticket[]
   crmSuggestions       CrmSuggestion[]
@@ -581,6 +587,9 @@ model Email {
   @@index([tenantId, aiPriority])
   @@index([tenantId, isDeleted, receivedAt])
   @@index([tenantId, aiLane])
+  @@index([tenantId, contactId])
+  @@index([tenantId, dealId])
+  @@index([tenantId, aiCategory])
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([providerId, folder, isRead, isDeleted])
@@ -925,6 +934,7 @@ model Contact {
   nbaActions          NBAAction[]
   tickets             Ticket[]
   manualTasks         ManualTask[]
+  linkedEmails        Email[]              @relation("EmailLinkedContact")
 
   @@id([id, tenantId])
   @@index([tenantId, displayName])
@@ -1891,6 +1901,7 @@ model CrmDeal {
   dealContacts      DealContact[]
   nbaActions        NBAAction[]
   manualTasks       ManualTask[]
+  linkedEmails      Email[]
 
   @@index([tenantId])
   @@index([tenantId, pipelineId])

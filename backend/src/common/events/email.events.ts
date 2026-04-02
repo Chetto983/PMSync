@@ -46,3 +46,17 @@ export class EmailEmbeddingCleanupRequestedEvent {
     public readonly emailId: string,
   ) {}
 }
+
+/**
+ * Emitted after an email is auto-linked to a contact and/or deal.
+ * Phase 142: For CRM timeline updates and downstream consumers.
+ */
+export class EmailAutoLinkedEvent {
+  static readonly eventName = 'email.auto-linked' as const;
+  constructor(
+    public readonly emailId: string,
+    public readonly tenantId: string,
+    public readonly contactId: string | null,
+    public readonly dealId: string | null,
+  ) {}
+}
