@@ -220,8 +220,9 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
             sx={{
               p: 0.25,
               ml: 0.5,
-              opacity: hovered || hasTouchPointer ? 1 : 0,
-              transition: 'opacity 0.15s ease',
+              opacity: hovered || hasTouchPointer ? 1 : 0.72,
+              color: hovered ? 'text.primary' : 'text.secondary',
+              transition: 'opacity 0.15s ease, color 0.15s ease',
               flexShrink: 0,
             }}
           >
