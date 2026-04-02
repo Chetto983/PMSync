@@ -54,6 +54,10 @@ interface TriageResult {
   escalationRisk?: boolean;
   hasDeadline?: boolean;
   needsFollowUp?: boolean;
+  // Sprint 15: New pipeline fields (persisted by analyzeEmailUnified)
+  lane?: string | null;
+  intent?: string;
+  actionability?: 'none' | 'todo' | 'waiting';
 }
 
 interface TriageOptions {
@@ -277,7 +281,10 @@ export class EmailTriageService implements OnModuleInit {
       );
 
       // Post-triage hooks: fetch email metadata once for all hooks
-      const needsFollowUp = this.triageActionService && (analysis.needsFollowUp || analysis.hasDeadline);
+      const needsFollowUp = this.triageActionService && (
+        analysis.actionability === 'todo' || analysis.actionability === 'waiting' ||
+        analysis.needsFollowUp || analysis.hasDeadline
+      );
       const needsCrmSuggestion = !!this.crmSuggestionTrigger;
 
       if (needsFollowUp || needsCrmSuggestion) {
@@ -321,6 +328,9 @@ export class EmailTriageService implements OnModuleInit {
         escalationRisk: analysis.escalationRisk,
         hasDeadline: analysis.hasDeadline,
         needsFollowUp: analysis.needsFollowUp,
+        lane: analysis.lane,
+        intent: analysis.intent,
+        actionability: analysis.actionability,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
