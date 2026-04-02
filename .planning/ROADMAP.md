@@ -192,16 +192,16 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
 **Goal**: When viewing an email, users see a contextual right sidebar showing the sender's contact profile, company, open deals, and recent tickets — collapsible for reading space
 **Depends on**: Phase 139
 **Requirements**: CTX-01, CTX-02, CTX-06
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 140-01-PLAN.md — Add contact tags to backend/frontend, display in sidebar, persist collapse state
+- [x] 140-01-PLAN.md — Add contact tags to backend/frontend, display in sidebar, persist collapse state
 **Success Criteria** (what must be TRUE):
   1. User sees sender's contact profile (name, email, company, tags) in right sidebar when viewing an email
   2. User sees sender's company, open deals, and recent tickets in the sidebar
   3. User can collapse/expand the contextual sidebar to reclaim reading space
   4. Sidebar loads without blocking email content rendering
 **UI hint**: yes
-- [ ] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view
+- [x] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view (completed 2026-04-02)
 - [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
 - [ ] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize
 - [ ] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss
