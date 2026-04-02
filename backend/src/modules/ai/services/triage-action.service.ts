@@ -67,18 +67,18 @@ export class TriageActionService {
       dueDate: null,
     };
 
-    // Skip if triage did not surface a real user action.
-    if (!this.shouldCreateFollowUp(context, analysis)) {
+    // Use actionability field to decide follow-up creation
+    if (!this.shouldCreateFollowUp(analysis)) {
       return empty;
     }
 
     try {
-      // Determine follow-up type based on email direction
-      const followUpType = await this.determineFollowUpType(
-        context.tenantId,
-        context.userId,
-        context.from,
-      );
+      // Determine follow-up type from actionability (overrides email direction heuristic)
+      const followUpType = analysis.actionability === 'waiting'
+        ? FollowUpType.WAITING_FOR
+        : analysis.actionability === 'todo'
+          ? FollowUpType.TODO
+          : await this.determineFollowUpType(context.tenantId, context.userId, context.from);
 
       // Determine due date: deadlineDate > followUpDate > default +3 business days
       const dueDate = analysis.deadlineDate
@@ -206,29 +206,20 @@ export class TriageActionService {
     return parts.join(' — ') || 'Detected by auto-triage';
   }
 
-  private shouldCreateFollowUp(
-    context: TriageEmailContext,
-    analysis: UnifiedEmailAnalysis,
-  ): boolean {
-    if (!analysis.needsFollowUp && !analysis.hasDeadline) {
-      return false;
-    }
-
-    if (analysis.hasDeadline) {
-      return true;
-    }
-
-    const labelSet = new Set(analysis.labels.map((label) => label.trim().toLowerCase()));
-    const explicitActionIntent = ['action_required', 'question', 'meeting_request', 'follow_up'].includes(analysis.intent);
-    const explicitActionLabel = labelSet.has('action items') || labelSet.has('follow-up');
-    const senderSubject = `${context.from}\n${context.subject || ''}`.toLowerCase();
-    const passiveNotificationCue = /\b(newsletter|unsubscribe|promotion|promo|sale|discount|offer|release notes?|changelog|announcement|digest|notification|update|no-?reply|noreply|github|vercel|railway|gitlab|alerts?)\b/.test(senderSubject);
-    const criticalCue = /\b(failed|failure|outage|incident|breach|urgent|asap|immediately|action required|approval required|reply required|deadline|due|confirm)\b/.test(senderSubject);
-
-    if (!explicitActionIntent && !explicitActionLabel && !analysis.escalationRisk && passiveNotificationCue && !criticalCue) {
-      return false;
-    }
-
-    return true;
+  /**
+   * Decide whether to create a follow-up based on actionability.
+   * - actionability=todo → yes
+   * - actionability=waiting → yes
+   * - actionability=none → only if deadline exists
+   * - hasDeadline always creates a follow-up regardless
+   */
+  private shouldCreateFollowUp(analysis: UnifiedEmailAnalysis): boolean {
+    // Deadline always wins
+    if (analysis.hasDeadline) return true;
+    // Actionability-based decision
+    if (analysis.actionability === 'todo' || analysis.actionability === 'waiting') return true;
+    // needsFollowUp from LLM as fallback
+    if (analysis.needsFollowUp) return true;
+    return false;
   }
 }
