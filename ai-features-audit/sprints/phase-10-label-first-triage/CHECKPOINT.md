@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | **Status** | IN PROGRESS |
-| **Last Task** | T-1707 (Sprint 17 — Triage status in email detail) |
-| **Next Task** | T-1801 (Sprint 18 — Triage Learning) |
-| **Tasks Done** | 29/29 (S14-S17 complete) |
-| **SP Done** | 62/67 |
+| **Last Task** | T-1804 (Sprint 18 — Override UI) |
+| **Next Task** | T-1805 (Sprint 18 — Production validation script) |
+| **Tasks Done** | 33/35 |
+| **SP Done** | 72/79 |
 
 ## Sprint 14 — COMPLETE (6/6 tasks, 13 SP)
 
@@ -14,84 +14,75 @@ All schema, taxonomy, service, API, and LLM integration tasks done.
 
 ## Sprint 15 — COMPLETE (6/6 tasks, 14 SP)
 
-All 3 extracted services created and wired:
-- `label-resolution.service.ts` — Precedence-based label pipeline (rules > LLM > heuristic > empty)
-- `triage-score.service.ts` — Label-metadata-subordinate scoring (suppressUrgency, category, defaultLane)
-- `lane-assignment.service.ts` — Inbox lane derivation (overrides > label defaults > actionability fallback)
-- `email-analysis.service.ts` rewired to use new pipeline (old methods removed)
-- `triage-action.service.ts` uses actionability field (replaces heuristic shouldCreateFollowUp)
-- `email-triage.service.ts` propagates lane/intent/actionability through TriageResult
+All 3 extracted services created and wired (label-resolution, triage-score, lane-assignment).
 
 ## Sprint 16 — COMPLETE (10/10 tasks, 21 SP)
 
-Label Wizard Onboarding & Dynamic Prompt Engine (see previous checkpoint for details).
+Label Wizard Onboarding & Dynamic Prompt Engine.
 
 ## Sprint 17 — COMPLETE (7/7 tasks, 14 SP)
 
 Inbox Lanes, Reasoning UI & Workflow Views:
-- T-1701: EN+IT translations for lanes, reasoning, follow-up, inbox (34 keys per locale)
-- T-1702: Backend `lane` filter on GET /emails + GET /ai/triage-rules/lane-counts endpoint. Frontend `useLaneCounts()` hook. Deprecated client-side `deriveTriageLane()`
-- T-1703: `LaneTabBar.tsx` — 6 MUI Tabs (All, Action Now, Waiting, Customer/VIP, Alerts, Review Later) with count badges and semantic colors. Added `lane` to EmailFilters store
-- T-1704: `TriageReasonChip.tsx` — Compact chip + Popover with labels, priority bar, reason, intent, actionability. Added aiLane/aiIntent/aiActionability to frontend Email type
-- T-1705: Integrated LaneTabBar into email page with URL sync (?lane=X). TriageReasonChip in ThreadListItem Line 3. Lane-specific EmptyState variant
-- T-1706: Follow-up icons (CheckSquare/Clock) in email list subject line based on aiActionability. `FollowUpIndicator.tsx` for detail view with TODO/WAITING badges + dismiss/resolve. Added aiLane/aiIntent/aiActionability to `emailListSelect`
-- T-1707: `TriageStatusSection.tsx` — Full triage breakdown in email detail (lane badge, AI labels, priority reason, intent, actionability, FollowUpIndicator). Wired through selectedEmailData
 
-## Sprint 18 — PLANNED
+- LaneTabBar with 6 tabs + count badges
+- TriageReasonChip with popover
+- Follow-up indicators in list + detail
+- TriageStatusSection in email detail
+- URL sync, backend lane filter, lane-counts endpoint
 
-Triage Learning (5 SP remaining).
+## Sprint 18 — IN PROGRESS (4/6 tasks, 9/12 SP)
+
+Learning, Overrides & Production Validation:
+
+- T-1801: TriageOverride + EmailTriageFeedback Prisma models + migration. TriageOverrideService with CRUD + applyOverrides() matching (sender/domain/thread). REST endpoints at /ai/triage-overrides. Max 100 per tenant
+- T-1802: Wired overrides into email-analysis pipeline (step 2.5, before lane assignment). Override lane takes precedence. suppressFollowUp for never-follow-up action
+- T-1803: TriageFeedbackService: records corrections, 30d retention, 10k cap. getSuggestions() detects 3+ corrections per domain
+- T-1804: Override UI in TriageStatusSection: gear icon dropdown with per-sender/per-domain actions. Active overrides shown as deletable chips. EN+IT translations (11 keys)
+- T-1805: PENDING — Production validation script
+- T-1806: PENDING — Run validation and close phase
 
 ## Findings Addressed
 
 | Finding | Sprint | Status |
 |---------|--------|--------|
-| LFT-A1: No onboarding rules | S14 | DONE (TriageRuleService + REST endpoints) |
-| LFT-A2: Label taxonomy thin | S14, S16 | DONE (wizard structured fields + auto-generated prompts) |
-| LFT-B1: No summary-first pipeline | S15 | DONE (label resolution > score > lane pipeline) |
-| LFT-B2: No label precedence | S15 | DONE (LabelResolutionService 4-tier precedence) |
-| LFT-C1: Score overrides semantics | S15 | DONE (TriageScoreService label-subordinate scoring) |
-| LFT-C2: No inbox workflow views | S16, S17 | DONE (wizard + empty state + lane tabs + reasoning chip + follow-up indicators + detail triage section) |
-| LFT-D1: No correlation | S18 | PLANNED |
-| LFT-D2: No learning from corrections | S18 | PLANNED |
-| LFT-E1: No production validation | S18 | PLANNED |
+| LFT-A1: No onboarding rules | S14 | DONE |
+| LFT-A2: Label taxonomy thin | S14, S16 | DONE |
+| LFT-B1: No summary-first pipeline | S15 | DONE |
+| LFT-B2: No label precedence | S15 | DONE |
+| LFT-C1: Score overrides semantics | S15 | DONE |
+| LFT-C2: No inbox workflow views | S16, S17 | DONE |
+| LFT-D1: No correlation | S18 | DONE (TriageFeedbackService + suggestions) |
+| LFT-D2: No learning from corrections | S18 | DONE (TriageOverrideService + pipeline wiring) |
+| LFT-E1: No production validation | S18 | PENDING (T-1805, T-1806) |
 
 ## Last Modified Files
 
-- `frontend/locales/en.ts` — Triage lanes/reasoning/followUp/inbox translations (T-1701)
-- `frontend/locales/it.ts` — Same in Italian (T-1701)
-- `frontend/locales/index.ts` — Triage translation types (T-1701)
-- `backend/src/modules/email/services/email-folder.service.ts` — `lane` filter in EmailListFilters + buildEmailWhere (T-1702)
-- `backend/src/modules/email/controllers/email-query.controller.ts` — `lane` query param (T-1702)
-- `backend/src/modules/ai/controllers/triage-rules.controller.ts` — GET lane-counts endpoint (T-1702)
-- `frontend/lib/api/emails.ts` — `lane` in ListEmailsParams, aiLane/aiIntent/aiActionability on Email (T-1702, T-1704)
-- `frontend/lib/api/labels.ts` — `getLaneCounts()` method (T-1702)
-- `frontend/hooks/queries/use-lane-counts.ts` — NEW (T-1702)
-- `frontend/lib/email-triage/triage-lanes.ts` — @deprecated deriveTriageLane (T-1702)
-- `frontend/src/components/triage/LaneTabBar.tsx` — NEW (T-1703)
-- `frontend/stores/email-ui/email-ui-types.ts` — `lane` in EmailFilters (T-1703)
-- `frontend/src/components/triage/TriageReasonChip.tsx` — NEW (T-1704)
-- `frontend/pages/dashboard/email.tsx` — LaneTabBar integration + URL sync (T-1705)
-- `frontend/components/email/list/EmptyState.tsx` — 'lane' variant (T-1705)
-- `frontend/components/email/list/ThreadListItem.tsx` — TriageReasonChip + follow-up icons (T-1705, T-1706)
-- `frontend/components/email/utils/email-formatters.ts` — Pass triage fields to ThreadListItemData (T-1705)
-- `backend/src/common/utils/prisma-select.utils.ts` — aiLane/aiIntent/aiActionability in emailListSelect (T-1706)
-- `frontend/src/components/triage/FollowUpIndicator.tsx` — NEW (T-1706)
-- `frontend/src/components/triage/TriageStatusSection.tsx` — NEW (T-1707)
-- `frontend/components/email/thread/ExpandedMessage.tsx` — TriageStatusSection (T-1707)
-- `frontend/components/email/hooks/use-email-page-actions.ts` — Triage fields in selectedEmailData (T-1707)
+- `backend/prisma/schema.prisma` — TriageOverride + EmailTriageFeedback models (T-1801)
+- `backend/prisma/migrations/20260402170000_add_triage_overrides_and_feedback/migration.sql` — NEW (T-1801)
+- `backend/src/modules/ai/services/triage-override.service.ts` — NEW (T-1801)
+- `backend/src/modules/ai/controllers/triage-overrides.controller.ts` — NEW (T-1801)
+- `backend/src/modules/ai/ai.module.ts` — Register override + feedback services/controller (T-1801, T-1803)
+- `backend/src/modules/ai/services/email-analysis.service.ts` — Override check before lane assignment (T-1802)
+- `backend/src/modules/ai/services/triage-feedback.service.ts` — NEW (T-1803)
+- `frontend/locales/en.ts` — Override translations (T-1804)
+- `frontend/locales/it.ts` — Override translations (T-1804)
+- `frontend/locales/index.ts` — Override types (T-1804)
+- `frontend/lib/api/labels.ts` — Override API methods + TriageOverrideItem type (T-1804)
+- `frontend/hooks/queries/use-triage-overrides.ts` — NEW (T-1804)
+- `frontend/src/components/triage/TriageStatusSection.tsx` — Override dropdown menu (T-1804)
+- `frontend/components/email/thread/ExpandedMessage.tsx` — Pass senderEmail to TriageStatusSection (T-1804)
 
 ## Key Decisions
 
-- **Lane-counts endpoint at `/ai/triage-rules/lane-counts`** — grouped with existing triage rules controller
-- **No `customer-vip` lane in backend** — only 4 lanes exist (action-now, waiting-on-reply, system-alerts, review-later). Tab included for forward compat
-- **Follow-up indicators use `aiActionability` field** — avoids N+1 queries in email list. Detail view uses `useFollowUpForEmail()` for rich data
-- **TriageReasonChip uses Popover (click)** not Tooltip (hover) — more accessible, works on mobile
-- **TriageStatusSection is a separate component** — ExpandedMessage already >500 lines
+- **Used manual migration** — shadow DB issues prevented `prisma migrate dev`. Handwritten SQL is additive (CREATE TABLE only)
+- **Override applies at lane level** — doesn't skip LLM analysis, only replaces computed lane/followUp
+- **Feedback uses domain grouping** — 3+ corrections from same domain triggers override suggestion
+- **Override UI in TriageStatusSection** — gear icon dropdown, not separate page (low-friction)
 
 ## Validation Status
 
 - Backend type-check: PASS
 - Frontend type-check: PASS
-- All strings use translations (EN + IT)
-- All colors use MUI theme tokens
-- No files exceed 500 lines (new components: LaneTabBar 113, TriageReasonChip 170, FollowUpIndicator 112, TriageStatusSection 121)
+- All strings use translations
+- All new files under 200 lines
+- Migration is additive (no DROP statements)
