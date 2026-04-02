@@ -20,6 +20,7 @@ Be critical, sincere, and cynical. Don't please me.
 - NEVER GUESS PARAMETERS. If a parameter depends on a previous call's output, execute sequentially.
 - DON'T RE-READ CONTEXT. Before using Read, check if contents were already provided. Don't waste tokens.
 - SCOPE CONTROL. Do exactly what was asked. Never add unrequested features, refactors, or improvements.
+- **NEVER RUN `prisma db push` OR ANY DESTRUCTIVE DB COMMAND.** On 2026-04-01 this wiped the entire production database. For schema changes: create a Prisma migration with `npx prisma migrate dev --name <name>`, commit the migration file, and let Railway's deploy pipeline apply it. NEVER use `prisma db push` — it can drop columns/tables with data loss. If a migration would be destructive (drop column, drop table), STOP and ASK before proceeding.
 
 **Post-Edit Validation (MANDATORY):**
 After EVERY file edit, run the appropriate validation. No exceptions:
@@ -114,6 +115,15 @@ await prisma.email.findMany({ where: { ... } });
 ```
 
 **Provider pattern:** Interface > Factory > Implementation (`IEmailDriver > EmailDriverFactory > GoogleDriver`).
+
+**Prisma schema changes (MANDATORY migration workflow):**
+1. Edit `backend/prisma/schema.prisma`
+2. Run `npx prisma migrate dev --name <descriptive-name>` locally — this creates a migration SQL file
+3. Review the generated SQL in `backend/prisma/migrations/` — if it contains DROP statements, STOP and ASK
+4. Run `npx prisma generate` to update the client
+5. Commit the migration file + schema together
+6. Railway's deploy pipeline applies the migration on deploy
+7. **FORBIDDEN:** `prisma db push`, `prisma migrate reset`, or any direct DB command against production
 
 **Prisma retry:** Handle P2002 (unique constraint) and P2034 (deadlock) with exponential backoff.
 
