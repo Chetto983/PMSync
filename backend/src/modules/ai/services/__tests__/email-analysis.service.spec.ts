@@ -5,6 +5,7 @@ describe('EmailAnalysisService', () => {
   let prisma: any;
   let mistral: any;
   let utils: any;
+  let triageRuleService: any;
   let service: EmailAnalysisService;
 
   beforeEach(() => {
@@ -62,7 +63,31 @@ describe('EmailAnalysisService', () => {
       mapAiErrorToHttpException: vi.fn((error: unknown) => error),
     };
 
-    service = new EmailAnalysisService(prisma, mistral, utils, undefined as any);
+    triageRuleService = {
+      getTriageRules: vi.fn().mockResolvedValue([]),
+      buildTriageContext: vi.fn().mockResolvedValue(''),
+    };
+
+    const labelResolution = {
+      resolve: vi.fn().mockReturnValue({ labels: ['Updates'], suppressUrgency: false }),
+      normaliseLabel: vi.fn((label: string) => label),
+    };
+    const triageScoreService = {
+      compute: vi.fn().mockReturnValue({
+        priority: 3, urgency: 'medium', deadlineDate: null,
+        needsFollowUp: false, followUpDate: null, followUpReason: null,
+        priorityReason: 'From team@gitkraken.com',
+      }),
+    };
+    const laneAssignment = {
+      assignLane: vi.fn().mockReturnValue({ lane: 'review-later', laneReason: 'Informational' }),
+    };
+
+    service = new EmailAnalysisService(
+      prisma, mistral, utils, triageRuleService,
+      labelResolution as any, triageScoreService as any, laneAssignment as any,
+      undefined as any,
+    );
   });
 
   it('adds heuristic labels when the model returns none', async () => {
@@ -252,5 +277,32 @@ describe('EmailAnalysisService', () => {
     expect(result.urgency).toBe('high');
     expect(result.labels).toEqual(['Updates', 'Action Items']);
     expect(result.needsFollowUp).toBe(true);
+  });
+
+  it('keeps analyze system prompts under the Mistral limit for tenants with many label rules', async () => {
+    prisma.userLabel.findMany.mockResolvedValue(
+      Array.from({ length: 18 }, (_, index) => ({
+        name: `Rule ${index + 1}`,
+        aiPrompt: `Use this label for complex customer and system situations ${index + 1}. `.repeat(12),
+        defaultLane: index % 2 === 0 ? 'action-now' : 'review-later',
+      })),
+    );
+    triageRuleService.buildTriageContext.mockImplementation(async (_tenantId: string, options?: { maxLength?: number }) => {
+      const payload = `<LABEL_METADATA>\n${'meta line '.repeat(200)}\n</LABEL_METADATA>\n\n<TRIAGE_RULES>\n${'rule line '.repeat(220)}\n</TRIAGE_RULES>`;
+      return typeof options?.maxLength === 'number' ? payload.slice(0, options.maxLength) : payload;
+    });
+
+    await service.analyzeEmailUnified('tenant-1', 'email-1', 'en');
+
+    const promptArgs = mistral.completePrompt.mock.calls.at(0)?.[0];
+    expect(typeof promptArgs?.systemPrompt).toBe('string');
+    expect(promptArgs.systemPrompt.length).toBeLessThanOrEqual(4600);
+    expect(triageRuleService.buildTriageContext).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.objectContaining({
+        includeLabelPrompts: false,
+        maxRules: 20,
+      }),
+    );
   });
 });

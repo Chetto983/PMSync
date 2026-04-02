@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmailAnalysisService } from '../email-analysis.service';
+import { DEFAULT_AI_USER_LABELS } from '../../../labels/default-user-labels';
 
 describe('EmailAnalysisService cache signature', () => {
   let prisma: any;
@@ -67,20 +68,34 @@ describe('EmailAnalysisService cache signature', () => {
       setTriageRules: vi.fn().mockResolvedValue([]),
       buildTriageContext: vi.fn().mockResolvedValue(''),
     };
-    service = new EmailAnalysisService(prisma, mistral, utils, triageRuleService as any, undefined as any);
+    const labelResolution = {
+      resolve: vi.fn().mockReturnValue({ labels: ['Updates', 'Action Items'], suppressUrgency: false }),
+      normaliseLabel: vi.fn((label: string) => label),
+    };
+    const triageScoreService = {
+      compute: vi.fn().mockReturnValue({
+        priority: 2, urgency: 'high', deadlineDate: null,
+        needsFollowUp: true, followUpDate: null, followUpReason: 'Investigate the failed deployment',
+        priorityReason: 'Escalation risk: System alert',
+      }),
+    };
+    const laneAssignment = {
+      assignLane: vi.fn().mockReturnValue({ lane: 'action-now', laneReason: 'Escalation risk detected' }),
+    };
+    service = new EmailAnalysisService(
+      prisma, mistral, utils, triageRuleService as any,
+      labelResolution as any, triageScoreService as any, laneAssignment as any,
+      undefined as any,
+    );
   });
 
   it('uses cached analysis when locale and label rules signature match', async () => {
-    const signature = service['computeLabelRulesSignature']([
-      { name: 'Important', aiPrompt: 'Use only for urgent or business-critical emails that require prompt attention. Do not use for routine notifications, release notes, newsletters, or passive alerts.' },
-      { name: 'Follow-up', aiPrompt: 'Use only when the user should revisit the email later to reply, check in, or wait for a response. Do not use for passive informational notifications.' },
-      { name: 'Action Items', aiPrompt: 'Use when the email contains concrete tasks, deliverables, approvals, or deadlines that require someone to act.' },
-      { name: 'Info', aiPrompt: 'Use for informational emails worth keeping that do not require action.' },
-      { name: 'Personal', aiPrompt: 'Use for personal conversations, relationship-building messages, or informal 1:1 emails.' },
-      { name: 'Finance', aiPrompt: 'Use for invoices, billing, payments, receipts, refunds, subscriptions, and money-related operations.' },
-      { name: 'Promotions', aiPrompt: 'Use for marketing emails, sales offers, newsletters, discounts, and promotional campaigns. These are usually low priority and do not need follow-up.' },
-      { name: 'Updates', aiPrompt: 'Use for product updates, announcements, release notes, changelogs, system alerts, and GitHub/Vercel/Railway notifications. Do not combine with Important or Follow-up unless the email clearly requires action, a reply, or a real deadline.' },
-    ]);
+    const signature = service['computeLabelRulesSignature'](
+      DEFAULT_AI_USER_LABELS.map((label) => ({
+        name: label.name,
+        aiPrompt: label.aiPrompt,
+      })),
+    );
     prisma.emailAnalysis.findFirst.mockResolvedValue({
       priority: 'HIGH',
       category: 'OTHER',

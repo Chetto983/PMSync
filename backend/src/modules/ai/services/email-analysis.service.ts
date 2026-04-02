@@ -15,6 +15,9 @@ import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 import { buildAiResponseMeta } from '../utils/ai-response-meta';
 import { DEFAULT_AI_USER_LABELS, ensureDefaultUserLabels } from '../../labels/default-user-labels';
 import { TriageRuleService } from './triage-rule.service';
+import { LabelResolutionService, type TenantLabel } from './label-resolution.service';
+import { TriageScoreService } from './triage-score.service';
+import { LaneAssignmentService } from './lane-assignment.service';
 
 type LocaleKey = 'en' | 'it';
 
@@ -27,12 +30,20 @@ interface EmailRecord {
 export class EmailAnalysisService {
   private readonly logger = new Logger(EmailAnalysisService.name);
   private readonly analysisVersion = 'unified-email-v2';
+  private static readonly MAX_ANALYZE_SYSTEM_PROMPT_LENGTH = 4600;
+  private static readonly LABEL_RULES_BUDGET_RATIO = 0.6;
+  private static readonly TRIAGE_CONTEXT_MAX_RULES = 20;
+  private static readonly PROMPT_LINE_MAX_LENGTH = 220;
+  private static readonly LABEL_PROMPT_MAX_LENGTH = 180;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
     private readonly utils: InsightUtilsService,
     private readonly triageRuleService: TriageRuleService,
+    private readonly labelResolution: LabelResolutionService,
+    private readonly triageScore: TriageScoreService,
+    private readonly laneAssignment: LaneAssignmentService,
     @Optional() @Inject(PiiDetectionService) private readonly piiDetection?: PiiDetectionService,
   ) {}
 
@@ -80,9 +91,7 @@ export class EmailAnalysisService {
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
     const allowedLabels = labelDefs.map((l) => l.name);
-    const labelPromptBlock = this.buildLabelPromptBlock(labelDefs);
-    const triageContext = await this.triageRuleService.buildTriageContext(tenantId);
-    const systemPrompt = t.insights.analyzeUnified.systemPrompt(allowedLabels.join(', '), labelPromptBlock, triageContext);
+    const systemPrompt = await this.buildAnalyzeSystemPrompt(t, tenantId, labelDefs, allowedLabels);
     const userPrompt = this.buildEmailPrompt(email, lang);
 
     try {
@@ -103,43 +112,56 @@ export class EmailAnalysisService {
       const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning : '';
       const rawFollowUpDate = parsed.followUpDate ? new Date(parsed.followUpDate as string) : null;
       const rawFollowUpReason = typeof parsed.followUpReason === 'string' ? parsed.followUpReason : null;
-      const labels = this.resolveLabels(email, this.normalizeLabels(parsed.labels, allowedLabels), allowedLabels, {
-        priority: rawPriority,
-        urgency: rawUrgency,
-        intent,
-        escalationRisk,
-        hasDeadline,
-        needsFollowUp: rawNeedsFollowUp,
+      const triageRules = await this.triageRuleService.getTriageRules(tenantId);
+      const modelLabels = this.normalizeLabels(parsed.labels, allowedLabels);
+
+      // 1. Label resolution (new pipeline)
+      const labelResult = this.labelResolution.resolve({
+        modelLabels,
+        tenantLabels: labelDefs,
+        triageRules,
+        email: { from: email.from, subject: email.subject, bodyText: email.bodyText, snippet: email.snippet },
+        signals: { priority: rawPriority, urgency: rawUrgency, intent, escalationRisk, hasDeadline, needsFollowUp: rawNeedsFollowUp },
       });
-      const normalizedSignals = this.normalizeTriageSignals(email, labels, {
-        priority: rawPriority,
-        urgency: rawUrgency,
-        intent,
-        escalationRisk,
-        hasDeadline,
-        deadlineDate: parsed.deadlineDate ? new Date(parsed.deadlineDate as string) : null,
-        needsFollowUp: rawNeedsFollowUp,
-        followUpDate: rawFollowUpDate,
-        followUpReason: rawFollowUpReason,
+      const labels = labelResult.labels;
+
+      // 2. Score computation (label-subordinate)
+      const scoreResult = this.triageScore.compute(
+        labelResult,
+        {
+          priority: rawPriority, urgency: rawUrgency, intent, actionability,
+          escalationRisk, hasDeadline,
+          deadlineDate: parsed.deadlineDate ? new Date(parsed.deadlineDate as string) : null,
+          needsFollowUp: rawNeedsFollowUp, followUpDate: rawFollowUpDate, followUpReason: rawFollowUpReason,
+        },
+        labelDefs,
+        { from: email.from, subject: email.subject },
+      );
+
+      // 3. Lane assignment
+      const laneResult = this.laneAssignment.assignLane({
+        labelResult, tenantLabels: labelDefs, actionability,
+        urgency: scoreResult.urgency, escalationRisk, hasDeadline,
+        deadlineDate: scoreResult.deadlineDate,
       });
 
       const result: UnifiedEmailAnalysis = {
         summary: typeof parsed.summary === 'string' ? parsed.summary : '',
         sentiment: this.validateSentiment(parsed.sentiment),
         tone: typeof parsed.tone === 'string' ? parsed.tone : 'neutral',
-        priority: normalizedSignals.priority,
-        urgency: normalizedSignals.urgency,
+        priority: scoreResult.priority,
+        urgency: scoreResult.urgency,
         labels,
         keyTopics: Array.isArray(parsed.keyTopics) ? (parsed.keyTopics as string[]).slice(0, 5) : [],
         intent,
         actionability,
-        lane: this.deriveLane(labels, labelDefs, actionability),
+        lane: laneResult.lane,
         escalationRisk,
         hasDeadline,
-        deadlineDate: normalizedSignals.deadlineDate,
-        needsFollowUp: normalizedSignals.needsFollowUp,
-        followUpDate: normalizedSignals.followUpDate,
-        followUpReason: normalizedSignals.followUpReason,
+        deadlineDate: scoreResult.deadlineDate,
+        needsFollowUp: scoreResult.needsFollowUp,
+        followUpDate: scoreResult.followUpDate,
+        followUpReason: scoreResult.followUpReason,
         smartReplies: options?.includeSmartReplies && Array.isArray(parsed.smartReplies) ? (parsed.smartReplies as string[]).slice(0, 3) : undefined,
         confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.7)),
         reasoning,
@@ -210,19 +232,29 @@ export class EmailAnalysisService {
 
   // --- Private helpers ---
 
-  private async getUserLabels(tenantId: string): Promise<Array<{ name: string; aiPrompt: string | null; defaultLane: string | null }>> {
+  private async getUserLabels(tenantId: string): Promise<TenantLabel[]> {
     try {
       await ensureDefaultUserLabels(this.prisma, tenantId);
       const labels = await this.prisma.userLabel.findMany({
         where: { tenantId, isArchived: false },
-        select: { name: true, aiPrompt: true, defaultLane: true },
+        select: {
+          name: true, aiPrompt: true, defaultLane: true,
+          category: true, suppressUrgency: true, mutuallyExclusiveWith: true,
+        },
         orderBy: { orderIndex: 'asc' },
       });
-      return labels.length === 0
-        ? DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({ name, aiPrompt, defaultLane }))
-        : labels;
+      if (labels.length === 0) {
+        return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({
+          name, aiPrompt, defaultLane,
+          category: 'custom', suppressUrgency: false, mutuallyExclusiveWith: [],
+        }));
+      }
+      return labels;
     } catch {
-      return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({ name, aiPrompt, defaultLane }));
+      return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({
+        name, aiPrompt, defaultLane,
+        category: 'custom', suppressUrgency: false, mutuallyExclusiveWith: [],
+      }));
     }
   }
 
@@ -230,11 +262,72 @@ export class EmailAnalysisService {
    * Build a prompt block with per-label AI instructions.
    * Only includes labels that have an aiPrompt set by the user.
    */
-  private buildLabelPromptBlock(labels: Array<{ name: string; aiPrompt: string | null }>): string {
+  private async buildAnalyzeSystemPrompt(
+    t: ReturnType<typeof getToolTranslations>,
+    tenantId: string,
+    labelDefs: Array<{ name: string; aiPrompt: string | null }>,
+    allowedLabels: string[],
+  ): Promise<string> {
+    const allowedLabelsText = allowedLabels.join(', ');
+    const basePrompt = t.insights.analyzeUnified.systemPrompt(allowedLabelsText, '', '');
+    const optionalBudget = Math.max(
+      0,
+      EmailAnalysisService.MAX_ANALYZE_SYSTEM_PROMPT_LENGTH - basePrompt.length,
+    );
+    const hasLabelPrompts = labelDefs.some((label) => Boolean(label.aiPrompt?.trim()));
+    const labelPromptBudget = hasLabelPrompts
+      ? Math.floor(optionalBudget * EmailAnalysisService.LABEL_RULES_BUDGET_RATIO)
+      : 0;
+    const triageContextBudget = Math.max(0, optionalBudget - labelPromptBudget);
+    const labelPromptBlock = this.buildLabelPromptBlock(labelDefs, labelPromptBudget);
+    const triageContext = await this.triageRuleService.buildTriageContext(tenantId, {
+      includeLabelPrompts: false,
+      maxLength: triageContextBudget,
+      maxRules: EmailAnalysisService.TRIAGE_CONTEXT_MAX_RULES,
+      maxLineLength: EmailAnalysisService.PROMPT_LINE_MAX_LENGTH,
+      maxLabelPromptLength: EmailAnalysisService.LABEL_PROMPT_MAX_LENGTH,
+    });
+    const systemPrompt = t.insights.analyzeUnified.systemPrompt(
+      allowedLabelsText,
+      labelPromptBlock,
+      triageContext,
+    );
+
+    if (systemPrompt.length > EmailAnalysisService.MAX_ANALYZE_SYSTEM_PROMPT_LENGTH) {
+      this.logger.warn(
+        `Analyze system prompt exceeded compact budget: ${systemPrompt.length}/${EmailAnalysisService.MAX_ANALYZE_SYSTEM_PROMPT_LENGTH}`,
+      );
+    }
+
+    return systemPrompt;
+  }
+
+  private buildLabelPromptBlock(
+    labels: Array<{ name: string; aiPrompt: string | null }>,
+    maxLength?: number,
+  ): string {
     const withPrompts = labels.filter((l) => l.aiPrompt);
     if (withPrompts.length === 0) return '';
-    const lines = withPrompts.map((l) => `- "${l.name}": ${l.aiPrompt}`).join('\n');
-    return `\n<LABEL_RULES>\nApply these labels when the described conditions match:\n${lines}\n</LABEL_RULES>`;
+
+    const lines = withPrompts.map((label) => {
+      const normalizedPrompt = sanitizeForLLM(
+        String(label.aiPrompt).replace(/\s+/g, ' ').trim(),
+        {
+          maxLength: EmailAnalysisService.LABEL_PROMPT_MAX_LENGTH,
+          stripCodeBlocks: true,
+        },
+      );
+      return this.truncatePromptLine(
+        `- "${label.name}": ${normalizedPrompt}`,
+        EmailAnalysisService.PROMPT_LINE_MAX_LENGTH,
+      );
+    });
+    return this.buildTaggedPromptSection(
+      'LABEL_RULES',
+      lines,
+      maxLength,
+      'Apply these labels when the described conditions match:',
+    );
   }
 
   private computeLabelRulesSignature(labels: Array<{ name: string; aiPrompt: string | null }>): string {
@@ -243,6 +336,53 @@ export class EmailAnalysisService {
       aiPrompt: (label.aiPrompt || '').trim(),
     }));
     return createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
+  }
+
+  private buildTaggedPromptSection(
+    tag: string,
+    lines: string[],
+    maxLength?: number,
+    prefix?: string,
+  ): string {
+    if (lines.length === 0) return '';
+
+    const open = `\n<${tag}>\n`;
+    const prefixBlock = prefix ? `${prefix}\n` : '';
+    const close = `\n</${tag}>`;
+    const limit = typeof maxLength === 'number' ? maxLength : Number.MAX_SAFE_INTEGER;
+    const overhead = open.length + prefixBlock.length + close.length;
+    if (limit <= overhead) return '';
+
+    const accepted: string[] = [];
+    let currentLength = overhead;
+
+    for (const line of lines) {
+      const normalized = line.trim();
+      if (!normalized) continue;
+
+      const lineCost = normalized.length + (accepted.length > 0 ? 1 : 0);
+      if (currentLength + lineCost > limit) {
+        const available = limit - currentLength - (accepted.length > 0 ? 1 : 0);
+        if (available > 6) {
+          accepted.push(this.truncatePromptLine(normalized, available));
+        }
+        break;
+      }
+
+      accepted.push(normalized);
+      currentLength += lineCost;
+    }
+
+    if (accepted.length === 0) return '';
+    return `${open}${prefixBlock}${accepted.join('\n')}${close}`;
+  }
+
+  private truncatePromptLine(value: string, maxLength: number): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    if (maxLength <= 0) return '';
+    if (normalized.length <= maxLength) return normalized;
+    if (maxLength <= 3) return normalized.slice(0, maxLength);
+    return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
   }
 
   private async getEmailOrThrow(tenantId: string, emailId: string): Promise<EmailRecord> {
@@ -377,189 +517,11 @@ export class EmailAnalysisService {
     return valid.includes(str) ? (str as 'none' | 'todo' | 'waiting') : 'none';
   }
 
-  /**
-   * Derive lane from resolved labels using label metadata.
-   * First label with a defaultLane wins. Falls back to 'review-later'.
-   */
-  private deriveLane(
-    labels: string[],
-    labelDefs: Array<{ name: string; defaultLane: string | null }>,
-    actionability: string,
-  ): string {
-    for (const labelName of labels) {
-      const def = labelDefs.find((l) => l.name === labelName);
-      if (def?.defaultLane) return def.defaultLane;
-    }
-    // Fallback: if actionability is todo, default to action-now
-    if (actionability === 'todo') return 'action-now';
-    if (actionability === 'waiting') return 'waiting-on-reply';
-    return 'review-later';
-  }
-
   private normalizeLabels(labels: unknown, allowedLabels: string[]): string[] {
     if (!Array.isArray(labels)) return [];
-    return labels.slice(0, 3).map((l) => this.normaliseLabel(String(l), allowedLabels)).filter((l) => allowedLabels.includes(l));
-  }
-
-  private resolveLabels(
-    email: EmailRecord,
-    modelLabels: string[],
-    allowedLabels: string[],
-    signals: {
-      priority: 1 | 2 | 3 | 4 | 5;
-      urgency: 'critical' | 'high' | 'medium' | 'low';
-      intent: string;
-      escalationRisk: boolean;
-      hasDeadline: boolean;
-      needsFollowUp: boolean;
-    },
-  ): string[] {
-    if (modelLabels.length > 0) {
-      return modelLabels;
-    }
-
-    return this.inferLabels(email, allowedLabels, signals);
-  }
-
-  private inferLabels(
-    email: EmailRecord,
-    allowedLabels: string[],
-    signals: {
-      priority: 1 | 2 | 3 | 4 | 5;
-      urgency: 'critical' | 'high' | 'medium' | 'low';
-      intent: string;
-      escalationRisk: boolean;
-      hasDeadline: boolean;
-      needsFollowUp: boolean;
-    },
-  ): string[] {
-    const sample = `${email.subject || ''}\n${email.snippet || ''}\n${email.bodyText || ''}`.toLowerCase();
-    const inferred: string[] = [];
-
-    const pushAllowed = (label: string) => {
-      const normalized = this.normaliseLabel(label, allowedLabels);
-      if (allowedLabels.includes(normalized) && !inferred.includes(normalized)) {
-        inferred.push(normalized);
-      }
-    };
-
-    if (/\b(invoice|payment|billing|receipt|subscription|refund|charge)\b/.test(sample)) {
-      pushAllowed('Finance');
-    }
-    if (/\b(newsletter|unsubscribe|promotion|promo|sale|discount|offer)\b/.test(sample)) {
-      pushAllowed('Promotions');
-    }
-    if (/\b(update|release|feature|announcement|introducing|launch|changelog|workflow|deploy|build failed|github|vercel|railway|notification)\b/.test(sample)) {
-      pushAllowed('Updates');
-    }
-    if (
-      signals.escalationRisk ||
-      signals.priority === 1 ||
-      signals.urgency === 'critical' ||
-      (
-        signals.priority <= 2 &&
-        (signals.intent === 'action_required' || signals.intent === 'question' || signals.hasDeadline)
-      )
-    ) {
-      pushAllowed('Important');
-    }
-    if (signals.intent === 'follow_up' || (signals.needsFollowUp && signals.intent !== 'fyi')) {
-      pushAllowed('Follow-up');
-    }
-    if (signals.intent === 'action_required' || signals.intent === 'question' || signals.intent === 'meeting_request' || signals.hasDeadline) {
-      pushAllowed('Action Items');
-    }
-
-    if (inferred.length === 0) {
-      pushAllowed('Info');
-    }
-
-    return inferred.slice(0, 3);
-  }
-
-  private normalizeTriageSignals(
-    email: EmailRecord,
-    labels: string[],
-    signals: {
-      priority: 1 | 2 | 3 | 4 | 5;
-      urgency: 'critical' | 'high' | 'medium' | 'low';
-      intent: string;
-      escalationRisk: boolean;
-      hasDeadline: boolean;
-      deadlineDate: Date | null;
-      needsFollowUp: boolean;
-      followUpDate: Date | null;
-      followUpReason: string | null;
-    },
-  ): {
-    priority: 1 | 2 | 3 | 4 | 5;
-    urgency: 'critical' | 'high' | 'medium' | 'low';
-    deadlineDate: Date | null;
-    needsFollowUp: boolean;
-    followUpDate: Date | null;
-    followUpReason: string | null;
-  } {
-    const labelSet = new Set(labels.map((label) => label.trim().toLowerCase()));
-    const sample = `${email.from}\n${email.subject || ''}\n${email.snippet || ''}\n${email.bodyText || ''}`.toLowerCase();
-
-    const hasActionLabel = labelSet.has('action items') || labelSet.has('follow-up');
-    const hasPassiveLabel = labelSet.has('updates') || labelSet.has('promotions') || labelSet.has('info');
-    const explicitActionIntent = ['action_required', 'question', 'meeting_request', 'follow_up'].includes(signals.intent);
-    const promotionalCue = /\b(newsletter|unsubscribe|promotion|promo|sale|discount|offer|coupon|marketing campaign)\b/.test(sample);
-    const routineNotificationCue = /\b(release notes?|changelog|announcement|digest|weekly update|monthly update|product update|new feature|notification)\b/.test(sample);
-    const deliverySenderCue = /\b(no-?reply|noreply|do-not-reply|donotreply|notification|notifications|alerts?)\b/.test(sample);
-    const systemSourceCue = /\b(github|vercel|railway|gitlab|bitbucket|jira|linear|buildkite)\b/.test(sample);
-    const criticalIncidentCue = /\b(failed|failure|outage|incident|breach|security alert|data loss|broken|degraded|down|sev[0-9]|urgent|asap|immediately|action required|approval required|reply required|response needed)\b/.test(sample);
-    const actionableSystemAlert = systemSourceCue
-      && criticalIncidentCue
-      && (explicitActionIntent || hasActionLabel || /\b(build-and-test failed|run failed|workflow run|view results|view workflow run)\b/.test(sample));
-    const passiveNotification = !signals.hasDeadline
-      && !signals.escalationRisk
-      && !explicitActionIntent
-      && !hasActionLabel
-      && !criticalIncidentCue
-      && (promotionalCue || (hasPassiveLabel && (routineNotificationCue || deliverySenderCue || systemSourceCue)));
-
-    if (!passiveNotification) {
-      if (!actionableSystemAlert) {
-        return signals;
-      }
-
-      return {
-        priority: Math.min(signals.priority, 2) as 1 | 2 | 3 | 4 | 5,
-        urgency: signals.urgency === 'critical' ? 'critical' : 'high',
-        deadlineDate: signals.deadlineDate,
-        needsFollowUp: signals.needsFollowUp,
-        followUpDate: signals.followUpDate,
-        followUpReason: signals.followUpReason,
-      };
-    }
-
-    if (promotionalCue) {
-      return {
-        priority: Math.max(signals.priority, 4) as 1 | 2 | 3 | 4 | 5,
-        urgency: 'low',
-        deadlineDate: signals.deadlineDate,
-        needsFollowUp: false,
-        followUpDate: null,
-        followUpReason: null,
-      };
-    }
-
-    return {
-      priority: Math.max(signals.priority, 3) as 1 | 2 | 3 | 4 | 5,
-      urgency: signals.urgency === 'critical' || signals.urgency === 'high' ? 'medium' : signals.urgency,
-      deadlineDate: signals.deadlineDate,
-      needsFollowUp: false,
-      followUpDate: null,
-      followUpReason: null,
-    };
-  }
-
-  private normaliseLabel(label: string, allowedLabels: string[]): string {
-    const trimmed = label.trim().toLowerCase();
-    const found = allowedLabels.find((item) => item.toLowerCase() === trimmed || item.toLowerCase().includes(trimmed));
-    return found ?? label.trim();
+    return labels.slice(0, 3)
+      .map((l) => this.labelResolution.normaliseLabel(String(l), allowedLabels))
+      .filter((l) => allowedLabels.includes(l));
   }
 
   private mapPriorityToEnum(priority: number): 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW' {
