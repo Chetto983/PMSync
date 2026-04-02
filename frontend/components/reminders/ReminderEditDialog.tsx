@@ -24,6 +24,22 @@ interface ReminderEditDialogProps {
 const PRIORITA_OPTIONS = ['alta', 'media', 'bassa'] as const;
 const AZIONE_OPTIONS = ['chiama', 'scrivi_mail', 'verifica', 'conferma', 'controlla', 'altro'] as const;
 const STATUS_OPTIONS = ['attivo', 'completato', 'annullato', 'sospeso'] as const;
+const RECURRENCE_PRESETS = ['none', 'daily', 'weekly', 'monthly', 'custom'] as const;
+const PRESET_TO_RRULE: Record<string, string | null> = {
+  none: null,
+  daily: 'FREQ=DAILY;INTERVAL=1',
+  weekly: 'FREQ=WEEKLY;INTERVAL=1',
+  monthly: 'FREQ=MONTHLY;INTERVAL=1',
+  custom: null,
+};
+function rruleToPreset(rule: string | null | undefined): string {
+  if (!rule) return 'none';
+  const normalized = rule.replace(/\s/g, '').toUpperCase();
+  if (normalized === 'FREQ=DAILY;INTERVAL=1') return 'daily';
+  if (normalized === 'FREQ=WEEKLY;INTERVAL=1') return 'weekly';
+  if (normalized === 'FREQ=MONTHLY;INTERVAL=1') return 'monthly';
+  return 'custom';
+}
 
 function toLocalDateTimeString(isoString: string | null | undefined): string {
   if (!isoString) return '';
@@ -47,6 +63,8 @@ export function ReminderEditDialog({ open, reminder, onClose }: ReminderEditDial
   const [azione, setAzione] = useState('altro');
   const [status, setStatus] = useState('attivo');
   const [messaggioTelegram, setMessaggioTelegram] = useState('');
+  const [recurrencePreset, setRecurrencePreset] = useState('none');
+  const [customRrule, setCustomRrule] = useState('');
 
   useEffect(() => {
     if (reminder && open) {
@@ -58,11 +76,18 @@ export function ReminderEditDialog({ open, reminder, onClose }: ReminderEditDial
       setAzione(reminder.azione);
       setStatus(reminder.status);
       setMessaggioTelegram(reminder.messaggioTelegram ?? '');
+      const preset = rruleToPreset(reminder.recurrenceRule);
+      setRecurrencePreset(preset);
+      setCustomRrule(preset === 'custom' ? (reminder.recurrenceRule ?? '') : '');
     }
   }, [reminder, open]);
 
   const handleSave = () => {
     if (!reminder) return;
+    const isRecurring = recurrencePreset !== 'none';
+    const recurrenceRule = recurrencePreset === 'custom'
+      ? (customRrule || undefined)
+      : (PRESET_TO_RRULE[recurrencePreset] ?? undefined);
     const dto: UpdateReminderDto = {
       titolo,
       descrizione: descrizione || undefined,
@@ -72,6 +97,8 @@ export function ReminderEditDialog({ open, reminder, onClose }: ReminderEditDial
       azione: azione as UpdateReminderDto['azione'],
       status: status as UpdateReminderDto['status'],
       messaggioTelegram: messaggioTelegram || undefined,
+      isRecurring,
+      recurrenceRule,
     };
     updateMutation.mutate(
       { id: reminder.id, dto },
@@ -160,6 +187,29 @@ export function ReminderEditDialog({ open, reminder, onClose }: ReminderEditDial
               <MenuItem key={s} value={s}>{tr.status[s]}</MenuItem>
             ))}
           </TextField>
+          <TextField
+            label={ed.recurrenceField}
+            select
+            value={recurrencePreset}
+            onChange={(e) => setRecurrencePreset(e.target.value)}
+            fullWidth
+            disabled={updateMutation.isPending}
+          >
+            {RECURRENCE_PRESETS.map((r) => (
+              <MenuItem key={r} value={r}>{tr.recurrence[r]}</MenuItem>
+            ))}
+          </TextField>
+          {recurrencePreset === 'custom' && (
+            <TextField
+              label={ed.recurrenceCustomField}
+              value={customRrule}
+              onChange={(e) => setCustomRrule(e.target.value)}
+              fullWidth
+              disabled={updateMutation.isPending}
+              placeholder="FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE"
+              helperText="RFC 5545 RRULE format"
+            />
+          )}
           <TextField
             label={ed.telegramMessageField}
             value={messaggioTelegram}

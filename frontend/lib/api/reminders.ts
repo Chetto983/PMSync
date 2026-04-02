@@ -39,6 +39,9 @@ export interface Reminder {
   messaggioTelegram?: string | null;
   telegramInviato: boolean;
   telegramInviatoAt?: string | null;
+  isRecurring: boolean;
+  recurrenceRule?: string | null;
+  recurrenceParentId?: string | null;
   status: ReminderStatus;
   completatoAt?: string | null;
   inputUtente?: string | null;
@@ -84,6 +87,8 @@ export interface UpdateReminderDto {
   emailMittente?: string;
   messaggioTelegram?: string;
   status?: ReminderStatus;
+  isRecurring?: boolean;
+  recurrenceRule?: string;
 }
 
 export interface ListRemindersParams {

@@ -3570,6 +3570,17 @@ export interface AppTranslations {
         actionField: string;
         statusField: string;
         telegramMessageField: string;
+        recurrenceField: string;
+        recurrenceCustomField: string;
+      };
+      recurrence: {
+        none: string;
+        daily: string;
+        weekly: string;
+        monthly: string;
+        custom: string;
+        badge: string;
+        seriesLink: string;
       };
       status: {
         attivo: string;

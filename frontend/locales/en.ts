@@ -3492,6 +3492,17 @@ export const en: AppTranslations = {
         actionField: 'Action',
         statusField: 'Status',
         telegramMessageField: 'Telegram message',
+        recurrenceField: 'Recurrence',
+        recurrenceCustomField: 'Custom RRULE',
+      },
+      recurrence: {
+        none: 'None',
+        daily: 'Every day',
+        weekly: 'Every week',
+        monthly: 'Every month',
+        custom: 'Custom',
+        badge: 'Recurring',
+        seriesLink: 'View series',
       },
       status: {
         attivo: 'Active',
