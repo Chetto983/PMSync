@@ -232,7 +232,7 @@ Plans:
   2. User can accept a suggestion with one click and the action executes
   3. User can dismiss a suggestion and it does not reappear for that email
 **UI hint**: yes
-- [ ] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss
+- [x] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss (completed 2026-04-02)
 - [ ] **Phase 144: AI Assistant Overlay** - Slide-over AI panel from any screen
 - [ ] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
 
