@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ComplianceModule } from '../compliance/compliance.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
@@ -65,7 +65,7 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     CalendarModule, // CalendarEventsService
     ContactsModule, // ContactsService
     AiModule, // EmbeddingsService, KnowledgeBaseService
-    forwardRef(() => ReminderModule), // ReminderService (for AI reminder tools)
+    ReminderModule, // ReminderService (for AI reminder tools)
     NBAModule, // Sprint 13: NBAService for AI chat tool
     ForecastingModule, // Sprint 14.1: ForecastService for AI forecast tool
     GovernanceModule, // Sprint 14.1: GovernanceService + ModelRetrainService for AI tools

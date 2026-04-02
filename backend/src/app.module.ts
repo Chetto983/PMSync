@@ -37,6 +37,7 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { OpenRouterModule } from './modules/openrouter/openrouter.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { ReminderModule } from './modules/reminder/reminder.module';
+import { TelegramCoreModule } from './modules/telegram/telegram-core.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { PushModule } from './modules/push/push.module';
 import { CrmModule } from './modules/crm/crm.module';
@@ -110,8 +111,9 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     RealtimeModule, // WebSocket Gateway per eventi realtime multi-tenant
     LabelsModule,
     SubscriptionModule, // P10: Billing & subscription management with Autumn
+    TelegramCoreModule, // @Global(): TelegramBotService + ReminderNotifyQueueService (breaks circular dep)
     ReminderModule, // Follow-Up AI: Smart reminder system with Telegram
-    TelegramModule, // Follow-Up AI: Telegram bot, scheduler, webhook
+    TelegramModule, // Follow-Up AI: Telegram scheduler, webhook, email monitor
     PushModule, // Phase 105: Web Push subscription management
     CrmModule, // CRM Phase 1: Account management
     TasksModule, // Phase 137: Unified task aggregation (follow-ups, reminders, deals, tickets, manual)

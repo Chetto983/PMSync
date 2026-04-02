@@ -73,8 +73,8 @@ Action options (translated EN+IT):
 
 ## Sprint Backlog
 
-### T-1601: Add structured label fields to Prisma schema [2 SP]
-- [ ] Add to `UserLabel` model in `backend/prisma/schema.prisma`:
+### T-1601: Add structured label fields to Prisma schema [2 SP] DONE
+- [x] Add to `UserLabel` model in `backend/prisma/schema.prisma`:
   - `roles String[] @default([])` — sender role tags
   - `contents String[] @default([])` — content type tags
   - `actionType String @default("none")` — `"urgent"` | `"followup"` | `"decide"` | `"none"`
@@ -83,8 +83,8 @@ Action options (translated EN+IT):
 - [ ] Run `npx prisma generate`
 - [ ] Verify with `cd backend && npx tsc --noEmit`
 
-### T-1602: Remove default labels system [3 SP]
-- [ ] Delete `DEFAULT_AI_USER_LABELS` array from `backend/src/modules/labels/default-user-labels.ts`
+### T-1602: Remove default labels system [3 SP] DONE
+- [x] Delete `DEFAULT_AI_USER_LABELS` array from `backend/src/modules/labels/default-user-labels.ts`
 - [ ] Delete `ensureDefaultUserLabels()` function
 - [ ] Keep `DefaultLabelDef` interface (rename to `LabelDef`) — still useful for typing
 - [ ] Update `email-analysis.service.ts` `getUserLabels()`:
@@ -97,8 +97,8 @@ Action options (translated EN+IT):
 - [ ] Grep for all usages of `ensureDefaultUserLabels` and `DEFAULT_AI_USER_LABELS` — update or remove each
 - [ ] Verify with `cd backend && npx tsc --noEmit`
 
-### T-1603: Create aiPrompt auto-generation from structured fields [2 SP]
-- [ ] Create `backend/src/modules/labels/label-prompt-builder.ts` (max 150 lines)
+### T-1603: Create aiPrompt auto-generation from structured fields [2 SP] DONE
+- [x] Create `backend/src/modules/labels/label-prompt-builder.ts` (max 150 lines)
 - [ ] Implement `buildAiPromptFromMetadata(label: { name, roles, contents, actionType, aiPrompt? }): string`:
   - If `aiPrompt` is set (power user override), return it as-is
   - Otherwise compose from structured fields:
@@ -115,8 +115,8 @@ Action options (translated EN+IT):
 - [ ] Export role/content/action option definitions for frontend reuse
 - [ ] Verify with `cd backend && npx tsc --noEmit`
 
-### T-1604: Update system prompt builder for dynamic labels [3 SP]
-- [ ] Edit `email-analysis.service.ts` `buildLabelPromptBlock()`:
+### T-1604: Update system prompt builder for dynamic labels [3 SP] DONE
+- [x] Edit `email-analysis.service.ts` `buildLabelPromptBlock()`:
   - Group labels by `category` (workflow > semantic > suppression) with section headers
   - Use `buildAiPromptFromMetadata()` for each label's prompt text
   - Add `<MUTUAL_EXCLUSION_RULES>` block built from `mutuallyExclusiveWith` fields
@@ -125,8 +125,8 @@ Action options (translated EN+IT):
 - [ ] Move `reasoning` to first field in JSON output schema in `en.ts` and `it.ts` prompt templates
 - [ ] Verify with `cd backend && npx tsc --noEmit`
 
-### T-1605: Create label wizard REST endpoints [2 SP]
-- [ ] Add to `backend/src/modules/labels/` controller (or create if not exists):
+### T-1605: Create label wizard REST endpoints [2 SP] DONE
+- [x] Add to `backend/src/modules/labels/` controller (or create if not exists):
   - `GET /labels/wizard-options` — returns translated role/content/action options for the wizard
   - `POST /labels/wizard` — creates a label from wizard data: `{ name, color, category, roles, contents, actionType, mutuallyExclusiveWith?, suppressUrgency? }`
     - Auto-generates `aiPrompt` via `buildAiPromptFromMetadata()`
@@ -142,8 +142,8 @@ Action options (translated EN+IT):
 - [ ] Add DTO validation with class-validator
 - [ ] Verify with `cd backend && npx tsc --noEmit`
 
-### T-1606: Add translations for label wizard [2 SP]
-- [ ] Add to `frontend/locales/en.ts` under `labels.wizard` namespace:
+### T-1606: Add translations for label wizard [2 SP] DONE
+- [x] Add to `frontend/locales/en.ts` under `labels.wizard` namespace:
   - Wizard titles: `title`, `subtitle`, `stepName`, `stepClassify`, `stepBehavior`, `stepReview`
   - Step 1: `nameLabel`, `namePlaceholder`, `colorLabel`, `categoryLabel`
   - Step 2: `whoSends`, `whoSendsHelp`, `whatContains`, `whatContainsHelp`
@@ -159,8 +159,8 @@ Action options (translated EN+IT):
 - [ ] Add types to `frontend/locales/index.ts`
 - [ ] Verify with `cd frontend && npx tsc --noEmit`
 
-### T-1607: Create label wizard query hooks [1 SP]
-- [ ] Create `frontend/hooks/queries/use-label-wizard.ts`:
+### T-1607: Create label wizard query hooks [1 SP] DONE
+- [x] Create `frontend/hooks/queries/use-label-wizard.ts`:
   - `useLabelWizardOptions()` — fetches `GET /labels/wizard-options` with `staleTime: Infinity` (options don't change)
   - `useCreateLabelWizard()` — mutation for `POST /labels/wizard`
   - `useUpdateLabelWizard(id)` — mutation for `PUT /labels/:id/wizard`
@@ -168,8 +168,8 @@ Action options (translated EN+IT):
 - [ ] Export from `frontend/hooks/queries/index.ts`
 - [ ] Verify with `cd frontend && npx tsc --noEmit`
 
-### T-1608: Create LabelWizardDialog component [3 SP]
-- [ ] Create `frontend/src/components/labels/LabelWizardDialog.tsx` (max 400 lines)
+### T-1608: Create LabelWizardDialog component [3 SP] DONE
+- [x] Create `frontend/src/components/labels/LabelWizardDialog.tsx` (max 400 lines)
 - [ ] Use MUI `Stepper` (horizontal, `alternativeLabel`) inside `Dialog` (maxWidth `md`)
 - [ ] 4 steps:
   - **Step 1 — Name & Color**: `TextField` for name, `ColorPickerPopover` for color, `Select` for category
@@ -186,8 +186,8 @@ Action options (translated EN+IT):
 - [ ] Mobile: at `xs` breakpoint, use `MobileStepper` with dots
 - [ ] Verify with `cd frontend && npx tsc --noEmit`
 
-### T-1609: Create labels empty state & list integration [2 SP]
-- [ ] Create `frontend/src/components/labels/LabelsEmptyState.tsx` (max 100 lines)
+### T-1609: Create labels empty state & list integration [2 SP] DONE
+- [x] Create `frontend/src/components/labels/LabelsEmptyState.tsx` (max 100 lines)
   - Illustration area (MUI `InboxOutlined` icon, large)
   - Title + description from translations
   - Primary CTA: "Create your first label" (opens wizard)
@@ -198,8 +198,8 @@ Action options (translated EN+IT):
   - Edit button on each label card (opens wizard in edit mode)
 - [ ] Verify with `cd frontend && npx tsc --noEmit`
 
-### T-1610: Validation & integration test [1 SP]
-- [ ] Verify full flow manually:
+### T-1610: Validation & integration test [1 SP] DONE
+- [x] Verify full flow manually:
   - Fresh tenant: sees empty state
   - Create label via wizard: name + roles + contents + action -> label appears in list
   - Generated `aiPrompt` is coherent
