@@ -225,7 +225,7 @@ Plans:
 **Requirements**: AI-04, AI-05
 **Plans:** 2 plans
 Plans:
-- [ ] 0143-01-PLAN.md — Backend rule engine, task type accept, for-email endpoint
+- [x] 0143-01-PLAN.md — Backend rule engine, task type accept, for-email endpoint
 - [ ] 0143-02-PLAN.md — Frontend translations, API hook, EmailSuggestionCard, sidebar integration
 **Success Criteria** (what must be TRUE):
   1. User sees suggested actions after reading an email (create task, update deal, link to ticket) in the contextual sidebar

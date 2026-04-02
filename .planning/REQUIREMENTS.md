@@ -40,8 +40,8 @@ Requirements for UX Unification — 4-Pillar Simplification. Each maps to roadma
 - [x] **AI-01**: System auto-links incoming emails to matching contacts in background
 - [x] **AI-02**: System auto-links incoming emails to relevant deals/tickets based on contact + context
 - [x] **AI-03**: System auto-categorizes emails by type (support, sales, internal, newsletter)
-- [ ] **AI-04**: User sees suggested actions after reading an email (create task, update deal, link to ticket)
-- [ ] **AI-05**: User can accept or dismiss AI suggestions with one click
+- [x] **AI-04**: User sees suggested actions after reading an email (create task, update deal, link to ticket)
+- [x] **AI-05**: User can accept or dismiss AI suggestions with one click
 - [ ] **AI-06**: User can open AI Assistant as overlay panel from any screen via keyboard shortcut
 - [ ] **AI-07**: AI Assistant overlay is context-aware (knows current email/contact/deal being viewed)
 
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-01 | Phase 142 | Complete |
 | AI-02 | Phase 142 | Complete |
 | AI-03 | Phase 142 | Complete |
-| AI-04 | Phase 143 | Pending |
-| AI-05 | Phase 143 | Pending |
+| AI-04 | Phase 143 | Complete |
+| AI-05 | Phase 143 | Complete |
 | AI-06 | Phase 144 | Pending |
 | AI-07 | Phase 144 | Pending |
 
