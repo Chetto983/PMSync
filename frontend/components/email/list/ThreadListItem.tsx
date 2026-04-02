@@ -35,7 +35,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap, Sparkles } from 'lucide-react';
+import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap, Sparkles, CheckSquare, Clock } from 'lucide-react';
 import { emailThreadOptions } from '@/hooks/queries/use-emails';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -322,18 +322,34 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
         <Typography
           variant="body2"
           noWrap
+          component="div"
           sx={{
             fontSize: '0.8125rem',
             fontWeight: thread.isUnread ? 500 : 400,
             color: thread.isUnread ? 'text.primary' : 'text.secondary',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
           }}
         >
+          {thread.aiActionability === 'todo' && (
+            <Tooltip title={t.ai.triage.followUp.todo}>
+              <CheckSquare size={12} style={{ flexShrink: 0, color: theme.palette.success.main }} />
+            </Tooltip>
+          )}
+          {thread.aiActionability === 'waiting' && (
+            <Tooltip title={t.ai.triage.followUp.waiting}>
+              <Clock size={12} style={{ flexShrink: 0, color: theme.palette.warning.main }} />
+            </Tooltip>
+          )}
+          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {thread.subject || t.common.noSubject}
           {showSnippet && (
             <Box component="span" sx={{ color: 'text.disabled' }}>
               {' \u2014 '}{thread.snippet}
             </Box>
           )}
+          </Box>
         </Typography>
 
         {/* Line 3: Lane / Priority / sentiment / user labels (only when present) */}

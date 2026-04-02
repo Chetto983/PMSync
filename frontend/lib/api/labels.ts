@@ -197,6 +197,38 @@ export interface TriageOnboardingApplyResponse {
   labels: Label[];
 }
 
+export interface LabelPreviewResponse {
+  matched: boolean;
+  label: Pick<Label, 'id' | 'name' | 'aiPrompt' | 'category' | 'roles' | 'contents' | 'actionType' | 'defaultLane'>;
+  email: {
+    id: string;
+    subject: string | null;
+    from: string;
+    receivedAt: string;
+  };
+  analysis: {
+    labels: string[];
+    priority: number;
+    urgency: string;
+    lane: string | null;
+    intent: string;
+    actionability: string;
+    summary: string;
+    reasoning: string;
+    meta?: {
+      source?: string;
+      locale?: string;
+      generatedAt?: string;
+    };
+  };
+}
+
+export interface LabelWizardPreviewRequest extends CreateLabelWizardDto {
+  emailId: string;
+  labelId?: string;
+  locale?: string;
+}
+
 export interface LabelsResponse {
   labels: Label[];
 }
@@ -345,6 +377,21 @@ export const labelsApi = {
 
   async updateFromWizard(labelId: string, dto: CreateLabelWizardDto): Promise<LabelResponse> {
     const response = await apiClient.put(`/labels/${labelId}/wizard`, dto);
+    return response.data;
+  },
+
+  async previewLabel(
+    labelId: string,
+    dto: { emailId: string; locale?: string },
+  ): Promise<LabelPreviewResponse> {
+    const response = await apiClient.post(`/labels/${labelId}/preview`, dto);
+    return response.data;
+  },
+
+  async previewWizardLabel(
+    dto: LabelWizardPreviewRequest,
+  ): Promise<LabelPreviewResponse> {
+    const response = await apiClient.post('/labels/wizard/preview', dto);
     return response.data;
   },
 

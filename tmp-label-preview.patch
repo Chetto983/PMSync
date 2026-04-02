@@ -1,0 +1,289 @@
+﻿diff --git a/backend/src/modules/labels/controllers/labels.controller.ts b/backend/src/modules/labels/controllers/labels.controller.ts
+index b48a94c1..71ba268d 100644
+--- a/backend/src/modules/labels/controllers/labels.controller.ts
++++ b/backend/src/modules/labels/controllers/labels.controller.ts
+@@ -18,6 +18,7 @@ import {
+   AddEmailsToLabelDto,
+   BulkDeleteLabelsDto,
+   CreateLabelDto,
++  LabelPreviewDto,
+   CreateLabelWizardDto,
+   ReorderLabelsDto,
+   TriageOnboardingRulesDto,
+@@ -82,6 +83,24 @@ export class LabelsController {
+     return { label };
+   }
+ 
++  @Post(':id/preview')
++  @Roles('super-admin', 'admin', 'manager')
++  @RateTierDecorator('safe-write')
++  @ApiOperation({
++    summary: 'Preview label against a real email',
++    description: 'Runs unified email analysis and returns whether the selected label would match the given email.',
++  })
++  @ApiParam({ name: 'id', description: 'Label ID' })
++  @ApiBody({ type: LabelPreviewDto })
++  @ApiResponse({ status: 200, description: 'Label preview generated successfully' })
++  async previewLabel(
++    @Req() req: AuthenticatedRequest,
++    @Param('id') labelId: string,
++    @Body() dto: LabelPreviewDto,
++  ) {
++    return this.labelsService.previewLabelOnEmail(req.user.tenantId, labelId, dto);
++  }
++
+   @Get('triage-onboarding')
+   @ApiOperation({
+     summary: 'Get triage onboarding contract',
+diff --git a/backend/src/modules/labels/dto/labels.dto.ts b/backend/src/modules/labels/dto/labels.dto.ts
+index 1c70cac5..525d207d 100644
+--- a/backend/src/modules/labels/dto/labels.dto.ts
++++ b/backend/src/modules/labels/dto/labels.dto.ts
+@@ -135,6 +135,26 @@ export class CreateLabelWizardDto {
+ 
+ export class UpdateLabelWizardDto extends CreateLabelWizardDto {}
+ 
++export class LabelPreviewDto {
++  @ApiProperty({
++    description: 'Email ID to preview this label against',
++    example: 'cmnhcur3q001201mt8umm2fwe',
++  })
++  @IsString()
++  @IsNotEmpty()
++  emailId!: string;
++
++  @ApiProperty({
++    required: false,
++    description: 'Optional locale used by the unified email analysis',
++    example: 'it',
++  })
++  @IsOptional()
++  @IsString()
++  @Length(2, 10)
++  locale?: string;
++}
++
+ export class TriageOnboardingRulesDto {
+   @ApiProperty({
+     required: false,
+diff --git a/backend/src/modules/labels/labels.module.ts b/backend/src/modules/labels/labels.module.ts
+index aca30550..fb18e8f3 100644
+--- a/backend/src/modules/labels/labels.module.ts
++++ b/backend/src/modules/labels/labels.module.ts
+@@ -4,6 +4,7 @@ import { LabelsService } from './services/labels.service';
+ import { EmailModule } from '../email/email.module';
+ import { EmailSyncModule } from '../email-sync/email-sync.module';
+ import { RealtimeModule } from '../realtime/realtime.module';
++import { AiModule } from '../ai/ai.module';
+ 
+ /**
+  * LabelsModule - Email label management.
+@@ -13,7 +14,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
+  * S09 T-0901: Import EmailSyncModule for ProviderSyncBackQueueService (Microsoft category sync-back).
+  */
+ @Module({
+-  imports: [EmailModule, EmailSyncModule, RealtimeModule],
++  imports: [EmailModule, EmailSyncModule, RealtimeModule, AiModule],
+   controllers: [LabelsController],
+   providers: [LabelsService],
+   exports: [LabelsService],
+diff --git a/backend/src/modules/labels/services/__tests__/labels.service.triage.unit.spec.ts b/backend/src/modules/labels/services/__tests__/labels.service.triage.unit.spec.ts
+index 9ea6e5fa..88a8e48e 100644
+--- a/backend/src/modules/labels/services/__tests__/labels.service.triage.unit.spec.ts
++++ b/backend/src/modules/labels/services/__tests__/labels.service.triage.unit.spec.ts
+@@ -2,6 +2,9 @@ import { LabelsService } from '../labels.service';
+ 
+ describe('LabelsService triage onboarding', () => {
+   const mockEmailsService = {};
++  const mockEmailInsights = {
++    analyzeEmailUnified: jest.fn(),
++  };
+   const mockRealtimeEvents = {
+     emitLabelUpdate: jest.fn(),
+     emitLabelNew: jest.fn(),
+@@ -14,6 +17,7 @@ describe('LabelsService triage onboarding', () => {
+ 
+   beforeEach(() => {
+     jest.clearAllMocks();
++    mockEmailInsights.analyzeEmailUnified.mockReset();
+   });
+ 
+   it('previews normalized rules and flags existing labels', async () => {
+@@ -32,6 +36,7 @@ describe('LabelsService triage onboarding', () => {
+       mockEmailsService as any,
+       mockRealtimeEvents as any,
+       mockSyncBackQueue as any,
++      mockEmailInsights as any,
+     );
+ 
+     const preview = await service.previewTriageOnboarding('tenant-1', {
+@@ -83,6 +88,7 @@ describe('LabelsService triage onboarding', () => {
+       mockEmailsService as any,
+       mockRealtimeEvents as any,
+       mockSyncBackQueue as any,
++      mockEmailInsights as any,
+     );
+ 
+     const result = await service.applyTriageOnboarding('tenant-1', {
+@@ -113,4 +119,60 @@ describe('LabelsService triage onboarding', () => {
+     });
+     expect(result.labels.some((label: { name: string }) => label.name === 'System Alert')).toBe(true);
+   });
++
++  it('previews whether a wizard label matches a real email analysis', async () => {
++    mockEmailInsights.analyzeEmailUnified.mockResolvedValue({
++      labels: ['CI Incident', 'Action Items'],
++      priority: 2,
++      urgency: 'high',
++      lane: 'action-now',
++      intent: 'alert',
++      actionability: 'todo',
++      summary: 'CI failure on PMSync main branch',
++      reasoning: 'The subject indicates a concrete build failure that needs action.',
++      meta: { source: 'live' },
++    });
++
++    const prisma = {
++      userLabel: {
++        findFirst: jest.fn().mockResolvedValue({
++          id: 'label-1',
++          name: 'CI Incident',
++          aiPrompt: 'Use for CI failures',
++          category: 'workflow',
++          roles: ['tech'],
++          contents: ['system-alert'],
++          actionType: 'urgent',
++          defaultLane: 'action-now',
++        }),
++      },
++      email: {
++        findFirst: jest.fn().mockResolvedValue({
++          id: 'email-1',
++          subject: '[chetto1983/PMSync] Run failed: CI',
++          from: 'notifications@github.com',
++          receivedAt: new Date('2026-04-02T10:00:00.000Z'),
++        }),
++      },
++    };
++
++    const service = new LabelsService(
++      prisma as any,
++      mockEmailsService as any,
++      mockRealtimeEvents as any,
++      mockSyncBackQueue as any,
++      mockEmailInsights as any,
++    );
++
++    const preview = await service.previewLabelOnEmail('tenant-1', 'label-1', {
++      emailId: 'email-1',
++      locale: 'it',
++    });
++
++    expect(mockEmailInsights.analyzeEmailUnified).toHaveBeenCalledWith('tenant-1', 'email-1', 'it');
++    expect(preview.matched).toBe(true);
++    expect(preview.analysis.labels).toEqual(['CI Incident', 'Action Items']);
++    expect(preview.email.subject).toContain('Run failed');
++    expect(preview.label.name).toBe('CI Incident');
++  });
+ });
+diff --git a/backend/src/modules/labels/services/labels.service.ts b/backend/src/modules/labels/services/labels.service.ts
+index 732fdb06..ea70c7db 100644
+--- a/backend/src/modules/labels/services/labels.service.ts
++++ b/backend/src/modules/labels/services/labels.service.ts
+@@ -4,6 +4,7 @@ import {
+   Injectable,
+   Logger,
+   NotFoundException,
++  Optional,
+ } from '@nestjs/common';
+ import { Prisma } from '@prisma/client';
+ import { PrismaService } from '../../../prisma/prisma.service';
+@@ -11,10 +12,12 @@ import { emailLabelsInclude } from '../../../common/utils';
+ import { EmailsService } from '../../email/services/emails.service';
+ import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+ import { ProviderSyncBackQueueService } from '../../email-sync/services/provider-sync-back-queue.service';
++import { EmailInsightsService } from '../../ai/services/email-insights.service';
+ import {
+   AddEmailsToLabelDto,
+   CreateLabelDto,
+   CreateLabelWizardDto,
++  LabelPreviewDto,
+   ReorderLabelsDto,
+   TriageOnboardingRulesDto,
+   UpdateLabelDto,
+@@ -43,6 +46,7 @@ export class LabelsService {
+     private readonly emailsService: EmailsService,
+     private readonly realtimeEvents: RealtimeEventsService,
+     private readonly syncBackQueue: ProviderSyncBackQueueService,
++    @Optional() private readonly emailInsightsService?: EmailInsightsService,
+   ) {}
+ 
+   async findAllByTenant(tenantId: string) {
+@@ -969,6 +973,67 @@ export class LabelsService {
+     });
+   }
+ 
++  async previewLabelOnEmail(tenantId: string, labelId: string, dto: LabelPreviewDto) {
++    if (!this.emailInsightsService) {
++      throw new BadRequestException('Email insights service is unavailable');
++    }
++
++    const [label, email] = await Promise.all([
++      this.prisma.userLabel.findFirst({
++        where: { id: labelId, tenantId, isArchived: false },
++        select: {
++          id: true,
++          name: true,
++          aiPrompt: true,
++          category: true,
++          roles: true,
++          contents: true,
++          actionType: true,
++          defaultLane: true,
++        },
++      }),
++      this.prisma.email.findFirst({
++        where: { id: dto.emailId, tenantId },
++        select: {
++          id: true,
++          subject: true,
++          from: true,
++          receivedAt: true,
++        },
++      }),
++    ]);
++
++    if (!label) {
++      throw new NotFoundException('Label not found');
++    }
++    if (!email) {
++      throw new NotFoundException('Email not found');
++    }
++
++    const analysis = await this.emailInsightsService.analyzeEmailUnified(
++      tenantId,
++      dto.emailId,
++      dto.locale,
++    );
++
++    return {
++      matched: analysis.labels.includes(label.name),
++      label,
++      email,
++      analysis: {
++        labels: analysis.labels,
++        priority: analysis.priority,
++        urgency: analysis.urgency,
++        lane: analysis.lane,
++        intent: analysis.intent,
++        actionability: analysis.actionability,
++        summary: analysis.summary,
++        reasoning: analysis.reasoning,
++        meta: analysis.meta,
++      },
++    };
++  }
++
+   private slugify(name: string): string {
+     const base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+     return base || `label-${Date.now()}`;

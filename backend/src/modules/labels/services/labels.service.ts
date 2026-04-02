@@ -18,6 +18,7 @@ import {
   CreateLabelDto,
   CreateLabelWizardDto,
   LabelPreviewDto,
+  LabelWizardPreviewDto,
   ReorderLabelsDto,
   TriageOnboardingRulesDto,
   UpdateLabelDto,
@@ -29,6 +30,7 @@ import {
   WIZARD_CONTENT_OPTIONS,
   WIZARD_ACTION_OPTIONS,
 } from '../label-prompt-builder';
+import type { TenantLabel } from '../../ai/services/label-resolution.service';
 import {
   buildRecommendedLabelSet,
   normalizeTriageOnboardingRules,
@@ -974,13 +976,49 @@ export class LabelsService {
   }
 
   async previewLabelOnEmail(tenantId: string, labelId: string, dto: LabelPreviewDto) {
+    const label = await this.prisma.userLabel.findFirst({
+      where: { id: labelId, tenantId, isArchived: false },
+      select: {
+        id: true,
+        name: true,
+        aiPrompt: true,
+        category: true,
+        roles: true,
+        contents: true,
+        actionType: true,
+        suppressUrgency: true,
+        mutuallyExclusiveWith: true,
+        defaultLane: true,
+      },
+    });
+
+    if (!label) {
+      throw new NotFoundException('Label not found');
+    }
+
+    return this.previewWizardLabelOnEmail(tenantId, {
+      labelId: label.id,
+      emailId: dto.emailId,
+      locale: dto.locale,
+      name: label.name,
+      category: label.category,
+      roles: label.roles,
+      contents: label.contents,
+      actionType: label.actionType,
+      suppressUrgency: label.suppressUrgency,
+      mutuallyExclusiveWith: label.mutuallyExclusiveWith,
+      aiPrompt: label.aiPrompt ?? undefined,
+    });
+  }
+
+  async previewWizardLabelOnEmail(tenantId: string, dto: LabelWizardPreviewDto) {
     if (!this.emailInsightsService) {
       throw new BadRequestException('Email insights service is unavailable');
     }
 
-    const [label, email] = await Promise.all([
-      this.prisma.userLabel.findFirst({
-        where: { id: labelId, tenantId, isArchived: false },
+    const [tenantLabels, email] = await Promise.all([
+      this.prisma.userLabel.findMany({
+        where: { tenantId, isArchived: false },
         select: {
           id: true,
           name: true,
@@ -989,8 +1027,11 @@ export class LabelsService {
           roles: true,
           contents: true,
           actionType: true,
+          suppressUrgency: true,
+          mutuallyExclusiveWith: true,
           defaultLane: true,
         },
+        orderBy: { orderIndex: 'asc' },
       }),
       this.prisma.email.findFirst({
         where: { id: dto.emailId, tenantId },
@@ -1003,22 +1044,87 @@ export class LabelsService {
       }),
     ]);
 
-    if (!label) {
+    if (dto.labelId && !tenantLabels.some((label) => label.id === dto.labelId)) {
       throw new NotFoundException('Label not found');
     }
     if (!email) {
       throw new NotFoundException('Email not found');
     }
 
+    const prompt = buildAiPromptFromMetadata({
+      name: dto.name,
+      roles: dto.roles,
+      contents: dto.contents,
+      actionType: dto.actionType,
+      aiPrompt: dto.aiPrompt,
+    });
+
+    const draftLabel = {
+      id: dto.labelId ?? null,
+      name: dto.name,
+      aiPrompt: prompt,
+      category: dto.category,
+      roles: dto.roles,
+      contents: dto.contents,
+      actionType: dto.actionType,
+      suppressUrgency: dto.suppressUrgency ?? false,
+      mutuallyExclusiveWith: dto.mutuallyExclusiveWith ?? [],
+      defaultLane: ACTION_TO_LANE[dto.actionType] || null,
+    };
+
+    const overrideLabels: TenantLabel[] = dto.labelId
+      ? tenantLabels.map((label) => (
+          label.id === dto.labelId
+            ? {
+                name: draftLabel.name,
+                aiPrompt: draftLabel.aiPrompt,
+                category: draftLabel.category,
+                suppressUrgency: draftLabel.suppressUrgency,
+                mutuallyExclusiveWith: draftLabel.mutuallyExclusiveWith,
+                defaultLane: draftLabel.defaultLane,
+              }
+            : {
+                name: label.name,
+                aiPrompt: label.aiPrompt,
+                category: label.category,
+                suppressUrgency: label.suppressUrgency,
+                mutuallyExclusiveWith: label.mutuallyExclusiveWith,
+                defaultLane: label.defaultLane,
+              }
+        ))
+      : [
+          ...tenantLabels.map((label) => ({
+            name: label.name,
+            aiPrompt: label.aiPrompt,
+            category: label.category,
+            suppressUrgency: label.suppressUrgency,
+            mutuallyExclusiveWith: label.mutuallyExclusiveWith,
+            defaultLane: label.defaultLane,
+          })),
+          {
+            name: draftLabel.name,
+            aiPrompt: draftLabel.aiPrompt,
+            category: draftLabel.category,
+            suppressUrgency: draftLabel.suppressUrgency,
+            mutuallyExclusiveWith: draftLabel.mutuallyExclusiveWith,
+            defaultLane: draftLabel.defaultLane,
+          },
+        ];
+
     const analysis = await this.emailInsightsService.analyzeEmailUnified(
       tenantId,
       dto.emailId,
       dto.locale,
+      {
+        labelDefsOverride: overrideLabels,
+        bypassCache: true,
+        persist: false,
+      },
     );
 
     return {
-      matched: analysis.labels.includes(label.name),
-      label,
+      matched: analysis.labels.includes(draftLabel.name),
+      label: draftLabel,
       email,
       analysis: {
         labels: analysis.labels,

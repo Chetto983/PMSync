@@ -9,7 +9,7 @@
  * Phase 43: Split from 1056-line monolith into focused sub-services.
  */
 import { Injectable } from '@nestjs/common';
-import { EmailAnalysisService } from './email-analysis.service';
+import { EmailAnalysisService, type AnalyzeEmailUnifiedOptions } from './email-analysis.service';
 import { EmailComposeService } from './email-compose.service';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 
@@ -27,7 +27,7 @@ export class EmailInsightsService {
     tenantId: string,
     emailId: string,
     locale?: string,
-    options?: { includeSmartReplies?: boolean },
+    options?: AnalyzeEmailUnifiedOptions,
   ): Promise<UnifiedEmailAnalysis> {
     return this.analysisService.analyzeEmailUnified(tenantId, emailId, locale, options);
   }

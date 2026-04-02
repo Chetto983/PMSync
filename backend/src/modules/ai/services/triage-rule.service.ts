@@ -17,6 +17,7 @@ export interface TriageRule {
 
 export interface BuildTriageContextOptions {
   includeLabelPrompts?: boolean;
+  includeLabelMetadata?: boolean;
   maxLength?: number;
   maxRules?: number;
   maxLineLength?: number;
@@ -85,6 +86,7 @@ export class TriageRuleService {
   ): Promise<string> {
     const {
       includeLabelPrompts = true,
+      includeLabelMetadata = true,
       maxLength,
       maxRules = MAX_RULES,
       maxLineLength = 220,
@@ -93,18 +95,20 @@ export class TriageRuleService {
 
     const [rules, labels] = await Promise.all([
       this.getTriageRules(tenantId),
-      this.prisma.userLabel.findMany({
-        where: { tenantId, isArchived: false },
-        select: {
-          name: true,
-          aiPrompt: true,
-          category: true,
-          suppressUrgency: true,
-          mutuallyExclusiveWith: true,
-          defaultLane: true,
-        },
-        orderBy: { orderIndex: 'asc' },
-      }),
+      includeLabelMetadata
+        ? this.prisma.userLabel.findMany({
+            where: { tenantId, isArchived: false },
+            select: {
+              name: true,
+              aiPrompt: true,
+              category: true,
+              suppressUrgency: true,
+              mutuallyExclusiveWith: true,
+              defaultLane: true,
+            },
+            orderBy: { orderIndex: 'asc' },
+          })
+        : Promise.resolve([]),
     ]);
 
     const labelLines = labels

@@ -155,6 +155,35 @@ export class LabelPreviewDto {
   locale?: string;
 }
 
+export class LabelWizardPreviewDto extends CreateLabelWizardDto {
+  @ApiProperty({
+    description: 'Email ID to preview this draft label against',
+    example: 'cmnhcur3q001201mt8umm2fwe',
+  })
+  @IsString()
+  @IsNotEmpty()
+  emailId!: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Existing label ID when previewing edits to an already saved label',
+    example: 'cmnhdwnn8000101ppd5b6qnvi',
+  })
+  @IsOptional()
+  @IsString()
+  labelId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Optional locale used by the unified email analysis',
+    example: 'it',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(2, 10)
+  locale?: string;
+}
+
 export class TriageOnboardingRulesDto {
   @ApiProperty({
     required: false,

@@ -25,6 +25,13 @@ interface EmailRecord {
   bodyText: string | null; bodyHtml: string | null; snippet: string | null; receivedAt: Date;
 }
 
+export interface AnalyzeEmailUnifiedOptions {
+  includeSmartReplies?: boolean;
+  labelDefsOverride?: TenantLabel[];
+  persist?: boolean;
+  bypassCache?: boolean;
+}
+
 @Injectable()
 export class EmailAnalysisService {
   private readonly logger = new Logger(EmailAnalysisService.name);
@@ -47,10 +54,13 @@ export class EmailAnalysisService {
   ) {}
 
   async analyzeEmailUnified(
-    tenantId: string, emailId: string, locale?: string, options?: { includeSmartReplies?: boolean },
+    tenantId: string, emailId: string, locale?: string, options?: AnalyzeEmailUnifiedOptions,
   ): Promise<UnifiedEmailAnalysis> {
     const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
     const lang = this.resolveLocale(locale);
+    const persistResult = options?.persist !== false;
+    const hasLabelOverride = Array.isArray(options?.labelDefsOverride);
+    const canUseCache = !options?.bypassCache && !hasLabelOverride && persistResult;
 
     const cached = await this.prisma.emailAnalysis.findFirst({
       where: { emailId, tenantId, processedAt: { gt: new Date(Date.now() - CACHE_TTL_MS) } },
@@ -63,12 +73,12 @@ export class EmailAnalysisService {
         },
       },
     });
-    const labelDefs = await this.getUserLabels(tenantId);
+    const labelDefs = options?.labelDefsOverride ?? await this.getUserLabels(tenantId);
     const labelRulesSignature = this.computeLabelRulesSignature(labelDefs);
     const cachedLocale = (cached?.suggestedActions as Record<string, unknown>)?.locale as string | undefined;
     const cachedLabelRulesSignature =
       (cached?.suggestedActions as Record<string, unknown>)?.labelRulesSignature as string | undefined;
-    if (cached?.summary && cachedLocale === lang && cachedLabelRulesSignature === labelRulesSignature) {
+    if (canUseCache && cached?.summary && cachedLocale === lang && cachedLabelRulesSignature === labelRulesSignature) {
       this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId} (locale: ${lang})`);
       return {
         ...this.mapEmailAnalysisToUnified(cached, {
@@ -94,7 +104,7 @@ export class EmailAnalysisService {
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
     const allowedLabels = labelDefs.map((l) => l.name);
-    const systemPrompt = await this.buildAnalyzeSystemPrompt(t, tenantId, labelDefs, allowedLabels);
+    const systemPrompt = await this.buildAnalyzeSystemPrompt(t, tenantId, labelDefs, allowedLabels, options);
     const userPrompt = this.buildEmailPrompt(email, lang);
 
     try {
@@ -196,18 +206,20 @@ export class EmailAnalysisService {
         processedAt, latencyMs,
       };
 
-      await this.prisma.emailAnalysis.upsert({
-        where: { emailId_tenantId: { emailId, tenantId } },
-        update: analysisData, create: { emailId, tenantId, ...analysisData },
-      });
+      if (persistResult) {
+        await this.prisma.emailAnalysis.upsert({
+          where: { emailId_tenantId: { emailId, tenantId } },
+          update: analysisData, create: { emailId, tenantId, ...analysisData },
+        });
 
-      await this.prisma.email.updateMany({
-        where: { id: emailId, tenantId },
-        data: { aiPriority: result.priority, aiPriorityReason: result.reasoning, aiSentiment: result.sentiment, aiLabels: result.labels, aiLane: result.lane, aiIntent: result.intent, aiActionability: result.actionability, isAutoTriaged: true, autoTriagedAt: new Date() },
-      });
+        await this.prisma.email.updateMany({
+          where: { id: emailId, tenantId },
+          data: { aiPriority: result.priority, aiPriorityReason: result.reasoning, aiSentiment: result.sentiment, aiLabels: result.labels, aiLane: result.lane, aiIntent: result.intent, aiActionability: result.actionability, isAutoTriaged: true, autoTriagedAt: new Date() },
+        });
 
-      if (result.labels.length > 0) {
-        await this.utils.linkEmailToUserLabels(tenantId, emailId, result.labels);
+        if (result.labels.length > 0) {
+          await this.utils.linkEmailToUserLabels(tenantId, emailId, result.labels);
+        }
       }
 
       this.logger.debug(`Unified analysis for ${emailId}: priority=${result.priority}, labels=${result.labels.join(',')}, latency=${latencyMs}ms`);
@@ -262,6 +274,7 @@ export class EmailAnalysisService {
     tenantId: string,
     labelDefs: TenantLabel[],
     allowedLabels: string[],
+    options?: AnalyzeEmailUnifiedOptions,
   ): Promise<string> {
     const allowedLabelsText = allowedLabels.join(', ');
     const basePrompt = t.insights.analyzeUnified.systemPrompt(allowedLabelsText, '', '');
@@ -277,6 +290,7 @@ export class EmailAnalysisService {
     const labelPromptBlock = this.buildLabelPromptBlock(labelDefs, labelPromptBudget);
     const triageContext = await this.triageRuleService.buildTriageContext(tenantId, {
       includeLabelPrompts: false,
+      includeLabelMetadata: !options?.labelDefsOverride,
       maxLength: triageContextBudget,
       maxRules: EmailAnalysisService.TRIAGE_CONTEXT_MAX_RULES,
       maxLineLength: EmailAnalysisService.PROMPT_LINE_MAX_LENGTH,

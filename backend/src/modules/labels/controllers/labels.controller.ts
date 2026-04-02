@@ -19,6 +19,7 @@ import {
   BulkDeleteLabelsDto,
   CreateLabelDto,
   LabelPreviewDto,
+  LabelWizardPreviewDto,
   CreateLabelWizardDto,
   ReorderLabelsDto,
   TriageOnboardingRulesDto,
@@ -67,6 +68,23 @@ export class LabelsController {
     return { label };
   }
 
+  @Post('wizard/preview')
+  @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Preview a draft wizard label against a real email',
+    description: 'Runs unified email analysis using the current wizard draft without persisting the label.',
+  })
+  @ApiBody({ type: LabelWizardPreviewDto })
+  @ApiResponse({ status: 200, description: 'Wizard label preview generated successfully' })
+  async previewWizardLabel(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: LabelWizardPreviewDto,
+  ) {
+    return this.labelsService.previewWizardLabelOnEmail(req.user.tenantId, dto);
+  }
+
   @Put(':id/wizard')
   @Roles('super-admin', 'admin', 'manager')
   @RateTierDecorator('safe-write')
@@ -86,6 +104,7 @@ export class LabelsController {
   @Post(':id/preview')
   @Roles('super-admin', 'admin', 'manager')
   @RateTierDecorator('safe-write')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Preview label against a real email',
     description: 'Runs unified email analysis and returns whether the selected label would match the given email.',

@@ -143,8 +143,36 @@ describe('LabelsService triage onboarding', () => {
           roles: ['tech'],
           contents: ['system-alert'],
           actionType: 'urgent',
+          suppressUrgency: false,
+          mutuallyExclusiveWith: [],
           defaultLane: 'action-now',
         }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'label-1',
+            name: 'CI Incident',
+            aiPrompt: 'Use for CI failures',
+            category: 'workflow',
+            roles: ['tech'],
+            contents: ['system-alert'],
+            actionType: 'urgent',
+            suppressUrgency: false,
+            mutuallyExclusiveWith: [],
+            defaultLane: 'action-now',
+          },
+          {
+            id: 'label-2',
+            name: 'Follow-up',
+            aiPrompt: 'Use when a reply is pending.',
+            category: 'workflow',
+            roles: ['customer'],
+            contents: ['support'],
+            actionType: 'followup',
+            suppressUrgency: false,
+            mutuallyExclusiveWith: [],
+            defaultLane: 'waiting-on-reply',
+          },
+        ]),
       },
       email: {
         findFirst: jest.fn().mockResolvedValue({
@@ -169,10 +197,100 @@ describe('LabelsService triage onboarding', () => {
       locale: 'it',
     });
 
-    expect(mockEmailInsights.analyzeEmailUnified).toHaveBeenCalledWith('tenant-1', 'email-1', 'it');
+    expect(mockEmailInsights.analyzeEmailUnified).toHaveBeenCalledWith(
+      'tenant-1',
+      'email-1',
+      'it',
+      expect.objectContaining({
+        bypassCache: true,
+        persist: false,
+        labelDefsOverride: expect.arrayContaining([
+          expect.objectContaining({ name: 'CI Incident', defaultLane: 'action-now' }),
+          expect.objectContaining({ name: 'Follow-up', defaultLane: 'waiting-on-reply' }),
+        ]),
+      }),
+    );
     expect(preview.matched).toBe(true);
     expect(preview.analysis.labels).toEqual(['CI Incident', 'Action Items']);
     expect(preview.email.subject).toContain('Run failed');
     expect(preview.label.name).toBe('CI Incident');
+  });
+
+  it('previews an unsaved wizard draft without persisting label state', async () => {
+    mockEmailInsights.analyzeEmailUnified.mockResolvedValue({
+      labels: ['Vendor Escalation'],
+      priority: 3,
+      urgency: 'medium',
+      lane: 'action-now',
+      intent: 'action_required',
+      actionability: 'todo',
+      summary: 'A supplier requested a decision on a delayed shipment.',
+      reasoning: 'The draft rule matches the supplier + delivery decision pattern.',
+      meta: { source: 'live' },
+    });
+
+    const prisma = {
+      userLabel: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'label-1',
+            name: 'Updates',
+            aiPrompt: 'Use for passive updates.',
+            category: 'suppression',
+            roles: ['any'],
+            contents: ['newsletter'],
+            actionType: 'none',
+            suppressUrgency: true,
+            mutuallyExclusiveWith: [],
+            defaultLane: 'review-later',
+          },
+        ]),
+      },
+      email: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'email-7',
+          subject: 'Shipment blocked until you confirm the new delivery window',
+          from: 'ops@supplier.example',
+          receivedAt: new Date('2026-04-02T11:00:00.000Z'),
+        }),
+      },
+    };
+
+    const service = new LabelsService(
+      prisma as any,
+      mockEmailsService as any,
+      mockRealtimeEvents as any,
+      mockSyncBackQueue as any,
+      mockEmailInsights as any,
+    );
+
+    const preview = await service.previewWizardLabelOnEmail('tenant-1', {
+      emailId: 'email-7',
+      locale: 'en',
+      name: 'Vendor Escalation',
+      category: 'workflow',
+      roles: ['supplier'],
+      contents: ['delivery'],
+      actionType: 'decide',
+      suppressUrgency: false,
+      mutuallyExclusiveWith: [],
+      aiPrompt: 'Use when a supplier blocks work until we decide or confirm a delivery change.',
+    });
+
+    expect(mockEmailInsights.analyzeEmailUnified).toHaveBeenCalledWith(
+      'tenant-1',
+      'email-7',
+      'en',
+      expect.objectContaining({
+        bypassCache: true,
+        persist: false,
+        labelDefsOverride: expect.arrayContaining([
+          expect.objectContaining({ name: 'Vendor Escalation', defaultLane: 'action-now' }),
+        ]),
+      }),
+    );
+    expect(preview.matched).toBe(true);
+    expect(preview.label.name).toBe('Vendor Escalation');
+    expect(preview.analysis.summary).toContain('supplier');
   });
 });

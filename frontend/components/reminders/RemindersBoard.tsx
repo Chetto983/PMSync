@@ -14,13 +14,17 @@ import {
   Typography,
   TextField,
   InputAdornment,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
-import { Plus, Bell, Trash2, Search, X } from 'lucide-react';
+import { Plus, Bell, Trash2, Search, X, ChevronDown, CheckCircle2, ArrowUpDown } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { PageContainer } from '@/components/common';
 import { EmptyState } from '@/components/common/EmptyState';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
-import { useReminders, useSearchReminders, useCompleteReminder, useDeleteReminder, useBulkDeleteReminders } from '@/hooks/queries/use-reminders';
+import { useReminders, useSearchReminders, useCompleteReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/queries/use-reminders';
 import type { Reminder, ReminderStatus } from '@/lib/api/reminders';
 import { ReminderCard } from './ReminderCard';
 import { ReminderCreateDialog } from './ReminderCreateDialog';

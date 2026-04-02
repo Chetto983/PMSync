@@ -2,7 +2,7 @@
  * LabelWizardDialog — 4-step MUI Stepper for creating/editing AI-powered labels.
  * Steps: Name & Color > Classification > Behavior > Review
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useDeferredValue, useMemo } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Stepper, Step, StepLabel, MobileStepper,
@@ -11,7 +11,8 @@ import {
   Autocomplete, Collapse, CircularProgress, useMediaQuery, useTheme,
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useCreateLabelWizard, useUpdateLabelWizard, useLabelWizardOptions, useLabels } from '@/hooks/queries';
+import { useCreateLabelWizard, useUpdateLabelWizard, useLabelWizardOptions, useLabels, useEmails, useWizardLabelPreview } from '@/hooks/queries';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { ColorPickerPopover } from '@/components/common/ColorPicker';
 import { DEFAULT_LABEL_COLOR } from '@/lib/label-colors';
 import { labelColorToHex, hexToLabelColor } from '@/lib/api/labels';
@@ -68,14 +69,17 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
   const tw = t.email.labels.wizard;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { locale } = useLocale();
 
   const [step, setStep] = useState(0);
   const [state, setState] = useState<WizardState>(() => initState(editLabel));
   const [error, setError] = useState<string | null>(null);
   const [colorAnchor, setColorAnchor] = useState<HTMLElement | null>(null);
+  const [previewEmailId, setPreviewEmailId] = useState('');
 
   const { data: options } = useLabelWizardOptions();
   const { data: existingLabels } = useLabels();
+  const { data: previewEmailList, isPending: isPreviewEmailListPending } = useEmails({ specialUse: 'INBOX', limit: 10 });
   const createMutation = useCreateLabelWizard();
   const updateMutation = useUpdateLabelWizard();
 
@@ -88,6 +92,7 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
       setStep(0);
       setState(initState(editLabel));
       setError(null);
+      setPreviewEmailId('');
     }
   }, [open, editLabel]);
 
@@ -151,6 +156,41 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
 
   const roleOptions = options?.roles ?? [];
   const contentOptions = options?.contents ?? [];
+  const previewEmails = useMemo(
+    () => (previewEmailList?.emails ?? []).filter((email) => !email.isDraft && !email.isDeleted),
+    [previewEmailList],
+  );
+
+  React.useEffect(() => {
+    if (step !== 3 || previewEmailId || previewEmails.length === 0) {
+      return;
+    }
+    setPreviewEmailId(previewEmails[0].id);
+  }, [step, previewEmailId, previewEmails]);
+
+  const previewRequest = useMemo(() => {
+    if (step !== 3 || !previewEmailId) {
+      return undefined;
+    }
+
+    return {
+      emailId: previewEmailId,
+      labelId: editLabel?.id,
+      locale,
+      name: state.name.trim(),
+      color: state.color,
+      category: state.category,
+      roles: state.roles,
+      contents: state.contents,
+      actionType: state.actionType,
+      suppressUrgency: state.suppressUrgency,
+      mutuallyExclusiveWith: state.mutuallyExclusiveWith,
+      ...(state.showAdvanced && state.aiPrompt.trim() ? { aiPrompt: state.aiPrompt.trim() } : {}),
+    };
+  }, [step, previewEmailId, editLabel?.id, locale, state]);
+  const deferredPreviewRequest = useDeferredValue(previewRequest);
+  const previewQuery = useWizardLabelPreview(deferredPreviewRequest, step === 3);
+  const selectedPreviewEmail = previewEmails.find((email) => email.id === previewEmailId) ?? null;
 
   // Translate option IDs to display names
   const roleLabel = (id: string) => (tw.roles as Record<string, string>)[id] ?? id;
@@ -293,7 +333,7 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
             </Box>
             <Typography variant="body2" color="text.secondary">
               {actionLabel(state.actionType)}
-              {state.suppressUrgency ? ' | Urgency suppressed' : ''}
+              {state.suppressUrgency ? ` | ${tw.urgencySuppressed}` : ''}
             </Typography>
             <Box>
               <Button size="small" onClick={() => set('showAdvanced', !state.showAdvanced)}>
@@ -306,6 +346,116 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
                   label={tw.generatedPrompt} sx={{ mt: 1 }}
                 />
               </Collapse>
+            </Box>
+
+            <Box sx={{ pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {tw.previewTitle}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {tw.previewDescription}
+              </Typography>
+
+              {isPreviewEmailListPending ? (
+                <Alert severity="info">{tw.previewLoadingEmails}</Alert>
+              ) : previewEmails.length === 0 ? (
+                <Alert severity="info">
+                  <strong>{tw.previewNoEmailsTitle}</strong> {tw.previewNoEmailsDescription}
+                </Alert>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{tw.previewEmailLabel}</InputLabel>
+                    <Select
+                      label={tw.previewEmailLabel}
+                      value={previewEmailId}
+                      onChange={(e) => setPreviewEmailId(e.target.value)}
+                    >
+                      {previewEmails.map((email) => (
+                        <MenuItem key={email.id} value={email.id}>
+                          {email.subject || tw.previewNoSubject} {'·'} {email.from}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {selectedPreviewEmail && (
+                    <Typography variant="caption" color="text.secondary">
+                      {tw.previewSelectedEmail}: {selectedPreviewEmail.subject || tw.previewNoSubject} {'·'} {selectedPreviewEmail.from}
+                    </Typography>
+                  )}
+
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      size="small"
+                      onClick={() => previewQuery.refetch()}
+                      disabled={!previewEmailId || previewQuery.isFetching}
+                    >
+                      {tw.previewRefresh}
+                    </Button>
+                  </Box>
+
+                  {previewQuery.isPending || previewQuery.isFetching ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2" color="text.secondary">
+                        {tw.previewLoading}
+                      </Typography>
+                    </Box>
+                  ) : null}
+
+                  {previewQuery.error ? (
+                    <Alert severity="error">{tw.previewError}</Alert>
+                  ) : null}
+
+                  {previewQuery.data ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <Alert severity={previewQuery.data.matched ? 'success' : 'warning'}>
+                        {previewQuery.data.matched ? tw.previewMatched : tw.previewNotMatched}
+                      </Alert>
+
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                        <Chip size="small" label={`${tw.previewPriority}: ${previewQuery.data.analysis.priority}`} />
+                        <Chip size="small" label={`${tw.previewUrgency}: ${previewQuery.data.analysis.urgency}`} />
+                        <Chip size="small" label={`${tw.previewLane}: ${previewQuery.data.analysis.lane || tw.previewNoLane}`} />
+                      </Box>
+
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {tw.previewAppliedLabels}
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {previewQuery.data.analysis.labels.length > 0 ? (
+                            previewQuery.data.analysis.labels.map((label) => (
+                              <Chip key={label} size="small" label={label} variant="outlined" />
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              {tw.previewNoLabels}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {tw.previewSummary}
+                        </Typography>
+                        <Typography variant="body2">{previewQuery.data.analysis.summary}</Typography>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {tw.previewReasoning}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {previewQuery.data.analysis.reasoning}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ) : null}
+                </Box>
+              )}
             </Box>
           </Box>
         )}
