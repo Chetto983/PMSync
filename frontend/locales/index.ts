@@ -3204,6 +3204,40 @@ export interface AppTranslations {
       priorityLabel: string;
       sentimentLabel: string;
       noSuggestions: string;
+      lanes: {
+        actionNow: string;
+        waitingOnReply: string;
+        customerVip: string;
+        systemAlerts: string;
+        reviewLater: string;
+        all: string;
+      };
+      reasoning: {
+        label: string;
+        score: string;
+        lane: string;
+        intent: string;
+        actionability: string;
+        confidence: string;
+        priorityReason: string;
+        laneReason: string;
+      };
+      followUp: {
+        todo: string;
+        waiting: string;
+        none: string;
+        dueDate: string;
+        reason: string;
+        dismiss: string;
+        resolve: string;
+        waitingSince: string;
+      };
+      inbox: {
+        filterByLane: string;
+        noEmails: string;
+        triageStatus: string;
+        noActionNeeded: string;
+      };
     };
     calendarAi: {
       scheduling: {
