@@ -173,6 +173,17 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
   - [ ] 0138-01-PLAN.md — Tasks API module, query hooks, translations, and barrel exports
   - [x] 0138-02-PLAN.md — TaskCard, CreateTaskDialog, TasksKanbanBoard, TasksList, and page wiring
 - [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
+  Plans: TBD
+
+### Phase 139: Smart Views & Task Customization
+**Goal**: Users save and pin frequently used filter combinations for instant access to their most relevant task slices
+**Depends on**: Phase 138
+**Requirements**: TASK-04, TASK-05
+**Success Criteria** (what must be TRUE):
+  1. User can save a filter combination as a named smart view (e.g., "My Follow-ups", "Open Tickets")
+  2. User can pin smart views to the Tasks sidebar for one-click access
+  3. Pinned smart views persist across sessions
+**UI hint**: yes
 - [ ] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view
 - [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
 - [ ] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize
