@@ -28,6 +28,8 @@ import { buildTree, flattenTree, getAncestorIds } from '@/lib/label-tree-utils';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { LabelTreeDndWrapper } from '../labels/LabelTreeDndWrapper';
 import { LabelDialog } from '../labels/LabelDialog';
+import { LabelWizardDialog } from '../labels/LabelWizardDialog';
+import { LabelsEmptyState } from '../labels/LabelsEmptyState';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { Label } from '@/lib/api/labels';
@@ -60,6 +62,8 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createParentId, setCreateParentId] = useState<string | undefined>();
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardEditLabel, setWizardEditLabel] = useState<Label | null>(null);
 
   // Context menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -433,15 +437,19 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
             )}
 
             {filteredFlatItems.length === 0 ? (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ px: 2, py: 1, display: 'block' }}
-              >
-                {searchQuery
-                  ? (t.email?.labels?.noLabelsFound || 'No labels found')
-                  : (t.email?.labels?.noLabels || 'No labels yet')}
-              </Typography>
+              !searchQuery && userLabels.length === 0 ? (
+                <LabelsEmptyState onCreateClick={() => setWizardOpen(true)} />
+              ) : (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ px: 2, py: 1, display: 'block' }}
+                >
+                  {searchQuery
+                    ? (t.email?.labels?.noLabelsFound || 'No labels found')
+                    : (t.email?.labels?.noLabels || 'No labels yet')}
+                </Typography>
+              )
             ) : (
               <LabelTreeDndWrapper
                 flatItems={filteredFlatItems}
@@ -491,6 +499,13 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
         open={createDialogOpen}
         onClose={handleCloseCreate}
         defaultParentId={createParentId}
+      />
+
+      {/* Label Wizard Dialog */}
+      <LabelWizardDialog
+        open={wizardOpen}
+        onClose={() => { setWizardOpen(false); setWizardEditLabel(null); }}
+        editLabel={wizardEditLabel}
       />
 
       {/* Context Menu */}
