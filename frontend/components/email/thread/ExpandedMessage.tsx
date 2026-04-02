@@ -43,6 +43,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
+import { TriageStatusSection } from '@/src/components/triage/TriageStatusSection';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { EmailHtmlContent } from './EmailHtmlContent';
 import { AttachmentCard } from './AttachmentCard';
@@ -69,6 +70,9 @@ interface ExpandedMessageProps {
     aiPriorityReason?: string | null;
     aiSentiment?: string | null;
     aiLabels?: string[] | null;
+    aiLane?: string | null;
+    aiIntent?: string | null;
+    aiActionability?: string | null;
     labels?: Array<{ id: string; name: string; color: string }>;
   };
   onCollapse: () => void;
@@ -609,6 +613,16 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         priorityReason={message.aiPriorityReason}
         sentiment={message.aiSentiment}
         labels={message.aiLabels}
+      />
+
+      {/* Triage Status Section */}
+      <TriageStatusSection
+        emailId={message.id}
+        lane={message.aiLane}
+        labels={message.aiLabels}
+        priorityReason={message.aiPriorityReason}
+        intent={message.aiIntent}
+        actionability={message.aiActionability}
       />
 
       {/* User Labels */}

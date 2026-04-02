@@ -137,6 +137,9 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       aiPriorityReason: selectedEmail.aiPriorityReason ?? null,
       aiSentiment: selectedEmail.aiSentiment ?? null,
       aiLabels: selectedEmail.aiLabels ?? null,
+      aiLane: selectedEmail.aiLane ?? null,
+      aiIntent: selectedEmail.aiIntent ?? null,
+      aiActionability: selectedEmail.aiActionability ?? null,
       labels: selectedEmail.emailLabels?.map((el) => {
         const bg = el.label?.color?.backgroundColor;
         return {
