@@ -43,6 +43,7 @@ export function RemindersBoard() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [bulkMenuAnchor, setBulkMenuAnchor] = useState<null | HTMLElement>(null);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -62,6 +63,7 @@ export function RemindersBoard() {
   const completeMutation = useCompleteReminder();
   const deleteMutation = useDeleteReminder();
   const bulkDeleteMutation = useBulkDeleteReminders();
+  const bulkUpdateMutation = useBulkUpdateReminders();
 
   const reminders = data?.reminders ?? [];
   const hasSelection = selectedIds.size > 0;
@@ -91,6 +93,22 @@ export function RemindersBoard() {
       setSelectedIds(new Set(reminders.map((r) => r.id)));
     }
   }, [allSelected, reminders]);
+
+  const handleBulkMarkCompleted = useCallback(() => {
+    const ids = Array.from(selectedIds);
+    bulkUpdateMutation.mutate({ ids, status: 'completato' }, {
+      onSuccess: () => setSelectedIds(new Set()),
+    });
+    setBulkMenuAnchor(null);
+  }, [selectedIds, bulkUpdateMutation]);
+
+  const handleBulkChangePriority = useCallback((priorita: 'alta' | 'media' | 'bassa') => {
+    const ids = Array.from(selectedIds);
+    bulkUpdateMutation.mutate({ ids, priorita }, {
+      onSuccess: () => setSelectedIds(new Set()),
+    });
+    setBulkMenuAnchor(null);
+  }, [selectedIds, bulkUpdateMutation]);
 
   const handleDeleteRequest = useCallback((id: string) => {
     setDeleteConfirmId(id);
@@ -191,14 +209,42 @@ export function RemindersBoard() {
               </Typography>
               <Button
                 size="small"
-                color="error"
                 variant="outlined"
-                startIcon={<Trash2 size={16} />}
-                onClick={() => setBulkDeleteConfirmOpen(true)}
-                disabled={bulkDeleteMutation.isPending}
+                endIcon={<ChevronDown size={14} />}
+                onClick={(e) => setBulkMenuAnchor(e.currentTarget)}
+                disabled={bulkUpdateMutation.isPending || bulkDeleteMutation.isPending}
               >
-                {tr.deleteSelected ?? 'Delete selected'}
+                {tr.bulkActions ?? 'Actions'}
               </Button>
+              <Menu
+                anchorEl={bulkMenuAnchor}
+                open={Boolean(bulkMenuAnchor)}
+                onClose={() => setBulkMenuAnchor(null)}
+              >
+                <MenuItem onClick={handleBulkMarkCompleted}>
+                  <ListItemIcon><CheckCircle2 size={16} /></ListItemIcon>
+                  <ListItemText>{tr.markCompleted ?? 'Mark completed'}</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => handleBulkChangePriority('alta')}>
+                  <ListItemIcon><ArrowUpDown size={16} /></ListItemIcon>
+                  <ListItemText>{tr.priorita.alta}</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => handleBulkChangePriority('media')}>
+                  <ListItemIcon><ArrowUpDown size={16} /></ListItemIcon>
+                  <ListItemText>{tr.priorita.media}</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => handleBulkChangePriority('bassa')}>
+                  <ListItemIcon><ArrowUpDown size={16} /></ListItemIcon>
+                  <ListItemText>{tr.priorita.bassa}</ListItemText>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => { setBulkMenuAnchor(null); setBulkDeleteConfirmOpen(true); }}
+                  sx={{ color: 'error.main' }}
+                >
+                  <ListItemIcon><Trash2 size={16} color="inherit" /></ListItemIcon>
+                  <ListItemText>{tr.deleteSelected ?? 'Delete selected'}</ListItemText>
+                </MenuItem>
+              </Menu>
             </>
           ) : (
             <Typography variant="body2" color="text.secondary">
