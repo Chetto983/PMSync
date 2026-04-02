@@ -3560,6 +3560,7 @@ export interface AppTranslations {
       toasts: {
         imminent: string;
         overdue: string;
+        deliveryFailed: string;
         goToReminders: string;
       };
     };

@@ -60,6 +60,15 @@ export function Layout({ children }: LayoutProps) {
             duration: 10000,
           },
         );
+      } else if (type === 'delivery-failed') {
+        toast.error(
+          t.ai.reminders.toasts.deliveryFailed.replace('{title}', payload.titolo),
+          {
+            actionLabel: t.ai.reminders.toasts.goToReminders,
+            onAction: () => router.push('/dashboard/reminders'),
+            duration: 15000,
+          },
+        );
       }
     },
     [toast, t, router],

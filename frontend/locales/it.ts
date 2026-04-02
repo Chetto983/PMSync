@@ -3491,6 +3491,7 @@ export const it: AppTranslations = {
       toasts: {
         imminent: 'Promemoria in scadenza: {title}',
         overdue: 'Promemoria scaduto: {title}',
+        deliveryFailed: 'Notifica fallita per: {title}',
         goToReminders: 'Vai ai promemoria',
       },
     },

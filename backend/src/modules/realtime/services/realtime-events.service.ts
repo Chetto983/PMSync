@@ -602,6 +602,10 @@ export class RealtimeEventsService implements OnModuleDestroy {
     void this.emitToTenant(tenantId, 'reminder:telegram-sent', payload);
   }
 
+  emitReminderDeliveryFailed(tenantId: string, payload: ReminderEventPayload): void {
+    void this.emitToTenant(tenantId, 'reminder:delivery-failed', payload);
+  }
+
   /**
    * FOLLOW-UP REMINDER EVENTS
    */

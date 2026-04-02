@@ -315,6 +315,7 @@ export interface RealtimeEventPayloads {
   'reminder:overdue': ReminderEventPayload;
   'reminder:completed': ReminderEventPayload;
   'reminder:telegram-sent': ReminderEventPayload;
+  'reminder:delivery-failed': ReminderEventPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

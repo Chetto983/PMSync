@@ -3511,6 +3511,7 @@ export const en: AppTranslations = {
       toasts: {
         imminent: 'Reminder due soon: {title}',
         overdue: 'Reminder overdue: {title}',
+        deliveryFailed: 'Notification failed for: {title}',
         goToReminders: 'Go to reminders',
       },
     },

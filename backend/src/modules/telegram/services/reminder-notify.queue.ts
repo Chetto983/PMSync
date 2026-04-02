@@ -291,6 +291,18 @@ export class ReminderNotifyQueueService
           errorMessage: 'Telegram API send failed',
         },
       });
+
+      this.realtimeEvents.emitReminderDeliveryFailed(reminder.tenantId, {
+        reminderId,
+        titolo: reminder.titolo,
+        contatto: reminder.contatto,
+        scadenzaDatetime: reminder.scadenzaDatetime?.toISOString() ?? '',
+        tenantId: reminder.tenantId,
+        userId: reminder.userId,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.warn(`Delivery failed for reminder ${reminderId}`);
     }
   }
 

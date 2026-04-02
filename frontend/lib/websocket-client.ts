@@ -845,6 +845,10 @@ class WebSocketClient {
     return this.registerHandler('reminder:telegram-sent', handler as (...args: unknown[]) => void);
   }
 
+  onReminderDeliveryFailed(handler: EventHandler<RealtimeReminderEvent>): () => void {
+    return this.registerHandler('reminder:delivery-failed', handler as (...args: unknown[]) => void);
+  }
+
 }
 
 // Singleton instance

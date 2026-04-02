@@ -16,7 +16,8 @@ export type ReminderEventType =
   | 'imminent'
   | 'overdue'
   | 'completed'
-  | 'telegram-sent';
+  | 'telegram-sent'
+  | 'delivery-failed';
 
 export interface ReminderRealtimeCallbacks {
   /** Called on any reminder event with type + payload */
@@ -57,6 +58,7 @@ export function useReminderRealtime(
       websocketClient.onReminderOverdue(makeHandler('overdue')),
       websocketClient.onReminderCompleted(makeHandler('completed')),
       websocketClient.onReminderTelegramSent(makeHandler('telegram-sent')),
+      websocketClient.onReminderDeliveryFailed(makeHandler('delivery-failed')),
     ];
 
     return () => {
