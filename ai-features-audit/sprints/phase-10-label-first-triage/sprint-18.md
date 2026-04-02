@@ -33,7 +33,7 @@
 - [x] useTriageOverrides/useCreateOverride/useDeleteOverride hooks ✅ DONE
 
 ### T-1805: Production validation script [2 SP]
-- [ ] Extend `scripts/validate-ai-features-production.mjs` with label-first checks:
+- [x] Extend `scripts/validate-ai-features-production.mjs` with label-first checks ✅ DONE
   - Verify `aiLane` is populated on recently triaged emails
   - Verify `aiIntent` is populated
   - Verify `aiActionability` is populated
