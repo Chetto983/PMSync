@@ -16,6 +16,7 @@ import { MicrosoftContactsWebhookService } from './services/microsoft-contacts-w
 import { ContactsSyncQueueService } from './services/contacts-sync-queue.service';
 import { ContactsSyncSchedulerService } from './services/contacts-sync-scheduler.service';
 import { RelationshipScoreService } from './services/relationship-score.service';
+import { ContactTimelineService } from './services/contact-timeline.service';
 import { ContactsSyncWorker } from './workers/contacts-sync.worker';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
@@ -66,6 +67,7 @@ import { ContactsProviderEventHandlerService } from './services/provider-event-h
     ContactsSyncQueueService, // Queue service for contacts sync
     ContactsSyncSchedulerService, // Scheduler for periodic sync
     RelationshipScoreService, // CRM scoring: recency/frequency/reciprocity/trend
+    ContactTimelineService, // Phase 141: Unified contact timeline aggregation
     ContactsSyncWorker, // Worker to process sync jobs (extends BaseWorker with DLQ/Alerting)
     AlertingService, // Required by ContactsSyncWorker for critical failure alerts
     // Phase 32: IAiTool wrapper for ToolRegistry self-registration

@@ -12,12 +12,17 @@ import {
   Paper,
   Alert,
   Divider,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
-import { Building2, Handshake, Ticket } from 'lucide-react';
+import { Building2, Handshake, Ticket, Mail, MailOpen, ListTodo } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useCrmContextByContact } from '@/hooks/queries/use-crm-context';
 import { useActivityTimeline } from '@/hooks/queries/use-crm-activities';
+import { useContactTimeline } from '@/hooks/queries/use-contacts';
 import { ActivityTimeline } from '@/components/common/ActivityTimeline';
 
 interface ContactCrmTabProps {
@@ -48,12 +53,33 @@ export const ContactCrmTab = memo(function ContactCrmTab({ contactId }: ContactC
   const t = useTranslations();
   const { locale } = useLocale();
   const tc = t.crmContext;
+  const td = t.contacts?.details;
 
   const { data: crmData, isLoading, isError } = useCrmContextByContact(contactId);
+  const timelineResult = useContactTimeline(contactId);
 
   // Get accountId for activity timeline (if linked)
   const accountId = crmData?.account?.id ?? '';
   const timelineQuery = useActivityTimeline('account', accountId, 20);
+
+  // Extract related emails (recent 5) from unified timeline
+  const relatedEmails = useMemo(() => {
+    if (!timelineResult.data?.pages) return [];
+    return timelineResult.data.pages
+      .flatMap((p) => p.entries)
+      .filter((e) => e.type === 'email_sent' || e.type === 'email_received')
+      .slice(0, 5);
+  }, [timelineResult.data]);
+
+  // Extract upcoming tasks from unified timeline
+  const upcomingTasks = useMemo(() => {
+    if (!timelineResult.data?.pages) return [];
+    const now = new Date().toISOString();
+    return timelineResult.data.pages
+      .flatMap((p) => p.entries)
+      .filter((e) => e.type === 'task' && (e.metadata?.status === 'pending' || e.metadata?.status === 'in_progress'))
+      .slice(0, 5);
+  }, [timelineResult.data]);
 
   const allActivities = useMemo(() => {
     if (!timelineQuery.data?.pages) return [];
@@ -98,6 +124,76 @@ export const ContactCrmTab = memo(function ContactCrmTab({ contactId }: ContactC
 
   return (
     <Box sx={{ py: 2 }}>
+      {/* Related Emails */}
+      <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Mail size={16} />
+        {td?.relatedEmails?.title ?? 'Related Emails'}
+      </Typography>
+      {relatedEmails.length > 0 ? (
+        <List dense disablePadding sx={{ mb: 3 }}>
+          {relatedEmails.map((entry) => (
+            <ListItem key={entry.id} sx={{ px: 0.5 }}>
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                {entry.type === 'email_sent' ? <Mail size={16} /> : <MailOpen size={16} />}
+              </ListItemIcon>
+              <ListItemText
+                primary={entry.title}
+                secondary={new Date(entry.date).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                secondaryTypographyProps={{ variant: 'caption' }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      ) : (
+        <Typography variant="body2" color="text.disabled" sx={{ mb: 3 }}>
+          {td?.relatedEmails?.empty ?? 'No related emails'}
+        </Typography>
+      )}
+
+      <Divider sx={{ mb: 2 }} />
+
+      {/* Upcoming Tasks */}
+      <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <ListTodo size={16} />
+        {td?.upcomingTasks?.title ?? 'Upcoming Tasks'}
+      </Typography>
+      {upcomingTasks.length > 0 ? (
+        <List dense disablePadding sx={{ mb: 3 }}>
+          {upcomingTasks.map((entry) => (
+            <ListItem key={entry.id} sx={{ px: 0.5 }}>
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <ListTodo size={16} />
+              </ListItemIcon>
+              <ListItemText
+                primary={entry.title}
+                secondary={
+                  entry.metadata?.dueDate
+                    ? new Date(entry.metadata.dueDate as string).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+                    : null
+                }
+                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                secondaryTypographyProps={{ variant: 'caption' }}
+              />
+              {entry.metadata?.status && (
+                <Chip
+                  label={String(entry.metadata.status).replace('_', ' ')}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 22, fontSize: '0.7rem', ml: 1 }}
+                />
+              )}
+            </ListItem>
+          ))}
+        </List>
+      ) : (
+        <Typography variant="body2" color="text.disabled" sx={{ mb: 3 }}>
+          {td?.upcomingTasks?.empty ?? 'No upcoming tasks'}
+        </Typography>
+      )}
+
+      <Divider sx={{ mb: 2 }} />
+
       {/* Linked Account */}
       <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Building2 size={16} />

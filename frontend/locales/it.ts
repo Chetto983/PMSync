@@ -3869,6 +3869,28 @@ export const it: AppTranslations = {
         loadError: 'Impossibile caricare la cronologia attività.',
         noActivity: 'Nessuna attività recente trovata.',
       },
+      // Unified timeline
+      timeline: {
+        title: 'Cronologia Attivita',
+        empty: 'Nessuna attivita registrata',
+        loadMore: 'Carica altro',
+        emailSent: 'Email inviata',
+        emailReceived: 'Email ricevuta',
+        dealActivity: 'Attivita trattativa',
+        task: 'Attivita',
+        meeting: 'Riunione',
+        ticket: 'Ticket',
+        note: 'Nota',
+      },
+      // Related emails & upcoming tasks
+      relatedEmails: {
+        title: 'Email correlate',
+        empty: 'Nessuna email correlata',
+      },
+      upcomingTasks: {
+        title: 'Attivita in scadenza',
+        empty: 'Nessuna attivita in scadenza',
+      },
       // Notes section
       notes: {
         title: 'Note',

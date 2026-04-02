@@ -50,4 +50,7 @@ export const contactsKeys = {
 
   // Duplicate candidates for a contact
   duplicates: (id: string) => [...contactsKeys.all, 'duplicates', id] as const,
+
+  // Unified timeline for a contact (Phase 141)
+  timeline: (id: string) => [...contactsKeys.detail(id), 'timeline'] as const,
 } as const;

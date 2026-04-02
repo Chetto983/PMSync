@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: verifying
-stopped_at: Completed 140-01-PLAN.md
-last_updated: "2026-04-02T10:58:44.375Z"
+stopped_at: Completed 141-01-PLAN.md
+last_updated: "2026-04-02T12:10:31.569Z"
 last_activity: 2026-04-02
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
   percent: 100
 ---
 
@@ -58,6 +58,8 @@ Progress: [██████████] 100%
 - [Phase 0139]: CRM SavedViewsPanel pattern reused for SavedViewsBar with success color accent
 - [Phase 0139]: Box wrapper with onClick+preventDefault to intercept sidebar Link navigation for Tasks popover
 - [Phase 140]: localStorage key pmsync:crm-sidebar-open shared across email list and thread detail pages for consistent collapse state
+- [Phase 0141]: Return total=-1 for timeline to avoid expensive count query; cursor pagination does not need total
+- [Phase 0141]: Exclude CRM EMAIL type from timeline to prevent duplication with actual email records
 
 ### Blockers/Concerns
 
@@ -65,6 +67,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-04-02T10:56:13.835Z
-Stopped at: Completed 140-01-PLAN.md
+Last session: 2026-04-02T12:10:31.563Z
+Stopped at: Completed 141-01-PLAN.md
 Resume file: None
