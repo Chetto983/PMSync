@@ -77,6 +77,7 @@ import { TriageScoreService } from './services/triage-score.service';
 import { LaneAssignmentService } from './services/lane-assignment.service';
 // Phase 10 Sprint 18: Triage overrides and feedback
 import { TriageOverrideService } from './services/triage-override.service';
+import { TriageFeedbackService } from './services/triage-feedback.service';
 import { TriageOverridesController } from './controllers/triage-overrides.controller';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
@@ -157,6 +158,7 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageScoreService,
     LaneAssignmentService,
     TriageOverrideService,
+    TriageFeedbackService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController, TriageOverridesController],
   exports: [
@@ -188,6 +190,7 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageRuleService,
     LabelResolutionService,
     TriageOverrideService,
+    TriageFeedbackService,
   ],
 })
 export class AiModule implements OnModuleInit {
