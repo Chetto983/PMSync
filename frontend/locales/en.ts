@@ -3423,6 +3423,11 @@ export const en: AppTranslations = {
       loading: 'Loading reminders...',
       error: 'Failed to load reminders',
       retry: 'Retry',
+      toasts: {
+        imminent: 'Reminder due soon: {title}',
+        overdue: 'Reminder overdue: {title}',
+        goToReminders: 'Go to reminders',
+      },
     },
     // HITL Inline Action Card translations
     inlineAction: {

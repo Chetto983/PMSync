@@ -3404,6 +3404,11 @@ export const it: AppTranslations = {
       loading: 'Caricamento promemoria...',
       error: 'Errore nel caricamento dei promemoria',
       retry: 'Riprova',
+      toasts: {
+        imminent: 'Promemoria in scadenza: {title}',
+        overdue: 'Promemoria scaduto: {title}',
+        goToReminders: 'Vai ai promemoria',
+      },
     },
     // HITL Inline Action Card
     inlineAction: {

@@ -3500,6 +3500,11 @@ export interface AppTranslations {
       loading: string;
       error: string;
       retry: string;
+      toasts: {
+        imminent: string;
+        overdue: string;
+        goToReminders: string;
+      };
     };
     // HITL Inline Action Card
     inlineAction: {

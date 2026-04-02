@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePrefetchQuery } from '@tanstack/react-query';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -18,6 +18,9 @@ import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { InstallPromptBanner } from '@/components/layout/InstallPromptBanner';
 import { AiDegradedBanner } from '@/components/common/AiDegradedBanner';
 import { useOfflineActions } from '@/hooks/use-offline-actions';
+import { useReminderRealtime, type ReminderEventType } from '@/hooks/use-reminder-realtime';
+import { useGlobalToast } from '@/lib/context/toast-context';
+import type { RealtimeReminderEvent } from '@/lib/websocket-client';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -34,6 +37,34 @@ export function Layout({ children }: LayoutProps) {
 
   // Wire up offline action replay (online event + SW message listeners)
   useOfflineActions();
+
+  // Wire up reminder realtime events with toast notifications
+  const toast = useGlobalToast();
+  const handleReminderEvent = useCallback(
+    (type: ReminderEventType, payload: RealtimeReminderEvent) => {
+      if (type === 'imminent') {
+        toast.warning(
+          t.ai.reminders.toasts.imminent.replace('{title}', payload.titolo),
+          {
+            actionLabel: t.ai.reminders.toasts.goToReminders,
+            onAction: () => router.push('/dashboard/reminders'),
+            duration: 8000,
+          },
+        );
+      } else if (type === 'overdue') {
+        toast.error(
+          t.ai.reminders.toasts.overdue.replace('{title}', payload.titolo),
+          {
+            actionLabel: t.ai.reminders.toasts.goToReminders,
+            onAction: () => router.push('/dashboard/reminders'),
+            duration: 10000,
+          },
+        );
+      }
+    },
+    [toast, t, router],
+  );
+  useReminderRealtime(true, { onEvent: handleReminderEvent });
 
   useEffect(() => {
     setMobileSidebarOpen(false);
