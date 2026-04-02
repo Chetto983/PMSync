@@ -42,6 +42,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { stringToColor } from '@/lib/utils/gravatar';
+import { TriageReasonChip } from '@/src/components/triage/TriageReasonChip';
 
 /** Hide snippet when identical/subset of subject */
 function isSnippetRedundant(subject: string, snippet: string): boolean {
@@ -83,8 +84,12 @@ export interface ThreadListItemData {
   folder?: string;
   isDraft?: boolean;
   aiPriority?: number | null;
+  aiPriorityReason?: string | null;
   aiSentiment?: string | null;
   aiLabels?: string[];
+  aiLane?: string | null;
+  aiIntent?: string | null;
+  aiActionability?: string | null;
 }
 
 interface ThreadListItemProps {
@@ -152,7 +157,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   const hasS = thread.aiSentiment === 'urgent' || thread.aiSentiment === 'negative';
   const userLabels = (thread.labels || []).slice(0, 2);
   const aiLabels = (thread.aiLabels || []).slice(0, 1); // Max 1 AI label to avoid clutter
-  const showIndicators = hasP || hasS || userLabels.length > 0 || aiLabels.length > 0;
+  const hasLane = !!thread.aiLane;
+  const showIndicators = hasP || hasS || userLabels.length > 0 || aiLabels.length > 0 || hasLane;
   const showSelectionAffordance = isTouchLayout || isHovered || isSelected;
   const showQuickActions = isHovered || isFocused || (isTouchLayout && isSelected);
 
@@ -330,9 +336,21 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           )}
         </Typography>
 
-        {/* Line 3: Priority / sentiment / user labels (only when present) */}
+        {/* Line 3: Lane / Priority / sentiment / user labels (only when present) */}
         {showIndicators && (
           <Box sx={{ display: 'flex', gap: 0.5, mt: 0.25, alignItems: 'center' }}>
+            {hasLane && (
+              <TriageReasonChip
+                lane={thread.aiLane}
+                priority={thread.aiPriority}
+                priorityReason={thread.aiPriorityReason}
+                sentiment={thread.aiSentiment}
+                labels={thread.aiLabels}
+                intent={thread.aiIntent}
+                actionability={thread.aiActionability}
+                compact
+              />
+            )}
             {hasP && (
               <Chip
                 icon={<Zap size={9} />}

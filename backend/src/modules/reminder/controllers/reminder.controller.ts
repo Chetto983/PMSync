@@ -73,6 +73,27 @@ export class ReminderController {
     return { data: result.reminders, meta: { total: result.total, page: result.page, limit: result.limit } };
   }
 
+  @Get('search')
+  @ApiOperation({ summary: 'Search reminders by title, description, or contact' })
+  @ApiQuery({ name: 'q', required: true, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async search(
+    @Req() req: AuthenticatedRequest,
+    @Query('q') q: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const result = await this.reminderService.searchReminders(
+      req.user.tenantId,
+      req.user.id,
+      q || '',
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
+    return { data: result.reminders, meta: { total: result.total, page: result.page, limit: result.limit } };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single reminder' })
   async get(@Req() req: AuthenticatedRequest, @Param('id') id: string) {

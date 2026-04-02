@@ -65,8 +65,12 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
     isDraft: email.isDraft,
     // AI Auto-Triage fields
     aiPriority: email.aiPriority,
+    aiPriorityReason: email.aiPriorityReason,
     aiSentiment: email.aiSentiment,
     aiLabels: email.aiLabels,
+    aiLane: email.aiLane,
+    aiIntent: email.aiIntent,
+    aiActionability: email.aiActionability,
   };
 }
 

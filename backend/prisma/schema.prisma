@@ -1675,6 +1675,8 @@ model Reminder {
   @@index([tenantId, monitoraEmail, status])
   @@index([scadenzaDatetime])
   @@index([status, updatedAt])
+  @@index([titolo(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([contatto(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("reminders")
 }
 

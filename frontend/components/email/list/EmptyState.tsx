@@ -9,10 +9,10 @@
  */
 
 import { Box, Button, Typography } from '@mui/material';
-import { Inbox, Folder, SearchX, Crown } from 'lucide-react';
+import { Inbox, Folder, SearchX, Crown, LayoutList } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
-export type EmptyStateVariant = 'inbox' | 'folder' | 'search' | 'vip';
+export type EmptyStateVariant = 'inbox' | 'folder' | 'search' | 'vip' | 'lane';
 
 interface EmptyStateProps {
   /** Type of empty state to display */
@@ -42,6 +42,7 @@ export function EmptyState({ variant = 'inbox', title, description, onAction }: 
     folder: Folder,
     search: SearchX,
     vip: Crown,
+    lane: LayoutList,
   };
 
   // Default text based on variant
@@ -50,6 +51,7 @@ export function EmptyState({ variant = 'inbox', title, description, onAction }: 
     folder: t.emailList.emptyFolder,
     search: t.emailList.emptySearch,
     vip: t.email.empty.vipTitle,
+    lane: t.ai.triage.inbox.noEmails,
   };
 
   const defaultDescriptions = {
@@ -57,6 +59,7 @@ export function EmptyState({ variant = 'inbox', title, description, onAction }: 
     folder: t.emailList.emptyFolderDesc,
     search: t.emailList.emptySearchDesc,
     vip: t.email.empty.vipSubtitle,
+    lane: t.ai.triage.inbox.noActionNeeded,
   };
 
   const defaultActions: Record<EmptyStateVariant, string | undefined> = {
@@ -64,6 +67,7 @@ export function EmptyState({ variant = 'inbox', title, description, onAction }: 
     folder: t.emailList.emptyFolderAction,
     search: t.emailList.emptySearchAction,
     vip: undefined,
+    lane: undefined,
   };
 
   const Icon = icons[variant];

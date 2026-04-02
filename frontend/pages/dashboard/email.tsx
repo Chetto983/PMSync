@@ -33,6 +33,7 @@ import {
   useMoveFolder,
 } from '@/hooks/queries';
 import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
+import { LaneTabBar, type LaneValue } from '@/src/components/triage/LaneTabBar';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters, useEmailUIStore } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Skeleton, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
@@ -157,6 +158,7 @@ export default function EmailPage() {
     if (typeof q.labelId === 'string') patch.labelId = q.labelId;
     if (q.unread === 'true') patch.isRead = false;
     if (q.vip === 'true') patch.fromVip = true;
+    if (typeof q.lane === 'string') patch.lane = q.lane;
 
     if (Object.keys(patch).length > 0) {
       setFilters(patch);
@@ -176,6 +178,7 @@ export default function EmailPage() {
     if (filters.labelId) params.labelId = filters.labelId;
     if (filters.isRead === false) params.unread = 'true';
     if (filters.fromVip) params.vip = 'true';
+    if (filters.lane) params.lane = filters.lane;
 
     const key = JSON.stringify(params);
     if (key === prevFilterKeyRef.current) return;
@@ -229,6 +232,7 @@ export default function EmailPage() {
     startDate: filters.startDate,
     endDate: filters.endDate,
     fromVip: filters.fromVip,
+    lane: filters.lane,
     limit: 50,
   }), [filters, selectedFolderPath, getApiSpecialUse]);
 
@@ -531,6 +535,10 @@ export default function EmailPage() {
     }
   }, [filters.search, clearFilters, handleCompose]);
 
+  const handleLaneChange = useCallback((lane: LaneValue) => {
+    setFilters({ lane: lane === 'all' ? undefined : lane });
+  }, [setFilters]);
+
   // Reading pane for 3-panel desktop view
   const readingPane = useMemo(() => {
     if (!selectedThreadId || !isDesktop) return undefined;
@@ -647,11 +655,15 @@ export default function EmailPage() {
             await foldersQuery.refetch();
           }}
         >
+          <LaneTabBar
+            value={(filters.lane as LaneValue) || 'all'}
+            onChange={handleLaneChange}
+          />
           <ThreadList
             threads={threads}
             totalCount={totalEmailCount}
             scrollKey={filterKey}
-            emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
+            emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : filters.lane ? 'lane' : 'inbox'}
             isLoading={loading} isLoadingMore={loadingMore} hasMore={hasMore}
             focusedId={focusedId}
             onThreadClick={handleThreadClick} onRefresh={handleRefresh} onLoadMore={handleLoadMore}

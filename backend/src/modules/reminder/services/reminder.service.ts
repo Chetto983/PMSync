@@ -167,6 +167,38 @@ export class ReminderService {
     return { reminder, rispostaChat, failed: false as const };
   }
 
+  async searchReminders(
+    tenantId: string,
+    userId: string,
+    query: string,
+    page = 1,
+    limit = 20,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ReminderWhereInput = {
+      tenantId,
+      userId,
+      OR: [
+        { titolo: { contains: query, mode: 'insensitive' } },
+        { descrizione: { contains: query, mode: 'insensitive' } },
+        { contatto: { contains: query, mode: 'insensitive' } },
+      ],
+    };
+
+    const [reminders, total] = await Promise.all([
+      this.prisma.reminder.findMany({
+        where,
+        orderBy: [{ scadenzaDatetime: 'asc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.reminder.count({ where }),
+    ]);
+
+    return { reminders, total, page, limit };
+  }
+
   async listReminders(tenantId: string, userId: string, filters: ReminderListFilters = {}) {
     const { status, priorita, periodo, page = 1, limit = 20 } = filters;
     const skip = (page - 1) * limit;
