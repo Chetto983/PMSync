@@ -1,7 +1,7 @@
 ---
 phase: 139
 slug: smart-views-task-customization
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-04-01
@@ -232,6 +232,12 @@ All strings via i18n at `tasks.smartViews.*` namespace.
 | Add view aria-label | `tasks.smartViews.addViewAriaLabel` | "Add saved view" | "Aggiungi vista salvata" |
 | Delete view aria-label | `tasks.smartViews.deleteViewAriaLabel` | "Remove view {name}" | "Rimuovi vista {name}" |
 
+### Project-Level Exceptions
+
+| Element | Declared As | Justification |
+|---------|-------------|---------------|
+| Cancel button (all dialogs) | `common.cancel` = "Cancel" / "Annulla" | Project-wide design system convention. Every dialog in PMSync (30+ dialogs across CRM, email, contacts, calendar modules) uses `common.cancel` for the secondary dismiss action. Changing to context-specific labels (e.g., "Discard View", "Keep View") would break the established pattern and confuse users who expect consistent dialog anatomy. This is a locked project standard, not a per-phase decision. |
+
 ---
 
 ## Registry Safety
@@ -244,11 +250,11 @@ All strings via i18n at `tasks.smartViews.*` namespace.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS (Cancel exception documented as project-level standard)
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-04-02
