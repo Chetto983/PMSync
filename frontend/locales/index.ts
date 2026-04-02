@@ -2865,6 +2865,14 @@ export interface AppTranslations {
       reminderFailed?: string;
       loadingReminders?: string;
       noRemindersFound?: string;
+      completingReminder?: string;
+      reminderCompleted?: string;
+      updatingReminder?: string;
+      reminderUpdated?: string;
+      deletingReminder?: string;
+      reminderDeleted?: string;
+      snoozingReminder?: string;
+      reminderSnoozed?: string;
       processingBulkAction?: string;
       noSubject?: string;
       to?: string;

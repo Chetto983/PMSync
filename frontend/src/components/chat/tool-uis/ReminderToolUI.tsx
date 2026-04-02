@@ -1,5 +1,5 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
-import { Bell, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Bell, AlertCircle, CheckCircle2, Trash2, Clock, Pencil } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -156,6 +156,197 @@ export function ListRemindersRenderer({
             </Box>
           ))}
         </Box>
+      )}
+    </Paper>
+  );
+}
+
+interface CompleteReminderResult {
+  success: boolean;
+  reminderId?: string;
+  titolo?: string;
+  status?: string;
+  completatoAt?: string | null;
+  error?: string;
+}
+
+export function CompleteReminderRenderer({
+  result,
+  status,
+}: ToolCallMessagePartProps<{ reminderId: string }, CompleteReminderResult>) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
+  if (status.type === 'running') {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5, width: 'fit-content' }}>
+        <CheckCircle2 size={16} />
+        <Typography variant="body2" color="text.secondary">{tu?.completingReminder || 'Completing reminder...'}</Typography>
+      </Box>
+    );
+  }
+  if (status.type === 'incomplete') return null;
+  if (!result) return null;
+  if (result.error) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '10px', border: 1, borderColor: 'error.light', bgcolor: 'error.light' }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">{result.error}</Typography>
+      </Box>
+    );
+  }
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CheckCircle2 size={16} color="green" />
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {result.titolo} — {tu?.reminderCompleted || 'completed'}
+        </Typography>
+      </Box>
+    </Paper>
+  );
+}
+
+interface UpdateReminderResult {
+  success: boolean;
+  reminderId?: string;
+  titolo?: string;
+  scadenzaDatetime?: string | null;
+  priorita?: string;
+  status?: string;
+  error?: string;
+}
+
+export function UpdateReminderRenderer({
+  result,
+  status,
+}: ToolCallMessagePartProps<
+  { reminderId: string; titolo?: string; scadenzaDatetime?: string; priorita?: string },
+  UpdateReminderResult
+>) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
+  if (status.type === 'running') {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5, width: 'fit-content' }}>
+        <Pencil size={16} />
+        <Typography variant="body2" color="text.secondary">{tu?.updatingReminder || 'Updating reminder...'}</Typography>
+      </Box>
+    );
+  }
+  if (status.type === 'incomplete') return null;
+  if (!result) return null;
+  if (result.error) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '10px', border: 1, borderColor: 'error.light', bgcolor: 'error.light' }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">{result.error}</Typography>
+      </Box>
+    );
+  }
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Pencil size={16} color="blue" />
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{result.titolo} — {tu?.reminderUpdated || 'updated'}</Typography>
+      </Box>
+      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 0.5 }}>
+        {result.scadenzaDatetime && (
+          <Typography variant="caption" color="text.secondary">{formatDate(result.scadenzaDatetime)}</Typography>
+        )}
+        {result.priorita && (
+          <Chip label={result.priorita} size="small" color={prioritaColor(result.priorita)} sx={{ height: 18, fontSize: '0.6rem' }} />
+        )}
+      </Box>
+    </Paper>
+  );
+}
+
+interface DeleteReminderResult {
+  success: boolean;
+  reminderId?: string;
+  deleted?: boolean;
+  error?: string;
+}
+
+export function DeleteReminderRenderer({
+  result,
+  status,
+}: ToolCallMessagePartProps<{ reminderId: string }, DeleteReminderResult>) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
+  if (status.type === 'running') {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5, width: 'fit-content' }}>
+        <Trash2 size={16} />
+        <Typography variant="body2" color="text.secondary">{tu?.deletingReminder || 'Deleting reminder...'}</Typography>
+      </Box>
+    );
+  }
+  if (status.type === 'incomplete') return null;
+  if (!result) return null;
+  if (result.error) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '10px', border: 1, borderColor: 'error.light', bgcolor: 'error.light' }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">{result.error}</Typography>
+      </Box>
+    );
+  }
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Trash2 size={16} color="red" />
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{tu?.reminderDeleted || 'Reminder deleted'}</Typography>
+      </Box>
+    </Paper>
+  );
+}
+
+interface SnoozeReminderResult {
+  success: boolean;
+  reminderId?: string;
+  titolo?: string;
+  newScadenzaDatetime?: string | null;
+  snoozedByDays?: number;
+  error?: string;
+}
+
+export function SnoozeReminderRenderer({
+  result,
+  status,
+}: ToolCallMessagePartProps<{ reminderId: string; days: number }, SnoozeReminderResult>) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
+  if (status.type === 'running') {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5, width: 'fit-content' }}>
+        <Clock size={16} />
+        <Typography variant="body2" color="text.secondary">{tu?.snoozingReminder || 'Snoozing reminder...'}</Typography>
+      </Box>
+    );
+  }
+  if (status.type === 'incomplete') return null;
+  if (!result) return null;
+  if (result.error) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '10px', border: 1, borderColor: 'error.light', bgcolor: 'error.light' }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">{result.error}</Typography>
+      </Box>
+    );
+  }
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Clock size={16} color="orange" />
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {result.titolo} — {tu?.reminderSnoozed || 'snoozed'} +{result.snoozedByDays}d
+        </Typography>
+      </Box>
+      {result.newScadenzaDatetime && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {formatDate(result.newScadenzaDatetime)}
+        </Typography>
       )}
     </Paper>
   );

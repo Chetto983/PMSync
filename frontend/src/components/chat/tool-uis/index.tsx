@@ -26,6 +26,10 @@ const AskUserRenderer = lazy(() => import('./ConversationToolUI').then(m => ({ d
 const SaveMemoryRenderer = lazy(() => import('./ConversationToolUI').then(m => ({ default: m.SaveMemoryRenderer })));
 const CreateReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.CreateReminderRenderer })));
 const ListRemindersRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.ListRemindersRenderer })));
+const CompleteReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.CompleteReminderRenderer })));
+const UpdateReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.UpdateReminderRenderer })));
+const DeleteReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.DeleteReminderRenderer })));
+const SnoozeReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.SnoozeReminderRenderer })));
 // Sprint 14.1: CRM deal + intelligence + governance renderers
 const DealListRenderer = lazy(() => import('./DealsToolUI').then(m => ({ default: m.DealListRenderer })));
 const DealMoveRenderer = lazy(() => import('./DealsToolUI').then(m => ({ default: m.DealMoveRenderer })));
@@ -61,6 +65,10 @@ export const TOOL_RENDERERS = {
   save_memory: SaveMemoryRenderer,
   create_reminder: CreateReminderRenderer,
   list_reminders: ListRemindersRenderer,
+  complete_reminder: CompleteReminderRenderer,
+  update_reminder: UpdateReminderRenderer,
+  delete_reminder: DeleteReminderRenderer,
+  snooze_reminder: SnoozeReminderRenderer,
   // Sprint 14.1: CRM deal + intelligence + governance
   get_deals_by_pipeline: DealListRenderer,
   move_deal_stage: DealMoveRenderer,

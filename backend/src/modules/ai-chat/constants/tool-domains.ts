@@ -46,6 +46,8 @@ export const TOOL_DOMAINS: Record<string, string> = {
   create_reminder: 'productivity',
   update_reminder: 'productivity',
   delete_reminder: 'productivity',
+  complete_reminder: 'productivity',
+  snooze_reminder: 'productivity',
   // CRM domain (deal tools + intelligence tools)
   get_deals_by_pipeline: 'crm',
   move_deal_stage: 'crm',

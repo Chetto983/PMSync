@@ -66,9 +66,10 @@ const EXPECTED_TOOLS = [
   'semantic_search', 'graph_context_search', 'save_memory', 'list_memories', 'delete_memory',
   // System domain (3 tools)
   'ask_user', 'run_code', 'code_assistant',
-  // Productivity domain (8 tools)
+  // Productivity domain (12 tools)
   'list_email_index', 'star_email', 'mark_email_read', 'label_email',
-  'list_follow_ups', 'update_follow_up', 'create_reminder', 'list_reminders',
+  'list_follow_ups', 'update_follow_up',
+  'create_reminder', 'list_reminders', 'complete_reminder', 'update_reminder', 'delete_reminder', 'snooze_reminder',
 ].sort();
 
 const VALID_DOMAINS = ['email', 'calendar', 'contacts', 'knowledge', 'productivity', 'system'];
@@ -76,7 +77,7 @@ const VALID_RISK_LEVELS = ['LOW', 'MEDIUM', 'HIGH'];
 
 const HIGH_RISK_TOOLS = [
   'send_email', 'delete_email', 'forward_email', 'reply_email',
-  'delete_event', 'delete_contact',
+  'delete_event', 'delete_contact', 'delete_reminder',
 ].sort();
 
 // Email domain tools (including folder tools which are classified as email domain)
@@ -95,8 +96,8 @@ describe('Tool Registry Governance', () => {
     tools = registry.getAllTools();
   });
 
-  it('should have exactly 35 tools registered', () => {
-    expect(tools).toHaveLength(35);
+  it('should have exactly 39 tools registered', () => {
+    expect(tools).toHaveLength(39);
   });
 
   it('every tool should have complete governance metadata', () => {
