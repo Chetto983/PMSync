@@ -18,10 +18,13 @@ import { RolesGuard } from '../../../common/auth/roles.guard';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { TasksAggregationService } from '../services/tasks-aggregation.service';
 import { ManualTaskService } from '../services/manual-task.service';
+import { SmartViewService } from '../services/smart-view.service';
 import { normalizeManualTask } from '../services/normalizers';
 import type { ListTasksQueryDto } from '../dto/list-tasks-query.dto';
 import type { CreateManualTaskDto } from '../dto/create-task.dto';
 import type { UpdateManualTaskDto } from '../dto/update-task.dto';
+import { CreateSmartViewDto } from '../dto/create-smart-view.dto';
+import { UpdateSmartViewDto } from '../dto/update-smart-view.dto';
 import {
   TASK_SOURCE_TYPES,
   type TaskSourceType,
@@ -40,7 +43,61 @@ export class TasksController {
   constructor(
     private readonly aggregationService: TasksAggregationService,
     private readonly manualTaskService: ManualTaskService,
+    private readonly smartViewService: SmartViewService,
   ) {}
+
+  @Get('views')
+  @ApiOperation({ summary: 'List smart views for current user' })
+  async listViews(@Req() req: AuthenticatedRequest) {
+    return this.smartViewService.list(req.user.tenantId, req.user.id);
+  }
+
+  @Post('views')
+  @RateTierDecorator('safe-write')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create a smart view' })
+  async createView(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateSmartViewDto,
+  ) {
+    return this.smartViewService.create(req.user.tenantId, req.user.id, dto);
+  }
+
+  @Patch('views/:id')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({ summary: 'Update a smart view' })
+  async updateView(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateSmartViewDto,
+  ) {
+    return this.smartViewService.update(
+      req.user.tenantId,
+      req.user.id,
+      id,
+      dto,
+    );
+  }
+
+  @Delete('views/:id')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({ summary: 'Delete a smart view' })
+  async removeView(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.smartViewService.remove(req.user.tenantId, req.user.id, id);
+  }
+
+  @Patch('views/:id/pin')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({ summary: 'Toggle pin state of a smart view' })
+  async togglePin(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.smartViewService.togglePin(req.user.tenantId, req.user.id, id);
+  }
 
   @Get()
   @ApiOperation({ summary: 'List unified tasks from all sources' })
