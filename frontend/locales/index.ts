@@ -3548,6 +3548,8 @@ export interface AppTranslations {
         deliveryFailed: string;
         connect: string;
         qrHint: string;
+        orOpenLink: string;
+        openInTelegram: string;
         regenerateQr: string;
         linkExpired: string;
         linkError: string;

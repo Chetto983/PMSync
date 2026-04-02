@@ -144,6 +144,18 @@ export function TelegramSettingsPanel() {
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 300 }}>
                 {tr.qrHint}
               </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {tr.orOpenLink}
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                href={deepLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {tr.openInTelegram}
+              </Button>
               <Button size="small" variant="text" onClick={startLinkFlow}>
                 {tr.regenerateQr}
               </Button>

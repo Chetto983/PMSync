@@ -3499,6 +3499,8 @@ export const en: AppTranslations = {
         deliveryFailed: 'Telegram notification failed — deadline has passed',
         connect: 'Connect Telegram',
         qrHint: 'Scan this QR code with your phone camera or Telegram app. The link will expire in 5 minutes.',
+        orOpenLink: 'Or open this link directly:',
+        openInTelegram: 'Open in Telegram',
         regenerateQr: 'Regenerate QR',
         linkExpired: 'Link expired. Generate a new QR code.',
         linkError: 'Failed to generate link',
