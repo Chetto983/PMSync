@@ -175,7 +175,7 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
 - [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
   Plans:
   - [x] 0139-01-PLAN.md — Backend: TaskSmartView model, DTOs, SmartViewService, controller endpoints
-  - [ ] 0139-02-PLAN.md — Frontend: translations, API types, hooks, SavedViewsBar, SavedViewDialog, PinnedViewsPopover, sidebar integration
+  - [x] 0139-02-PLAN.md — Frontend: translations, API types, hooks, SavedViewsBar, SavedViewDialog, PinnedViewsPopover, sidebar integration
 
 ### Phase 139: Smart Views & Task Customization
 **Goal**: Users save and pin frequently used filter combinations for instant access to their most relevant task slices

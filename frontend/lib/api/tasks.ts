@@ -71,6 +71,33 @@ export interface UpdateManualTaskDto extends Partial<CreateManualTaskDto> {
   status?: UnifiedTaskStatus;
 }
 
+// ---- Smart View Types ----
+
+export interface TaskSmartView {
+  id: string;
+  tenantId: string;
+  userId: string;
+  name: string;
+  filters: Partial<ListTasksQuery>;
+  isPinned: boolean;
+  pinOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSmartViewDto {
+  name: string;
+  filters: Record<string, unknown>;
+  isPinned?: boolean;
+}
+
+export interface UpdateSmartViewDto {
+  name?: string;
+  filters?: Record<string, unknown>;
+  isPinned?: boolean;
+  pinOrder?: number;
+}
+
 // ---- API ----
 
 export const tasksApi = {
@@ -92,5 +119,27 @@ export const tasksApi = {
 
   complete(sourceType: TaskSourceType, id: string) {
     return apiClient.post<{ success: boolean }>(`/tasks/${sourceType}/${id}/complete`);
+  },
+
+  // ---- Smart Views ----
+
+  listViews() {
+    return apiClient.get<TaskSmartView[]>('/tasks/views');
+  },
+
+  createView(dto: CreateSmartViewDto) {
+    return apiClient.post<TaskSmartView>('/tasks/views', dto);
+  },
+
+  updateView(id: string, dto: UpdateSmartViewDto) {
+    return apiClient.patch<TaskSmartView>(`/tasks/views/${id}`, dto);
+  },
+
+  deleteView(id: string) {
+    return apiClient.delete<{ deleted: boolean }>(`/tasks/views/${id}`);
+  },
+
+  togglePin(id: string) {
+    return apiClient.patch<TaskSmartView>(`/tasks/views/${id}/pin`, {});
   },
 };
