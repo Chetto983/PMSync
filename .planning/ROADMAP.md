@@ -154,7 +154,7 @@
 
 See `milestones/v12.0-ROADMAP.md` for full phase details.
 
-**Plans:** 10 plans
+**Plans:** 11 plans
 
 - [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
   Plans:
@@ -176,6 +176,7 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
   Plans:
   - [x] 0139-01-PLAN.md — Backend: TaskSmartView model, DTOs, SmartViewService, controller endpoints
   - [x] 0139-02-PLAN.md — Frontend: translations, API types, hooks, SavedViewsBar, SavedViewDialog, PinnedViewsPopover, sidebar integration
+  - [ ] 0139-03-PLAN.md — Gap closure: cross-session filter hydration, viewMode param fix, toggle clearing
 
 ### Phase 139: Smart Views & Task Customization
 **Goal**: Users save and pin frequently used filter combinations for instant access to their most relevant task slices
