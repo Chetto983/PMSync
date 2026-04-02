@@ -13,7 +13,6 @@ import { getLocale, getToolTranslations, type SupportedLocale } from '../locales
 import { PiiDetectionService } from '../guards';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 import { buildAiResponseMeta } from '../utils/ai-response-meta';
-import { DEFAULT_AI_USER_LABELS, ensureDefaultUserLabels } from '../../labels/default-user-labels';
 import { TriageRuleService } from './triage-rule.service';
 import { LabelResolutionService, type TenantLabel } from './label-resolution.service';
 import { TriageScoreService } from './triage-score.service';
@@ -235,7 +234,6 @@ export class EmailAnalysisService {
 
   private async getUserLabels(tenantId: string): Promise<TenantLabel[]> {
     try {
-      await ensureDefaultUserLabels(this.prisma, tenantId);
       const labels = await this.prisma.userLabel.findMany({
         where: { tenantId, isArchived: false },
         select: {
@@ -244,18 +242,9 @@ export class EmailAnalysisService {
         },
         orderBy: { orderIndex: 'asc' },
       });
-      if (labels.length === 0) {
-        return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({
-          name, aiPrompt, defaultLane,
-          category: 'custom', suppressUrgency: false, mutuallyExclusiveWith: [],
-        }));
-      }
       return labels;
     } catch {
-      return DEFAULT_AI_USER_LABELS.map(({ name, aiPrompt, defaultLane }) => ({
-        name, aiPrompt, defaultLane,
-        category: 'custom', suppressUrgency: false, mutuallyExclusiveWith: [],
-      }));
+      return [];
     }
   }
 

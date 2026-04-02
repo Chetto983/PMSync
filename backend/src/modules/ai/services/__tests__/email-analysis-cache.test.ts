@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmailAnalysisService } from '../email-analysis.service';
-import { DEFAULT_AI_USER_LABELS } from '../../../labels/default-user-labels';
+const TEST_LABELS = [
+  { name: 'Updates', aiPrompt: 'Use for product updates.' },
+  { name: 'Important', aiPrompt: 'Use for urgent emails.' },
+];
 
 describe('EmailAnalysisService cache signature', () => {
   let prisma: any;
@@ -90,12 +93,8 @@ describe('EmailAnalysisService cache signature', () => {
   });
 
   it('uses cached analysis when locale and label rules signature match', async () => {
-    const signature = service['computeLabelRulesSignature'](
-      DEFAULT_AI_USER_LABELS.map((label) => ({
-        name: label.name,
-        aiPrompt: label.aiPrompt,
-      })),
-    );
+    prisma.userLabel.findMany.mockResolvedValue(TEST_LABELS);
+    const signature = service['computeLabelRulesSignature'](TEST_LABELS);
     prisma.emailAnalysis.findFirst.mockResolvedValue({
       priority: 'HIGH',
       category: 'OTHER',

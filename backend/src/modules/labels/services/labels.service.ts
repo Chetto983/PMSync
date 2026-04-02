@@ -18,7 +18,6 @@ import {
   TriageOnboardingRulesDto,
   UpdateLabelDto,
 } from '../dto/labels.dto';
-import { ensureDefaultUserLabels } from '../default-user-labels';
 import {
   buildRecommendedLabelSet,
   normalizeTriageOnboardingRules,
@@ -39,8 +38,6 @@ export class LabelsService {
   ) {}
 
   async findAllByTenant(tenantId: string) {
-    await ensureDefaultUserLabels(this.prisma, tenantId);
-
     return this.prisma.userLabel.findMany({
       where: { tenantId, isArchived: false },
       include: {
@@ -74,8 +71,6 @@ export class LabelsService {
   }
 
   async getTriageOnboardingContract(tenantId: string) {
-    await ensureDefaultUserLabels(this.prisma, tenantId);
-
     const labels = await this.prisma.userLabel.findMany({
       where: { tenantId, isArchived: false },
       select: {
@@ -98,8 +93,6 @@ export class LabelsService {
   }
 
   async previewTriageOnboarding(tenantId: string, dto: TriageOnboardingRulesDto) {
-    await ensureDefaultUserLabels(this.prisma, tenantId);
-
     const normalizedRules = normalizeTriageOnboardingRules(dto);
     const existingLabels = await this.prisma.userLabel.findMany({
       where: { tenantId, isArchived: false },

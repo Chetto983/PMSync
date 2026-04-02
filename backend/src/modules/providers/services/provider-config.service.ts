@@ -26,7 +26,6 @@ import {
   ConnectMicrosoftProviderDto,
   ConnectGenericProviderDto,
 } from '../dto';
-import { ensureDefaultUserLabels } from '../../labels/default-user-labels';
 
 export interface ProviderAlias {
   email: string;
@@ -222,7 +221,6 @@ export class ProviderConfigService {
         },
       });
 
-      await this.seedDefaultUserLabels(tenantId);
 
       const sanitized = this.sanitizeProviderConfig(providerConfig);
 
@@ -305,7 +303,6 @@ export class ProviderConfigService {
         },
       });
 
-      await this.seedDefaultUserLabels(tenantId);
 
       const sanitized = this.sanitizeProviderConfig(providerConfig);
 
@@ -478,7 +475,6 @@ export class ProviderConfigService {
         },
       });
 
-      await this.seedDefaultUserLabels(tenantId);
 
       const sanitized = this.sanitizeProviderConfig(providerConfig);
 
@@ -907,7 +903,6 @@ export class ProviderConfigService {
 
     if (existing?.isActive) {
       this.logger.debug(`Provider ${providerType} already connected for ${userEmail}`);
-      await this.seedDefaultUserLabels(tenantId);
       return this.sanitizeProviderConfig(existing);
     }
 
@@ -958,8 +953,6 @@ export class ProviderConfigService {
         lastSyncedAt: null,
       },
     });
-
-    await this.seedDefaultUserLabels(tenantId);
 
     const sanitized = this.sanitizeProviderConfig(providerConfig);
 
@@ -1018,13 +1011,4 @@ export class ProviderConfigService {
     );
   }
 
-  private async seedDefaultUserLabels(tenantId: string): Promise<void> {
-    try {
-      await ensureDefaultUserLabels(this.prisma, tenantId);
-    } catch (error) {
-      this.logger.warn(
-        `Failed to seed default user labels for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
 }
