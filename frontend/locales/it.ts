@@ -5685,6 +5685,7 @@ export const it: AppTranslations = {
     strengthWeak: 'Debole',
     strengthModerate: 'Moderata',
     strengthStrong: 'Forte',
+    contactTags: 'Tag',
   },
   activityTimeline: {
     title: 'Cronologia Attività',

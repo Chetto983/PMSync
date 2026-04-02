@@ -44,6 +44,7 @@ export interface CrmContactContext {
     displayName: string | null;
     company: string | null;
     email: string | null;
+    tags: string[];
   };
   account: CrmContextAccount | null;
   deals: CrmContextDeal[];

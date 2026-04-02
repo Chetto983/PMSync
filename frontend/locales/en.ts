@@ -5709,6 +5709,7 @@ export const en: AppTranslations = {
     strengthWeak: 'Weak',
     strengthModerate: 'Moderate',
     strengthStrong: 'Strong',
+    contactTags: 'Tags',
   },
   activityTimeline: {
     title: 'Activity Timeline',

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type Contact } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 
-type ContactSummary = Pick<Contact, 'id' | 'displayName' | 'company' | 'emails' | 'lastInteractedAt' | 'totalInteractions' | 'sentCount' | 'receivedCount'>;
+type ContactSummary = Pick<Contact, 'id' | 'displayName' | 'company' | 'emails' | 'lastInteractedAt' | 'totalInteractions' | 'sentCount' | 'receivedCount' | 'tags'>;
 
 export interface CrmContextResponse {
   contact: {
@@ -10,6 +10,7 @@ export interface CrmContextResponse {
     displayName: string | null;
     company: string | null;
     email: string | null;
+    tags: string[];
   };
   account: {
     id: string;
@@ -63,6 +64,7 @@ export class ContextService {
         sentCount: true,
         receivedCount: true,
         isDeleted: true,
+        tags: true,
       },
     });
 
@@ -191,6 +193,7 @@ export class ContextService {
         displayName: contact.displayName,
         company: contact.company,
         email: this.extractPrimaryEmail(contact),
+        tags: contact.tags,
       },
       account: accountLink?.account ?? null,
       deals: deals.map((deal) => ({

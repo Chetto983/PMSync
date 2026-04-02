@@ -5477,6 +5477,7 @@ export interface AppTranslations {
     strengthWeak?: string;
     strengthModerate?: string;
     strengthStrong?: string;
+    contactTags?: string;
   };
   crmSuggestions?: {
     title?: string;
