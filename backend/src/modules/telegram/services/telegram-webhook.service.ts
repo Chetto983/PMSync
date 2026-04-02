@@ -10,6 +10,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { TelegramBotService } from './telegram-bot.service';
+import { t as tMsg, type TelegramLocale } from '../utils/telegram-messages';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { AiChatService, type PendingToolApproval } from '../../ai-chat/services/ai-chat.service';
 import { ConversationService } from '../../ai-chat/services/conversation.service';
@@ -577,9 +578,12 @@ export class TelegramWebhookService {
         );
 
         if (!settings) {
-          await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Account not linked');
+          await this.telegramBot.answerCallbackQuery(callbackQueryId, tMsg('ACCOUNT_NOT_LINKED', 'en'));
           return;
         }
+
+        // Resolve locale for localized callback responses
+        const locale = await this.resolveUserLocale(settings.userId);
 
         const reminder = await withoutTenantScopingAsync(() =>
           this.prisma.reminder.findFirst({
@@ -593,7 +597,7 @@ export class TelegramWebhookService {
         );
 
         if (!reminder) {
-          await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Reminder non trovato');
+          await this.telegramBot.answerCallbackQuery(callbackQueryId, tMsg('REMINDER_NOT_FOUND', locale));
           return;
         }
 
@@ -604,14 +608,34 @@ export class TelegramWebhookService {
           }),
         );
 
-        await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Completato!');
+        // Send confirmation back as callback answer + inline message
+        await this.telegramBot.answerCallbackQuery(callbackQueryId, `✅ ${tMsg('COMPLETED', locale)}`);
+        await this.telegramBot.sendMessage(
+          chatId,
+          `✅ *${reminder.titolo}* — ${tMsg('COMPLETED', locale)}`,
+          { parse_mode: 'Markdown' },
+        );
 
         this.logger.log(`Reminder ${reminderId} completed via Telegram callback by user ${settings.userId}`);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.error(`Callback query error for reminder ${reminderId}: ${msg}`);
-        await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Errore');
+        await this.telegramBot.answerCallbackQuery(callbackQueryId, tMsg('ERROR', 'en'));
       }
+    }
+  }
+
+  private async resolveUserLocale(userId: string): Promise<TelegramLocale> {
+    try {
+      const prefs = await withoutTenantScopingAsync(() =>
+        this.prisma.userPreferences.findUnique({
+          where: { userId },
+          select: { language: true },
+        }),
+      );
+      return (prefs?.language === 'it' ? 'it' : 'en') as TelegramLocale;
+    } catch {
+      return 'it';
     }
   }
 }

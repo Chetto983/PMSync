@@ -160,7 +160,7 @@ export class TelegramBotService implements OnModuleInit {
     const text = header + items.join(separator) + separator + footer;
 
     const inlineKeyboard = reminders.map((r) => [
-      { text: `Done: ${r.titolo.substring(0, 25)}`, callback_data: `done:${r.id}` },
+      { text: `${t('DONE', locale)}: ${r.titolo.substring(0, 25)}`, callback_data: `done:${r.id}` },
     ]);
 
     return this.sendMessage(chatId, text, {
@@ -174,7 +174,7 @@ export class TelegramBotService implements OnModuleInit {
    */
   async sendReminderNotification(
     chatId: string,
-    reminder: ReminderDigestItem & { messaggioTelegram: string | null },
+    reminder: ReminderDigestItem & { messaggioTelegram: string | null; descrizione?: string | null },
     locale: TelegramLocale = 'it',
   ): Promise<boolean> {
     const emoji = this.getActionEmoji(reminder.azione);
@@ -185,18 +185,21 @@ export class TelegramBotService implements OnModuleInit {
     const condLine = reminder.condizioneDettaglio
       ? `\n${reminder.condizioneDettaglio}`
       : '';
+    const descLine = reminder.descrizione
+      ? `\n${t('DESCRIPTION', locale)}: _${reminder.descrizione}_`
+      : '';
 
     // Use custom Telegram message if set, otherwise build default
     const body = reminder.messaggioTelegram
       ? `\n${reminder.messaggioTelegram}`
-      : `${condLine}${dateLine}`;
+      : `${descLine}${condLine}${dateLine}`;
 
     const text =
       `*${t('REMINDER', locale)}*\n\n` +
       `${emoji} *${reminder.titolo}*${contactLine}${body}`;
 
     const inlineKeyboard = [
-      [{ text: `Done: ${reminder.titolo.substring(0, 25)}`, callback_data: `done:${reminder.id}` }],
+      [{ text: `${t('DONE', locale)}: ${reminder.titolo.substring(0, 25)}`, callback_data: `done:${reminder.id}` }],
     ];
 
     return this.sendMessage(chatId, text, {

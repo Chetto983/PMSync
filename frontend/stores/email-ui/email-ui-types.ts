@@ -74,6 +74,8 @@ export interface EmailFilters {
   fromVip?: boolean;
   /** Kanban column status filter (local state only) */
   kanbanStatus?: 'inbox' | 'to-reply' | 'following-up' | 'done';
+  /** Filter by AI triage lane */
+  lane?: string;
 }
 
 // Sidebar configuration

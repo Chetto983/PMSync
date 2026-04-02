@@ -244,6 +244,7 @@ export class ReminderNotifyQueueService
       {
         id: reminder.id,
         titolo: reminder.titolo,
+        descrizione: reminder.descrizione,
         contatto: reminder.contatto,
         azione: reminder.azione,
         scadenzaDatetime: reminder.scadenzaDatetime,

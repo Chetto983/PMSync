@@ -10,8 +10,9 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ## Current State
 
-**Version:** v11.0 shipped (2026-04-01, 10 phases, 18 plans, 16/16 requirements)
-**Status:** Milestone complete. Legacy code removed (JWT, voltAgent, Tailwind), horizontal scaling active (2 Railway replicas, BullMQ concurrency tuning, Redis state externalization, graceful shutdown), billing system hardened and E2E validated against Autumn test mode.
+**Version:** v12.0 in progress (2026-04-02, Phase 140 complete)
+**Status:** Phase 140 (Email Contextual Sidebar) complete — contact tags display in sidebar, collapse/expand persists via localStorage. CTX-01, CTX-02, CTX-06 verified.
+**Previous:** v11.0 shipped (2026-04-01, 10 phases, 18 plans, 16/16 requirements)
 **Previous:** v10.0 shipped (2026-03-30, 13 phases, 49/50 requirements)
 **Known gap:** WRITE-03 (IMAP/SMTP send) — Railway blocks SMTP ports 465/587; code exists and compiles but cannot be live-validated
 
