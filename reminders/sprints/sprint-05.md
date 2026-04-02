@@ -11,14 +11,14 @@
 
 ## Sprint Backlog
 
-- [ ] T-0501 — Aggiungere campi al modello Prisma `Reminder`: `isRecurring: Boolean`, `recurrenceRule: String?` (RRULE format RFC 5545), `recurrenceParentId: String?` (FK a Reminder genitore). Migration. — [2 SP]
-- [ ] T-0502 — Creare `ReminderRecurrenceService` che calcola prossima occorrenza da RRULE. Usa libreria `rrule` (npm). Metodo `getNextOccurrence(rule: string, after: Date): Date | null`. — [2 SP]
-- [ ] T-0503 — Hook in `ReminderService.completeReminder()`: se `isRecurring && recurrenceRule`, creare clone del reminder con `scadenzaDatetime = nextOccurrence`. Schedulare notifica per il clone. — [3 SP]
-- [ ] T-0504 — Hook in `ReminderAlertSchedulerService`: se reminder è `expired` e `isRecurring`, auto-creare prossima istanza invece di marcare expired. — [2 SP]
-- [ ] T-0505 — Aggiungere AI parser support per ricorrenza: riconoscere "ogni lunedì", "every day", "una volta al mese". Mappare a RRULE nel `ReminderAiParserService`. — [2 SP]
-- [ ] T-0506 — Frontend: aggiungere campo "Ricorrenza" nel `ReminderEditDialog` con select: Mai, Ogni giorno, Ogni settimana, Ogni mese, Custom (mostra input RRULE). — [2 SP]
-- [ ] T-0507 — Frontend: mostrare badge "Ricorrente" su `ReminderCard` se `isRecurring=true`. Link "Vedi serie" per navigare alla lista di istanze. — [1 SP]
-- [ ] T-0508 — Type-check backend + frontend. Test unitari per `ReminderRecurrenceService`. — [2 SP]
+- [x] T-0501 — Aggiungere campi al modello Prisma `Reminder`: `isRecurring: Boolean`, `recurrenceRule: String?` (RRULE format RFC 5545), `recurrenceParentId: String?` (FK a Reminder genitore). Migration. — [2 SP] — ✅ DONE
+- [x] T-0502 — Creare `ReminderRecurrenceService` che calcola prossima occorrenza da RRULE. Usa libreria `rrule` (npm). Metodo `getNextOccurrence(rule: string, after: Date): Date | null`. — [2 SP] — ✅ DONE
+- [x] T-0503 — Hook in `ReminderService.completeReminder()`: se `isRecurring && recurrenceRule`, creare clone del reminder con `scadenzaDatetime = nextOccurrence`. Schedulare notifica per il clone. — [3 SP] — ✅ DONE
+- [x] T-0504 — Hook in `ReminderAlertSchedulerService`: se reminder è `expired` e `isRecurring`, auto-creare prossima istanza invece di marcare expired. — [2 SP] — ✅ DONE
+- [x] T-0505 — Aggiungere AI parser support per ricorrenza: riconoscere "ogni lunedì", "every day", "una volta al mese". Mappare a RRULE nel `ReminderAiParserService`. — [2 SP] — ✅ DONE
+- [x] T-0506 — Frontend: aggiungere campo "Ricorrenza" nel `ReminderEditDialog` con select: Mai, Ogni giorno, Ogni settimana, Ogni mese, Custom (mostra input RRULE). — [2 SP] — ✅ DONE
+- [x] T-0507 — Frontend: mostrare badge "Ricorrente" su `ReminderCard` se `isRecurring=true`. Link "Vedi serie" per navigare alla lista di istanze. — [1 SP] — ✅ DONE
+- [x] T-0508 — Type-check backend + frontend. Test unitari per `ReminderRecurrenceService`. — [2 SP] — ✅ DONE
 
 ---
 

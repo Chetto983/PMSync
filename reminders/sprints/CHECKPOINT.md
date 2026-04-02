@@ -1,12 +1,12 @@
 # Reminder Sprint — Checkpoint
 
 ## Status
-- **Sprint:** 04 — Search, Bulk Ops & Audit Trail — COMPLETE
-- **Last Task Completed:** T-0407 — Type-check + wire frontend hooks/API
-- **Next Task:** Sprint 05 — Recurring Reminders
-- **Tasks Done:** 7/7
-- **SP Completed:** 14/14
-- **Last Updated:** 2026-04-02 17:30
+- **Sprint:** 05 — Recurring Reminders — COMPLETE
+- **Last Task Completed:** T-0508 — Type-check + unit tests
+- **Next Task:** Sprint 06 — Reminder/FollowUp Unification
+- **Tasks Done:** 8/8
+- **SP Completed:** 16/16
+- **Last Updated:** 2026-04-02 19:00
 
 ## Audit Findings Addressed
 - C1: No pre-deadline alerts — ✅ fixed in S01
@@ -17,39 +17,39 @@
 - H1: Notification scheduling not transactional — ✅ fixed in S01
 - H2: No jitter on delayed jobs — ✅ fixed in S01
 - H3: Email monitor batch across all tenants — ✅ fixed in S01
+- M1: No recurring reminders — ✅ fixed in S05
 
 ## Last Modified Files
-- backend/prisma/schema.prisma (GIN indexes on Reminder, removed slot columns)
-- backend/prisma/migrations/20260402160000_remove_slot_columns_telegram_settings/migration.sql
-- backend/src/modules/reminder/services/reminder.service.ts (search, bulkUpdate, audit)
-- backend/src/modules/reminder/controllers/reminder.controller.ts (search, bulkUpdate endpoints)
-- backend/src/modules/reminder/dto/bulk-update-reminder.dto.ts (NEW)
-- backend/src/modules/reminder/reminder.module.ts (AuditModule import)
-- backend/src/modules/telegram/controllers/telegram-settings.controller.ts (removed slot fields)
-- frontend/components/reminders/RemindersBoard.tsx (search bar, bulk action dropdown)
-- frontend/components/reminders/TelegramSettingsPanel.tsx (removed slot UI)
-- frontend/lib/api/reminders.ts (search, bulkUpdate APIs)
-- frontend/hooks/queries/use-reminders.ts (useSearchReminders, useBulkUpdateReminders)
-- frontend/hooks/queries/reminder-keys.ts (search keys)
-- frontend/locales/en.ts, it.ts, index.ts (new i18n keys)
+- backend/prisma/schema.prisma (isRecurring, recurrenceRule, recurrenceParentId fields + self-ref FK)
+- backend/prisma/migrations/20260402180000_add_recurring_reminders/migration.sql
+- backend/src/modules/reminder/services/reminder-recurrence.service.ts (NEW — rrule parsing)
+- backend/src/modules/reminder/services/reminder.service.ts (completeReminder hook + createNextOccurrence)
+- backend/src/modules/reminder/services/reminder-alert-scheduler.service.ts (expired recurring auto-create)
+- backend/src/modules/reminder/services/reminder-ai-parser.service.ts (is_recurring + recurrence_rule in schema/prompt)
+- backend/src/modules/reminder/dto/create-reminder.dto.ts (isRecurring, recurrenceRule)
+- backend/src/modules/reminder/dto/update-reminder.dto.ts (isRecurring, recurrenceRule)
+- backend/src/modules/reminder/reminder.module.ts (ReminderRecurrenceService registered)
+- frontend/components/reminders/ReminderEditDialog.tsx (recurrence select)
+- frontend/components/reminders/ReminderCard.tsx (recurring badge)
+- frontend/lib/api/reminders.ts (Reminder type + UpdateReminderDto updated)
+- frontend/locales/en.ts, it.ts, index.ts (recurrence i18n keys)
+- backend/src/modules/reminder/services/__tests__/reminder-recurrence.service.spec.ts (NEW — 14 tests)
 
 ## Key Decisions Made
-- GIN trigram indexes on titolo + contatto (same pattern as Email/Contact models)
-- Search minimum 2 chars before triggering query (debounce 300ms)
-- Bulk update max 100 IDs per request (DTO validation)
-- Audit uses fire-and-forget pattern (.catch(() => {})) to never block business logic
-- Manual migration for slot column removal (prisma migrate dev shadow DB broken)
+- Used `rrule` npm library for RFC 5545 RRULE parsing (no hand-rolled logic)
+- Self-referencing FK `recurrenceParentId` links child instances to parent series
+- Max 365 future instances for unbounded rules (safety cap)
+- Bare RRULE (no DTSTART) anchors to current time — DTSTART should be prepended for deterministic behavior
+- onDelete: SetNull for recurrenceParent FK — deleting parent doesn't cascade to children
+- AI parser maps Italian ("ogni lunedì") and English ("weekly") to RRULE strings
+- Frontend presets: None/Daily/Weekly/Monthly/Custom (custom shows RRULE text input)
 
 ## Blockers / Notes
-- prisma migrate dev shadow DB fails due to missing CRM tables — manual migration created
-- Slot column i18n keys left in place (harmless, avoids type breakage)
+- prisma migrate dev shadow DB still fails — manual migration created (same as S04)
+- "View series" link (T-0507) shows badge only, series navigation deferred to future sprint
 
 ## Validation Status
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Production health: ✅ DB up, Redis up, 7 workers, 0 errors
-- Search endpoint: ✅ returns 401 without auth (endpoint exists)
-- Bulk update endpoint: ✅ returns 403 without auth (endpoint exists)
-- UI search bar: ✅ visible, filtering works ("Telegram" query filters correctly)
-- UI slot fields: ✅ removed from Telegram settings panel
-- UI bulk checkbox: ✅ visible for selection
+- Unit tests: ✅ 14/14 passing (ReminderRecurrenceService)
+- Production deployment: ⏳ pending push
