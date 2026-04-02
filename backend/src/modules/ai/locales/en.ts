@@ -223,6 +223,7 @@ ${triageRules || ''}
 <OUTPUT_FORMAT>
 Reply ONLY with valid JSON (no markdown, no explanation):
 {
+  "reasoning": "Think step-by-step: what is this email about, who sent it, what action is needed?",
   "summary": "2-3 sentence summary of the email",
   "sentiment": "positive|negative|neutral|mixed",
   "tone": "formal|casual|urgent|friendly|cold|assertive",
@@ -239,8 +240,7 @@ Reply ONLY with valid JSON (no markdown, no explanation):
   "followUpDate": "ISO date when the user should follow up, or null",
   "followUpReason": "brief reason why follow-up is needed, or null",
   "smartReplies": ["Quick reply 1", "Quick reply 2", "Quick reply 3"],
-  "confidence": 0.0-1.0,
-  "reasoning": "Brief explanation of priority/urgency assessment"
+  "confidence": 0.0-1.0
 }
 
 Confidence calibration:

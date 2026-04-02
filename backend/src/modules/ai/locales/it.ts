@@ -211,6 +211,7 @@ ${triageRules || ''}
 <FORMATO_OUTPUT>
 Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi testuali devono essere in ITALIANO:
 {
+  "reasoning": "Ragiona passo per passo: di cosa parla l'email, chi l'ha inviata, quale azione serve?",
   "summary": "Riassunto di 2-3 frasi dell'email",
   "sentiment": "positive|negative|neutral|mixed",
   "tone": "formal|casual|urgent|friendly|cold|assertive",
@@ -227,8 +228,7 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
   "followUpDate": "data ISO per il follow-up, o null",
   "followUpReason": "breve motivo per il follow-up, o null",
   "smartReplies": ["Risposta rapida 1", "Risposta rapida 2", "Risposta rapida 3"],
-  "confidence": 0.0-1.0,
-  "reasoning": "Breve spiegazione della valutazione priorità/urgenza"
+  "confidence": 0.0-1.0
 }
 </FORMATO_OUTPUT>`,
       },

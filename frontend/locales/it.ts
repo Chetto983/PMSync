@@ -3379,6 +3379,9 @@ export const it: AppTranslations = {
         condition: 'Condizione',
         telegramMessage: 'Messaggio Telegram',
         emailMonitoring: 'Monitoraggio email',
+        emailDetected: 'Email rilevata',
+        keywords: 'Parole chiave',
+        from: 'Da',
       },
       telegram: {
         title: 'Impostazioni Telegram',

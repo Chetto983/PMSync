@@ -58,6 +58,7 @@ export class EmailAnalysisService {
         email: {
           select: {
             aiLabels: true,
+            aiPriority: true,
           },
         },
       },
@@ -70,7 +71,10 @@ export class EmailAnalysisService {
     if (cached?.summary && cachedLocale === lang && cachedLabelRulesSignature === labelRulesSignature) {
       this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId} (locale: ${lang})`);
       return {
-        ...this.mapEmailAnalysisToUnified(cached, cached.email?.aiLabels ?? []),
+        ...this.mapEmailAnalysisToUnified(cached, {
+          labels: cached.email?.aiLabels ?? [],
+          priority: cached.email?.aiPriority ?? null,
+        }),
         meta: buildAiResponseMeta({
           operation: 'email-unified-analysis',
           version: this.analysisVersion,
@@ -187,6 +191,7 @@ export class EmailAnalysisService {
           locale: lang, smartReplies: result.smartReplies, intent: result.intent, urgency: result.urgency,
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,
           followUpReason: result.followUpReason, labels: result.labels, labelRulesSignature, laneReason: result.laneReason,
+          priorityValue: result.priority,
         },
         processedAt, latencyMs,
       };
@@ -255,7 +260,7 @@ export class EmailAnalysisService {
   private async buildAnalyzeSystemPrompt(
     t: ReturnType<typeof getToolTranslations>,
     tenantId: string,
-    labelDefs: Array<{ name: string; aiPrompt: string | null }>,
+    labelDefs: TenantLabel[],
     allowedLabels: string[],
   ): Promise<string> {
     const allowedLabelsText = allowedLabels.join(', ');
@@ -293,19 +298,46 @@ export class EmailAnalysisService {
   }
 
   private buildLabelPromptBlock(
-    labels: Array<{ name: string; aiPrompt: string | null }>,
+    labels: TenantLabel[],
     maxLength?: number,
   ): string {
-    const withPrompts = labels.filter((l) => l.aiPrompt);
-    if (withPrompts.length === 0) return '';
+    if (labels.length === 0) return '';
 
-    const lines = withPrompts.map((label) => {
-      const normalizedPrompt = sanitizeForLLM(
-        String(label.aiPrompt).replace(/\s+/g, ' ').trim(),
-        { maxLength: EmailAnalysisService.LABEL_PROMPT_MAX_LENGTH, stripCodeBlocks: true },
-      );
-      return truncatePromptLine(`- "${label.name}": ${normalizedPrompt}`, EmailAnalysisService.PROMPT_LINE_MAX_LENGTH);
-    });
+    const categoryOrder = ['workflow', 'semantic', 'suppression', 'custom'];
+    const grouped = new Map<string, TenantLabel[]>();
+    for (const label of labels) {
+      const cat = label.category || 'custom';
+      if (!grouped.has(cat)) grouped.set(cat, []);
+      grouped.get(cat)!.push(label);
+    }
+
+    const lines: string[] = [];
+    for (const cat of categoryOrder) {
+      const group = grouped.get(cat);
+      if (!group?.length) continue;
+      lines.push(`[${cat.toUpperCase()}]`);
+      for (const label of group) {
+        const promptText = label.aiPrompt
+          ? sanitizeForLLM(String(label.aiPrompt).replace(/\s+/g, ' ').trim(), { maxLength: EmailAnalysisService.LABEL_PROMPT_MAX_LENGTH, stripCodeBlocks: true })
+          : `(no instructions)`;
+        lines.push(truncatePromptLine(`- "${label.name}": ${promptText}`, EmailAnalysisService.PROMPT_LINE_MAX_LENGTH));
+      }
+    }
+
+    // Mutual exclusion rules
+    const exclusions = labels.filter((l) => l.mutuallyExclusiveWith.length > 0);
+    if (exclusions.length > 0) {
+      lines.push('');
+      lines.push('<MUTUAL_EXCLUSION_RULES>');
+      for (const label of exclusions) {
+        lines.push(`- "${label.name}" cannot coexist with: ${label.mutuallyExclusiveWith.map((n) => `"${n}"`).join(', ')}`);
+      }
+      lines.push('</MUTUAL_EXCLUSION_RULES>');
+    }
+
+    lines.push('');
+    lines.push('Assign 1-3 labels. Fewer is better — only assign when confident.');
+
     return buildTaggedPromptSection('LABEL_RULES', lines, maxLength, 'Apply these labels when the described conditions match:');
   }
 
@@ -395,19 +427,32 @@ export class EmailAnalysisService {
       actionability?: string | null;
       suggestedActions: unknown;
     },
-    persistedLabels: string[] = [],
+    persisted: { labels?: string[]; priority?: number | null } = {},
   ): UnifiedEmailAnalysis {
     const actions = (analysis.suggestedActions as Record<string, unknown>) || {};
     const actionLabels = Array.isArray(actions.labels)
       ? (actions.labels as string[]).slice(0, 3)
       : [];
+    const cachedPriority =
+      Number.isInteger(actions.priorityValue)
+      && Number(actions.priorityValue) >= 1
+      && Number(actions.priorityValue) <= 5
+        ? Number(actions.priorityValue) as 1 | 2 | 3 | 4 | 5
+        : null;
+    const persistedPriority =
+      Number.isInteger(persisted.priority)
+      && Number(persisted.priority) >= 1
+      && Number(persisted.priority) <= 5
+        ? Number(persisted.priority) as 1 | 2 | 3 | 4 | 5
+        : null;
     return {
       summary: analysis.summary || '', sentiment: this.validateSentiment(analysis.sentiment),
-      tone: (actions.tone as string) || 'neutral', priority: this.mapEnumToPriority(analysis.priority),
+      tone: (actions.tone as string) || 'neutral',
+      priority: cachedPriority ?? persistedPriority ?? this.mapEnumToPriority(analysis.priority),
       urgency: this.validateUrgency(actions.urgency),
       labels: actionLabels.length > 0
         ? actionLabels
-        : (persistedLabels || []).slice(0, 3),
+        : (persisted.labels || []).slice(0, 3),
       keyTopics: analysis.keyPoints || [],
       intent: analysis.intent || (actions.intent as string) || 'fyi',
       actionability: this.validateActionability(analysis.actionability),

@@ -9,7 +9,7 @@ import {
   Tooltip,
   Checkbox,
 } from '@mui/material';
-import { CheckCircle2, Pencil, Trash2, Send } from 'lucide-react';
+import { CheckCircle2, Mail, Pencil, Trash2, Send } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
@@ -121,6 +121,23 @@ export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete,
               variant="outlined"
               sx={{ height: 22 }}
             />
+          )}
+          {reminder.monitoraEmail && (
+            <Tooltip
+              title={[
+                reminder.emailMittente ? `${tr.fields.from}: ${reminder.emailMittente}` : '',
+                reminder.emailKeywords.length > 0 ? `${tr.fields.keywords}: ${reminder.emailKeywords.join(', ')}` : '',
+              ].filter(Boolean).join(' · ')}
+            >
+              <Chip
+                icon={<Mail size={14} />}
+                label={reminder.emailRilevata ? tr.fields.emailDetected : tr.fields.emailMonitoring}
+                size="small"
+                color={reminder.emailRilevata ? 'success' : 'info'}
+                variant="outlined"
+                sx={{ height: 22 }}
+              />
+            </Tooltip>
           )}
         </Box>
 

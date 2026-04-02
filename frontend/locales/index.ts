@@ -3475,6 +3475,9 @@ export interface AppTranslations {
         condition: string;
         telegramMessage: string;
         emailMonitoring: string;
+        emailDetected: string;
+        keywords: string;
+        from: string;
       };
       telegram: {
         title: string;

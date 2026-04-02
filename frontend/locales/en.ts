@@ -3398,6 +3398,9 @@ export const en: AppTranslations = {
         condition: 'Condition',
         telegramMessage: 'Telegram message',
         emailMonitoring: 'Email monitoring',
+        emailDetected: 'Email detected',
+        keywords: 'Keywords',
+        from: 'From',
       },
       telegram: {
         title: 'Telegram Settings',
