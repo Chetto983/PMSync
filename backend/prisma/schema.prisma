@@ -84,6 +84,7 @@ model Tenant {
   crmSuggestions           CrmSuggestion[]
   triageRules              Json                      @default("[]") // TriageRule[] — onboarding triage rules
   manualTasks              ManualTask[]
+  taskSmartViews           TaskSmartView[]
 
   @@map("tenants")
 }
@@ -141,6 +142,7 @@ model User {
   ticketComments      TicketComment[]
   kbArticles          KBArticle[]
   manualTasks         ManualTask[]
+  taskSmartViews      TaskSmartView[]
 
   /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
   @@unique([tenantId, email])
@@ -1905,6 +1907,26 @@ model CrmSavedView {
   @@unique([tenantId, pipelineId, name])
   @@index([tenantId, pipelineId])
   @@map("crm_saved_views")
+}
+
+model TaskSmartView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  name      String
+  filters   Json     // Partial<ListTasksQuery> shape: { sourceType[], status[], priority[], dueBefore, dueAfter, contactId }
+  isPinned  Boolean  @default(false)
+  pinOrder  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, name])
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, isPinned])
+  @@map("task_smart_views")
 }
 
 model CrmActivity {
