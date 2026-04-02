@@ -135,10 +135,19 @@ export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete,
               {tr.fields.deadline}: {formatDateTimeInTz(reminder.scadenzaDatetime, tz)}
             </Typography>
           )}
-          {reminder.telegramInviato && (
+          {reminder.telegramInviato ? (
             <Tooltip title={tr.telegram.sent}>
-              <Send size={14} style={{ opacity: 0.5 }} />
+              <Send size={14} color="var(--mui-palette-success-main, #4caf50)" />
             </Tooltip>
+          ) : (
+            !isCompleted &&
+            !reminder.telegramInviatoAt &&
+            reminder.scadenzaDatetime &&
+            new Date(reminder.scadenzaDatetime) < new Date() && (
+              <Tooltip title={tr.telegram.deliveryFailed}>
+                <Send size={14} color="var(--mui-palette-error-main, #f44336)" />
+              </Tooltip>
+            )
           )}
         </Box>
       </CardContent>

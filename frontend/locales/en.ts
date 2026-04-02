@@ -3412,6 +3412,7 @@ export const en: AppTranslations = {
         disconnectConfirm: 'Are you sure you want to disconnect Telegram?',
         notConfigured: 'Telegram not configured',
         sent: 'Sent via Telegram',
+        deliveryFailed: 'Telegram notification failed — deadline has passed',
         connect: 'Connect Telegram',
         qrHint: 'Scan this QR code with your phone camera or Telegram app. The link will expire in 5 minutes.',
         regenerateQr: 'Regenerate QR',

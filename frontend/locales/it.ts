@@ -3393,6 +3393,7 @@ export const it: AppTranslations = {
         disconnectConfirm: 'Sei sicuro di voler disconnettere Telegram?',
         notConfigured: 'Telegram non configurato',
         sent: 'Inviato via Telegram',
+        deliveryFailed: 'Notifica Telegram fallita — scadenza superata',
         connect: 'Collega Telegram',
         qrHint: 'Scansiona il QR code con la fotocamera del telefono o con Telegram. Il link scadrà tra 5 minuti.',
         regenerateQr: 'Rigenera QR',

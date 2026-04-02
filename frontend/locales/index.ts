@@ -3489,6 +3489,7 @@ export interface AppTranslations {
         disconnectConfirm: string;
         notConfigured: string;
         sent: string;
+        deliveryFailed: string;
         connect: string;
         qrHint: string;
         regenerateQr: string;
