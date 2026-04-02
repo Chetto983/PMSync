@@ -30,7 +30,14 @@ export class ReminderService {
     private readonly aiParser: ReminderAiParserService,
     private readonly realtimeEvents: RealtimeEventsService,
     @Optional() @Inject(REMINDER_NOTIFY_QUEUE) private readonly reminderNotifyQueue?: IReminderNotifyQueue,
-  ) {}
+  ) {
+    // Startup diagnostic: verify queue injection from @Global() TelegramCoreModule
+    if (this.reminderNotifyQueue) {
+      this.logger.log('✅ ReminderNotifyQueue injected successfully');
+    } else {
+      this.logger.warn('⚠️ ReminderNotifyQueue NOT injected — Telegram notifications will be skipped');
+    }
+  }
 
   /**
    * Create a reminder. If `inputUtente` is provided, runs AI parsing first.
