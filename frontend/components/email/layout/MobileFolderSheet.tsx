@@ -34,6 +34,7 @@ import {
   Tag,
   Plus,
   MoreHorizontal,
+  Sparkles,
 } from 'lucide-react';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -41,6 +42,7 @@ import { useFolders, useLabels } from '@/hooks/queries';
 import { useEmailUIStore, type SpecialFolder } from '@/stores/email-ui-store';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { LabelWizardDialog } from '../labels/LabelWizardDialog';
+import { TriageSetupDialog } from '../labels/TriageSetupDialog';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
 import {
   FolderDialog,
@@ -82,6 +84,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
   const [labelsExpanded, setLabelsExpanded] = useState(true);
   const [labelWizardOpen, setLabelWizardOpen] = useState(false);
   const [labelWizardParentId, setLabelWizardParentId] = useState<string | undefined>();
+  const [triageSetupOpen, setTriageSetupOpen] = useState(false);
 
   // Label context menu state
   const [labelMenuAnchor, setLabelMenuAnchor] = useState<HTMLElement | null>(null);
@@ -294,9 +297,9 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
             <ListItemIcon sx={{ minWidth: 36 }}>
               <Tag size={18} />
             </ListItemIcon>
-            <ListItemText
-              primary={t.email?.labels?.title || 'Etichette'}
-              slotProps={{
+              <ListItemText
+                primary={t.email?.labels?.title || 'Etichette'}
+                slotProps={{
                 primary: {
                   fontSize: '0.875rem',
                   fontWeight: 600,
@@ -304,10 +307,22 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                   letterSpacing: 0.5,
                 },
               }}
-            />
-            <IconButton
-              size="small"
-              onClick={(e) => {
+              />
+              <IconButton
+                size="small"
+                aria-label={t.triageSetup.openGuided}
+                title={t.triageSetup.openGuided}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTriageSetupOpen(true);
+                }}
+                sx={{ mr: 0.5 }}
+              >
+                <Sparkles size={16} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={(e) => {
                 e.stopPropagation();
                 handleOpenLabelWizard();
               }}
@@ -534,6 +549,11 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
         open={labelWizardOpen}
         onClose={handleCloseLabelWizard}
         defaultParentId={labelWizardParentId}
+      />
+
+      <TriageSetupDialog
+        open={triageSetupOpen}
+        onClose={() => setTriageSetupOpen(false)}
       />
 
       {/* Label Context Menu */}

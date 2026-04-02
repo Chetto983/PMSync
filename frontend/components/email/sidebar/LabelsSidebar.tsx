@@ -18,7 +18,7 @@ import {
   Checkbox,
   CircularProgress,
 } from '@mui/material';
-import { Tag, Plus, ChevronDown, ChevronRight, Search, X, Trash2, CheckSquare } from 'lucide-react';
+import { Tag, Plus, ChevronDown, ChevronRight, Search, X, Trash2, CheckSquare, Sparkles } from 'lucide-react';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLabels, useBulkDeleteLabels } from '@/hooks/queries';
@@ -28,6 +28,7 @@ import { buildTree, flattenTree, getAncestorIds } from '@/lib/label-tree-utils';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { LabelTreeDndWrapper } from '../labels/LabelTreeDndWrapper';
 import { LabelWizardDialog } from '../labels/LabelWizardDialog';
+import { TriageSetupDialog } from '../labels/TriageSetupDialog';
 import { LabelsEmptyState } from '../labels/LabelsEmptyState';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -61,6 +62,7 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
   // Dialog state
   const [createParentId, setCreateParentId] = useState<string | undefined>();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [triageSetupOpen, setTriageSetupOpen] = useState(false);
 
   // Context menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -302,6 +304,19 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
                 </IconButton>
               </Tooltip>
             )}
+            <Tooltip title={t.triageSetup.openGuided}>
+              <IconButton
+                size="small"
+                aria-label={t.triageSetup.openGuided}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTriageSetupOpen(true);
+                }}
+                sx={{ p: 0.5 }}
+              >
+                <Sparkles size={14} />
+              </IconButton>
+            </Tooltip>
             <Tooltip title={t.email?.labels?.addLabel || 'Add Label'}>
               <IconButton
                 size="small"
@@ -496,6 +511,11 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
         open={wizardOpen}
         onClose={handleCloseWizard}
         defaultParentId={createParentId}
+      />
+
+      <TriageSetupDialog
+        open={triageSetupOpen}
+        onClose={() => setTriageSetupOpen(false)}
       />
 
       {/* Context Menu */}
