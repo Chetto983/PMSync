@@ -1,402 +1,212 @@
-# Architecture Patterns
+# Architecture Patterns: Email Triage & Classification
 
-**Domain:** Legacy cleanup, horizontal scaling, and billing hardening for existing NestJS email platform
-**Researched:** 2026-03-31
-**Confidence:** HIGH (verified against codebase, Prisma docs, Railway docs, BullMQ docs)
+**Domain:** AI email triage, label onboarding, classification systems
+**Researched:** 2026-04-02
+**Confidence:** MEDIUM-HIGH (competitor patterns from public docs; PMSync internals from codebase)
 
-## Scope
+## Competitor Architecture Patterns
 
-This document covers how Railway horizontal scaling (multi-instance NestJS, connection pooling, BullMQ worker distribution), legacy JWT removal, and billing webhook hardening integrate with the existing PMSync architecture. Focus is on integration points, new components, modified components, data flow changes, and build order.
+### Pattern 1: Preset + AI-Prompt Labels (Superhuman Model)
 
----
+**How it works:**
+- Built-in labels (Marketing, Pitch, Social, News) are always-on with pre-baked classification logic
+- Custom labels use either deterministic criteria (From, To, Subject) OR natural language AI prompts
+- AI prompts evaluate email content, subject, sender, and recipients -- NOT metadata like timestamps or attachment count
+- Labels feed into Split Inbox views: emails matching certain labels route to "Other" split by default
+- Users can override: move email between splits, which trains the sender/domain mapping
 
-## Recommended Architecture
+**Onboarding:**
+- Zero-config for built-in labels (auto-applied from day 1)
+- Custom labels require manual setup: Settings > Auto Labels > Build Your Own
+- AI prompts are free-text with guidance: "be explicit", "use examples", "iterate on misclassifications"
+- Last 14 days of emails are retroactively labeled when a new Auto Label is created
 
-### Overview
+**Key design decisions:**
+- Max 10 custom AI-prompt labels (prevents prompt explosion and cost scaling)
+- AI prompts cannot reference email metadata (unread status, timestamp, attachments, CRM data)
+- Built-in labels are NOT editable -- ensures consistent baseline across all users
+- Custom labels can be combined with deterministic AND/OR criteria
 
-v11.0 modifies the existing monolith deployment model to support N replicas on Railway, hardens the billing webhook pipeline, and removes legacy auth/API dead code. No new modules are introduced -- this is structural hardening of existing components.
+**Relevance to PMSync:**
+PMSync's `aiPrompt` field on labels is directly comparable. PMSync is more advanced: it has `family`, `mutuallyExclusiveWith`, `suppressUrgency`, and `defaultLane` -- metadata Superhuman does not expose. But PMSync lacks: the 14-day retroactive labeling, the max-10 guardrail, and the restriction on what AI prompts can reference.
 
-```
-                    Railway Load Balancer (round-robin)
-                    /           |           \
-              [Instance 1] [Instance 2] [Instance N]
-                    \           |           /
-                     Redis (shared: pub/sub, BullMQ, cache, sessions)
-                              |
-                    PgBouncer (transaction mode, Railway service)
-                              |
-                      PostgreSQL (Railway TCP proxy)
-```
+### Pattern 2: Sender Memory (Shortwave/SaneBox Model)
+
+**How it works:**
+- When a user manually applies a label to an email, the system remembers the sender-to-label mapping
+- All future emails from that sender automatically get the same label
+- This is deterministic (not AI) -- it is a lookup table: sender -> label
+- SaneBox extends this with ML on headers: analyzes sender frequency, social graph position, CC patterns
+- SaneBox scans 4-6 weeks of historical headers on signup to bootstrap the model
+
+**Onboarding:**
+- SaneBox: completely automatic. Signs up, connects email, waits 1-2 weeks for accuracy
+- Shortwave: automatic for built-in labels; manual label application trains future behavior
+- Neither requires any wizard or configuration
+
+**Key design decisions:**
+- SaneBox ONLY reads headers (From, To, Subject, Date) -- never email body content. This is a privacy selling point.
+- Shortwave's Magic Labels auto-apply built-in labels (Newsletters, Purchases, Finance, Travel) from trained sender patterns
+- Training is per-sender, not per-email-content. Same sender always gets same label.
+
+**Relevance to PMSync:**
+PMSync's `TriageLearningService` already has a signal buffer for learning from user corrections. The gap is: (1) it is in-memory and not shared across instances (v11.0 pitfall), and (2) it does not yet persist sender-to-label mappings as a lookup table. Adding a `SenderLabelOverride` table would give PMSync sender memory comparable to Shortwave.
+
+### Pattern 3: Binary Gate + Fixed Routing (HEY Model)
+
+**How it works:**
+- Every first-time sender lands in "The Screener" -- a separate queue
+- User makes a binary decision: Yes (screen in) or No (block forever)
+- If Yes, user assigns the sender to one of 3 fixed destinations: Imbox, Feed, or Paper Trail
+- No AI, no ML, no automation. Every sender decision is manual and permanent (until changed).
+- HEY sends nothing back to blocked senders -- the block is silent
+
+**Onboarding:**
+- Onboarding IS the product. First experience is screening 6 HEY welcome emails.
+- Each email teaches a concept (Imbox, Feed, Paper Trail, Reply Later, Set Aside, Clips)
+- The Screener button glows when new unscreened senders arrive
+- Follow-up onboarding emails arrive over the next few minutes, teaching features through the product itself
+
+**Key design decisions:**
+- No categories beyond 3. Deliberate simplicity.
+- Sender-level routing, not email-level. You route the person, not the message.
+- No AI because the founders believe users should make their own decisions about who gets attention
+- Paper Trail is read-only by default (receipts, confirmations) -- no notifications
+
+**Relevance to PMSync:**
+HEY's approach is philosophically opposite to PMSync's AI-first triage. However, the Screener concept maps to a useful feature: a "first-time sender" alert that asks users to classify unknown senders. This could feed sender memory (Pattern 2). HEY's 3-lane routing (Imbox/Feed/Paper Trail) is conceptually similar to PMSync's `defaultLane` system but far less flexible.
+
+### Pattern 4: Fixed Smart Categories (Spark/Google Inbox Model)
+
+**How it works:**
+- Pre-trained ML model classifies every email into fixed categories
+- Spark: People, Notifications, Newsletters (3 categories, mutually exclusive)
+- Google Inbox: Travel, Purchases, Finance, Social, Updates, Forums, Promos (7 categories)
+- Categories are not user-configurable -- the ML model determines the rules
+- Google Inbox bundled related emails (e.g., all travel for one trip grouped together)
+
+**Onboarding:**
+- Zero-config. Model is pre-trained on aggregate email patterns.
+- Spark: emails from real people always sort to top (People card)
+- Google Inbox: bundles auto-create based on detected email type
+- Users can manually recategorize, which trains future sender classification
+
+**Key design decisions:**
+- Categories are mutually exclusive (one email = one category)
+- Pre-trained model means instant accuracy without user data
+- No custom categories -- simplicity over flexibility
+- Spark allows toggling categories on/off but not creating new ones
+
+**Relevance to PMSync:**
+PMSync's 10 default labels cover a superset of both Spark's and Google Inbox's categories. The key difference: PMSync allows multi-label (an email can be both "Customer" and "Action Items"), while Spark/Inbox force single-category. PMSync's approach is richer but needs strong mutual exclusivity rules to prevent label soup.
+
+## Recommended Architecture for PMSync Enhancement
 
 ### Component Boundaries
 
-| Component | Responsibility | Changes in v11.0 |
-|-----------|---------------|-------------------|
-| `main.ts` | App bootstrap, middleware, Swagger | Remove `addBearerAuth()`, add `addCookieAuth()` |
-| `prisma-client.factory.ts` | DB connection via `@prisma/adapter-pg` | Configure for PgBouncer transaction mode, dynamic pool size per replica |
-| `BaseWorker` | BullMQ worker lifecycle, health, auto-pause | No change -- already multi-instance safe via Redis coordination |
-| `ScheduledJobsQueueService` | BullMQ repeatable jobs (replaces @Cron) | No change -- BullMQ guarantees single execution |
-| `RedisIoAdapter` | WebSocket cross-instance pub/sub | No change -- already wired with Redis adapter |
-| `AutumnController` | Billing API proxy | No change to existing routes |
-| `AutumnWebhookController` | **NEW** -- Receives Autumn webhook events | Signature verification, idempotent processing |
-| `AutumnWebhookService` | **NEW** -- Processes billing events | Subscription state sync from webhook events |
-| `HealthController` | Probes and metrics | Add instance identifier to responses |
-| 84 controller files | Swagger auth docs | Remove `@ApiBearerAuth()`, add `@ApiCookieAuth()` |
+| Component | Responsibility | Exists | Status |
+|-----------|---------------|--------|--------|
+| `UserLabel` (Prisma model) | Label definition with aiPrompt, family, lanes, exclusivity | Yes | Complete |
+| `TriageOnboardingRules` | Wizard input contract -> prompt generation | Yes | Backend contract complete, no frontend |
+| `EmailAnalysisService` | LLM-based email classification | Yes | Working, uses per-label aiPrompt |
+| `TriageLearningService` | Signal buffer for learning from corrections | Yes | In-memory only, needs Redis migration |
+| `SenderLabelOverride` (new) | Persistent sender-to-label lookup table | No | Needed for Shortwave-style sender memory |
+| Smart Views UI | Filterable views based on labels/lanes | No | TASK-04, TASK-05 requirements |
+| Onboarding Wizard UI | Guided setup that generates TriageOnboardingRules | No | Frontend gap |
+| Label Correction Action | UI to change label + train sender memory | No | Needed for feedback loop |
 
-### Data Flow Changes
+### Data Flow: Classification Pipeline
 
-**Before v11.0 (single instance):**
 ```
-Client -> NestJS (1 instance) -> PostgreSQL (connection_limit=20)
-                               -> Redis (shared connection singleton)
-                               -> BullMQ workers (in-process)
+New Email Arrives (via sync or webhook)
+    |
+    v
+[1. Sender Override Check] -- Is there a SenderLabelOverride for this sender+tenant?
+    |                              |
+    | No override                  | Override found
+    v                              v
+[2. LLM Classification]      [Apply stored labels]
+    |                              |
+    | Run email against            | Skip LLM (deterministic)
+    | all active label aiPrompts   |
+    v                              v
+[3. Taxonomy Enforcement] -- Apply mutuallyExclusiveWith rules
+    |                       Remove conflicting labels
+    |                       Apply suppressUrgency
+    v
+[4. Lane Assignment] -- Map labels to defaultLane values
+    |
+    v
+[5. Store & Notify] -- Persist label assignments
+                       Push to Smart Views via WebSocket
+                       Update sender memory if correction
 ```
 
-**After v11.0 (N replicas):**
-```
-Client -> Railway LB -> NestJS (N instances)
-  Each instance:
-    -> PgBouncer (transaction mode) -> PostgreSQL
-    -> Redis (shared BullMQ connection per instance)
-    -> BullMQ workers (distributed across instances, Redis coordinates)
-    -> WebSocket events broadcast via Redis adapter (already working)
+### Patterns to Follow
 
-Autumn -> POST /api/v1/autumn/webhooks -> Any instance (idempotent)
-    -> Verify signature
-    -> Check WebhookEvent table for dedup
-    -> Update Subscription model
-```
+**Pattern: Sender Override as L1 Cache**
 
----
+Check sender overrides BEFORE running LLM classification. This is cheap (database lookup or Redis cache) and provides instant, deterministic results for known senders. LLM classification only runs for unknown senders or senders without overrides.
 
-## Integration Analysis: What Changes vs What Stays
-
-### Already Multi-Instance Safe (NO changes needed)
-
-These components are already designed for horizontal scaling:
-
-1. **BullMQ job processing** -- Redis is the single source of truth for job assignment. Multiple workers across instances safely compete for jobs. `BaseWorker` creates its own Redis connection per instance (`connectionName: '${this.workerName}-worker'`). The shared Redis connection singleton in `queue.config.ts` is per-process (correct).
-
-2. **BullMQ scheduled/repeatable jobs** -- `ScheduledJobsQueueService` uses BullMQ repeatable jobs, which are inherently single-execution. BullMQ guarantees only one instance of a repeatable job runs at any time via Redis atomics. `SubscriptionLifecycleService` registers handlers through this system -- usage resets and expiry checks will NOT double-fire.
-
-3. **WebSocket events** -- `RedisIoAdapter` uses `@socket.io/redis-adapter` with dedicated pub/sub clients. Events emitted on any instance propagate to all connected clients across all instances.
-
-4. **Session auth** -- `BetterAuthGuard` validates sessions via `auth.api.getSession()` which hits the database (with `cookieCache` 300s maxAge). Sessions are stored in PostgreSQL, not in-memory. Cookie-based auth is stateless from the app perspective.
-
-5. **Redis caching** -- `CacheModule` uses shared Redis. No in-memory caches that would go stale across instances.
-
-6. **Rate limiting** -- `@nestjs/throttler` with Redis store provides distributed rate limiting.
-
-7. **BullMQ worker health monitoring** -- `BaseWorker.registry` is a static per-process array. `HealthController.getWorkerHealth()` reports per-instance worker status. Each instance reports its own workers. This is correct behavior.
-
-### Requires Changes
-
----
-
-#### 1. Database Connection Pooling (CRITICAL)
-
-**Current state:** `prisma-client.factory.ts` appends `connection_limit=20&pool_timeout=20` to `DATABASE_URL`. Each instance creates its own connection pool.
-
-**Problem:** Railway PostgreSQL (via TCP proxy, no public domain) has a default `max_connections` around 100. With 3 replicas: 3 * 20 = 60 connections from Prisma alone. Each `BaseWorker` also creates its own Redis connection (fine for Redis, but each worker's `processJob()` goes through the same `PrismaService` pool). Connection exhaustion is the primary risk.
-
-**Solution: PgBouncer sidecar + dynamic pool sizing**
-
-**Option A (Recommended): PgBouncer as Railway service**
-- Deploy PgBouncer container as a separate Railway service in the same project
-- Point it at the PostgreSQL TCP proxy internal URL
-- Configure transaction pooling mode (required for Prisma compatibility)
-- Each NestJS instance connects to PgBouncer instead of PostgreSQL directly
-- PgBouncer manages a smaller pool to PostgreSQL (e.g., 25 server connections)
-- Each NestJS instance can use `connection_limit=30` safely because PgBouncer multiplexes
-
-**Option B (Simpler, less optimal): Dynamic pool limits**
-- Calculate per-instance limits at startup:
 ```typescript
-// prisma-client.factory.ts
-const maxDbConnections = parseInt(process.env.MAX_DB_CONNECTIONS || '100', 10);
-const numReplicas = parseInt(process.env.NUM_REPLICAS || '1', 10);
-const reservedConnections = 10; // migrations, admin, Railway health checks
-const perInstanceLimit = Math.floor(
-  (maxDbConnections - reservedConnections) / numReplicas
-);
-```
+// Pseudocode for classification pipeline
+async classifyEmail(email: Email, tenantId: string): Promise<LabelAssignment[]> {
+  // L1: Sender override (instant, deterministic)
+  const override = await this.senderOverrideService.find(tenantId, email.fromAddress);
+  if (override) {
+    return override.labels;
+  }
 
-**Prisma 7 + PgBouncer specifics:**
-- Prisma 7 uses driver adapters (`@prisma/adapter-pg`), so connection pooling is managed by the `pg` driver, NOT Prisma's internal pool
-- PgBouncer MUST run in **transaction mode** for Prisma compatibility
-- Do NOT add `?pgbouncer=true` to connection string if PgBouncer >= 1.21.0
-- `prisma db push` / `prisma migrate deploy` need a DIRECT connection bypassing PgBouncer -- configure `directUrl` in `prisma.config.ts`
-- Current `connectionTimeoutMillis: 15_000` in factory is fine for PgBouncer
+  // L2: LLM classification (slower, probabilistic)
+  const labels = await this.emailAnalysisService.classifyWithLabels(email, tenantId);
 
-**Confidence:** HIGH (Prisma official docs confirm transaction mode requirement)
-
----
-
-#### 2. Railway numReplicas Configuration
-
-**Current state:** `railway.toml` has `numReplicas = 1`, `healthcheckPath = "/health/live"`, `restartPolicyType = "ON_FAILURE"`.
-
-**Changes:**
-1. Increase `numReplicas = 2` (start conservative, scale to 3 after validation)
-2. Add instance identification to health and log responses
-
-**Railway behavior with replicas:**
-- Load balancer is round-robin. Sticky sessions NOT needed because auth is cookie-based with DB-stored sessions.
-- Health check at `/health/live` already returns 200. Railway removes unhealthy replicas from rotation.
-- Downscaling sends SIGTERM. Current shutdown hooks handle this:
-  - `BaseWorker.onModuleDestroy()` drains in-flight BullMQ jobs
-  - `PrismaService.enableShutdownHooks()` disconnects on SIGTERM
-  - `RedisIoAdapter.close()` quits pub/sub clients
-
-**New: Instance identification**
-- Railway injects `RAILWAY_REPLICA_ID` into each replica
-- Add to health responses for debugging:
-```typescript
-@Get('live')
-async getLiveness() {
-  return {
-    status: 'alive',
-    instance: process.env.RAILWAY_REPLICA_ID || 'single',
-    uptime: process.uptime(),
-  };
+  // L3: Taxonomy enforcement
+  return this.taxonomyService.enforce(labels);
 }
 ```
-- Add to Pino logger context so all structured logs include replica ID
 
-**Confidence:** HIGH
+**Pattern: Retroactive Labeling on New Label Creation**
 
----
+When a user creates a new label (or completes onboarding wizard), retroactively classify the last N days of emails. Superhuman does 14 days. This gives users immediate value and validates the label's accuracy.
 
-#### 3. Legacy JWT Removal
+**Pattern: Correction Feedback Loop**
 
-**Current state analysis (verified by grep):**
-
-| What | Status | Action |
-|------|--------|--------|
-| `passport-jwt`, `JwtStrategy`, `JwtAuthGuard` | **Already removed** from runtime code | None |
-| `passport`, `jsonwebtoken` packages | Possibly still in `package.json` | Remove if no other code depends |
-| `bcrypt` package | Possibly still in `package.json` (Argon2id is primary) | Remove if fully replaced |
-| `@ApiBearerAuth()` decorators | **84 occurrences** across controllers | Remove all, replace with `@ApiCookieAuth()` |
-| `.addBearerAuth()` in `main.ts` | Line 597 in Swagger DocumentBuilder | Replace with `.addCookieAuth()` |
-| Comment references to "former JWT" | In guards (BetterAuthGuard, TenantGuard, RolesGuard) | Optionally clean up; harmless |
-| Gmail Pub/Sub JWT verification | Uses `google-auth-library`, NOT `jsonwebtoken` | Safe -- independent of auth JWT |
-
-**Swagger auth change detail:**
-```typescript
-// main.ts SwaggerModule setup
-// REMOVE:
-.addBearerAuth()
-// ADD:
-.addCookieAuth('pmsync.session_token', {
-  type: 'apiKey',
-  in: 'cookie',
-  name: 'pmsync.session_token',
-})
-```
-
-The 84 `@ApiBearerAuth()` occurrences are a mechanical find-and-replace with zero runtime risk. Controllers to modify:
-- `ai/controllers/` (2 files)
-- `ai-chat/controllers/` (1 file)  
-- `calendar/controllers/` (1 file)
-- `compliance/controllers/` (3+ files)
-- `subscription/controllers/` (2 files)
-- `contacts/`, `email/`, `crm/`, `providers/`, `labels/`, `push/`, `reminder/`, admin controllers
-
-**Confidence:** HIGH (verified no runtime JWT code remains)
-
----
-
-#### 4. Billing Webhook Hardening
-
-**Current state:** `AutumnController` has proxy routes for customer management, attach, check, track, cancel, billing portal, and pricing table. `AutumnService` wraps the Autumn SDK. There is **NO webhook endpoint** for Autumn to push events.
-
-The system relies on:
-- Client-initiated API calls to `POST /autumn/check` for feature access
-- Scheduled `SubscriptionLifecycleService` jobs for expiry checks (daily at 02:00) and usage resets (1st of month)
-- Local fallback when Autumn API is unreachable (`localFeatureCheck()`)
-
-**Gap analysis -- what the system cannot react to without webhooks:**
-- Payment failures in real-time (currently waits for daily expiry check)
-- Subscription upgrades/downgrades initiated from Autumn's billing portal (not reflected until next `check` call)
-- Usage overage alerts from Autumn
-- Renewal confirmations
-- Trial conversions
-
-**Solution: Add Autumn webhook endpoint with hardening**
-
-New components:
-
-| Component | File | Responsibility |
-|-----------|------|----------------|
-| `AutumnWebhookController` | `subscription/controllers/autumn-webhook.controller.ts` | **NEW** -- Raw body parsing, signature verification, event routing |
-| `AutumnWebhookService` | `subscription/services/autumn-webhook.service.ts` | **NEW** -- Idempotent event handlers for subscription lifecycle |
-| `WebhookEvent` model | `prisma/schema.prisma` | **NEW** -- Processed event ID store for deduplication |
-
-**Webhook hardening patterns:**
-
-1. **Raw body access for signature verification:**
-   NestJS must preserve the raw body before JSON parsing. Configure `rawBody: true` in NestFactory (already needed for CSRF). In the controller, access via `@Req() req` where `req.rawBody` is available.
-
-2. **Signature verification:**
-   Autumn uses Stripe under the hood. Verify the `Stripe-Signature` header against the webhook signing secret using HMAC-SHA256. This MUST happen before any JSON parsing or event processing.
-
-3. **Idempotency via event store:**
-   ```prisma
-   model WebhookEvent {
-     id          String   @id @default(cuid())
-     externalId  String   @unique  // Stripe/Autumn event.id
-     eventType   String
-     processedAt DateTime @default(now())
-     payload     Json?    // Store for debugging
-     @@index([externalId])
-   }
-   ```
-   Check `WebhookEvent` before processing. Insert within the same transaction as the subscription update.
-
-4. **Event ordering:**
-   Autumn/Stripe may deliver events out of order. Use `event.created` timestamp and compare with `Subscription.updatedAt`. Skip events older than current state.
-
-5. **Retry safety:**
-   Return 200 immediately after signature verification succeeds and event is known/duplicate. Return 5xx only for transient failures (DB down). Process heavy work asynchronously via BullMQ if needed.
-
-6. **Event handler mapping:**
-
-| Autumn/Stripe Event | Handler Action |
-|---------------------|----------------|
-| `customer.subscription.created` | Create/update Subscription record, set plan |
-| `customer.subscription.updated` | Update plan, limits, period dates |
-| `customer.subscription.deleted` | Set status to CANCELED, schedule downgrade |
-| `invoice.payment_failed` | Set status to PAST_DUE, trigger alert |
-| `invoice.paid` | Clear PAST_DUE status, update period |
-| `checkout.session.completed` | Link Autumn customer ID, activate subscription |
-
-**Confidence:** MEDIUM (Autumn SDK webhook specifics need verification against their docs; Stripe patterns confirmed via multiple sources)
-
----
-
-#### 5. Tailwind CSS Removal
-
-**Current state:** Per CLAUDE.md memory: "tailwindcss package kept solely for `@tailwind base` CSS var injection." Grep confirms zero Tailwind utility classes in `.tsx`/`.ts` files.
-
-**Assessment:** The `@tailwind base` directive injects CSS reset/normalization and custom property definitions. This can be replaced with:
-1. A manual CSS reset (e.g., `normalize.css` or the subset actually used)
-2. Explicit CSS custom property declarations in a global stylesheet
-
-**Impact:** Removes `tailwindcss`, `tailwind-merge`, `postcss` (if only used for Tailwind), reducing frontend build dependencies.
-
-**Confidence:** MEDIUM (need to verify exactly which CSS vars `@tailwind base` provides that the app depends on)
-
----
+When a user corrects a label:
+1. Update the email's label assignment immediately
+2. Create/update a `SenderLabelOverride` for that sender
+3. Optionally: log the correction as a training signal for future prompt refinement
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: In-Memory State Across Requests
-**What:** Storing request-scoped data in module-level variables.
-**Why bad:** With multiple instances, each has its own memory. State diverges.
-**Instead:** Use Redis for shared state, PostgreSQL for persistent state.
-**Current risk assessment:** No in-memory state issues found. `sharedRedisConnection` singleton is per-process (correct). `BaseWorker.registry` is per-process health tracking (correct).
+### Anti-Pattern 1: Content-Only Classification
+**What:** Classifying based only on email body text.
+**Why bad:** Same sender can send structurally identical emails that mean different things in different contexts. Sender identity is a strong signal.
+**Instead:** Use sender + subject + content as combined signals. Weight sender history highest.
 
-### Anti-Pattern 2: Direct PostgreSQL URL with Multiple Replicas
-**What:** Each replica opens `connection_limit=20` to PostgreSQL directly.
-**Why bad:** 3 replicas = 60 connections. PostgreSQL default max ~100. Leaves insufficient headroom.
-**Instead:** Use PgBouncer in transaction mode, or calculate per-replica limits dynamically.
+### Anti-Pattern 2: Auto-Archive on First Classification
+**What:** Automatically archiving emails classified as Promotions/Updates on first run.
+**Why bad:** Users panic when emails "disappear." Trust in classification must be earned.
+**Instead:** Visually group and suppress, but keep in inbox. Add auto-archive as an opt-in per label after user validates accuracy.
 
-### Anti-Pattern 3: Webhook Processing Without Idempotency
-**What:** Processing billing webhook events without deduplication.
-**Why bad:** Webhook providers retry on timeout (Stripe retries up to 3 days). Processing a subscription downgrade twice corrupts state.
-**Instead:** Store event IDs in `WebhookEvent` table before processing. Check before each handler invocation.
+### Anti-Pattern 3: Unbounded Custom Labels
+**What:** Letting users create unlimited AI-prompt labels.
+**Why bad:** Each label adds an LLM classification call. 50 labels = 50x cost per email. Also creates label soup where emails get 10+ labels.
+**Instead:** Cap custom AI labels (Superhuman caps at 10). Use sender overrides for high-volume deterministic routing.
 
-### Anti-Pattern 4: Removing @ApiBearerAuth Without Adding Cookie Auth
-**What:** Just deleting the Swagger auth decorators.
-**Why bad:** Swagger UI becomes unauthenticated -- developers cannot test endpoints interactively.
-**Instead:** Replace with `@ApiCookieAuth()` so Swagger sends cookies with requests.
-
-### Anti-Pattern 5: PgBouncer in Session Mode with Prisma
-**What:** Configuring PgBouncer in session pooling mode.
-**Why bad:** Prisma uses prepared statements which require transaction-scoped connections. Session mode holds connections longer, negating pooling benefits.
-**Instead:** Always use transaction mode for Prisma compatibility (confirmed by Prisma official docs).
-
----
-
-## New vs Modified Components Summary
-
-| Component | Status | File(s) |
-|-----------|--------|---------|
-| `AutumnWebhookController` | **NEW** | `subscription/controllers/autumn-webhook.controller.ts` |
-| `AutumnWebhookService` | **NEW** | `subscription/services/autumn-webhook.service.ts` |
-| `WebhookEvent` model | **NEW** | `prisma/schema.prisma` |
-| `prisma-client.factory.ts` | **MODIFY** | Connection pool sizing for multi-replica / PgBouncer |
-| `prisma.config.ts` | **MODIFY** | Add `directUrl` for migrations bypassing PgBouncer |
-| `railway.toml` | **MODIFY** | `numReplicas` increase |
-| `main.ts` | **MODIFY** | Swagger auth config (remove Bearer, add Cookie) |
-| `health.controller.ts` | **MODIFY** | Add instance ID to responses |
-| 84 controller files | **MODIFY** | Remove `@ApiBearerAuth()`, add `@ApiCookieAuth()` |
-| `package.json` | **MODIFY** | Remove unused auth packages |
-| PgBouncer service | **NEW** (infra) | Railway service deployment (not app code) |
-
----
-
-## Build Order (Dependency-Based)
-
-```
-Phase 1: Legacy Cleanup (no dependencies, zero runtime risk)
-  1.1 Remove @ApiBearerAuth decorators + addBearerAuth() from Swagger
-  1.2 Add @ApiCookieAuth() to Swagger config + controllers
-  1.3 Remove unused npm packages (jsonwebtoken, passport-jwt, bcrypt)
-  1.4 Remove Tailwind CSS package (if base injection replaceable)
-
-Phase 2: Connection Pooling (prerequisite for Phase 3)
-  2.1 Deploy PgBouncer service on Railway (or configure dynamic pool limits)
-  2.2 Update prisma-client.factory.ts for PgBouncer transaction mode
-  2.3 Configure directUrl in prisma.config.ts for migrations
-  2.4 Validate single-replica deployment with PgBouncer
-
-Phase 3: Horizontal Scaling (depends on Phase 2)
-  3.1 Add instance ID to health responses and structured logs
-  3.2 Update railway.toml numReplicas=2
-  3.3 Validate BullMQ job distribution across instances
-  3.4 Validate WebSocket event propagation across instances
-  3.5 Load test connection pool under multi-replica
-
-Phase 4: Billing Webhook Hardening (independent of Phases 2-3)
-  4.1 Add WebhookEvent model to Prisma schema
-  4.2 Implement AutumnWebhookController with raw body + signature verification
-  4.3 Implement AutumnWebhookService with idempotent event handlers
-  4.4 E2E test webhook flow (simulate Autumn events)
-  4.5 Wire subscription state sync from webhook events
-```
-
-**Ordering rationale:**
-- Phase 1 first because it is pure cleanup with zero risk and immediate doc improvement
-- Phase 2 before Phase 3 because connection exhaustion would crash the app under multi-replica
-- Phase 4 is independent and can run in parallel with Phase 2/3
-- Within Phase 3, start with 2 replicas (conservative), validate, then consider 3
-
----
-
-## Scalability Considerations
-
-| Concern | 1 replica (current) | 2-3 replicas | 5+ replicas |
-|---------|---------------------|--------------|-------------|
-| DB connections | 20 pool (fine) | 40-60 (PgBouncer needed) | 100+ (PgBouncer mandatory) |
-| Redis connections | ~10 per instance | ~30 total (fine, Redis handles thousands) | ~50+ (monitor `CLIENT LIST`) |
-| BullMQ job distribution | Single consumer | Automatic via Redis atomics | Automatic, consider lowering per-instance concurrency |
-| WebSocket events | Direct emit | Via Redis adapter (working) | Via Redis adapter (working) |
-| Scheduled jobs | BullMQ single execution | Same guarantee | Same guarantee |
-| Session validation | DB lookup (cached 5min) | Same, shared cache via Redis | Consider increasing `cookieCache.maxAge` |
-| Billing webhooks | N/A | Any instance handles (idempotent) | Same |
-
----
+### Anti-Pattern 4: Re-Classifying on Every View
+**What:** Running classification every time a user opens an email.
+**Why bad:** Expensive, slow, and results can change between views (confusing).
+**Instead:** Classify once on arrival. Store result. Only re-classify if label definition changes (retroactive labeling).
 
 ## Sources
 
-- [Prisma PgBouncer Configuration](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer) -- Transaction mode requirement for Prisma
-- [Prisma Connection Pool Docs](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/connection-pool) -- Pool sizing guidance
-- [Prisma Connection Management](https://www.prisma.io/docs/guides/performance-and-optimization/connection-management) -- Multi-instance connection strategies
-- [BullMQ Repeatable Jobs](https://docs.bullmq.io/guide/jobs/repeatable) -- Single-execution guarantee across instances
-- [BullMQ Job Schedulers](https://docs.bullmq.io/guide/job-schedulers) -- Distributed scheduling semantics
-- [Railway Horizontal Scaling](https://station.railway.com/questions/horizontal-scaling-scaling-controls-e1dffb16) -- Replica behavior and limitations
-- [BullMQ Horizontal Scaling Guide](https://oneuptime.com/blog/post/2026-01-21-bullmq-horizontal-scaling/view) -- Worker distribution patterns
-- [Autumn/Stripe Webhook Architecture](https://deepwiki.com/useautumn/autumn/9.1-revenuecat-webhook-architecture) -- Webhook handling patterns
-- [Webhook Idempotency at Scale](https://dev.to/art_light/webhooks-at-scale-designing-an-idempotent-replay-safe-and-observable-webhook-system-7lk) -- Event store deduplication patterns
-- Codebase files verified: `prisma-client.factory.ts`, `prisma.service.ts`, `base.worker.ts`, `queue.config.ts`, `redis-io.adapter.ts`, `autumn.service.ts`, `autumn.controller.ts`, `subscription.service.ts`, `subscription-lifecycle.service.ts`, `health.controller.ts`, `railway.toml`, `main.ts`
+- [Superhuman Auto Labels](https://help.superhuman.com/hc/en-us/articles/40127432866323-Auto-Labels)
+- [Superhuman Custom Split Inbox](https://help.superhuman.com/hc/en-us/articles/38458483333907-Custom-Split-Inbox)
+- [Shortwave Magic Labels](https://www.shortwave.com/blog/magic-labels-custom-bundles/)
+- [Shortwave Smart Labels](https://www.shortwave.com/docs/concepts/labels/)
+- [HEY How It Works](https://www.hey.com/how-it-works/)
+- [HEY The Screener](https://www.hey.com/features/the-screener/)
+- [Spark Smart Inbox](https://sparkmailapp.com/features/smart_inbox)
+- [SaneBox Training](https://www.sanebox.com/help/140-how-do-i-train-teach-sanebox)
+- [Google Inbox Bundles (The Next Web)](https://thenextweb.com/news/hands-googles-inbox-helps-organize-life-email-bundles)
+- PMSync codebase: `triage-onboarding.contract.ts`, `default-user-labels.ts`, `email-analysis.service.ts`, `triage-learning.service.ts`

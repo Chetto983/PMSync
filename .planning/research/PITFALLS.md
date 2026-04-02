@@ -1,285 +1,181 @@
-# Domain Pitfalls
+# Domain Pitfalls: Email Triage & Classification
 
-**Domain:** Legacy cleanup, Railway horizontal scaling, and billing hardening for existing NestJS + Next.js email platform
-**Researched:** 2026-03-31
-
----
+**Domain:** AI email triage, label onboarding, classification systems
+**Researched:** 2026-04-02
 
 ## Critical Pitfalls
 
-Mistakes that cause outages, data corruption, or require architectural rewrites.
+Mistakes that cause users to abandon the feature or require architectural rework.
 
-### Pitfall 1: Remaining @Cron Decorators Execute on Every Instance
+### Pitfall 1: Over-Classification on First Run Destroys Trust
 
-**What goes wrong:** The codebase has migrated most scheduled jobs to BullMQ repeatable jobs (via `ScheduledJobsQueueService`), but 6 `@Cron` decorators remain in production code: `cache-prewarming.service.ts` (2), `data-cleanup.service.ts` (4), `churn-recompute.cron.ts` (1), `forecast-refresh.cron.ts` (1). When Railway scales to N instances, each `@Cron` fires on ALL instances simultaneously.
+**What goes wrong:** The system applies AI labels to all existing emails on first activation. Many classifications are wrong because the AI has no user-specific context yet. Users see their inbox covered in incorrect labels and immediately distrust the system.
 
-**Why it happens:** The BullMQ migration was done incrementally. These stragglers were either added after the migration or missed during it. NestJS `@nestjs/schedule` `@Cron` runs in-process -- there is no distributed lock.
+**Why it happens:** Developers want to show immediate value. "Look, we labeled all your emails!" But without historical context (SaneBox scans 4-6 weeks of headers first) or sender memory, the LLM is guessing based on content alone.
 
-**Consequences:**
-- `data-cleanup.service.ts` runs GDPR-related cleanup (expired sessions, orphaned data) on all instances -- potential race conditions on DELETE operations causing P2002/P2034 Prisma errors
-- `churn-recompute.cron.ts` and `forecast-refresh.cron.ts` run expensive CRM computations N times instead of once
-- Cache prewarming multiplied by N instances wastes LLM API budget (embedding cache warmup)
+**Consequences:** Users disable the feature permanently. First impressions of AI accuracy are sticky -- once a user decides "the AI is dumb," they rarely give it a second chance.
 
 **Prevention:**
-- Audit ALL `@Cron` decorators and migrate to `ScheduledJobsQueueService` handlers BEFORE enabling horizontal scaling
-- Add a startup check: if `RAILWAY_REPLICA_ID` is set and `@Cron` decorators exist, log a warning
-- Use `JOBS_ENABLED=false` env var (already supported) on replica instances as interim safety net
 
-**Detection:** Monitor BullMQ dashboard for duplicate job completions. Alert on Prisma P2002/P2034 spike after scaling.
+- Do NOT retroactively label all existing emails on first activation
+- Start with new incoming emails only
+- Retroactive labeling should be opt-in and limited (Superhuman does last 14 days only)
+- Show a "confidence" indicator during the first week: "AI is still learning your preferences"
+- Prioritize high-confidence classifications first (sender-based > content-based)
 
-**Phase:** Must be resolved in Legacy Cleanup phase, before horizontal scaling phase.
+**Detection:** Track label correction rate in the first 7 days. If correction rate exceeds 20%, the system is over-classifying.
 
----
+### Pitfall 2: Unbounded LLM Calls Per Email
 
-### Pitfall 2: In-Memory State Lost Across Instances
+**What goes wrong:** Each label with an `aiPrompt` requires an LLM call to evaluate whether the email matches. With 10 default labels + custom labels, every incoming email triggers 10-15+ LLM calls. At 200 emails/day, that is 2,000-3,000 LLM calls/day per user.
 
-**What goes wrong:** Several services maintain in-memory Maps that are NOT shared across instances:
-
-1. **`TenantKeyService`** -- `cache` and `hmacCache` (Map<string, Buffer>) for derived encryption keys. Safe because deterministic (same input = same output), but wastes CPU re-deriving on each instance.
-
-2. **`TriageLearningService`** -- `signalBuffer` (Map) and `scoreCache` (Map) hold user behavior signals IN MEMORY before flushing to Redis. If a user's signals land on different instances, the buffer never reaches the flush threshold, and scores diverge between instances.
-
-3. **`CircuitBreaker`** -- `breakers` Map tracks failure counts per service. Instance A's circuit opens, but Instance B's stays closed -- defeating the purpose of circuit breaking.
-
-4. **`ScheduledJobsQueueService`** -- `handlers` Map is instance-local (fine, since each instance registers the same handlers on boot).
-
-5. **`EmailTriageService`** -- in-memory semaphore for global concurrency control. With N instances, actual concurrency is N * limit, not the intended limit.
-
-**Why it happens:** These were written for single-instance deployment. In-memory caches are faster than Redis, so developers default to Maps.
+**Why it happens:** The naive implementation evaluates each label independently against each email. Superhuman caps custom AI labels at 10 for this reason.
 
 **Consequences:**
-- Triage learning scores become inconsistent (signals split across instances)
-- Circuit breaker provides false safety (one instance sees failures, others keep hammering)
-- AI concurrency control is N times higher than intended, risking LLM API rate limits
+
+- LLM API costs scale linearly with labels x emails
+- Classification latency grows with label count (serial) or API rate limits hit (parallel)
+- Mistral rate limits may throttle classification, creating backlogs
 
 **Prevention:**
-- `TriageLearningService`: Flush signals to Redis immediately (RPUSH) instead of buffering in memory. The buffer exists for performance; switch to Redis pipeline for equivalent throughput.
-- `CircuitBreaker`: Move state to Redis (INCR failure count with TTL). Or accept per-instance circuit breaking as "good enough" and document the tradeoff.
-- `EmailTriageService` semaphore: Use Redis-based distributed semaphore (SETNX with TTL).
-- `TenantKeyService`: Keep as-is -- deterministic derivation means each instance has correct keys. No consistency issue.
 
-**Detection:** Triage score divergence visible in logs (different scores from different instances for same sender). Circuit breaker ineffectiveness visible when LLM API returns 429 despite breaker being "open."
+- Batch all label prompts into a single LLM call: "Given this email, which of these labels apply: [list all label prompts]"
+- Use sender overrides as L1 cache to skip LLM entirely for known senders
+- Cap AI-prompt labels (Superhuman: max 10)
+- Use a cheaper/faster model for classification (Mistral Small) vs. the full chat model
+- Consider a two-stage pipeline: fast classifier for obvious categories (Promotions, Updates) + LLM only for ambiguous emails
 
-**Phase:** Must be resolved before or during horizontal scaling phase.
+**Detection:** Monitor LLM API call count per email. Alert if average exceeds 3 calls/email.
 
----
+### Pitfall 3: Label Soup -- Too Many Labels Per Email
 
-### Pitfall 3: Prisma Connection Pool Exhaustion Under Multi-Instance + BullMQ Workers
+**What goes wrong:** Without mutual exclusivity enforcement, an email from a customer about an invoice gets labeled: Customer + Finance + Action Items + Important + Follow-up. Five labels on one email is noise, not signal.
 
-**What goes wrong:** The current `prisma-client.factory.ts` sets `connection_limit=20` with `pool_timeout=20`. With 2+ Railway instances, each creates its own Prisma pool. Railway PostgreSQL has a default max_connections of ~97 (Railway standard). 2 instances x 20 connections = 40 for Prisma alone. Add BullMQ workers (which use separate Redis connections but trigger Prisma queries), and connection starvation occurs under load.
-
-**Why it happens:** Railway's TCP proxy adds ~1-5ms latency per connection handshake. Under load, connections are held longer. The pool fills up, and new requests queue behind `pool_timeout`. Railway does NOT run PgBouncer by default.
+**Why it happens:** Each label's aiPrompt evaluates independently. A customer invoice genuinely matches all five prompts. The LLM is technically correct but practically useless.
 
 **Consequences:**
-- `P1001` (Can't reach database server) or `P2024` (Timed out fetching a new connection from the pool) errors under moderate load
-- BullMQ workers starve HTTP request handlers of connections (no priority separation)
-- During Railway deployments, old and new instances briefly co-exist, doubling connection usage
+
+- Smart Views show the same email in every view
+- Users cannot scan their inbox because every email has a wall of label badges
+- Label priority becomes meaningless when everything is labeled
 
 **Prevention:**
-- Calculate: `connection_limit = max_connections / (instances * 1.5)`. For 97 max and 3 instances: ~21, so current 20 is borderline. For 4+: reduce to 12-15.
-- Add PgBouncer as a Railway service between app and database (transaction mode). This is the standard Railway recommendation.
-- Separate Prisma instances for HTTP vs BullMQ workers with different pool sizes (HTTP gets priority).
-- Monitor `pg_stat_activity` and alert when active connections exceed 80% of max.
-- During deployment, Railway runs old + new instances simultaneously. Account for 2x normal instances in pool math.
 
-**Detection:** `P2024` errors in logs. Increasing response times under moderate load. `pg_stat_activity` query showing connections at limit.
+- PMSync's `mutuallyExclusiveWith` rules already address this. Enforce them strictly.
+- Limit max labels per email to 2-3 (one family-priority + one family-context + one family-workflow max)
+- Use the taxonomy `family` field: at most one label per family
+- Post-classification pruning: if email has 4+ labels, apply priority rules to reduce to 2-3
+- Superhuman's approach: built-in labels only route to "Other" split; they do not stack
 
-**Phase:** Horizontal scaling phase. Must be solved before adding instances.
-
----
-
-### Pitfall 4: Billing Webhook Has No Idempotency Protection
-
-**What goes wrong:** The `AutumnService` and `AutumnController` proxy requests to Autumn SDK but have NO webhook receiver endpoint for Autumn-to-app callbacks. If Autumn sends billing events (subscription changes, payment failures, usage resets), the app has no handler. If a handler is added without idempotency, duplicate webhooks cause double plan changes or double usage resets.
-
-**Why it happens:** Current billing is primarily pull-based (app calls Autumn SDK). But real billing systems send webhooks for async events (payment succeeded, payment failed, subscription canceled by Autumn admin, usage threshold reached). The `subscription-lifecycle.service.ts` handles expiry checks via cron, but NOT real-time billing events.
-
-**Consequences:**
-- Subscription state can drift between Autumn and local DB (Autumn says "canceled" but local DB says "active")
-- No real-time response to payment failures (only caught by daily cron at 02:00 UTC -- up to 24h delay)
-- If webhook handler added without idempotency: duplicate webhooks from Autumn retries cause double downgrade/upgrade processing
-
-**Prevention:**
-- Add a webhook endpoint with idempotency key tracking (event ID in a `billing_webhook_events` table or Redis SET with TTL)
-- Use atomic operations: `INSERT ... ON CONFLICT (event_id) DO NOTHING` to ensure exactly-once processing
-- Enqueue webhook processing to BullMQ (respond 200 immediately, process asynchronously) to handle Autumn's retry timeout
-- Add signature verification for webhook authenticity
-- Test with deliberate duplicate webhook payloads
-
-**Detection:** Subscription state mismatch between Autumn dashboard and local DB. Users reporting incorrect plan after payment.
-
-**Phase:** Billing hardening phase. This is the single most important billing pitfall.
-
----
+**Detection:** Track average labels-per-email. Alert if it exceeds 2.5.
 
 ## Moderate Pitfalls
 
-### Pitfall 5: Railway Does NOT Support Sticky Sessions for WebSocket
+### Pitfall 4: Sender Memory Overrides Content Signals
 
-**What goes wrong:** Railway's load balancer distributes requests round-robin with NO sticky session support. Socket.IO's default transport sequence is: HTTP polling (multiple requests) -> WebSocket upgrade. The polling phase sends 3-4 HTTP requests that MUST hit the same instance. Without sticky sessions, the handshake fails.
+**What goes wrong:** User corrects one GitHub notification to "System Alert." System remembers: GitHub = System Alert. But GitHub also sends marketing emails, release announcements, and Dependabot security alerts -- all now get labeled "System Alert."
 
-**Why it happens:** Railway explicitly does not support sticky sessions. The codebase already has `RedisIoAdapter` for cross-instance pub/sub, which handles message broadcasting correctly. But the Socket.IO handshake itself requires session affinity during the upgrade window.
-
-**Consequences:**
-- WebSocket connections fail intermittently (succeed when all polling requests happen to hit same instance by chance)
-- Real-time email notifications, sync status, and chat streaming break for users
+**Why it happens:** Sender memory (like Shortwave's Magic Labels) maps sender -> label. Same sender can send structurally different email types.
 
 **Prevention:**
-- Force WebSocket-only transport: `{ transports: ['websocket'] }` on BOTH client and server. This skips the polling phase entirely and upgrades directly.
-- Update frontend Socket.IO client config to `transports: ['websocket']` (remove 'polling' fallback)
-- Test with multiple Railway instances: verify WebSocket connections establish reliably
-- Fallback: If WebSocket-only causes issues for some corporate proxies, add reconnection logic that retries with exponential backoff
 
-**Detection:** `connect_error` events in frontend Socket.IO logs. Users reporting stale email counts or missing notifications.
+- Store sender overrides at the sender + subject-pattern level, not just sender alone
+- Allow multiple overrides per sender (GitHub deploy notifications -> System Alert; GitHub marketing -> Promotions)
+- Fall through to LLM classification when sender has multiple override patterns
+- SaneBox handles this: "categorizes service emails based on both sender and subject line"
 
-**Phase:** Must be resolved at the START of horizontal scaling phase. Without this, scaling breaks real-time features.
+### Pitfall 5: Onboarding Wizard Asks Too Many Questions
 
----
+**What goes wrong:** Wizard has 7 fields (customerDomains, importantSenders, projectTopics, systemAlertSources, billingTopics, reviewLaterTopics, followUpSlaHours). Users abandon after field 3.
 
-### Pitfall 6: JWT References in External Provider Code Confused with Auth JWT Removal
-
-**What goes wrong:** The codebase has JWT references in 3 distinct contexts: (1) Google Pub/Sub OIDC JWT verification in `gmail-webhook.service.ts`, (2) Microsoft OAuth access token JWT validation in `microsoft-oauth.service.ts`, (3) AI sandbox service JWT in `sandbox.service.ts`. A developer tasked with "remove legacy JWT auth" might accidentally remove or break these.
-
-**Why it happens:** The v5.0 migration replaced the app's own JWT auth with better-auth DB sessions. The comments in `better-auth.guard.ts`, `tenant.guard.ts`, and `roles.guard.ts` reference "former JWT payload" for backward compatibility. A grep for "JWT" returns 40+ hits across these unrelated contexts.
-
-**Consequences:**
-- Removing Google Pub/Sub JWT verification breaks Gmail real-time push notifications
-- Removing Microsoft JWT validation breaks OAuth token refresh flow
-- Both failures are silent (webhooks stop working, tokens stop refreshing) and only surface hours later
+**Why it happens:** The `TriageOnboardingRules` contract was designed for completeness, not UX flow. Every field is useful but not every field is essential for first-run.
 
 **Prevention:**
-- Create a clear inventory: "JWT references to KEEP" vs "JWT references to REMOVE"
-- JWT to REMOVE: any `JwtStrategy`, `JwtAuthGuard`, `@nestjs/jwt` imports, JWT secret env vars used for app auth
-- JWT to KEEP: `verifyPubSubToken()` in gmail-webhook, `validateJWT()` in microsoft-oauth, `sandbox.service.ts` compute SDK token
-- Add `// NOTE: This is NOT app auth JWT -- this is [Google/Microsoft/Compute] provider JWT` comments to each keeper
-- Run full E2E after removal: trigger Gmail webhook, refresh Microsoft token, verify sandbox
 
-**Detection:** Gmail push notifications stop arriving. Microsoft token refresh returns 401. Test these explicitly in the removal PR.
+- Split into required (2 fields) + optional (5 fields):
+  - Required: customerDomains, importantSenders (these define the "who matters" baseline)
+  - Optional: everything else (can be configured later in Settings)
+- Show a "quick setup" (2 fields) vs "full setup" (7 fields) choice
+- Pre-populate from existing email data: scan recent emails to suggest domains and frequent senders
+- HEY's approach: onboarding teaches through the product itself (emails that explain features), not through a form wizard
 
-**Phase:** Legacy cleanup phase. Requires careful audit before any deletion.
+### Pitfall 6: Static AI Prompts Never Improve
 
----
+**What goes wrong:** The `aiPrompt` on each label is set during onboarding and never updated. As user's email patterns change, classification accuracy degrades. New senders, new topics, new projects are not reflected in prompts.
 
-### Pitfall 7: Tailwind Removal Breaks CSS Custom Properties
-
-**What goes wrong:** The project kept `tailwindcss` package solely for `@tailwind base` CSS variable injection in `globals.css`. Removing it removes CSS custom properties that MUI components or chat CSS files may depend on (e.g., `--tw-ring-color`, `--tw-border-opacity`). The chat CSS files (3 files, ~950 lines) use pure CSS with custom properties.
-
-**Why it happens:** The v9.0 migration removed all Tailwind utility classes from TSX files but kept the package for base layer injection. The dependency chain is: `tailwindcss` -> `@tailwind base` in `globals.css` -> CSS custom properties -> chat CSS files.
-
-**Consequences:**
-- Chat UI styling breaks (missing variable values default to browser defaults)
-- Subtle visual regressions that are only visible in specific states (focus rings, border colors)
-- MUI + chat CSS interaction breaks silently
+**Why it happens:** No feedback mechanism from corrections back to prompt text. Corrections update sender memory but not the underlying AI prompt.
 
 **Prevention:**
-- Before removing tailwind: extract ALL CSS custom properties from `@tailwind base` output
-- Grep chat CSS files for `--tw-` prefixed variables
-- Replace with explicit CSS custom property definitions in `globals.css`
-- Visual regression test: screenshot chat UI before/after removal
-- Run Lighthouse to verify no CLS regressions
 
-**Detection:** Visual inspection of chat UI in all states (idle, loading, error, streaming). Check browser DevTools computed styles for `unset` or missing values.
+- Track correction patterns: if users consistently remove "Important" from newsletter-type emails, flag the Important label's aiPrompt for review
+- Suggest prompt refinements: "Users corrected 15 emails this week. Would you like to update the Important label criteria?"
+- Do NOT auto-mutate prompts. Prompt changes can have broad, unpredictable effects. Always require user approval.
+- Periodically show a "label health" report: accuracy rate, correction count, top misclassified senders
 
-**Phase:** Legacy cleanup phase. Low risk if done methodically.
+### Pitfall 7: Classification Runs After Email Is Already Read
 
----
+**What goes wrong:** Email arrives, user reads it, then classification runs 30 seconds later and adds labels. The label arrives too late to be useful for triage decisions.
 
-### Pitfall 8: BullMQ Worker Starvation During Rolling Deploys
-
-**What goes wrong:** Railway's rolling deploy runs old and new instances simultaneously. Both register BullMQ workers for the same queues. During the overlap:
-- Old instance workers are processing jobs but about to be killed
-- New instance workers start competing for the same jobs
-- If old instance is killed mid-job, the job's lock expires and another worker retries it, but side effects (emails sent, webhooks dispatched) from the partial execution are NOT rolled back
-
-**Why it happens:** BullMQ uses Redis locks with TTL. When a worker dies, its lock expires and the job becomes available for retry. But non-idempotent side effects (API calls, email sends) have already occurred.
-
-**Consequences:**
-- Duplicate email sends (partially completed send job retried by new instance)
-- Duplicate webhook dispatches (push notifications sent twice)
-- Orphaned state (job half-completed, some DB writes committed, others not)
+**Why it happens:** Classification is async (BullMQ job) and may be delayed by queue depth or LLM latency. Email sync and classification are separate pipelines.
 
 **Prevention:**
-- Implement graceful shutdown: listen for `SIGTERM`, call `worker.close()` which waits for active jobs to complete (up to `lockDuration`)
-- Set Railway's shutdown timeout to match the longest `lockDuration` (currently 300s for scheduled jobs -- this is very long, consider reducing)
-- Make all job handlers idempotent: use deduplication IDs for email sends, webhook dispatches
-- For email send: check if email already has `sentAt` timestamp before sending again
-- Add `beforeClose` handler to workers to log in-flight jobs
 
-**Detection:** Duplicate email notifications after deployments. Check BullMQ "stalled" job count after each deploy.
-
-**Phase:** Horizontal scaling phase. Must be solved alongside multi-instance configuration.
-
----
+- Classify BEFORE the email appears in the inbox view (block rendering until classification completes, with a timeout)
+- Or: classify speculatively during sync and cache the result
+- Sender override lookups are instant -- use them as the fast path for known senders
+- Set a classification SLA: if LLM does not respond within 3 seconds, show email without labels and classify in background
+- Shortwave and Superhuman classify during sync, before the email hits the inbox view
 
 ## Minor Pitfalls
 
-### Pitfall 9: Frontend Bundle Size Regression from MUI + TanStack Query
+### Pitfall 8: Users Cannot Understand Why a Label Was Applied
 
-**What goes wrong:** MUI is already large (~80-120KB gzipped depending on components used). Adding lazy-loaded routes, new billing pages, or settings pages without code splitting causes the main bundle to grow past Lighthouse budgets.
-
-**Prevention:**
-- Use `React.lazy()` + `Suspense` for ALL new billing/settings pages (not just "non-critical" ones)
-- Import MUI components from specific paths: `@mui/material/Button` not `@mui/material`
-- Monitor bundle size in CI: the project already has Lighthouse CI budget enforcement -- ensure it runs on billing PRs
-- TanStack Query: already uses `staleTime: 5min` -- no change needed
-
-**Phase:** Frontend performance phase. Ongoing discipline, not a one-time fix.
-
----
-
-### Pitfall 10: Deprecated API Aliases Removed Before Frontend Updated
-
-**What goes wrong:** The MEMORY.md notes `voltAgentApi -> aiChatApi` with a deprecated alias kept for compatibility. If backend removes deprecated aliases before ALL frontend call sites are updated, API calls break silently (404s caught by error boundaries but losing functionality).
+**What goes wrong:** Email is labeled "Important" but user does not understand why. No explanation is provided. User loses trust in the AI.
 
 **Prevention:**
-- Search frontend for ALL deprecated alias usages before removing any backend alias
-- Remove in order: (1) update all frontend call sites, (2) deploy frontend, (3) remove backend alias, (4) deploy backend
-- Or: remove both simultaneously in a coordinated deploy, but test in staging first
 
-**Phase:** Legacy cleanup phase. Simple but requires coordination.
+- Store a brief classification reason with each label assignment (e.g., "Matched: sender is in your customer domains list")
+- Show reason on hover or in email detail view
+- Superhuman does not do this. It is a differentiation opportunity.
 
----
+### Pitfall 9: Retroactive Labeling Creates Notification Storm
 
-### Pitfall 11: Subscription Plan State Diverges Between Autumn and Local DB
-
-**What goes wrong:** The `SubscriptionService` maintains a local `Subscription` table with plan/status. `AutumnService` proxies to Autumn SDK. If Autumn's state changes (admin action, payment processor event) without the app being notified (no webhook handler -- see Pitfall 4), the local DB drifts.
+**What goes wrong:** User creates a new label, system retroactively labels 14 days of emails. Each label triggers a notification/badge update. User's inbox badge shows 200+ "new" items.
 
 **Prevention:**
-- Add periodic reconciliation: daily cron that compares local subscription state with Autumn API (if Autumn provides a customer status endpoint)
-- Log every state transition with both old and new values for audit trail
-- Add admin endpoint to force-sync from Autumn
 
-**Phase:** Billing hardening phase. Complementary to Pitfall 4 webhook handler.
+- Retroactive labeling must be silent -- no notifications, no badge updates
+- Only update the label assignment in the database, not the email's read/unread status
+- Log retroactive labeling as a batch operation, not individual events
 
----
+### Pitfall 10: Multi-Label Display Clutters the Email List
+
+**What goes wrong:** Email list shows all labels as badges. With 2-3 labels per email, the list becomes unreadable. Badge colors compete for attention.
+
+**Prevention:**
+
+- Show only the highest-priority label badge in the list view (use family priority: priority > workflow > context > semantic > suppression)
+- Show all labels in the email detail view
+- Use the `defaultLane` to determine which Smart View "owns" the email, regardless of other labels
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
-|---|---|---|
-| Legacy JWT removal | Accidentally removing provider JWT validation (Pitfall 6) | Create explicit keep/remove inventory before touching code |
-| Legacy Tailwind removal | CSS custom property loss (Pitfall 7) | Extract and replace `--tw-` variables before removing package |
-| Legacy API alias removal | Frontend breaks from premature removal (Pitfall 10) | Frontend-first removal order |
-| Railway horizontal scaling | @Cron duplicate execution (Pitfall 1) | Migrate remaining 6 @Cron decorators to BullMQ first |
-| Railway horizontal scaling | In-memory state divergence (Pitfall 2) | Audit and externalize TriageLearning, CircuitBreaker, Semaphore |
-| Railway horizontal scaling | Prisma pool exhaustion (Pitfall 3) | Add PgBouncer, recalculate pool sizes |
-| Railway horizontal scaling | WebSocket handshake failure (Pitfall 5) | Force `transports: ['websocket']` on client+server |
-| Railway horizontal scaling | Rolling deploy side effects (Pitfall 8) | Graceful shutdown + idempotent job handlers |
-| Billing hardening | No webhook receiver (Pitfall 4) | Add idempotent webhook endpoint with event tracking |
-| Billing hardening | State drift (Pitfall 11) | Add reconciliation cron + webhook handler |
-| Frontend performance | Bundle regression (Pitfall 9) | Code splitting discipline + Lighthouse CI enforcement |
-
----
+|-------------|---------------|------------|
+| Smart Views UI | Label soup makes every view show every email (Pitfall 3) | Enforce mutual exclusivity; show email in primary lane only |
+| Onboarding Wizard | Too many fields causes abandonment (Pitfall 5) | 2-field quick setup + optional full setup |
+| Auto-Apply on Ingest | LLM cost explosion (Pitfall 2) | Batch prompts into single call; sender override cache |
+| Auto-Apply on Ingest | Classification arrives after user reads email (Pitfall 7) | Classify during sync, before inbox render |
+| Feedback Loop | Static prompts degrade over time (Pitfall 6) | Track corrections; suggest prompt updates |
+| Feedback Loop | Sender memory too coarse (Pitfall 4) | Sender + subject-pattern overrides |
+| First Activation | Over-classification destroys trust (Pitfall 1) | New emails only; limited retroactive opt-in |
+| Label Display | Multi-label badge clutter (Pitfall 10) | Show primary label only in list view |
 
 ## Sources
 
-- [Railway Scaling Documentation](https://docs.railway.com/reference/scaling) - HIGH confidence
-- [Railway Sticky Sessions Feedback (not supported)](https://station.railway.com/feedback/sticky-sessions-fa65efc4) - HIGH confidence
-- [NestJS scaling issues on Railway](https://station.railway.com/questions/nestjs-backend-doesn-t-scale-bbf417ff) - MEDIUM confidence
-- [BullMQ Repeatable Jobs Documentation](https://docs.bullmq.io/guide/jobs/repeatable) - HIGH confidence
-- [BullMQ Horizontal Scaling Guide](https://oneuptime.com/blog/post/2026-01-21-bullmq-horizontal-scaling/view) - MEDIUM confidence
-- [Handling Cron Jobs in NestJS with Multiple Instances using Bull](https://dev.to/juan_castillo/handling-cron-jobs-in-nestjs-with-multiple-instances-using-bull-3pj2) - MEDIUM confidence
-- [Prisma Connection Pool Documentation](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/connection-pool) - HIGH confidence
-- [Building Reliable Stripe Subscriptions: Webhook Idempotency](https://dev.to/aniefon_umanah_ac5f21311c/building-reliable-stripe-subscriptions-in-nestjs-webhook-idempotency-and-optimistic-locking-3o91) - MEDIUM confidence
-- [Webhook Idempotency Best Practices](https://hookdeck.com/webhooks/guides/implement-webhook-idempotency) - MEDIUM confidence
-- Codebase analysis of `backend/src/common/config/queue.config.ts`, `prisma-client.factory.ts`, `scheduled-jobs.queue.ts`, `tenant-key.service.ts`, `triage-learning.service.ts`, `better-auth.guard.ts`, `redis-io.adapter.ts`, `autumn.service.ts` - HIGH confidence (direct code inspection)
+- [Superhuman Auto Labels (max 10 custom)](https://help.superhuman.com/hc/en-us/articles/40127432866323-Auto-Labels) -- Official help docs
+- [SaneBox training approach](https://www.sanebox.com/help/186-how-does-sanebox-determine-trainings) -- Official help
+- [SaneBox sender + subject classification](https://www.sanebox.com/help/140-how-do-i-train-teach-sanebox) -- Official help
+- [HEY onboarding teardown](https://productled.com/blog/hey-onboarding-teardown) -- Third-party analysis
+- [Shortwave Magic Labels](https://www.shortwave.com/blog/magic-labels-custom-bundles/) -- Official blog
+- PMSync codebase: `triage-onboarding.contract.ts` (7 onboarding fields), `default-user-labels.ts` (10 defaults with taxonomy), `email-analysis.service.ts` (classification pipeline)

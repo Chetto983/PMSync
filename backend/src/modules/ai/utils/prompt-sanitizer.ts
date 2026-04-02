@@ -179,6 +179,59 @@ export function validatePromptLength(
 }
 
 /**
+ * Truncate a single prompt line, collapsing whitespace and adding ellipsis.
+ */
+export function truncatePromptLine(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (maxLength <= 0) return '';
+  if (normalized.length <= maxLength) return normalized;
+  if (maxLength <= 3) return normalized.slice(0, maxLength);
+  return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+/**
+ * Build an XML-tagged prompt section from lines, with optional length budget.
+ */
+export function buildTaggedPromptSection(
+  tag: string,
+  lines: string[],
+  maxLength?: number,
+  prefix?: string,
+): string {
+  if (lines.length === 0) return '';
+
+  const open = `\n<${tag}>\n`;
+  const prefixBlock = prefix ? `${prefix}\n` : '';
+  const close = `\n</${tag}>`;
+  const limit = typeof maxLength === 'number' ? maxLength : Number.MAX_SAFE_INTEGER;
+  const overhead = open.length + prefixBlock.length + close.length;
+  if (limit <= overhead) return '';
+
+  const accepted: string[] = [];
+  let currentLength = overhead;
+
+  for (const line of lines) {
+    const normalized = line.trim();
+    if (!normalized) continue;
+
+    const lineCost = normalized.length + (accepted.length > 0 ? 1 : 0);
+    if (currentLength + lineCost > limit) {
+      const available = limit - currentLength - (accepted.length > 0 ? 1 : 0);
+      if (available > 6) {
+        accepted.push(truncatePromptLine(normalized, available));
+      }
+      break;
+    }
+
+    accepted.push(normalized);
+    currentLength += lineCost;
+  }
+
+  if (accepted.length === 0) return '';
+  return `${open}${prefixBlock}${accepted.join('\n')}${close}`;
+}
+
+/**
  * Sanitizes data before logging to prevent sensitive info leakage.
  *
  * @param data - Data object to sanitize

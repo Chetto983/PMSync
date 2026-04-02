@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { InsightUtilsService } from './insight-utils.service';
-import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
+import { sanitizeForLLM, wrapUserContent, validatePromptLength, truncatePromptLine, buildTaggedPromptSection } from '../utils/prompt-sanitizer';
 import { getLocale, getToolTranslations, type SupportedLocale } from '../locales';
 import { PiiDetectionService } from '../guards';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
@@ -312,22 +312,11 @@ export class EmailAnalysisService {
     const lines = withPrompts.map((label) => {
       const normalizedPrompt = sanitizeForLLM(
         String(label.aiPrompt).replace(/\s+/g, ' ').trim(),
-        {
-          maxLength: EmailAnalysisService.LABEL_PROMPT_MAX_LENGTH,
-          stripCodeBlocks: true,
-        },
+        { maxLength: EmailAnalysisService.LABEL_PROMPT_MAX_LENGTH, stripCodeBlocks: true },
       );
-      return this.truncatePromptLine(
-        `- "${label.name}": ${normalizedPrompt}`,
-        EmailAnalysisService.PROMPT_LINE_MAX_LENGTH,
-      );
+      return truncatePromptLine(`- "${label.name}": ${normalizedPrompt}`, EmailAnalysisService.PROMPT_LINE_MAX_LENGTH);
     });
-    return this.buildTaggedPromptSection(
-      'LABEL_RULES',
-      lines,
-      maxLength,
-      'Apply these labels when the described conditions match:',
-    );
+    return buildTaggedPromptSection('LABEL_RULES', lines, maxLength, 'Apply these labels when the described conditions match:');
   }
 
   private computeLabelRulesSignature(labels: Array<{ name: string; aiPrompt: string | null }>): string {
@@ -336,53 +325,6 @@ export class EmailAnalysisService {
       aiPrompt: (label.aiPrompt || '').trim(),
     }));
     return createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
-  }
-
-  private buildTaggedPromptSection(
-    tag: string,
-    lines: string[],
-    maxLength?: number,
-    prefix?: string,
-  ): string {
-    if (lines.length === 0) return '';
-
-    const open = `\n<${tag}>\n`;
-    const prefixBlock = prefix ? `${prefix}\n` : '';
-    const close = `\n</${tag}>`;
-    const limit = typeof maxLength === 'number' ? maxLength : Number.MAX_SAFE_INTEGER;
-    const overhead = open.length + prefixBlock.length + close.length;
-    if (limit <= overhead) return '';
-
-    const accepted: string[] = [];
-    let currentLength = overhead;
-
-    for (const line of lines) {
-      const normalized = line.trim();
-      if (!normalized) continue;
-
-      const lineCost = normalized.length + (accepted.length > 0 ? 1 : 0);
-      if (currentLength + lineCost > limit) {
-        const available = limit - currentLength - (accepted.length > 0 ? 1 : 0);
-        if (available > 6) {
-          accepted.push(this.truncatePromptLine(normalized, available));
-        }
-        break;
-      }
-
-      accepted.push(normalized);
-      currentLength += lineCost;
-    }
-
-    if (accepted.length === 0) return '';
-    return `${open}${prefixBlock}${accepted.join('\n')}${close}`;
-  }
-
-  private truncatePromptLine(value: string, maxLength: number): string {
-    const normalized = value.replace(/\s+/g, ' ').trim();
-    if (maxLength <= 0) return '';
-    if (normalized.length <= maxLength) return normalized;
-    if (maxLength <= 3) return normalized.slice(0, maxLength);
-    return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
   }
 
   private async getEmailOrThrow(tenantId: string, emailId: string): Promise<EmailRecord> {
