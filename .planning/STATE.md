@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: executing
-stopped_at: Completed 0139-01-PLAN.md
-last_updated: "2026-04-02T07:29:28.188Z"
+stopped_at: Completed 0139-02-PLAN.md
+last_updated: "2026-04-02T07:36:46.848Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -55,6 +55,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 0137]: UncheckedUpdateInput for ManualTask FK updates -- Prisma UpdateInput requires relation objects, unchecked variant allows raw FK assignment
 - [Phase 0137]: Parallel source aggregation pattern: Promise.all over filtered source queries with status reverse-mapping
 - [Phase 0139]: Manual migration SQL for TaskSmartView due to shadow DB incompatibility; follows standard Prisma migration shape
+- [Phase 0139]: CRM SavedViewsPanel pattern reused for SavedViewsBar with success color accent
+- [Phase 0139]: Box wrapper with onClick+preventDefault to intercept sidebar Link navigation for Tasks popover
 
 ### Blockers/Concerns
 
@@ -62,6 +64,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-04-02T07:29:28.182Z
-Stopped at: Completed 0139-01-PLAN.md
+Last session: 2026-04-02T07:36:46.844Z
+Stopped at: Completed 0139-02-PLAN.md
 Resume file: None
