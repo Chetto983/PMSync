@@ -618,6 +618,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
       {/* Triage Status Section */}
       <TriageStatusSection
         emailId={message.id}
+        senderEmail={extractEmailAddress(message.from)}
         lane={message.aiLane}
         labels={message.aiLabels}
         priorityReason={message.aiPriorityReason}

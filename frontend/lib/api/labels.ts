@@ -403,7 +403,33 @@ export const labelsApi = {
     const response = await apiClient.get('/ai/triage-rules/lane-counts');
     return response.data;
   },
+
+  // --- Triage Overrides ---
+
+  async getOverrides(): Promise<{ overrides: TriageOverrideItem[] }> {
+    const response = await apiClient.get('/ai/triage-overrides');
+    return response.data;
+  },
+
+  async createOverride(dto: { type: string; pattern: string; action: string }): Promise<{ override: TriageOverrideItem }> {
+    const response = await apiClient.post('/ai/triage-overrides', dto);
+    return response.data;
+  },
+
+  async deleteOverride(id: string): Promise<void> {
+    await apiClient.delete(`/ai/triage-overrides/${id}`);
+  },
 };
+
+// ===== TRIAGE OVERRIDE TYPES =====
+
+export interface TriageOverrideItem {
+  id: string;
+  type: 'sender' | 'domain' | 'thread';
+  pattern: string;
+  action: string;
+  createdAt: string;
+}
 
 // ===== WIZARD TYPES =====
 

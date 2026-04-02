@@ -3289,6 +3289,19 @@ export interface AppTranslations {
         triageStatus: string;
         noActionNeeded: string;
       };
+      overrides: {
+        title: string;
+        alwaysImportant: string;
+        alwaysReviewLater: string;
+        alwaysSystemAlert: string;
+        neverFollowUp: string;
+        alwaysCustomerVip: string;
+        fromSender: string;
+        fromDomain: string;
+        remove: string;
+        active: string;
+        create: string;
+      };
     };
     calendarAi: {
       scheduling: {

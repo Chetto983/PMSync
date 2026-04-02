@@ -3184,6 +3184,19 @@ export const it: AppTranslations = {
         triageStatus: 'Stato triage',
         noActionNeeded: 'Nessuna email richiede azione adesso',
       },
+      overrides: {
+        title: 'Override triage',
+        alwaysImportant: 'Segna sempre come importante',
+        alwaysReviewLater: 'Invia sempre in revisione',
+        alwaysSystemAlert: 'Tratta sempre come avviso di sistema',
+        neverFollowUp: 'Non creare mai follow-up',
+        alwaysCustomerVip: 'Tratta sempre come cliente/VIP',
+        fromSender: 'Da questo mittente',
+        fromDomain: 'Da questo dominio',
+        remove: 'Rimuovi override',
+        active: 'Override attivo',
+        create: 'Crea override',
+      },
     },
     calendarAi: {
       scheduling: {

@@ -3204,6 +3204,19 @@ export const en: AppTranslations = {
         triageStatus: 'Triage Status',
         noActionNeeded: 'No emails need action right now',
       },
+      overrides: {
+        title: 'Triage Overrides',
+        alwaysImportant: 'Always mark as important',
+        alwaysReviewLater: 'Always send to review later',
+        alwaysSystemAlert: 'Always treat as system alert',
+        neverFollowUp: 'Never create follow-ups',
+        alwaysCustomerVip: 'Always treat as customer/VIP',
+        fromSender: 'From this sender',
+        fromDomain: 'From this domain',
+        remove: 'Remove override',
+        active: 'Active override',
+        create: 'Create override',
+      },
     },
     calendarAi: {
       scheduling: {
