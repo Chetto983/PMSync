@@ -1,50 +1,44 @@
 # Reminder Sprint — Checkpoint
 
 ## Status
-- **Sprint:** 01 — Scheduler, Email Monitor & Scalability
-- **Last Task Completed:** T-0111 — Type-check + unit tests
-- **Next Task:** Sprint 01 COMPLETE — Production validation pending
-- **Tasks Done:** 11/11
-- **SP Completed:** 21/21
-- **Last Updated:** 2026-04-01 23:30
+- **Sprint:** 02 — AI Chat Tools Complete
+- **Last Task Completed:** T-0208 — Type-check backend + frontend
+- **Next Task:** Sprint 02 COMPLETE — Production validation pending
+- **Tasks Done:** 8/8
+- **SP Completed:** 14/14
+- **Last Updated:** 2026-04-02 12:00
 
 ## Audit Findings Addressed
-- C1: No pre-deadline alerts — DONE (T-0101, T-0102, T-0103)
-- C3: Email monitor O(N*K) query — DONE (T-0106)
-- C4: No Socket.IO events for Reminder — DONE (T-0104, T-0105)
-- C5: Telegram hardcoded Italian — DONE (T-0110)
-- H1: Notification scheduling not transactional — DONE (T-0108)
-- H2: No jitter on delayed jobs — DONE (T-0109)
-- H3: Email monitor batch across all tenants — DONE (T-0107)
+- C1: No pre-deadline alerts — ✅ fixed in S01
+- C2: AI tools incomplete — ✅ fixed in S02 (all 6 tools: create, list, complete, update, delete, snooze)
+- C3: Email monitor O(N*K) query — ✅ fixed in S01
+- C4: No Socket.IO events for Reminder — ✅ fixed in S01
+- C5: Telegram hardcoded Italian — ✅ fixed in S01
+- H1: Notification scheduling not transactional — ✅ fixed in S01
+- H2: No jitter on delayed jobs — ✅ fixed in S01
+- H3: Email monitor batch across all tenants — ✅ fixed in S01
 
 ## Last Modified Files
-- backend/src/modules/reminder/services/reminder-alert-scheduler.service.ts (NEW)
-- backend/src/modules/reminder/services/__tests__/reminder-alert-scheduler.service.spec.ts (NEW)
-- backend/src/modules/telegram/utils/telegram-messages.ts (NEW)
-- backend/src/common/interfaces/reminder-notify.interface.ts (NEW)
-- backend/src/common/services/scheduled-jobs.queue.ts
-- backend/src/modules/realtime/types/realtime.types.ts
-- backend/src/modules/realtime/services/realtime-events.service.ts
-- backend/src/modules/reminder/services/reminder.service.ts
-- backend/src/modules/reminder/reminder.module.ts
-- backend/src/modules/telegram/services/reminder-notify.queue.ts
-- backend/src/modules/telegram/services/reminder-email-monitor.service.ts
-- backend/src/modules/telegram/services/telegram-bot.service.ts
-- backend/src/modules/telegram/telegram.module.ts
-- backend/prisma/schema.prisma
+- backend/src/modules/ai-chat/tools/reminder-tools.service.ts
+- backend/src/modules/ai-chat/constants/tool-domains.ts
+- backend/src/modules/ai-chat/tools/tool-registry-governance.test.ts
+- frontend/src/components/chat/tool-uis/ReminderToolUI.tsx
+- frontend/src/components/chat/tool-uis/index.tsx
+- frontend/locales/en.ts
+- frontend/locales/it.ts
+- frontend/locales/index.ts
 
 ## Key Decisions Made
-- Used ±30s jitter on delayed jobs to prevent Telegram API spikes
-- Raw SQL ILIKE ANY(array) instead of Prisma OR expansion for email monitor
-- Per-tenant round-robin (max 50/tenant) for email monitor fairness
-- IReminderNotifyQueue interface extracted to break ReminderModule↔TelegramModule circular dep
-- User locale resolved from UserPreferences.language (default 'it' for backward compat)
+- Zod schemas match exact Prisma enum values (ReminderAzione: chiama, scrivi_mail, verifica, conferma, controlla, altro)
+- delete_reminder is HIGH risk with requiresApproval: true (HITL)
+- snooze_reminder calculates new date as now + N days (1-30 range)
+- All 4 new renderers lazy-loaded in barrel export, consistent with existing pattern
+- Governance test updated: 35→39 tools, delete_reminder added to HIGH_RISK_TOOLS
 
 ## Blockers / Notes
-- prisma db push done for schema changes (notificationScheduled, lastRemindedAt, remindCount, Email index)
+- Governance test file is .test.ts but jest config only matches .spec.ts — test cannot be run via default config
 - Production validation NOT yet done (git push + Railway/Vercel deploy pending)
 
 ## Validation Status
-- Backend tsc: PASSING
-- Frontend tsc: not checked (no frontend changes in S01)
-- Unit tests: 7/7 passing (reminder-alert-scheduler.service.spec.ts)
+- Backend tsc: ✅ passing
+- Frontend tsc: ✅ passing

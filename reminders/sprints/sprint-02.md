@@ -11,14 +11,14 @@
 
 ## Sprint Backlog
 
-- [ ] T-0201 — Aggiungere schema Zod e tool builder per `complete_reminder` in `ReminderToolsService`. Input: `{ reminderId: string }`. Chiama `reminderService.completeReminder()`. Risk level: MEDIUM, requiresApproval: false. — [2 SP]
-- [ ] T-0202 — Aggiungere schema Zod e tool builder per `update_reminder` in `ReminderToolsService`. Input: `{ reminderId, titolo?, descrizione?, contatto?, scadenzaDatetime?, priorita?, azione? }`. Chiama `reminderService.updateReminder()`. Risk level: MEDIUM, requiresApproval: false. — [3 SP]
-- [ ] T-0203 — Aggiungere schema Zod e tool builder per `delete_reminder` in `ReminderToolsService`. Input: `{ reminderId: string }`. Chiama `reminderService.deleteReminder()`. Risk level: HIGH, requiresApproval: true (HITL). — [2 SP]
-- [ ] T-0204 — Aggiungere schema Zod e tool builder per `snooze_reminder` in `ReminderToolsService`. Input: `{ reminderId: string, days: number (1-30) }`. Calcola nuova `scadenzaDatetime = now + days`, chiama `updateReminder`. Risk level: MEDIUM. — [2 SP]
-- [ ] T-0205 — Registrare tutti i nuovi tool nel `toolRegistry.registerTool()` in `onModuleInit()`. Aggiungere in `getTools()` return map. Aggiornare `tool-domains.ts` se necessario. — [1 SP]
-- [ ] T-0206 — Aggiungere tool renderers nel frontend per `complete_reminder`, `update_reminder`, `delete_reminder`, `snooze_reminder` in `ReminderToolUI.tsx`. Mostrare conferma/risultato inline nella chat. — [2 SP]
-- [ ] T-0207 — Aggiornare governance test `tool-registry-governance.test.ts` con i 6 tool totali (create, list, update, delete, complete, snooze). — [1 SP]
-- [ ] T-0208 — Type-check backend + frontend. Testare ogni tool via AI chat su Railway. — [1 SP]
+- [x] T-0201 — Aggiungere schema Zod e tool builder per `complete_reminder` in `ReminderToolsService`. Input: `{ reminderId: string }`. Chiama `reminderService.completeReminder()`. Risk level: MEDIUM, requiresApproval: false. — [2 SP] — ✅ DONE
+- [x] T-0202 — Aggiungere schema Zod e tool builder per `update_reminder` in `ReminderToolsService`. Input: `{ reminderId, titolo?, descrizione?, contatto?, scadenzaDatetime?, priorita?, azione? }`. Chiama `reminderService.updateReminder()`. Risk level: MEDIUM, requiresApproval: false. — [3 SP] — ✅ DONE
+- [x] T-0203 — Aggiungere schema Zod e tool builder per `delete_reminder` in `ReminderToolsService`. Input: `{ reminderId: string }`. Chiama `reminderService.deleteReminder()`. Risk level: HIGH, requiresApproval: true (HITL). — [2 SP] — ✅ DONE
+- [x] T-0204 — Aggiungere schema Zod e tool builder per `snooze_reminder` in `ReminderToolsService`. Input: `{ reminderId: string, days: number (1-30) }`. Calcola nuova `scadenzaDatetime = now + days`, chiama `updateReminder`. Risk level: MEDIUM. — [2 SP] — ✅ DONE
+- [x] T-0205 — Registrare tutti i nuovi tool nel `toolRegistry.registerTool()` in `onModuleInit()`. Aggiungere in `getTools()` return map. Aggiornare `tool-domains.ts` se necessario. — [1 SP] — ✅ DONE
+- [x] T-0206 — Aggiungere tool renderers nel frontend per `complete_reminder`, `update_reminder`, `delete_reminder`, `snooze_reminder` in `ReminderToolUI.tsx`. Mostrare conferma/risultato inline nella chat. — [2 SP] — ✅ DONE
+- [x] T-0207 — Aggiornare governance test `tool-registry-governance.test.ts` con i 6 tool totali (create, list, update, delete, complete, snooze). — [1 SP] — ✅ DONE
+- [x] T-0208 — Type-check backend + frontend. Testare ogni tool via AI chat su Railway. — [1 SP] — ✅ DONE
 
 ---
 
