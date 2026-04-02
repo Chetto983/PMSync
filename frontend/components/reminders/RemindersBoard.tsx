@@ -12,13 +12,15 @@ import {
   DialogContentText,
   DialogActions,
   Typography,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
-import { Plus, Bell, Trash2 } from 'lucide-react';
+import { Plus, Bell, Trash2, Search, X } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { PageContainer } from '@/components/common';
 import { EmptyState } from '@/components/common/EmptyState';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
-import { useReminders, useCompleteReminder, useDeleteReminder, useBulkDeleteReminders } from '@/hooks/queries/use-reminders';
+import { useReminders, useSearchReminders, useCompleteReminder, useDeleteReminder, useBulkDeleteReminders } from '@/hooks/queries/use-reminders';
 import type { Reminder, ReminderStatus } from '@/lib/api/reminders';
 import { ReminderCard } from './ReminderCard';
 import { ReminderCreateDialog } from './ReminderCreateDialog';
@@ -37,9 +39,22 @@ export function RemindersBoard() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const isSearching = debouncedSearch.length >= 2;
 
   const params = statusFilter === 'all' ? undefined : { status: statusFilter };
-  const { data, isLoading, isError, error, refetch } = useReminders(params);
+  const listQuery = useReminders(params);
+  const searchQuery = useSearchReminders(debouncedSearch);
+  const activeQuery = isSearching ? searchQuery : listQuery;
+  const { data, isLoading, isError, error, refetch } = activeQuery;
   const completeMutation = useCompleteReminder();
   const deleteMutation = useDeleteReminder();
   const bulkDeleteMutation = useBulkDeleteReminders();
@@ -112,6 +127,36 @@ export function RemindersBoard() {
   return (
     <PageContainer title={tr.title} subtitle={tr.subtitle} actions={headerActions}>
 
+      {/* Search bar */}
+      <TextField
+        size="small"
+        fullWidth
+        placeholder={tr.searchPlaceholder}
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+        sx={{ mb: 1.5 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={18} />
+              </InputAdornment>
+            ),
+            endAdornment: searchInput ? (
+              <InputAdornment position="end">
+                <Box
+                  component="button"
+                  onClick={() => setSearchInput('')}
+                  sx={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', p: 0.5 }}
+                >
+                  <X size={16} />
+                </Box>
+              </InputAdornment>
+            ) : null,
+          },
+        }}
+      />
+
       {/* Status filter chips */}
       <Box sx={{ display: 'flex', gap: 0.75, mb: 2, flexWrap: 'wrap' }}>
         {STATUS_FILTERS.map((s) => (
@@ -173,14 +218,23 @@ export function RemindersBoard() {
 
       {/* Empty */}
       {!isLoading && !isError && reminders.length === 0 && (
-        <EmptyState
-          icon={Bell}
-          color="#22c55e"
-          title={tr.noReminders}
-          description={tr.noRemindersDescription}
-          actionLabel={tr.newReminder}
-          onAction={() => setDialogOpen(true)}
-        />
+        isSearching ? (
+          <EmptyState
+            icon={Search}
+            color="#9e9e9e"
+            title={(tr.noSearchResults ?? 'No reminders found for "{query}"').replace('{query}', debouncedSearch)}
+            description=""
+          />
+        ) : (
+          <EmptyState
+            icon={Bell}
+            color="#22c55e"
+            title={tr.noReminders}
+            description={tr.noRemindersDescription}
+            actionLabel={tr.newReminder}
+            onAction={() => setDialogOpen(true)}
+          />
+        )
       )}
 
       {/* Reminders list */}

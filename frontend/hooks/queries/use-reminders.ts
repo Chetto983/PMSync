@@ -14,6 +14,7 @@ import {
   type CreateReminderDto,
   type UpdateReminderDto,
   type UpdateTelegramSettingsDto,
+  type BulkUpdateRemindersDto,
   type Reminder,
   type ListRemindersResponse,
   type TelegramSettings,
@@ -199,6 +200,46 @@ export function useDeleteReminder() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+  });
+}
+
+/** Hook: search reminders by text query */
+export function useSearchReminders(q: string) {
+  return useQuery({
+    queryKey: reminderKeys.search(q),
+    queryFn: async (): Promise<ListRemindersResponse> => {
+      const response = await remindersApi.search({ q });
+      const envelope = response.data as ReminderListEnvelope | undefined;
+      const reminders = Array.isArray(envelope?.data) ? envelope.data : [];
+      const meta = envelope?.meta ?? {};
+      return {
+        reminders,
+        total: meta.total ?? reminders.length,
+        page: meta.page ?? 1,
+        limit: meta.limit ?? 20,
+      };
+    },
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+    enabled: q.length >= 2,
+  });
+}
+
+/** Mutation: bulk-update reminders (status/priority) */
+export function useBulkUpdateReminders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (dto: BulkUpdateRemindersDto): Promise<{ updated: number }> => {
+      const response = await remindersApi.bulkUpdate(dto);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.bulkUpdateFailed);
     },
   });
 }

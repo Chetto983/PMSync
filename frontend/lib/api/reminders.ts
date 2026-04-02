@@ -94,6 +94,18 @@ export interface ListRemindersParams {
   limit?: number;
 }
 
+export interface SearchRemindersParams {
+  q: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface BulkUpdateRemindersDto {
+  ids: string[];
+  status?: ReminderStatus;
+  priorita?: ReminderPriorita;
+}
+
 export interface ListRemindersResponse {
   reminders: Reminder[];
   total: number;
@@ -151,6 +163,12 @@ export const remindersApi = {
 
   complete: (id: string) =>
     apiClient.post<{ data: Reminder }>(`/reminders/${id}/complete`),
+
+  search: (params: SearchRemindersParams) =>
+    apiClient.get<{ data: Reminder[]; meta: { total: number; page: number; limit: number } }>('/reminders/search', { params }),
+
+  bulkUpdate: (dto: BulkUpdateRemindersDto) =>
+    apiClient.patch<{ data: { updated: number } }>('/reminders/bulk', dto),
 };
 
 // =============================================================================
