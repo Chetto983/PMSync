@@ -18,6 +18,7 @@ import {
   AddEmailsToLabelDto,
   BulkDeleteLabelsDto,
   CreateLabelDto,
+  LabelPreviewDto,
   CreateLabelWizardDto,
   ReorderLabelsDto,
   TriageOnboardingRulesDto,
@@ -80,6 +81,24 @@ export class LabelsController {
   ) {
     const label = await this.labelsService.updateFromWizard(req.user.tenantId, labelId, dto);
     return { label };
+  }
+
+  @Post(':id/preview')
+  @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({
+    summary: 'Preview label against a real email',
+    description: 'Runs unified email analysis and returns whether the selected label would match the given email.',
+  })
+  @ApiParam({ name: 'id', description: 'Label ID' })
+  @ApiBody({ type: LabelPreviewDto })
+  @ApiResponse({ status: 200, description: 'Label preview generated successfully' })
+  async previewLabel(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') labelId: string,
+    @Body() dto: LabelPreviewDto,
+  ) {
+    return this.labelsService.previewLabelOnEmail(req.user.tenantId, labelId, dto);
   }
 
   @Get('triage-onboarding')

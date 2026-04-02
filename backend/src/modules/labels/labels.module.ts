@@ -4,6 +4,7 @@ import { LabelsService } from './services/labels.service';
 import { EmailModule } from '../email/email.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { AiModule } from '../ai/ai.module';
 
 /**
  * LabelsModule - Email label management.
@@ -13,7 +14,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
  * S09 T-0901: Import EmailSyncModule for ProviderSyncBackQueueService (Microsoft category sync-back).
  */
 @Module({
-  imports: [EmailModule, EmailSyncModule, RealtimeModule],
+  imports: [EmailModule, EmailSyncModule, RealtimeModule, AiModule],
   controllers: [LabelsController],
   providers: [LabelsService],
   exports: [LabelsService],

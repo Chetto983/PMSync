@@ -2,6 +2,9 @@ import { LabelsService } from '../labels.service';
 
 describe('LabelsService triage onboarding', () => {
   const mockEmailsService = {};
+  const mockEmailInsights = {
+    analyzeEmailUnified: jest.fn(),
+  };
   const mockRealtimeEvents = {
     emitLabelUpdate: jest.fn(),
     emitLabelNew: jest.fn(),
@@ -14,6 +17,7 @@ describe('LabelsService triage onboarding', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEmailInsights.analyzeEmailUnified.mockReset();
   });
 
   it('previews normalized rules and flags existing labels', async () => {
@@ -32,6 +36,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockEmailInsights as any,
     );
 
     const preview = await service.previewTriageOnboarding('tenant-1', {
@@ -83,6 +88,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockEmailInsights as any,
     );
 
     const result = await service.applyTriageOnboarding('tenant-1', {
@@ -112,5 +118,61 @@ describe('LabelsService triage onboarding', () => {
       data: { processedAt: expect.any(Date) },
     });
     expect(result.labels.some((label: { name: string }) => label.name === 'System Alert')).toBe(true);
+  });
+
+  it('previews whether a wizard label matches a real email analysis', async () => {
+    mockEmailInsights.analyzeEmailUnified.mockResolvedValue({
+      labels: ['CI Incident', 'Action Items'],
+      priority: 2,
+      urgency: 'high',
+      lane: 'action-now',
+      intent: 'alert',
+      actionability: 'todo',
+      summary: 'CI failure on PMSync main branch',
+      reasoning: 'The subject indicates a concrete build failure that needs action.',
+      meta: { source: 'live' },
+    });
+
+    const prisma = {
+      userLabel: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'label-1',
+          name: 'CI Incident',
+          aiPrompt: 'Use for CI failures',
+          category: 'workflow',
+          roles: ['tech'],
+          contents: ['system-alert'],
+          actionType: 'urgent',
+          defaultLane: 'action-now',
+        }),
+      },
+      email: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'email-1',
+          subject: '[chetto1983/PMSync] Run failed: CI',
+          from: 'notifications@github.com',
+          receivedAt: new Date('2026-04-02T10:00:00.000Z'),
+        }),
+      },
+    };
+
+    const service = new LabelsService(
+      prisma as any,
+      mockEmailsService as any,
+      mockRealtimeEvents as any,
+      mockSyncBackQueue as any,
+      mockEmailInsights as any,
+    );
+
+    const preview = await service.previewLabelOnEmail('tenant-1', 'label-1', {
+      emailId: 'email-1',
+      locale: 'it',
+    });
+
+    expect(mockEmailInsights.analyzeEmailUnified).toHaveBeenCalledWith('tenant-1', 'email-1', 'it');
+    expect(preview.matched).toBe(true);
+    expect(preview.analysis.labels).toEqual(['CI Incident', 'Action Items']);
+    expect(preview.email.subject).toContain('Run failed');
+    expect(preview.label.name).toBe('CI Incident');
   });
 });

@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -11,10 +12,12 @@ import { emailLabelsInclude } from '../../../common/utils';
 import { EmailsService } from '../../email/services/emails.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderSyncBackQueueService } from '../../email-sync/services/provider-sync-back-queue.service';
+import { EmailInsightsService } from '../../ai/services/email-insights.service';
 import {
   AddEmailsToLabelDto,
   CreateLabelDto,
   CreateLabelWizardDto,
+  LabelPreviewDto,
   ReorderLabelsDto,
   TriageOnboardingRulesDto,
   UpdateLabelDto,
@@ -43,6 +46,7 @@ export class LabelsService {
     private readonly emailsService: EmailsService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly syncBackQueue: ProviderSyncBackQueueService,
+    @Optional() private readonly emailInsightsService?: EmailInsightsService,
   ) {}
 
   async findAllByTenant(tenantId: string) {
@@ -967,6 +971,67 @@ export class LabelsService {
         defaultLane,
       },
     });
+  }
+
+  async previewLabelOnEmail(tenantId: string, labelId: string, dto: LabelPreviewDto) {
+    if (!this.emailInsightsService) {
+      throw new BadRequestException('Email insights service is unavailable');
+    }
+
+    const [label, email] = await Promise.all([
+      this.prisma.userLabel.findFirst({
+        where: { id: labelId, tenantId, isArchived: false },
+        select: {
+          id: true,
+          name: true,
+          aiPrompt: true,
+          category: true,
+          roles: true,
+          contents: true,
+          actionType: true,
+          defaultLane: true,
+        },
+      }),
+      this.prisma.email.findFirst({
+        where: { id: dto.emailId, tenantId },
+        select: {
+          id: true,
+          subject: true,
+          from: true,
+          receivedAt: true,
+        },
+      }),
+    ]);
+
+    if (!label) {
+      throw new NotFoundException('Label not found');
+    }
+    if (!email) {
+      throw new NotFoundException('Email not found');
+    }
+
+    const analysis = await this.emailInsightsService.analyzeEmailUnified(
+      tenantId,
+      dto.emailId,
+      dto.locale,
+    );
+
+    return {
+      matched: analysis.labels.includes(label.name),
+      label,
+      email,
+      analysis: {
+        labels: analysis.labels,
+        priority: analysis.priority,
+        urgency: analysis.urgency,
+        lane: analysis.lane,
+        intent: analysis.intent,
+        actionability: analysis.actionability,
+        summary: analysis.summary,
+        reasoning: analysis.reasoning,
+        meta: analysis.meta,
+      },
+    };
   }
 
   private slugify(name: string): string {
