@@ -1451,7 +1451,7 @@ export class AiChatService {
       ...this.ragToolsService.getTools(tenantId, userId, piiResolve),
       ...this.emailProductivityToolsService.getTools(tenantId),
       ...this.followUpToolsService.getTools(tenantId, userId),
-      ...this.reminderToolsService.getTools(tenantId, userId),
+      ...this.reminderToolsService.getTools(tenantId, userId, sensitivity),
       ...this.conversationToolsService.getTools(),
       ...this.sandboxToolsService.getTools(tenantId),
       ...this.crmToolsService.getTools(tenantId, piiResolve),

@@ -76,13 +76,14 @@ export class ReminderToolsService implements OnModuleInit {
   getTools(
     tenantId: string,
     userId: string,
+    sensitivity: string = 'HIGH_ONLY',
   ) {
     return {
       create_reminder: this.buildCreateReminder(tenantId, userId),
       list_reminders: this.buildListReminders(tenantId, userId),
       complete_reminder: this.buildCompleteReminder(tenantId, userId),
       update_reminder: this.buildUpdateReminder(tenantId, userId),
-      delete_reminder: this.buildDeleteReminder(tenantId, userId),
+      delete_reminder: this.buildDeleteReminder(tenantId, userId, sensitivity),
       snooze_reminder: this.buildSnoozeReminder(tenantId, userId),
     };
   }
@@ -238,13 +239,14 @@ export class ReminderToolsService implements OnModuleInit {
     });
   }
 
-  private buildDeleteReminder(tenantId: string, userId: string) {
+  private buildDeleteReminder(tenantId: string, userId: string, sensitivity: string) {
     return tool({
       description:
         "Permanently delete a reminder. DESTRUCTIVE — requires user approval. " +
         "Use when user says 'elimina il promemoria', 'delete reminder', " +
         "'cancella il promemoria per...', 'remove reminder'.",
       inputSchema: reminderSchemas.delete_reminder,
+      needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         try {
           await this.reminderService.deleteReminder(
