@@ -154,7 +154,7 @@
 
 See `milestones/v12.0-ROADMAP.md` for full phase details.
 
-**Plans:** 14 plans
+**Plans:** 16 plans
 
 - [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
   Plans:
@@ -217,7 +217,21 @@ Plans:
   3. User sees a mini-CRM hover card (name, company, deal status, last interaction) when hovering any contact name anywhere in the app
 **UI hint**: yes
 - [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
-- [ ] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize
+- [x] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize (completed 2026-04-02)
+
+### Phase 143: AI Suggestions & Actions
+**Goal**: Users receive intelligent action suggestions when reading emails and can act on them with one click
+**Depends on**: Phase 142
+**Requirements**: AI-04, AI-05
+**Plans:** 2 plans
+Plans:
+- [ ] 0143-01-PLAN.md — Backend rule engine, task type accept, for-email endpoint
+- [ ] 0143-02-PLAN.md — Frontend translations, API hook, EmailSuggestionCard, sidebar integration
+**Success Criteria** (what must be TRUE):
+  1. User sees suggested actions after reading an email (create task, update deal, link to ticket) in the contextual sidebar
+  2. User can accept a suggestion with one click and the action executes
+  3. User can dismiss a suggestion and it does not reappear for that email
+**UI hint**: yes
 - [ ] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss
 - [ ] **Phase 144: AI Assistant Overlay** - Slide-over AI panel from any screen
 - [ ] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
