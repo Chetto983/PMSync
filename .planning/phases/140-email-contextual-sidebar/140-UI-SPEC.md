@@ -34,9 +34,8 @@ Declared values (MUI 8px base, `theme.spacing(n)` where 1 = 8px):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px (0.5) | Icon-label gaps, chip margins |
-| sm | 8px (1) | Compact element spacing, sidebar header padding axis |
-| md | 12px (1.5) | Section divider vertical margins, sidebar header padding |
-| lg | 16px (2) | Sidebar content padding, section bottom margins |
+| sm | 8px (1) | Compact element spacing, section divider vertical margins, tag container bottom margin |
+| lg | 16px (2) | Sidebar content padding, sidebar header padding, section bottom margins |
 | xl | 24px (3) | Not used in this phase |
 | 2xl | 48px (6) | Not used in this phase |
 
@@ -96,7 +95,7 @@ This phase modifies one existing component and one existing API type. No new com
 | Chip height | 22px |
 | Chip font size | 0.7rem (11px) |
 | Visibility | Only render when `data.contact.tags.length > 0` |
-| Bottom margin | `mb: 1.5` (12px) on container |
+| Bottom margin | `mb: 1` (8px) on container |
 
 ### Modified: `CrmContactContext` type
 
