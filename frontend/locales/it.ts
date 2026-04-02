@@ -5788,6 +5788,8 @@ export const it: AppTranslations = {
     strengthModerate: 'Moderata',
     strengthStrong: 'Forte',
     contactTags: 'Tag',
+    suggestedActions: 'Azioni Suggerite',
+    noSuggestions: 'Nessun suggerimento',
   },
   activityTimeline: {
     title: 'Cronologia Attività',
@@ -5822,6 +5824,7 @@ export const it: AppTranslations = {
       deal: 'Nuova Trattativa',
       ticket: 'Nuovo Ticket',
       link: 'Collega Contatto',
+      task: 'Crea Attivita',
     },
     confidence: 'Affidabilità',
     dismissConfirmTitle: 'Ignora suggerimento',

@@ -5812,6 +5812,8 @@ export const en: AppTranslations = {
     strengthModerate: 'Moderate',
     strengthStrong: 'Strong',
     contactTags: 'Tags',
+    suggestedActions: 'Suggested Actions',
+    noSuggestions: 'No suggestions',
   },
   activityTimeline: {
     title: 'Activity Timeline',
@@ -5846,6 +5848,7 @@ export const en: AppTranslations = {
       deal: 'New Deal',
       ticket: 'New Ticket',
       link: 'Link Contact',
+      task: 'Create Task',
     },
     confidence: 'Confidence',
     dismissConfirmTitle: 'Dismiss suggestion',

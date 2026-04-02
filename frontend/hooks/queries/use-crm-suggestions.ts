@@ -24,7 +24,22 @@ export function crmSuggestionsPendingOptions() {
   });
 }
 
+export function emailSuggestionsOptions(emailId: string) {
+  return queryOptions({
+    queryKey: crmSuggestionsKeys.forEmail(emailId),
+    queryFn: () => crmSuggestionsApi.forEmail(emailId).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!emailId,
+  });
+}
+
 // ---- Hooks ----
+
+export function useEmailSuggestions(emailId: string) {
+  return useQuery(emailSuggestionsOptions(emailId));
+}
 
 export function usePendingSuggestions() {
   return useQuery(crmSuggestionsPendingOptions());

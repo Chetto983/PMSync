@@ -58,6 +58,10 @@ export const crmSuggestionsApi = {
     return apiClient.post<CrmSuggestion>(`/crm/suggestions/${id}/dismiss`);
   },
 
+  forEmail(emailId: string) {
+    return apiClient.get<CrmSuggestion[]>(`/crm/suggestions/for-email/${emailId}`);
+  },
+
   bulk(dto: BulkSuggestionDto) {
     return apiClient.post<BulkSuggestionResult>('/crm/suggestions/bulk', dto);
   },

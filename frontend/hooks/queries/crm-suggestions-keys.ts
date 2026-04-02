@@ -5,4 +5,5 @@ export const crmSuggestionsKeys = {
   list: () => [...crmSuggestionsKeys.all, 'list'] as const,
   listFiltered: (params?: ListSuggestionsParams) => [...crmSuggestionsKeys.list(), params ?? {}] as const,
   pending: () => [...crmSuggestionsKeys.all, 'pending'] as const,
+  forEmail: (emailId: string) => [...crmSuggestionsKeys.all, 'for-email', emailId] as const,
 } as const;

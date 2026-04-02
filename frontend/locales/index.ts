@@ -5579,6 +5579,8 @@ export interface AppTranslations {
     strengthModerate?: string;
     strengthStrong?: string;
     contactTags?: string;
+    suggestedActions?: string;
+    noSuggestions?: string;
   };
   crmSuggestions?: {
     title?: string;
@@ -5596,6 +5598,7 @@ export interface AppTranslations {
       deal?: string;
       ticket?: string;
       link?: string;
+      task?: string;
     };
     confidence?: string;
     dismissConfirmTitle?: string;
