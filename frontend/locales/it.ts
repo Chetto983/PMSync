@@ -3896,6 +3896,14 @@ export const it: AppTranslations = {
       vipHelper: 'Segna questo contatto come VIP per gestione prioritaria',
       relationshipScore: 'Punteggio',
       addEmailHint: 'Aggiungi un indirizzo email al contatto per inviare un messaggio.',
+      hoverCard: {
+        deals: 'Trattative',
+        lastInteraction: 'Ultima interazione',
+        emails: 'email',
+        noDealData: 'Nessuna trattativa',
+        viewProfile: 'Vedi profilo',
+        noData: 'Nessun dato CRM disponibile',
+      },
     },
     list: {
       emptyTitle: 'Nessun contatto',
