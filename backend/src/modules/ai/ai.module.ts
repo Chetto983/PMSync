@@ -75,6 +75,9 @@ import { TriageRulesController } from './controllers/triage-rules.controller';
 import { LabelResolutionService } from './services/label-resolution.service';
 import { TriageScoreService } from './services/triage-score.service';
 import { LaneAssignmentService } from './services/lane-assignment.service';
+// Phase 10 Sprint 18: Triage overrides and feedback
+import { TriageOverrideService } from './services/triage-override.service';
+import { TriageOverridesController } from './controllers/triage-overrides.controller';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
@@ -153,8 +156,9 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     LabelResolutionService,
     TriageScoreService,
     LaneAssignmentService,
+    TriageOverrideService,
   ],
-  controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController],
+  controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController, TriageOverridesController],
   exports: [
     // Core AI services
     MistralService,
@@ -183,6 +187,7 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     // Phase 10 Label-First Triage: exported for controllers/chat
     TriageRuleService,
     LabelResolutionService,
+    TriageOverrideService,
   ],
 })
 export class AiModule implements OnModuleInit {

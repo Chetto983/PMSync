@@ -2519,3 +2519,34 @@ model InAppNotification {
   @@index([tenantId, userId, createdAt])
   @@map("in_app_notifications")
 }
+
+model TriageOverride {
+  id        String   @id @default(cuid())
+  tenantId  String
+  type      String   // 'sender' | 'domain' | 'thread'
+  pattern   String   // e.g. "boss@company.com", "acme.com", thread ID
+  action    String   // 'always-important' | 'always-review-later' | 'always-system-alert' | 'never-follow-up' | 'always-customer-vip'
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type, pattern])
+  @@index([tenantId])
+  @@map("triage_overrides")
+}
+
+model EmailTriageFeedback {
+  id        String   @id @default(cuid())
+  tenantId  String
+  emailId   String
+  type      String   // 'label_correction' | 'lane_correction' | 'followup_dismiss' | 'urgency_correction'
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, type])
+  @@index([tenantId, createdAt])
+  @@map("email_triage_feedback")
+}
