@@ -102,6 +102,9 @@ export interface Email {
   aiPriorityReason?: string | null;
   aiSentiment?: string | null;
   aiLabels?: string[];
+  aiLane?: string | null;
+  aiIntent?: string | null;
+  aiActionability?: string | null;
   isAutoTriaged?: boolean;
   autoTriagedAt?: string | null;
 }
