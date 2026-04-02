@@ -26,7 +26,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { formatDateInTz } from '@/lib/utils/format-date-tz';
-import { useTasks, useCompleteTask, useDeleteTask } from '@/hooks/queries/use-tasks';
+import { useTasks, useCompleteTask, useDeleteTask, useSmartViews } from '@/hooks/queries/use-tasks';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -88,7 +88,7 @@ export function TasksList() {
 
   // URL-synced state
   const q = router.query;
-  const [viewMode, setViewMode] = useState<ViewMode>(() => (q.view === 'kanban' ? 'kanban' : 'list'));
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (q.viewMode === 'kanban' ? 'kanban' : 'list'));
   const [filterSourceType, setFilterSourceType] = useState(() => (typeof q.type === 'string' ? q.type : ''));
   const [filterStatus, setFilterStatus] = useState(() => (typeof q.status === 'string' ? q.status : ''));
   const [filterPriority, setFilterPriority] = useState(() => (typeof q.priority === 'string' ? q.priority : ''));
@@ -107,8 +107,27 @@ export function TasksList() {
   );
   const [deleteTarget, setDeleteTarget] = useState<UnifiedTask | null>(null);
 
+  const { data: smartViewsData } = useSmartViews();
   const completeTask = useCompleteTask();
   const deleteTask = useDeleteTask();
+
+  // Hydrate filters from ?view=<id> on mount (cross-session persistence)
+  useEffect(() => {
+    if (!router.isReady) return;
+    const viewId = typeof q.view === 'string' ? q.view : null;
+    if (!viewId || !smartViewsData) return;
+    const view = smartViewsData.find((v: TaskSmartView) => v.id === viewId);
+    if (!view) return;
+    const f = view.filters as Partial<ListTasksQuery>;
+    setFilterSourceType(f.sourceType?.[0] ?? '');
+    setFilterStatus(f.status?.[0] ?? '');
+    setFilterPriority(f.priority?.[0] ?? '');
+    setFilterDueBefore(f.dueBefore ?? '');
+    setFilterDueAfter(f.dueAfter ?? '');
+    setFilterContactId(f.contactId ?? '');
+    setActiveViewId(view.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, smartViewsData]);
 
   // ?action=create triggers dialog
   useEffect(() => {
@@ -239,7 +258,7 @@ export function TasksList() {
           <ToggleButtonGroup
             value={viewMode}
             exclusive
-            onChange={(_, v) => v && setViewMode(v as ViewMode)}
+            onChange={(_, v) => { if (v) { setViewMode(v as ViewMode); setActiveViewId(null); } }}
             size="small"
             aria-label={t.tasks.viewList}
           >
