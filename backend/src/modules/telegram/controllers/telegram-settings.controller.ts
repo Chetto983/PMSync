@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
-import { IsBoolean, IsOptional, IsString, Matches } from 'class-validator';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { randomBytes } from 'crypto';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -25,21 +25,6 @@ class UpdateTelegramSettingsDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\d{2}:\d{2}$/, { message: 'Must be HH:mm format' })
-  slotMattina?: string;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\d{2}:\d{2}$/, { message: 'Must be HH:mm format' })
-  slotPomeriggio?: string;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\d{2}:\d{2}$/, { message: 'Must be HH:mm format' })
-  slotSera?: string;
 }
 
 interface AuthenticatedRequest {
@@ -79,16 +64,10 @@ export class TelegramSettingsController {
         userId: req.user.id,
         telegramChatId: dto.telegramChatId ?? null,
         isActive: dto.isActive ?? false,
-        slotMattina: dto.slotMattina ?? '08:30',
-        slotPomeriggio: dto.slotPomeriggio ?? '14:00',
-        slotSera: dto.slotSera ?? '18:00',
       },
       update: {
         ...(dto.telegramChatId !== undefined && { telegramChatId: dto.telegramChatId }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-        ...(dto.slotMattina !== undefined && { slotMattina: dto.slotMattina }),
-        ...(dto.slotPomeriggio !== undefined && { slotPomeriggio: dto.slotPomeriggio }),
-        ...(dto.slotSera !== undefined && { slotSera: dto.slotSera }),
       },
     });
     return { data: settings };

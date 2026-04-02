@@ -85,6 +85,8 @@ model Tenant {
   triageRules              Json                      @default("[]") // TriageRule[] — onboarding triage rules
   manualTasks              ManualTask[]
   taskSmartViews           TaskSmartView[]
+  triageOverrides          TriageOverride[]
+  emailTriageFeedback      EmailTriageFeedback[]
 
   @@map("tenants")
 }
@@ -1720,11 +1722,6 @@ model TelegramSettings {
 
   // AI chat conversation ID (persists chat history across Telegram messages)
   aiConversationId   String?
-
-  // Notification slot times (HH:mm format)
-  slotMattina        String   @default("08:30")
-  slotPomeriggio     String   @default("14:00")
-  slotSera           String   @default("18:00")
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

@@ -18,9 +18,6 @@ describe('TelegramSettingsController', () => {
     tenantId: 'tenant-1',
     telegramChatId: '12345',
     isActive: true,
-    slotMattina: '08:30',
-    slotPomeriggio: '14:00',
-    slotSera: '18:00',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -82,7 +79,7 @@ describe('TelegramSettingsController', () => {
 
   describe('update', () => {
     it('should upsert settings with DTO fields', async () => {
-      const dto = { isActive: true, slotMattina: '09:00' };
+      const dto = { isActive: true };
       (prisma.telegramSettings.upsert as jest.Mock).mockResolvedValue(mockSettings);
 
       const result = await controller.update(mockReq, dto as any);

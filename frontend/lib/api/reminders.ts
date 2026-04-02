@@ -123,9 +123,6 @@ export interface TelegramSettings {
   userId: string;
   telegramChatId?: string | null;
   isActive: boolean;
-  slotMattina: string;
-  slotPomeriggio: string;
-  slotSera: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -133,9 +130,6 @@ export interface TelegramSettings {
 export interface UpdateTelegramSettingsDto {
   telegramChatId?: string;
   isActive?: boolean;
-  slotMattina?: string;
-  slotPomeriggio?: string;
-  slotSera?: string;
 }
 
 // =============================================================================

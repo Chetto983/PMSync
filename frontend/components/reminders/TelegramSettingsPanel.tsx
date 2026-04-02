@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Typography,
-  TextField,
   Switch,
   FormControlLabel,
   Button,
@@ -30,9 +29,6 @@ export function TelegramSettingsPanel() {
   const disconnectMutation = useDisconnectTelegram();
 
   const [isActive, setIsActive] = useState(false);
-  const [slotMattina, setSlotMattina] = useState('08:30');
-  const [slotPomeriggio, setSlotPomeriggio] = useState('14:00');
-  const [slotSera, setSlotSera] = useState('18:00');
 
   // QR link flow state
   const [deepLink, setDeepLink] = useState<string | null>(null);
@@ -47,9 +43,6 @@ export function TelegramSettingsPanel() {
   useEffect(() => {
     if (settings) {
       setIsActive(settings.isActive);
-      setSlotMattina(settings.slotMattina);
-      setSlotPomeriggio(settings.slotPomeriggio);
-      setSlotSera(settings.slotSera);
     }
   }, [settings]);
 
@@ -103,7 +96,7 @@ export function TelegramSettingsPanel() {
   }, [linkErrorMessage, linkExpiredMessage, refetch]);
 
   const handleSave = () => {
-    updateMutation.mutate({ isActive, slotMattina, slotPomeriggio, slotSera });
+    updateMutation.mutate({ isActive });
   };
 
   const handleDisconnect = () => {
@@ -188,33 +181,6 @@ export function TelegramSettingsPanel() {
               control={<Switch checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />}
               label={tr.active}
             />
-
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <TextField
-                label={tr.slotMattina}
-                type="time"
-                value={slotMattina}
-                onChange={(e) => setSlotMattina(e.target.value)}
-                size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-              <TextField
-                label={tr.slotPomeriggio}
-                type="time"
-                value={slotPomeriggio}
-                onChange={(e) => setSlotPomeriggio(e.target.value)}
-                size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-              <TextField
-                label={tr.slotSera}
-                type="time"
-                value={slotSera}
-                onChange={(e) => setSlotSera(e.target.value)}
-                size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Box>
 
             <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
               <Button
