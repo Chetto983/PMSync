@@ -42,4 +42,4 @@
 - [x] Nessuna notifica duplicata tra i due sistemi (convert resolves follow-up first)
 - [x] `cd backend && npx tsc --noEmit` passa
 - [x] `cd frontend && npx tsc --noEmit` passa
-- [ ] E2E validato su Railway/Vercel
+- [x] E2E validato su Railway/Vercel — 2026-04-02
