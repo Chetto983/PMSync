@@ -172,11 +172,11 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
   Plans:
   - [ ] 0138-01-PLAN.md — Tasks API module, query hooks, translations, and barrel exports
   - [x] 0138-02-PLAN.md — TaskCard, CreateTaskDialog, TasksKanbanBoard, TasksList, and page wiring
-- [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
+- [x] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
   Plans:
   - [x] 0139-01-PLAN.md — Backend: TaskSmartView model, DTOs, SmartViewService, controller endpoints
   - [x] 0139-02-PLAN.md — Frontend: translations, API types, hooks, SavedViewsBar, SavedViewDialog, PinnedViewsPopover, sidebar integration
-  - [ ] 0139-03-PLAN.md — Gap closure: cross-session filter hydration, viewMode param fix, toggle clearing
+  - [x] 0139-03-PLAN.md — Gap closure: cross-session filter hydration, viewMode param fix, toggle clearing
 
 ### Phase 139: Smart Views & Task Customization
 **Goal**: Users save and pin frequently used filter combinations for instant access to their most relevant task slices
