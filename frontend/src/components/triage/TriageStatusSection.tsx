@@ -12,8 +12,6 @@ interface TriageStatusSectionProps {
   emailId: string;
   senderEmail?: string;
   lane?: string | null;
-  labels?: string[] | null;
-  priorityReason?: string | null;
   intent?: string | null;
   actionability?: string | null;
 }
@@ -37,7 +35,7 @@ const OVERRIDE_ACTIONS = [
 ] as const;
 
 export function TriageStatusSection({
-  emailId, senderEmail, lane, labels, priorityReason, intent, actionability,
+  emailId, senderEmail, lane, intent, actionability,
 }: TriageStatusSectionProps) {
   const theme = useTheme();
   const t = useTranslations();
@@ -48,7 +46,7 @@ export function TriageStatusSection({
   const createOverride = useCreateOverride();
   const deleteOverride = useDeleteOverride();
 
-  if (!lane && (!labels || labels.length === 0)) return null;
+  if (!lane && !intent && !actionability) return null;
 
   const Icon = lane ? (LANE_ICONS[lane] ?? HelpCircle) : null;
   const paletteKey = lane ? (LANE_PALETTE[lane] ?? 'text') : 'text';
@@ -96,14 +94,7 @@ export function TriageStatusSection({
           <Chip size="small" icon={<Icon size={14} />} label={laneLabel}
             sx={{ bgcolor: `${color}14`, color, border: `1px solid ${color}33`, '& .MuiChip-icon': { color } }} />
         )}
-        {labels?.map((label) => (
-          <Chip key={label} size="small" label={label} sx={{ height: 22, fontSize: '0.7rem' }} />
-        ))}
       </Box>
-
-      {priorityReason && (
-        <Typography variant="caption" color="text.secondary">{tr.reasoning.priorityReason}: {priorityReason}</Typography>
-      )}
 
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
         {intent && <Typography variant="caption" color="text.secondary">{tr.reasoning.intent}: {intent}</Typography>}

@@ -623,8 +623,6 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         emailId={message.id}
         senderEmail={extractEmailAddress(message.from)}
         lane={message.aiLane}
-        labels={message.aiLabels}
-        priorityReason={message.aiPriorityReason}
         intent={message.aiIntent}
         actionability={message.aiActionability}
       />
