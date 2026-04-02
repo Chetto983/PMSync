@@ -5,6 +5,7 @@
 'use client';
 
 import { useStaleContacts } from '@/hooks/queries/use-dashboard';
+import { useContactCounts } from '@/hooks/queries/use-contacts';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { DEFAULT_STALE_CONTACT_DAYS } from '@/lib/crm/stale-contacts';
 import { BaseWidget } from './BaseWidget';
@@ -38,8 +39,10 @@ export function StaleContactsWidget() {
   const theme = useTheme();
   const router = useRouter();
   const { data, isLoading, error, refetch } = useStaleContacts({ limit: 5, days: DEFAULT_STALE_CONTACT_DAYS });
+  const { data: contactCounts } = useContactCounts();
 
   const crm = t.dashboard.widgets.crm;
+  const hasAnyContacts = (contactCounts?.total ?? 0) > 0;
 
   return (
     <BaseWidget
@@ -169,10 +172,10 @@ export function StaleContactsWidget() {
       ) : (
         <Box sx={{ textAlign: 'center', py: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            {crm.allActive}
+            {hasAnyContacts ? crm.allActive : crm.noContactsSynced}
           </Typography>
           <Typography variant="caption" color="text.disabled">
-            {crm.greatJob}
+            {hasAnyContacts ? crm.greatJob : crm.noContactsSyncedDescription}
           </Typography>
         </Box>
       )}

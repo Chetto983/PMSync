@@ -584,6 +584,8 @@ export interface AppTranslations {
         avgScore: string;
         allActive: string;
         greatJob: string;
+        noContactsSynced: string;
+        noContactsSyncedDescription: string;
         reconnect: string;
         viewAll: string;
         lastContact: string;
@@ -1788,6 +1790,10 @@ export interface AppTranslations {
     title: string;
     description: string;
     emptyCta?: string;
+    noSyncedContactsTitle: string;
+    noSyncedContactsDescription: string;
+    noStaleContactsTitle: string;
+    noStaleContactsDescription: string;
     searchPlaceholder: string;
     companyPlaceholder: string;
     providerFilterLabel: string;

@@ -116,6 +116,27 @@ export function Contacts() {
   const [vcardDialogOpen, setVcardDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 
+  const staleEmptyState = useMemo(() => {
+    if (selectedFilter !== 'stale') {
+      return {
+        title: contactsCopy.noContactsFound,
+        subtitle: contactsCopy.selectContactMessage,
+      };
+    }
+
+    if ((contactCounts.total ?? 0) === 0) {
+      return {
+        title: contactsCopy.noSyncedContactsTitle,
+        subtitle: contactsCopy.noSyncedContactsDescription,
+      };
+    }
+
+    return {
+      title: contactsCopy.noStaleContactsTitle,
+      subtitle: contactsCopy.noStaleContactsDescription,
+    };
+  }, [contactCounts.total, contactsCopy, selectedFilter]);
+
   // Lead score sorting: null = off, 'desc' = high to low, 'asc' = low to high
   const [scoreSort, setScoreSort] = useState<'asc' | 'desc' | null>(null);
 
@@ -283,8 +304,8 @@ export function Contacts() {
           onToggleVip={handleToggleVip}
           onLoadMore={loadMore}
           hasMore={pagination.hasMore}
-          emptyTitle={contactsCopy.noContactsFound}
-          emptySubtitle={contactsCopy.selectContactMessage}
+          emptyTitle={staleEmptyState.title}
+          emptySubtitle={staleEmptyState.subtitle}
         />
       </Box>
     </Box>
