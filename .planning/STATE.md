@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: verifying
-stopped_at: Completed 141-01-PLAN.md
-last_updated: "2026-04-02T12:10:31.569Z"
+stopped_at: Completed 141-01 and 141-02 (checkpoint verified)
+last_updated: "2026-04-02T12:15:00.000Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 3
@@ -60,6 +60,7 @@ Progress: [██████████] 100%
 - [Phase 140]: localStorage key pmsync:crm-sidebar-open shared across email list and thread detail pages for consistent collapse state
 - [Phase 0141]: Return total=-1 for timeline to avoid expensive count query; cursor pagination does not need total
 - [Phase 0141]: Exclude CRM EMAIL type from timeline to prevent duplication with actual email records
+- [Phase 0141]: pointer-events none/auto pattern on MUI Popover for flicker-free hover cards
 
 ### Blockers/Concerns
 
@@ -67,6 +68,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-04-02T12:10:31.563Z
-Stopped at: Completed 141-01-PLAN.md
+Last session: 2026-04-02T12:15:00.000Z
+Stopped at: Completed 141-01 and 141-02 plans
 Resume file: None

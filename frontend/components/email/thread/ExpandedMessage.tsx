@@ -49,6 +49,8 @@ import { EmailHtmlContent } from './EmailHtmlContent';
 import { AttachmentCard } from './AttachmentCard';
 import { AiInsightsPanel } from './AiInsightsPanel';
 import { AiActionButtons } from './AiActionButtons';
+import { ContactName } from '@/components/contacts/ContactName';
+import { extractEmailAddress } from '@/components/email/utils/email-formatters';
 
 interface ExpandedMessageProps {
   message: {
@@ -318,18 +320,16 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {/* Sender Name */}
             <Tooltip title={message.from} placement="top-start">
-              <Typography
-                variant="body1"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.9375rem',
-                  cursor: 'default',
-                  overflowWrap: 'anywhere',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {formatSender(message.from)}
-              </Typography>
+              <Box component="span">
+                <ContactName
+                  name={formatSender(message.from)}
+                  email={extractEmailAddress(message.from)}
+                  variant="body1"
+                  fontWeight={600}
+                  fontSize="0.9375rem"
+                  sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                />
+              </Box>
             </Tooltip>
 
             {/* To Recipients */}

@@ -3941,6 +3941,14 @@ export const en: AppTranslations = {
       vipHelper: 'Mark this contact as VIP for priority handling',
       relationshipScore: 'Score',
       addEmailHint: 'Add an email address to the contact to send a message.',
+      hoverCard: {
+        deals: 'Deals',
+        lastInteraction: 'Last interaction',
+        emails: 'emails',
+        noDealData: 'No deals',
+        viewProfile: 'View profile',
+        noData: 'No CRM data available',
+      },
     },
     list: {
       emptyTitle: 'No contacts yet',

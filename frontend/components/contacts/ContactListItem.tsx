@@ -36,6 +36,7 @@ import type { LeadScoreTier } from '@/lib/api/crm-lead-scores';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { LeadScoreBadge } from '@/components/dashboard/crm-lead-score/LeadScoreBadge';
+import { ContactName } from './ContactName';
 
 function getInitials(contact: Contact): string {
   const name = contact.displayName ||
@@ -177,14 +178,14 @@ export const ContactListItem = React.memo<ContactListItemProps>(
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* Line 1: Name + VIP star + email */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-            <Typography
+            <ContactName
+              name={displayName}
+              email={primaryEmail || ''}
               variant="body2"
-              component="span"
+              fontWeight={600}
+              fontSize="0.8125rem"
               noWrap
-              sx={{ fontWeight: 600, fontSize: '0.8125rem', minWidth: 0 }}
-            >
-              {displayName}
-            </Typography>
+            />
             {contact.isVip && (
               <StarIcon
                 size={12}

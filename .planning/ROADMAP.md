@@ -210,7 +210,7 @@ Plans:
 **Plans:** 2 plans
 Plans:
 - [x] 141-01-PLAN.md — Backend unified timeline endpoint + frontend timeline upgrade and related entities
-- [ ] 141-02-PLAN.md — Contact hover card system (useHoverPopover, ContactHoverCard, ContactName) with integration
+- [x] 141-02-PLAN.md — Contact hover card system (useHoverPopover, ContactHoverCard, ContactName) with integration
 **Success Criteria** (what must be TRUE):
   1. User sees a unified activity timeline (emails, deals, tasks, meetings, notes) on the contact detail page
   2. User sees related emails, deal history, and upcoming tasks when viewing a contact

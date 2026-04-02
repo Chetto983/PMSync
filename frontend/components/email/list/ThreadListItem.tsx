@@ -43,6 +43,8 @@ import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { TriageReasonChip } from '@/src/components/triage/TriageReasonChip';
+import { ContactName } from '@/components/contacts/ContactName';
+import { extractEmailAddress } from '@/components/email/utils/email-formatters';
 
 /** Hide snippet when identical/subset of subject */
 function isSnippetRedundant(subject: string, snippet: string): boolean {
@@ -260,19 +262,16 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
         {/* Line 1: Sender + micro-indicators + date */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
           <Tooltip title={thread.from} placement="right">
-            <Typography
-              variant="body2"
-              component="span"
-              noWrap
-              sx={{
-                fontWeight: thread.isUnread ? 700 : 500,
-                fontSize: '0.8125rem',
-                flex: '1 1 auto',
-                minWidth: 0,
-              }}
-            >
-              {formatSender(thread.from)}
-            </Typography>
+            <Box component="span" sx={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <ContactName
+                name={formatSender(thread.from)}
+                email={extractEmailAddress(thread.from)}
+                variant="body2"
+                fontWeight={thread.isUnread ? 700 : 500}
+                fontSize="0.8125rem"
+                noWrap
+              />
+            </Box>
           </Tooltip>
 
           {/* Micro-indicators: flag, attachment, thread count */}
