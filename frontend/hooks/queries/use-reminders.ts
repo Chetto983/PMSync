@@ -18,6 +18,7 @@ import {
   type ListRemindersResponse,
   type TelegramSettings,
 } from '@/lib/api/reminders';
+import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
 
 interface ReminderListEnvelope {
   data?: Reminder[];
@@ -106,6 +107,9 @@ export function useCreateReminder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
     },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.createFailed);
+    },
   });
 }
 
@@ -119,6 +123,9 @@ export function useUpdateReminder() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.updateFailed);
     },
   });
 }
@@ -152,6 +159,7 @@ export function useCompleteReminder() {
           queryClient.setQueryData(key, data);
         }
       }
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.completeFailed);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
@@ -187,6 +195,7 @@ export function useDeleteReminder() {
           queryClient.setQueryData(key, data);
         }
       }
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.deleteFailed);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
@@ -204,6 +213,9 @@ export function useBulkDeleteReminders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.bulkDeleteFailed);
     },
   });
 }

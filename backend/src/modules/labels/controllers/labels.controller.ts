@@ -18,6 +18,7 @@ import {
   AddEmailsToLabelDto,
   BulkDeleteLabelsDto,
   CreateLabelDto,
+  CreateLabelWizardDto,
   ReorderLabelsDto,
   TriageOnboardingRulesDto,
   UpdateLabelDto,
@@ -45,6 +46,40 @@ export class LabelsController {
   async listLabels(@Req() req: AuthenticatedRequest) {
     const labels = await this.labelsService.findAllByTenant(req.user.tenantId);
     return { labels };
+  }
+
+  @Get('wizard-options')
+  @ApiOperation({ summary: 'Get wizard options', description: 'Returns translated role/content/action options for the label wizard' })
+  @ApiResponse({ status: 200, description: 'Wizard options returned' })
+  getWizardOptions() {
+    return this.labelsService.getWizardOptions();
+  }
+
+  @Post('wizard')
+  @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({ summary: 'Create label via wizard', description: 'Creates a label from structured wizard data with auto-generated aiPrompt' })
+  @ApiBody({ type: CreateLabelWizardDto })
+  @ApiResponse({ status: 201, description: 'Label created via wizard' })
+  async createFromWizard(@Req() req: AuthenticatedRequest, @Body() dto: CreateLabelWizardDto) {
+    const label = await this.labelsService.createFromWizard(req.user.tenantId, dto);
+    return { label };
+  }
+
+  @Put(':id/wizard')
+  @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
+  @ApiOperation({ summary: 'Update label via wizard', description: 'Updates a label from structured wizard data' })
+  @ApiParam({ name: 'id', description: 'Label ID' })
+  @ApiBody({ type: CreateLabelWizardDto })
+  @ApiResponse({ status: 200, description: 'Label updated via wizard' })
+  async updateFromWizard(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') labelId: string,
+    @Body() dto: CreateLabelWizardDto,
+  ) {
+    const label = await this.labelsService.updateFromWizard(req.user.tenantId, labelId, dto);
+    return { label };
   }
 
   @Get('triage-onboarding')

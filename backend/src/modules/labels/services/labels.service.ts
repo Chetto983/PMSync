@@ -14,10 +14,18 @@ import { ProviderSyncBackQueueService } from '../../email-sync/services/provider
 import {
   AddEmailsToLabelDto,
   CreateLabelDto,
+  CreateLabelWizardDto,
   ReorderLabelsDto,
   TriageOnboardingRulesDto,
   UpdateLabelDto,
 } from '../dto/labels.dto';
+import {
+  buildAiPromptFromMetadata,
+  ACTION_TO_LANE,
+  WIZARD_ROLE_OPTIONS,
+  WIZARD_CONTENT_OPTIONS,
+  WIZARD_ACTION_OPTIONS,
+} from '../label-prompt-builder';
 import {
   buildRecommendedLabelSet,
   normalizeTriageOnboardingRules,
@@ -887,5 +895,82 @@ export class LabelsService {
       currentParentId = parent?.parentId;
     }
     return false;
+  }
+
+  // --- Label Wizard ---
+
+  getWizardOptions() {
+    return { roles: WIZARD_ROLE_OPTIONS, contents: WIZARD_CONTENT_OPTIONS, actions: WIZARD_ACTION_OPTIONS };
+  }
+
+  private static readonly MAX_LABELS_PER_TENANT = 20;
+
+  async createFromWizard(tenantId: string, dto: CreateLabelWizardDto) {
+    const count = await this.prisma.userLabel.count({ where: { tenantId, isArchived: false } });
+    if (count >= LabelsService.MAX_LABELS_PER_TENANT) {
+      throw new BadRequestException(`Maximum ${LabelsService.MAX_LABELS_PER_TENANT} labels per tenant`);
+    }
+
+    const slug = this.slugify(dto.name);
+    const existing = await this.prisma.userLabel.findUnique({ where: { tenantId_slug: { tenantId, slug } } });
+    if (existing && !existing.isArchived) {
+      throw new ConflictException(`Label "${dto.name}" already exists`);
+    }
+
+    const generatedPrompt = buildAiPromptFromMetadata({
+      name: dto.name, roles: dto.roles, contents: dto.contents,
+      actionType: dto.actionType, aiPrompt: dto.aiPrompt,
+    });
+    const defaultLane = ACTION_TO_LANE[dto.actionType] || null;
+
+    return this.prisma.userLabel.create({
+      data: {
+        tenantId, name: dto.name, slug, type: 'USER',
+        color: dto.color ? (dto.color as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        aiPrompt: generatedPrompt, category: dto.category,
+        roles: dto.roles, contents: dto.contents, actionType: dto.actionType,
+        suppressUrgency: dto.suppressUrgency ?? false,
+        mutuallyExclusiveWith: dto.mutuallyExclusiveWith ?? [],
+        defaultLane,
+        orderIndex: count,
+      },
+    });
+  }
+
+  async updateFromWizard(tenantId: string, labelId: string, dto: CreateLabelWizardDto) {
+    const label = await this.prisma.userLabel.findFirst({ where: { id: labelId, tenantId } });
+    if (!label) throw new NotFoundException('Label not found');
+
+    const slug = this.slugify(dto.name);
+    if (slug !== label.slug) {
+      const duplicate = await this.prisma.userLabel.findUnique({ where: { tenantId_slug: { tenantId, slug } } });
+      if (duplicate && duplicate.id !== labelId && !duplicate.isArchived) {
+        throw new ConflictException(`Label "${dto.name}" already exists`);
+      }
+    }
+
+    const generatedPrompt = buildAiPromptFromMetadata({
+      name: dto.name, roles: dto.roles, contents: dto.contents,
+      actionType: dto.actionType, aiPrompt: dto.aiPrompt,
+    });
+    const defaultLane = ACTION_TO_LANE[dto.actionType] || null;
+
+    return this.prisma.userLabel.update({
+      where: { id: labelId },
+      data: {
+        name: dto.name, slug,
+        color: dto.color ? (dto.color as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        aiPrompt: generatedPrompt, category: dto.category,
+        roles: dto.roles, contents: dto.contents, actionType: dto.actionType,
+        suppressUrgency: dto.suppressUrgency ?? false,
+        mutuallyExclusiveWith: dto.mutuallyExclusiveWith ?? [],
+        defaultLane,
+      },
+    });
+  }
+
+  private slugify(name: string): string {
+    const base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return base || `label-${Date.now()}`;
   }
 }

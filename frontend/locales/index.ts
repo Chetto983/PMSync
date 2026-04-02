@@ -3463,6 +3463,13 @@ export interface AppTranslations {
         delete: string;
         edit: string;
       };
+      errors: {
+        createFailed: string;
+        updateFailed: string;
+        completeFailed: string;
+        deleteFailed: string;
+        bulkDeleteFailed: string;
+      };
       deleteConfirm?: string;
       bulkDeleteConfirm?: string;
       selected?: string;

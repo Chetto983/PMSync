@@ -3367,6 +3367,13 @@ export const it: AppTranslations = {
         delete: 'Elimina',
         edit: 'Modifica',
       },
+      errors: {
+        createFailed: 'Creazione promemoria fallita',
+        updateFailed: 'Aggiornamento promemoria fallito',
+        completeFailed: 'Completamento promemoria fallito',
+        deleteFailed: 'Eliminazione promemoria fallita',
+        bulkDeleteFailed: 'Eliminazione promemoria fallita',
+      },
       deleteConfirm: 'Sei sicuro di voler eliminare questo promemoria? Questa azione non può essere annullata.',
       bulkDeleteConfirm: 'Sei sicuro di voler eliminare {count} promemoria? Questa azione non può essere annullata.',
       selected: '{count} selezionati',

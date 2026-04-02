@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length, Matches, Max, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length, Matches, Max, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -89,6 +89,51 @@ export class BulkDeleteLabelsDto {
   @IsNotEmpty({ each: true })
   labelIds!: string[];
 }
+
+export class CreateLabelWizardDto {
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 120)
+  name!: string;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => LabelColorDto)
+  color?: LabelColorDto;
+
+  @IsString()
+  @IsIn(['workflow', 'semantic', 'suppression', 'custom'])
+  category!: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  roles!: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  contents!: string[];
+
+  @IsString()
+  @IsIn(['none', 'followup', 'urgent', 'decide'])
+  actionType!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  mutuallyExclusiveWith?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  suppressUrgency?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 1000)
+  aiPrompt?: string;
+}
+
+export class UpdateLabelWizardDto extends CreateLabelWizardDto {}
 
 export class TriageOnboardingRulesDto {
   @ApiProperty({

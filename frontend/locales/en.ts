@@ -3386,6 +3386,13 @@ export const en: AppTranslations = {
         delete: 'Delete',
         edit: 'Edit',
       },
+      errors: {
+        createFailed: 'Failed to create reminder',
+        updateFailed: 'Failed to update reminder',
+        completeFailed: 'Failed to complete reminder',
+        deleteFailed: 'Failed to delete reminder',
+        bulkDeleteFailed: 'Failed to delete reminders',
+      },
       deleteConfirm: 'Are you sure you want to delete this reminder? This action cannot be undone.',
       bulkDeleteConfirm: 'Are you sure you want to delete {count} reminder(s)? This action cannot be undone.',
       selected: '{count} selected',
