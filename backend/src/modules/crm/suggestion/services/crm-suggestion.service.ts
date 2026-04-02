@@ -105,7 +105,7 @@ export class CrmSuggestionService {
 
   // ---- Accept / Dismiss ----
 
-  async accept(tenantId: string, id: string) {
+  async accept(tenantId: string, id: string, userId?: string) {
     const suggestion = await this.findById(tenantId, id);
     if (suggestion.status !== 'pending') {
       throw new BadRequestException(
@@ -125,6 +125,10 @@ export class CrmSuggestionService {
         break;
       case 'ticket':
         createdEntityId = await this.createTicket(tenantId, entityData);
+        break;
+      case 'task':
+        if (!userId) throw new BadRequestException('Task creation requires userId');
+        createdEntityId = await this.createTask(tenantId, entityData, userId);
         break;
       case 'link':
         await this.linkContactToAccount(tenantId, entityData);
@@ -159,11 +163,11 @@ export class CrmSuggestionService {
     });
   }
 
-  async bulk(tenantId: string, dto: BulkSuggestionDto) {
+  async bulk(tenantId: string, dto: BulkSuggestionDto, userId?: string) {
     const results = await Promise.allSettled(
       dto.ids.map((id) =>
         dto.action === 'accept'
-          ? this.accept(tenantId, id)
+          ? this.accept(tenantId, id, userId)
           : this.dismiss(tenantId, id),
       ),
     );
@@ -304,5 +308,29 @@ export class CrmSuggestionService {
     this.logger.log(
       `Linked contact ${contactId} to account ${accountId}`,
     );
+  }
+
+  private async createTask(
+    tenantId: string,
+    data: Record<string, unknown>,
+    userId: string,
+  ): Promise<string> {
+    const task = await this.prisma.manualTask.create({
+      data: {
+        tenantId,
+        userId,
+        title: (data.title as string) || 'New Task',
+        description: (data.description as string) || undefined,
+        status: 'pending',
+        priority: (data.priority as string) || 'medium',
+        contactId: (data.contactId as string) || undefined,
+        contactTenant: data.contactId ? tenantId : undefined,
+        emailId: (data.emailId as string) || undefined,
+        emailTenant: data.emailId ? tenantId : undefined,
+        dealId: (data.dealId as string) || undefined,
+      },
+    });
+    this.logger.log(`Created task ${task.id} from suggestion`);
+    return task.id;
   }
 }
