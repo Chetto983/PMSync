@@ -1661,6 +1661,11 @@ model Reminder {
   status              ReminderStatus        @default(attivo)
   completatoAt        DateTime?
 
+  // Recurrence
+  isRecurring         Boolean               @default(false)
+  recurrenceRule      String?               // RRULE format (RFC 5545)
+  recurrenceParentId  String?
+
   // AI debug
   inputUtente         String?
   aiRawResponse       Json?
@@ -1671,6 +1676,8 @@ model Reminder {
   // Relations
   tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recurrenceParent    Reminder?             @relation("RecurrenceSeries", fields: [recurrenceParentId], references: [id], onDelete: SetNull)
+  recurrenceChildren  Reminder[]            @relation("RecurrenceSeries")
 
   @@index([tenantId])
   @@index([tenantId, userId, status])
@@ -1679,6 +1686,7 @@ model Reminder {
   @@index([status, updatedAt])
   @@index([titolo(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([contatto(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([recurrenceParentId])
   @@map("reminders")
 }
 
