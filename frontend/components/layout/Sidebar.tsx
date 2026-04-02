@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -44,6 +44,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useSidebarOrder } from '@/hooks/use-sidebar-order';
 import { PILLAR_ITEMS, getActiveSidebarHref, type PillarItem } from './sidebar-navigation';
+import { PinnedViewsPopover } from '../dashboard/tasks/PinnedViewsPopover';
+import { useSmartViews } from '@/hooks/queries/use-tasks';
 
 const RAIL_WIDTH = 64;
 
@@ -89,6 +91,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: PmSyncSidebarProp
   const orderedPillars = order
     .map((href) => pillarMap.get(href))
     .filter(Boolean) as PillarItem[];
+
+  const { data: smartViews } = useSmartViews();
+  const pinnedViews = useMemo(() => smartViews?.filter((v) => v.isPinned) ?? [], [smartViews]);
+  const [tasksPopoverAnchor, setTasksPopoverAnchor] = useState<HTMLElement | null>(null);
 
   if (isMobile) {
     return (
@@ -283,23 +289,58 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: PmSyncSidebarProp
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={order} strategy={verticalListSortingStrategy}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {orderedPillars.map((pillar) => (
-                <SortableItem
-                  key={pillar.href}
-                  pillar={pillar}
-                  active={activeHref === pillar.href}
-                  label={t.nav[pillar.labelKey]}
-                  dragLabel={t.nav.dragToReorder ?? 'Drag to reorder'}
-                  activeBg={activeBg}
-                  activeGlow={activeGlow}
-                  activeBorder={activeBorder}
-                  isDark={isDark}
-                  theme={theme}
-                />
-              ))}
+              {orderedPillars.map((pillar) => {
+                const isTasksPillar = pillar.href === '/dashboard/tasks';
+                const hasPinnedViews = isTasksPillar && pinnedViews.length > 0;
+
+                if (hasPinnedViews) {
+                  return (
+                    <Box
+                      key={pillar.href}
+                      onClick={(e: React.MouseEvent<HTMLElement>) => {
+                        e.preventDefault();
+                        setTasksPopoverAnchor(e.currentTarget);
+                      }}
+                    >
+                      <SortableItem
+                        pillar={pillar}
+                        active={activeHref === pillar.href}
+                        label={t.tasks.smartViews.pinnedViews}
+                        dragLabel={t.nav.dragToReorder ?? 'Drag to reorder'}
+                        activeBg={activeBg}
+                        activeGlow={activeGlow}
+                        activeBorder={activeBorder}
+                        isDark={isDark}
+                        theme={theme}
+                      />
+                    </Box>
+                  );
+                }
+
+                return (
+                  <SortableItem
+                    key={pillar.href}
+                    pillar={pillar}
+                    active={activeHref === pillar.href}
+                    label={t.nav[pillar.labelKey]}
+                    dragLabel={t.nav.dragToReorder ?? 'Drag to reorder'}
+                    activeBg={activeBg}
+                    activeGlow={activeGlow}
+                    activeBorder={activeBorder}
+                    isDark={isDark}
+                    theme={theme}
+                  />
+                );
+              })}
             </Box>
           </SortableContext>
         </DndContext>
+
+        <PinnedViewsPopover
+          anchorEl={tasksPopoverAnchor}
+          open={Boolean(tasksPopoverAnchor)}
+          onClose={() => setTasksPopoverAnchor(null)}
+        />
 
         <Box sx={{ mt: 'auto' }} />
 

@@ -32,9 +32,12 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
 import { CreateTaskDialog } from './CreateTaskDialog';
 import { TasksKanbanBoard } from './TasksKanbanBoard';
+import { SavedViewsBar } from './SavedViewsBar';
+import { SavedViewDialog } from './SavedViewDialog';
 import type {
   UnifiedTask,
   ListTasksQuery,
+  TaskSmartView,
   TaskSourceType,
   UnifiedTaskStatus,
   UnifiedTaskPriority,
@@ -98,6 +101,10 @@ export function TasksList() {
   });
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [activeViewId, setActiveViewId] = useState<string | null>(
+    () => (typeof q.view === 'string' ? q.view : null),
+  );
   const [deleteTarget, setDeleteTarget] = useState<UnifiedTask | null>(null);
 
   const completeTask = useCompleteTask();
@@ -121,10 +128,11 @@ export function TasksList() {
     if (filterDueAfter) params.dueAfter = filterDueAfter;
     if (filterContactId) params.contactId = filterContactId;
     if (page > 0) params.page = String(page);
-    if (viewMode !== 'list') params.view = viewMode;
+    if (viewMode !== 'list') params.viewMode = viewMode;
+    if (activeViewId) params.view = activeViewId;
     void router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId, page, viewMode]);
+  }, [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId, page, viewMode, activeViewId]);
 
   // Build query
   const filters: ListTasksQuery = useMemo(() => ({
@@ -162,6 +170,33 @@ export function TasksList() {
     }
     setDeleteTarget(null);
   }, [deleteTarget, deleteTask, toast, t]);
+
+  const applyView = useCallback(
+    (view: TaskSmartView) => {
+      const f = view.filters as Partial<ListTasksQuery>;
+      setFilterSourceType(f.sourceType?.[0] ?? '');
+      setFilterStatus(f.status?.[0] ?? '');
+      setFilterPriority(f.priority?.[0] ?? '');
+      setFilterDueBefore(f.dueBefore ?? '');
+      setFilterDueAfter(f.dueAfter ?? '');
+      setFilterContactId(f.contactId ?? '');
+      setActiveViewId(view.id);
+      toast.success(t.tasks.smartViews.applied);
+    },
+    [t, toast],
+  );
+
+  const currentFilters: Partial<ListTasksQuery> = useMemo(
+    () => ({
+      ...(filterSourceType && { sourceType: [filterSourceType as TaskSourceType] }),
+      ...(filterStatus && { status: [filterStatus as UnifiedTaskStatus] }),
+      ...(filterPriority && { priority: [filterPriority as UnifiedTaskPriority] }),
+      ...(filterDueBefore && { dueBefore: filterDueBefore }),
+      ...(filterDueAfter && { dueAfter: filterDueAfter }),
+      ...(filterContactId && { contactId: filterContactId }),
+    }),
+    [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId],
+  );
 
   const hasFilters = !!(filterSourceType || filterStatus || filterPriority || filterDueBefore || filterDueAfter || filterContactId);
   const rows = data?.data ?? [];
@@ -229,12 +264,21 @@ export function TasksList() {
         </Box>
       </Box>
 
+      {/* Saved views bar */}
+      <SavedViewsBar
+        activeViewId={activeViewId}
+        onApplyView={applyView}
+        onClearView={() => setActiveViewId(null)}
+        onSaveClick={() => setSaveDialogOpen(true)}
+        currentFilters={currentFilters}
+      />
+
       {/* Filter bar */}
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           label={t.tasks.filters.sourceType}
           value={filterSourceType}
-          onChange={(e) => { setFilterSourceType(e.target.value); setPage(0); }}
+          onChange={(e) => { setFilterSourceType(e.target.value); setPage(0); setActiveViewId(null); }}
           size="small"
           select
           sx={{ minWidth: 150 }}
@@ -247,7 +291,7 @@ export function TasksList() {
         <TextField
           label={t.tasks.filters.status}
           value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }}
+          onChange={(e) => { setFilterStatus(e.target.value); setPage(0); setActiveViewId(null); }}
           size="small"
           select
           sx={{ minWidth: 150 }}
@@ -260,7 +304,7 @@ export function TasksList() {
         <TextField
           label={t.tasks.filters.priority}
           value={filterPriority}
-          onChange={(e) => { setFilterPriority(e.target.value); setPage(0); }}
+          onChange={(e) => { setFilterPriority(e.target.value); setPage(0); setActiveViewId(null); }}
           size="small"
           select
           sx={{ minWidth: 150 }}
@@ -274,7 +318,7 @@ export function TasksList() {
           label={t.tasks.filters.dueAfter}
           type="date"
           value={filterDueAfter}
-          onChange={(e) => { setFilterDueAfter(e.target.value); setPage(0); }}
+          onChange={(e) => { setFilterDueAfter(e.target.value); setPage(0); setActiveViewId(null); }}
           size="small"
           sx={{ minWidth: 150 }}
           InputLabelProps={{ shrink: true }}
@@ -283,7 +327,7 @@ export function TasksList() {
           label={t.tasks.filters.dueBefore}
           type="date"
           value={filterDueBefore}
-          onChange={(e) => { setFilterDueBefore(e.target.value); setPage(0); }}
+          onChange={(e) => { setFilterDueBefore(e.target.value); setPage(0); setActiveViewId(null); }}
           size="small"
           sx={{ minWidth: 150 }}
           InputLabelProps={{ shrink: true }}
@@ -291,7 +335,7 @@ export function TasksList() {
         <TextField
           label={t.tasks.filters.contact}
           value={filterContactId}
-          onChange={(e) => { setFilterContactId(e.target.value); setPage(0); }}
+          onChange={(e) => { setFilterContactId(e.target.value); setPage(0); setActiveViewId(null); }}
           size="small"
           sx={{ minWidth: 150 }}
           placeholder={t.tasks.filters.contact}
@@ -439,6 +483,12 @@ export function TasksList() {
       )}
 
       <CreateTaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+
+      <SavedViewDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        currentFilters={currentFilters}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}
