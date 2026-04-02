@@ -48,6 +48,12 @@ export const reminderParseSchema = z.object({
     .nullable()
     .default(null)
     .describe('Telegram notification text, max 120 chars, starts with action emoji'),
+  is_recurring: z.boolean().default(false).describe('True if user wants a recurring/repeating reminder'),
+  recurrence_rule: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe('RRULE string (RFC 5545) for recurring reminders, e.g. FREQ=WEEKLY;INTERVAL=1;BYDAY=MO'),
   risposta_chat: z
     .string()
     .default('Promemoria creato.')
@@ -80,6 +86,15 @@ Regole per l'azione:
 - "verifica", "controlla" -> azione = "verifica" o "controlla"
 - "conferma" -> azione = "conferma"
 
+Regole per la ricorrenza:
+- Se l'utente dice "ogni giorno", "every day", "tutti i giorni" -> is_recurring = true, recurrence_rule = "FREQ=DAILY;INTERVAL=1"
+- Se l'utente dice "ogni lunedi", "every Monday", "tutti i lunedi" -> is_recurring = true, recurrence_rule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO"
+- Se l'utente dice "ogni settimana", "weekly", "settimanale" -> is_recurring = true, recurrence_rule = "FREQ=WEEKLY;INTERVAL=1"
+- Se l'utente dice "ogni mese", "monthly", "una volta al mese" -> is_recurring = true, recurrence_rule = "FREQ=MONTHLY;INTERVAL=1"
+- Se l'utente dice "ogni 2 settimane", "biweekly" -> is_recurring = true, recurrence_rule = "FREQ=WEEKLY;INTERVAL=2"
+- Usa il formato RRULE RFC 5545. BYDAY: MO,TU,WE,TH,FR,SA,SU
+- Se non c'e ricorrenza -> is_recurring = false, recurrence_rule = null
+
 Il messaggio_telegram deve iniziare con un'emoji appropriata all'azione.
 La risposta_chat deve essere in italiano, breve e confermare cosa hai capito.`;
 
@@ -100,6 +115,8 @@ const SAFE_FALLBACK: ReminderParseOutput = {
   email_keywords: [],
   email_mittente: null,
   messaggio_telegram: null,
+  is_recurring: false,
+  recurrence_rule: null,
   risposta_chat: 'Non sono riuscito a interpretare la richiesta. Puoi riprovare?',
 };
 

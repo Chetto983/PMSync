@@ -119,6 +119,12 @@ export class ReminderService {
       if (!dto.messaggioTelegram && parsed.messaggio_telegram) {
         dto.messaggioTelegram = parsed.messaggio_telegram;
       }
+      if (dto.isRecurring === undefined && parsed.is_recurring) {
+        dto.isRecurring = parsed.is_recurring;
+      }
+      if (!dto.recurrenceRule && parsed.recurrence_rule) {
+        dto.recurrenceRule = parsed.recurrence_rule;
+      }
     }
 
     // Ensure titolo is set

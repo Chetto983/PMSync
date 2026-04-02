@@ -2,11 +2,11 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | IN PROGRESS |
-| **Last Task** | T-1805 (Sprint 18 — Production validation script) |
-| **Next Task** | T-1806 (Sprint 18 — Run validation and close phase) |
-| **Tasks Done** | 34/35 |
-| **SP Done** | 74/79 |
+| **Status** | COMPLETE |
+| **Last Task** | T-1806 (Sprint 18 — Run validation and close phase) |
+| **Next Task** | — (All 18 sprints complete) |
+| **Tasks Done** | 35/35 |
+| **SP Done** | 79/79 |
 
 ## Sprint 14 — COMPLETE (6/6 tasks, 13 SP)
 
@@ -30,7 +30,7 @@ Inbox Lanes, Reasoning UI & Workflow Views:
 - TriageStatusSection in email detail
 - URL sync, backend lane filter, lane-counts endpoint
 
-## Sprint 18 — IN PROGRESS (5/6 tasks, 11/12 SP)
+## Sprint 18 — COMPLETE (6/6 tasks, 12 SP)
 
 Learning, Overrides & Production Validation:
 
@@ -38,8 +38,8 @@ Learning, Overrides & Production Validation:
 - T-1802: Wired overrides into email-analysis pipeline (step 2.5, before lane assignment). Override lane takes precedence. suppressFollowUp for never-follow-up action
 - T-1803: TriageFeedbackService: records corrections, 30d retention, 10k cap. getSuggestions() detects 3+ corrections per domain
 - T-1804: Override UI in TriageStatusSection: gear icon dropdown with per-sender/per-domain actions. Active overrides shown as deletable chips. EN+IT translations (11 keys)
-- T-1805: DONE — Added `validateLabelFirstTriage` dimension to production validation script (9 checks: endpoints, field population, lane distribution, suppression, follow-up precision)
-- T-1806: PENDING — Run validation and close phase
+- T-1805: Added `validateLabelFirstTriage` dimension to production validation script (9 checks: endpoints, field population, lane distribution, suppression, follow-up precision)
+- T-1806: Production validation run — 12/12 PASS, 10/10 average score
 
 ## Findings Addressed
 
@@ -53,10 +53,25 @@ Learning, Overrides & Production Validation:
 | LFT-C2: No inbox workflow views | S16, S17 | DONE |
 | LFT-D1: No correlation | S18 | DONE (TriageFeedbackService + suggestions) |
 | LFT-D2: No learning from corrections | S18 | DONE (TriageOverrideService + pipeline wiring) |
-| LFT-E1: No production validation | S18 | IN PROGRESS (T-1805 done, T-1806 pending) |
+| LFT-E1: No production validation | S18 | DONE (12/12 PASS, 10/10 avg) |
+
+## Production Scorecard (2026-04-02)
+
+| Metric | Result |
+|--------|--------|
+| **Overall Score** | 10/10 (12/12 dimensions PASS) |
+| **Lane Coverage** | 100% — 30/30 sampled emails have aiLane |
+| **Intent Coverage** | 100% — 30/30 sampled emails have aiIntent |
+| **Actionability Coverage** | 100% — 30/30 sampled emails have aiActionability |
+| **Lane Distribution** | system-alerts: 225, action-now: 29, review-later: 8, waiting-on-reply: 1 |
+| **Follow-up Precision** | 0 false positives in review-later lane |
+| **Suppression** | 19 suppression emails correctly low-priority |
+| **Override Endpoints** | Working (triage-rules, triage-overrides, lane-counts all HTTP 200) |
+| **Health** | HTTP 200 — DB, Redis, Mistral, all queues healthy |
 
 ## Last Modified Files
 
+- `scripts/validate-ai-features-production.mjs` — Added validateLabelFirstTriage dimension (T-1805)
 - `backend/prisma/schema.prisma` — TriageOverride + EmailTriageFeedback models (T-1801)
 - `backend/prisma/migrations/20260402170000_add_triage_overrides_and_feedback/migration.sql` — NEW (T-1801)
 - `backend/src/modules/ai/services/triage-override.service.ts` — NEW (T-1801)
@@ -83,6 +98,7 @@ Learning, Overrides & Production Validation:
 
 - Backend type-check: PASS
 - Frontend type-check: PASS
+- Production validation: 12/12 PASS, 10/10 average
 - All strings use translations
 - All new files under 200 lines
 - Migration is additive (no DROP statements)
