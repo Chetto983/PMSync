@@ -45,6 +45,8 @@ import { SyncOrchestrationService } from './services/sync-orchestration.service'
 import { SyncTokenService } from './services/sync-token.service';
 
 import { IcsParserService } from '../calendar/services/ics-parser.service';
+import { EmailAutoLinkerHandler } from './handlers/email-auto-linker.handler';
+import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
 // Webhook Services (Strategy 2: Real-time Sync)
 import { GmailWebhookService } from './services/gmail-webhook.service';
@@ -75,6 +77,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     RealtimeModule, // WebSocket events
     // Phase 49-03: StorageModule is @Global() -- provides AttachmentStorageService, StorageService without EmailModule import
     DriversModule, // Email Drivers (Phase 2)
+    SuggestionModule, // Phase 142: CrmSuggestionService for auto-linker ambiguous matches
     // ScheduledJobsModule is @Global() — no need to import, available everywhere
   ],
   controllers: [
@@ -133,6 +136,9 @@ import { FoldersController } from '../email/controllers/folders.controller';
     PrismaRetryService, // DEBT-02: Centralized P2002/P2034 retry handling
     RedisRateLimiterService, // Phase 8: RC-NEW-3 fix for distributed rate limiting
     AlertingService, // Phase 5.2: Centralized alerting thresholds
+
+    // Phase 142: Auto-linker handler (email -> contact/deal linking)
+    EmailAutoLinkerHandler,
 
     // Workers
     SyncWorker,

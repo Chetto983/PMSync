@@ -200,6 +200,7 @@ Il campo keyTopics deve contenere elementi in ITALIANO.`,
 10. Genera 2-3 brevi suggerimenti di risposta rapida se appropriato.
 11. Classifica l'intento: che tipo di email è (request, update, alert, sales, billing, personal, fyi)?
 12. Classifica l'azionabilità: l'utente deve agire (todo), attendere una risposta (waiting), o nulla (none)?
+13. Classifica la categoria dell'email: "support" (problemi cliente, bug report, richieste di aiuto), "sales" (proposte, preventivi, prezzi, trattative), "internal" (comunicazione del team, aggiornamenti progetto, HR), "newsletter" (marketing, digest, notifiche automatiche, release notes).
 </ISTRUZIONI>
 
 <ETICHETTE_CONSENTITE>
@@ -228,7 +229,8 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
   "followUpDate": "data ISO per il follow-up, o null",
   "followUpReason": "breve motivo per il follow-up, o null",
   "smartReplies": ["Risposta rapida 1", "Risposta rapida 2", "Risposta rapida 3"],
-  "confidence": 0.0-1.0
+  "confidence": 0.0-1.0,
+  "category": "support|sales|internal|newsletter"
 }
 </FORMATO_OUTPUT>`,
       },

@@ -212,6 +212,7 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
 10. Generate 2-3 short smart reply suggestions if appropriate.
 11. Classify intent: what type of email is this (request, update, alert, sales, billing, personal, fyi)?
 12. Classify actionability: does this require the user to act (todo), wait for a response (waiting), or nothing (none)?
+13. Classify email category: "support" (customer issues, bug reports, help requests), "sales" (proposals, quotes, pricing, deals), "internal" (team communication, project updates, HR), "newsletter" (marketing, digests, automated notifications, release notes).
 </INSTRUCTIONS>
 
 <ALLOWED_LABELS>
@@ -240,7 +241,8 @@ Reply ONLY with valid JSON (no markdown, no explanation):
   "followUpDate": "ISO date when the user should follow up, or null",
   "followUpReason": "brief reason why follow-up is needed, or null",
   "smartReplies": ["Quick reply 1", "Quick reply 2", "Quick reply 3"],
-  "confidence": 0.0-1.0
+  "confidence": 0.0-1.0,
+  "category": "support|sales|internal|newsletter"
 }
 
 Confidence calibration:

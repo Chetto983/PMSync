@@ -118,6 +118,7 @@ export class EmailAnalysisService {
       const rawPriority = Math.min(5, Math.max(1, Number(parsed.priority) || 3)) as 1 | 2 | 3 | 4 | 5;
       const rawUrgency = this.validateUrgency(parsed.urgency);
       const intent = this.validateIntent(parsed.intent);
+      const category = this.validateCategory(parsed.category);
       const actionability = this.validateActionability(parsed.actionability);
       const escalationRisk = Boolean(parsed.escalationRisk);
       const hasDeadline = Boolean(parsed.hasDeadline);
@@ -179,6 +180,7 @@ export class EmailAnalysisService {
         smartReplies: options?.includeSmartReplies && Array.isArray(parsed.smartReplies) ? (parsed.smartReplies as string[]).slice(0, 3) : undefined,
         confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.7)),
         reasoning,
+        category,
       };
       const processedAt = new Date();
       result.meta = buildAiResponseMeta({
@@ -214,7 +216,7 @@ export class EmailAnalysisService {
 
         await this.prisma.email.updateMany({
           where: { id: emailId, tenantId },
-          data: { aiPriority: result.priority, aiPriorityReason: result.reasoning, aiSentiment: result.sentiment, aiLabels: result.labels, aiLane: result.lane, aiIntent: result.intent, aiActionability: result.actionability, isAutoTriaged: true, autoTriagedAt: new Date() },
+          data: { aiPriority: result.priority, aiPriorityReason: result.reasoning, aiSentiment: result.sentiment, aiLabels: result.labels, aiLane: result.lane, aiIntent: result.intent, aiActionability: result.actionability, aiCategory: result.category ?? null, isAutoTriaged: true, autoTriagedAt: new Date() },
         });
 
         if (result.labels.length > 0) {
@@ -522,6 +524,12 @@ export class EmailAnalysisService {
 
   private mapEnumToPriority(enumValue: string): 1 | 2 | 3 | 4 | 5 {
     switch (enumValue) { case 'URGENT': return 1; case 'HIGH': return 2; case 'NORMAL': return 3; case 'LOW': return 5; default: return 3; }
+  }
+
+  private validateCategory(raw: unknown): 'support' | 'sales' | 'internal' | 'newsletter' | undefined {
+    const valid = ['support', 'sales', 'internal', 'newsletter'];
+    const val = typeof raw === 'string' ? raw.toLowerCase().trim() : '';
+    return valid.includes(val) ? val as 'support' | 'sales' | 'internal' | 'newsletter' : undefined;
   }
 
   private mapIntentToCategory(intent: string): 'SALES_INQUIRY' | 'SUPPORT_REQUEST' | 'MEETING_REQUEST' | 'FOLLOW_UP' | 'PERSONAL' | 'OTHER' {
