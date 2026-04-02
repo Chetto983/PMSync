@@ -18,6 +18,10 @@ import {
   type Reminder,
   type ListRemindersResponse,
   type TelegramSettings,
+  type UnifiedListParams,
+  type UnifiedReminderItem,
+  type UnifiedReminderListResponse,
+  type UnifiedSource,
 } from '@/lib/api/reminders';
 import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
 
@@ -240,6 +244,99 @@ export function useBulkUpdateReminders() {
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.bulkUpdateFailed);
+    },
+  });
+}
+
+// ============================================================================
+// Unified Hooks (Reminder + EmailFollowUp)
+// ============================================================================
+
+interface UnifiedListEnvelope {
+  data?: UnifiedReminderItem[];
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    counts?: { user: number; aiFollowUp: number };
+  };
+}
+
+export function unifiedRemindersListOptions(params?: UnifiedListParams) {
+  return queryOptions({
+    queryKey: reminderKeys.unifiedList(params as Record<string, unknown>),
+    queryFn: async (): Promise<UnifiedReminderListResponse> => {
+      const response = await remindersApi.listUnified(params);
+      const envelope = response.data as UnifiedListEnvelope | undefined;
+      const items = Array.isArray(envelope?.data) ? envelope.data : [];
+      const meta = envelope?.meta ?? {};
+      return {
+        items,
+        total: meta.total ?? items.length,
+        page: meta.page ?? 1,
+        limit: meta.limit ?? 30,
+        counts: meta.counts ?? { user: 0, aiFollowUp: 0 },
+      };
+    },
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+  });
+}
+
+/** Hook for unified reminder + follow-up list */
+export function useUnifiedReminders(params?: UnifiedListParams) {
+  return useQuery(unifiedRemindersListOptions(params));
+}
+
+/** Mutation: resolve a unified item */
+export function useResolveUnified() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, source }: { id: string; source: UnifiedSource }) => {
+      const response = await remindersApi.resolveUnified(id, source);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.completeFailed);
+    },
+  });
+}
+
+/** Mutation: snooze a unified item */
+export function useSnoozeUnified() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, source, dueDate }: { id: string; source: UnifiedSource; dueDate: string }) => {
+      const response = await remindersApi.snoozeUnified(id, source, dueDate);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.updateFailed);
+    },
+  });
+}
+
+/** Mutation: convert follow-up to reminder */
+export function useConvertFollowUpToReminder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (followUpId: string) => {
+      const response = await remindersApi.convertToReminder(followUpId);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+      getGlobalToast().success(getGlobalTranslations().ai.reminders.followUp.converted);
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().ai.reminders.errors.createFailed);
     },
   });
 }

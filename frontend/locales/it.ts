@@ -3539,6 +3539,20 @@ export const it: AppTranslations = {
       changePriority: 'Cambia priorità',
       bulkActions: 'Azioni',
       noSearchResults: 'Nessun promemoria trovato per "{query}"',
+      sourceFilter: {
+        all: 'Tutti',
+        user: 'I miei promemoria',
+        'ai-followup': 'Follow-up AI',
+      },
+      followUp: {
+        badge: 'AI',
+        resolve: 'Risolvi',
+        snooze: 'Posticipa',
+        convertToReminder: 'Converti in promemoria',
+        converted: 'Follow-up convertito in promemoria',
+        resolved: 'Follow-up risolto',
+        snoozed: 'Follow-up posticipato',
+      },
       fields: {
         contact: 'Contatto',
         deadline: 'Scadenza',

@@ -9,19 +9,20 @@ import {
   Tooltip,
   Checkbox,
 } from '@mui/material';
-import { CheckCircle2, Mail, Pencil, Repeat, Trash2, Send } from 'lucide-react';
+import { Bot, CheckCircle2, Mail, Pencil, Repeat, Trash2, Send, ArrowRightCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
-import type { Reminder } from '@/lib/api/reminders';
+import type { UnifiedReminderItem } from '@/lib/api/reminders';
 
 interface ReminderCardProps {
-  reminder: Reminder;
+  item: UnifiedReminderItem;
   selected?: boolean;
   onSelect?: (id: string) => void;
-  onEdit: (reminder: Reminder) => void;
-  onComplete: (id: string) => void;
+  onEdit?: (item: UnifiedReminderItem) => void;
+  onComplete: (id: string, source: UnifiedReminderItem['source']) => void;
   onDelete: (id: string) => void;
+  onConvert?: (followUpId: string) => void;
 }
 
 function prioritaColor(p: string): 'error' | 'warning' | 'success' | 'default' {
@@ -33,20 +34,34 @@ function prioritaColor(p: string): 'error' | 'warning' | 'success' | 'default' {
   }
 }
 
-export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete, onDelete }: ReminderCardProps) {
+/** True when the item is in a terminal/inactive state */
+function isItemDone(item: UnifiedReminderItem): boolean {
+  if (item.source === 'user') {
+    return item.status === 'completato' || item.status === 'annullato';
+  }
+  return item.status === 'resolved' || item.status === 'expired';
+}
+
+export function ReminderCard({ item, selected, onSelect, onEdit, onComplete, onDelete, onConvert }: ReminderCardProps) {
   const t = useTranslations();
   const tr = t.ai.reminders;
   const tz = useUserTimezone();
 
-  const isCompleted = reminder.status === 'completato' || reminder.status === 'annullato';
+  const isFollowUp = item.source === 'ai-followup';
+  const isDone = isItemDone(item);
+
+  // Map follow-up status to display label
+  const statusLabel = isFollowUp
+    ? (item.status === 'pending' ? 'Active' : item.status === 'reminded' ? 'Reminded' : item.status)
+    : (tr.status[item.status as keyof typeof tr.status] || item.status);
 
   return (
     <Card
       variant="outlined"
       sx={{
-        opacity: isCompleted ? 0.6 : 1,
+        opacity: isDone ? 0.6 : 1,
         transition: 'opacity 0.2s, border-color 0.2s',
-        borderColor: selected ? 'primary.main' : undefined,
+        borderColor: selected ? 'primary.main' : isFollowUp ? 'info.main' : undefined,
         bgcolor: selected ? 'action.selected' : undefined,
       }}
     >
@@ -56,80 +71,106 @@ export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete,
             {onSelect && (
               <Checkbox
                 checked={!!selected}
-                onChange={() => onSelect(reminder.id)}
+                onChange={() => onSelect(item.id)}
                 size="small"
                 sx={{ mt: -0.5, ml: -0.5 }}
               />
             )}
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>
-                {reminder.titolo}
+                {item.titolo}
               </Typography>
-              {reminder.descrizione && (
+              {item.descrizione && (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }} noWrap>
-                  {reminder.descrizione}
+                  {item.descrizione}
                 </Typography>
               )}
             </Box>
           </Box>
-          {!isCompleted && (
+          {!isDone && (
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-              <Tooltip title={tr.actions.edit}>
-                <IconButton size="small" color="primary" onClick={() => onEdit(reminder)} sx={{ minWidth: 44, minHeight: 44 }}>
-                  <Pencil size={18} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={tr.actions.complete}>
-                <IconButton size="small" color="success" onClick={() => onComplete(reminder.id)} sx={{ minWidth: 44, minHeight: 44 }}>
+              {/* Edit only for user reminders */}
+              {!isFollowUp && onEdit && (
+                <Tooltip title={tr.actions.edit}>
+                  <IconButton size="small" color="primary" onClick={() => onEdit(item)} sx={{ minWidth: 44, minHeight: 44 }}>
+                    <Pencil size={18} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {/* Convert follow-up to reminder */}
+              {isFollowUp && onConvert && (
+                <Tooltip title={tr.followUp.convertToReminder}>
+                  <IconButton size="small" color="primary" onClick={() => onConvert(item.id)} sx={{ minWidth: 44, minHeight: 44 }}>
+                    <ArrowRightCircle size={18} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Tooltip title={isFollowUp ? tr.followUp.resolve : tr.actions.complete}>
+                <IconButton size="small" color="success" onClick={() => onComplete(item.id, item.source)} sx={{ minWidth: 44, minHeight: 44 }}>
                   <CheckCircle2 size={18} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={tr.actions.delete}>
-                <IconButton size="small" color="error" onClick={() => onDelete(reminder.id)} sx={{ minWidth: 44, minHeight: 44 }}>
-                  <Trash2 size={18} />
-                </IconButton>
-              </Tooltip>
+              {!isFollowUp && (
+                <Tooltip title={tr.actions.delete}>
+                  <IconButton size="small" color="error" onClick={() => onDelete(item.id)} sx={{ minWidth: 44, minHeight: 44 }}>
+                    <Trash2 size={18} />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           )}
         </Box>
 
         <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1.5 }}>
+          {/* Source badge */}
+          {isFollowUp && (
+            <Chip
+              icon={<Bot size={14} />}
+              label={tr.followUp.badge}
+              size="small"
+              color="info"
+              sx={{ height: 22 }}
+            />
+          )}
           <Chip
-            label={tr.priorita[reminder.priorita] || reminder.priorita}
+            label={tr.priorita[item.priorita] || item.priorita}
             size="small"
-            color={prioritaColor(reminder.priorita)}
+            color={prioritaColor(item.priorita)}
             sx={{ height: 22 }}
           />
           <Chip
-            label={tr.status[reminder.status] || reminder.status}
+            label={statusLabel}
             size="small"
             variant="outlined"
             sx={{ height: 22 }}
           />
-          {reminder.condizioneTipo !== 'sempre' && (
-            <Tooltip title={reminder.condizioneDettaglio || ''}>
-              <Chip
-                label={
-                  reminder.emailMittente &&
-                  (reminder.condizioneTipo === 'se_risponde_mail' || reminder.condizioneTipo === 'se_non_risponde_mail')
-                    ? `${tr.condizione[reminder.condizioneTipo] || reminder.condizioneTipo} — ${reminder.emailMittente}`
-                    : tr.condizione[reminder.condizioneTipo] || reminder.condizioneTipo
-                }
-                size="small"
-                variant="outlined"
-                sx={{ height: 22 }}
-              />
-            </Tooltip>
-          )}
-          {reminder.azione !== 'altro' && (
+          {/* Follow-up type */}
+          {isFollowUp && item.followUpType && (
             <Chip
-              label={tr.azione[reminder.azione] || reminder.azione}
+              label={item.followUpType === 'WAITING_FOR' ? 'Waiting for reply' : 'Action needed'}
               size="small"
               variant="outlined"
               sx={{ height: 22 }}
             />
           )}
-          {reminder.isRecurring && (
+          {/* User reminder-specific chips */}
+          {!isFollowUp && item.condizioneTipo && item.condizioneTipo !== 'sempre' && (
+            <Chip
+              label={tr.condizione[item.condizioneTipo as keyof typeof tr.condizione] || item.condizioneTipo}
+              size="small"
+              variant="outlined"
+              sx={{ height: 22 }}
+            />
+          )}
+          {!isFollowUp && item.azione && item.azione !== 'altro' && (
+            <Chip
+              label={tr.azione[item.azione as keyof typeof tr.azione] || item.azione}
+              size="small"
+              variant="outlined"
+              sx={{ height: 22 }}
+            />
+          )}
+          {item.isRecurring && (
             <Chip
               icon={<Repeat size={14} />}
               label={tr.recurrence.badge}
@@ -139,49 +180,44 @@ export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete,
               sx={{ height: 22 }}
             />
           )}
-          {reminder.monitoraEmail && (
-            <Tooltip
-              title={[
-                reminder.emailMittente ? `${tr.fields.from}: ${reminder.emailMittente}` : '',
-                reminder.emailKeywords.length > 0 ? `${tr.fields.keywords}: ${reminder.emailKeywords.join(', ')}` : '',
-              ].filter(Boolean).join(' · ')}
-            >
-              <Chip
-                icon={<Mail size={14} />}
-                label={reminder.emailRilevata ? tr.fields.emailDetected : tr.fields.emailMonitoring}
-                size="small"
-                color={reminder.emailRilevata ? 'success' : 'info'}
-                variant="outlined"
-                sx={{ height: 22 }}
-              />
-            </Tooltip>
+          {!isFollowUp && item.monitoraEmail && (
+            <Chip
+              icon={<Mail size={14} />}
+              label={tr.fields.emailMonitoring}
+              size="small"
+              color="info"
+              variant="outlined"
+              sx={{ height: 22 }}
+            />
           )}
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1, flexWrap: 'wrap' }}>
-          {reminder.contatto && (
+          {item.contatto && (
             <Typography variant="caption" color="text.secondary">
-              {tr.fields.contact}: {reminder.contatto}
+              {tr.fields.contact}: {item.contatto}
             </Typography>
           )}
-          {reminder.scadenzaDatetime && (
-            <Typography variant="caption" color="text.secondary">
-              {tr.fields.deadline}: {formatDateTimeInTz(reminder.scadenzaDatetime, tz)}
+          {/* Follow-up: show email subject/from */}
+          {isFollowUp && item.emailSubject && (
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 300 }}>
+              {item.emailSubject}
             </Typography>
           )}
-          {reminder.telegramInviato ? (
+          {isFollowUp && item.emailFrom && (
+            <Typography variant="caption" color="text.secondary">
+              {tr.fields.from}: {item.emailFrom}
+            </Typography>
+          )}
+          {item.scadenzaDatetime && (
+            <Typography variant="caption" color="text.secondary">
+              {tr.fields.deadline}: {formatDateTimeInTz(item.scadenzaDatetime, tz)}
+            </Typography>
+          )}
+          {!isFollowUp && item.telegramInviato && (
             <Tooltip title={tr.telegram.sent}>
               <Send size={14} color="var(--mui-palette-success-main, #4caf50)" />
             </Tooltip>
-          ) : (
-            !isCompleted &&
-            !reminder.telegramInviatoAt &&
-            reminder.scadenzaDatetime &&
-            new Date(reminder.scadenzaDatetime) < new Date() && (
-              <Tooltip title={tr.telegram.deliveryFailed}>
-                <Send size={14} color="var(--mui-palette-error-main, #f44336)" />
-              </Tooltip>
-            )
           )}
         </Box>
       </CardContent>

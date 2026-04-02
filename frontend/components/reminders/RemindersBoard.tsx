@@ -24,20 +24,27 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { PageContainer } from '@/components/common';
 import { EmptyState } from '@/components/common/EmptyState';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
-import { useReminders, useSearchReminders, useCompleteReminder, useDeleteReminder, useBulkDeleteReminders, useBulkUpdateReminders } from '@/hooks/queries/use-reminders';
-import type { Reminder, ReminderStatus } from '@/lib/api/reminders';
+import {
+  useUnifiedReminders,
+  useResolveUnified,
+  useDeleteReminder,
+  useBulkDeleteReminders,
+  useBulkUpdateReminders,
+  useConvertFollowUpToReminder,
+} from '@/hooks/queries/use-reminders';
+import type { UnifiedReminderItem, UnifiedSource, Reminder } from '@/lib/api/reminders';
 import { ReminderCard } from './ReminderCard';
 import { ReminderCreateDialog } from './ReminderCreateDialog';
 import { ReminderEditDialog } from './ReminderEditDialog';
 import { useRouter } from 'next/router';
 
-const STATUS_FILTERS: Array<ReminderStatus | 'all'> = ['all', 'attivo', 'completato', 'annullato'];
+const SOURCE_FILTERS: Array<UnifiedSource | 'all'> = ['all', 'user', 'ai-followup'];
 
 export function RemindersBoard() {
   const t = useTranslations();
   const tr = t.ai.reminders;
   const router = useRouter();
-  const [statusFilter, setStatusFilter] = useState<ReminderStatus | 'all'>('all');
+  const [sourceFilter, setSourceFilter] = useState<UnifiedSource | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -55,23 +62,34 @@ export function RemindersBoard() {
 
   const isSearching = debouncedSearch.length >= 2;
 
-  const params = statusFilter === 'all' ? undefined : { status: statusFilter };
-  const listQuery = useReminders(params);
-  const searchQuery = useSearchReminders(debouncedSearch);
-  const activeQuery = isSearching ? searchQuery : listQuery;
-  const { data, isLoading, isError, error, refetch } = activeQuery;
-  const completeMutation = useCompleteReminder();
+  const unifiedParams = sourceFilter === 'all' ? undefined : { source: sourceFilter };
+  const { data, isLoading, isError, error, refetch } = useUnifiedReminders(unifiedParams);
+  const resolveMutation = useResolveUnified();
   const deleteMutation = useDeleteReminder();
   const bulkDeleteMutation = useBulkDeleteReminders();
   const bulkUpdateMutation = useBulkUpdateReminders();
+  const convertMutation = useConvertFollowUpToReminder();
 
-  const reminders = data?.reminders ?? [];
+  // Filter by search client-side (unified endpoint doesn't support search)
+  const allItems = data?.items ?? [];
+  const items = isSearching
+    ? allItems.filter((item) => {
+        const q = debouncedSearch.toLowerCase();
+        return (
+          item.titolo.toLowerCase().includes(q) ||
+          (item.descrizione?.toLowerCase().includes(q) ?? false) ||
+          (item.contatto?.toLowerCase().includes(q) ?? false) ||
+          (item.emailSubject?.toLowerCase().includes(q) ?? false)
+        );
+      })
+    : allItems;
+
   const hasSelection = selectedIds.size > 0;
-  const allSelected = reminders.length > 0 && selectedIds.size === reminders.length;
+  const allSelected = items.length > 0 && selectedIds.size === items.length;
+  const counts = data?.counts;
 
   useEffect(() => {
     if (!router.isReady || router.query.action !== 'create') return;
-
     setDialogOpen(true);
     const { action, ...nextQuery } = router.query;
     void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
@@ -90,9 +108,9 @@ export function RemindersBoard() {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(reminders.map((r) => r.id)));
+      setSelectedIds(new Set(items.map((r) => r.id)));
     }
-  }, [allSelected, reminders]);
+  }, [allSelected, items]);
 
   const handleBulkMarkCompleted = useCallback(() => {
     const ids = Array.from(selectedIds);
@@ -140,6 +158,41 @@ export function RemindersBoard() {
     });
   }, [selectedIds, bulkDeleteMutation]);
 
+  const handleComplete = useCallback((id: string, source: UnifiedReminderItem['source']) => {
+    resolveMutation.mutate({ id, source });
+  }, [resolveMutation]);
+
+  const handleConvert = useCallback((followUpId: string) => {
+    convertMutation.mutate(followUpId);
+  }, [convertMutation]);
+
+  /** Map a UnifiedReminderItem to a Reminder for the edit dialog (user items only) */
+  const handleEdit = useCallback((item: UnifiedReminderItem) => {
+    if (item.source !== 'user') return;
+    // Cast to Reminder shape — the edit dialog only uses the fields available
+    setEditingReminder({
+      id: item.id,
+      tenantId: '',
+      userId: '',
+      titolo: item.titolo,
+      descrizione: item.descrizione,
+      contatto: item.contatto,
+      scadenzaDatetime: item.scadenzaDatetime,
+      priorita: item.priorita,
+      status: item.status as Reminder['status'],
+      azione: (item.azione ?? 'altro') as Reminder['azione'],
+      condizioneTipo: (item.condizioneTipo ?? 'sempre') as Reminder['condizioneTipo'],
+      monitoraEmail: item.monitoraEmail,
+      emailKeywords: [],
+      emailRilevata: false,
+      telegramInviato: item.telegramInviato,
+      isRecurring: item.isRecurring,
+      recurrenceRule: item.recurrenceRule,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    });
+  }, []);
+
   const headerActions = (
     <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDialogOpen(true)}>
       {tr.newReminder}
@@ -179,22 +232,30 @@ export function RemindersBoard() {
         }}
       />
 
-      {/* Status filter chips */}
+      {/* Source filter chips */}
       <Box sx={{ display: 'flex', gap: 0.75, mb: 2, flexWrap: 'wrap' }}>
-        {STATUS_FILTERS.map((s) => (
-          <Chip
-            key={s}
-            label={s === 'all' ? (t.common.all ?? 'All') : (tr.status[s] || s)}
-            onClick={() => { setStatusFilter(s); setSelectedIds(new Set()); }}
-            color={statusFilter === s ? 'primary' : 'default'}
-            variant={statusFilter === s ? 'filled' : 'outlined'}
-            size="small"
-          />
-        ))}
+        {SOURCE_FILTERS.map((s) => {
+          const label = s === 'all'
+            ? `${tr.sourceFilter.all}${counts ? ` (${(counts.user ?? 0) + (counts.aiFollowUp ?? 0)})` : ''}`
+            : s === 'user'
+              ? `${tr.sourceFilter.user}${counts ? ` (${counts.user ?? 0})` : ''}`
+              : `${tr.sourceFilter['ai-followup']}${counts ? ` (${counts.aiFollowUp ?? 0})` : ''}`;
+
+          return (
+            <Chip
+              key={s}
+              label={label}
+              onClick={() => { setSourceFilter(s); setSelectedIds(new Set()); }}
+              color={sourceFilter === s ? 'primary' : 'default'}
+              variant={sourceFilter === s ? 'filled' : 'outlined'}
+              size="small"
+            />
+          );
+        })}
       </Box>
 
-      {/* Bulk action bar */}
-      {!isLoading && !isError && reminders.length > 0 && (
+      {/* Bulk action bar (only for user reminders) */}
+      {!isLoading && !isError && items.length > 0 && sourceFilter !== 'ai-followup' && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
           <Checkbox
             checked={allSelected}
@@ -267,7 +328,7 @@ export function RemindersBoard() {
       )}
 
       {/* Empty */}
-      {!isLoading && !isError && reminders.length === 0 && (
+      {!isLoading && !isError && items.length === 0 && (
         isSearching ? (
           <EmptyState
             icon={Search}
@@ -287,18 +348,19 @@ export function RemindersBoard() {
         )
       )}
 
-      {/* Reminders list */}
-      {!isLoading && !isError && reminders.length > 0 && (
+      {/* Items list */}
+      {!isLoading && !isError && items.length > 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {reminders.map((r) => (
+          {items.map((item) => (
             <ReminderCard
-              key={r.id}
-              reminder={r}
-              selected={selectedIds.has(r.id)}
-              onSelect={handleToggleSelect}
-              onEdit={setEditingReminder}
-              onComplete={(id) => completeMutation.mutate(id)}
+              key={`${item.source}-${item.id}`}
+              item={item}
+              selected={selectedIds.has(item.id)}
+              onSelect={item.source === 'user' ? handleToggleSelect : undefined}
+              onEdit={item.source === 'user' ? handleEdit : undefined}
+              onComplete={handleComplete}
               onDelete={handleDeleteRequest}
+              onConvert={item.source === 'ai-followup' ? handleConvert : undefined}
             />
           ))}
         </Box>

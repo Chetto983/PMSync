@@ -3559,6 +3559,20 @@ export const en: AppTranslations = {
       changePriority: 'Change priority',
       bulkActions: 'Actions',
       noSearchResults: 'No reminders found for "{query}"',
+      sourceFilter: {
+        all: 'All',
+        user: 'My Reminders',
+        'ai-followup': 'AI Follow-ups',
+      },
+      followUp: {
+        badge: 'AI',
+        resolve: 'Resolve',
+        snooze: 'Snooze',
+        convertToReminder: 'Convert to reminder',
+        converted: 'Follow-up converted to reminder',
+        resolved: 'Follow-up resolved',
+        snoozed: 'Follow-up snoozed',
+      },
       fields: {
         contact: 'Contact',
         deadline: 'Deadline',

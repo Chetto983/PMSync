@@ -119,6 +119,50 @@ export interface ListRemindersResponse {
 }
 
 // =============================================================================
+// Types - Unified (Reminder + EmailFollowUp)
+// =============================================================================
+
+export type UnifiedSource = 'user' | 'ai-followup';
+
+export interface UnifiedReminderItem {
+  id: string;
+  source: UnifiedSource;
+  titolo: string;
+  descrizione: string | null;
+  contatto: string | null;
+  scadenzaDatetime: string | null;
+  priorita: 'alta' | 'media' | 'bassa';
+  status: string;
+  azione: string | null;
+  condizioneTipo: string | null;
+  monitoraEmail: boolean;
+  telegramInviato: boolean;
+  isRecurring: boolean;
+  recurrenceRule: string | null;
+  emailSubject: string | null;
+  emailFrom: string | null;
+  emailId: string | null;
+  followUpType: string | null;
+  confidence: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UnifiedReminderListResponse {
+  items: UnifiedReminderItem[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: { user: number; aiFollowUp: number };
+}
+
+export interface UnifiedListParams {
+  source?: UnifiedSource;
+  page?: number;
+  limit?: number;
+}
+
+// =============================================================================
 // Types - Telegram Settings
 // =============================================================================
 
@@ -168,6 +212,19 @@ export const remindersApi = {
 
   bulkUpdate: (dto: BulkUpdateRemindersDto) =>
     apiClient.patch<{ data: { updated: number } }>('/reminders/bulk', dto),
+
+  // Unified endpoints
+  listUnified: (params?: UnifiedListParams) =>
+    apiClient.get<{ data: UnifiedReminderItem[]; meta: { total: number; page: number; limit: number; counts: { user: number; aiFollowUp: number } } }>('/reminders/unified', { params }),
+
+  resolveUnified: (id: string, source: UnifiedSource) =>
+    apiClient.post<{ data: unknown }>(`/reminders/unified/${id}/resolve`, null, { params: { source } }),
+
+  snoozeUnified: (id: string, source: UnifiedSource, dueDate: string) =>
+    apiClient.post<{ data: unknown }>(`/reminders/unified/${id}/snooze`, { dueDate }, { params: { source } }),
+
+  convertToReminder: (followUpId: string) =>
+    apiClient.post<{ data: { reminder: Reminder; resolvedFollowUpId: string } }>(`/reminders/unified/${followUpId}/convert`),
 };
 
 // =============================================================================

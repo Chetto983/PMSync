@@ -3637,6 +3637,20 @@ export interface AppTranslations {
       changePriority?: string;
       bulkActions?: string;
       noSearchResults?: string;
+      sourceFilter: {
+        all: string;
+        user: string;
+        'ai-followup': string;
+      };
+      followUp: {
+        badge: string;
+        resolve: string;
+        snooze: string;
+        convertToReminder: string;
+        converted: string;
+        resolved: string;
+        snoozed: string;
+      };
       fields: {
         contact: string;
         deadline: string;

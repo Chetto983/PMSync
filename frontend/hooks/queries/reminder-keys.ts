@@ -11,6 +11,8 @@ export const reminderKeys = {
   detail: (id: string) => [...reminderKeys.all, 'detail', id] as const,
   searches: () => [...reminderKeys.all, 'search'] as const,
   search: (q: string) => [...reminderKeys.searches(), q] as const,
+  unified: () => [...reminderKeys.all, 'unified'] as const,
+  unifiedList: (filters?: Record<string, unknown>) => [...reminderKeys.unified(), filters] as const,
 };
 
 export const telegramKeys = {
