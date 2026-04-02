@@ -107,12 +107,19 @@ export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete,
             sx={{ height: 22 }}
           />
           {reminder.condizioneTipo !== 'sempre' && (
-            <Chip
-              label={tr.condizione[reminder.condizioneTipo] || reminder.condizioneTipo}
-              size="small"
-              variant="outlined"
-              sx={{ height: 22 }}
-            />
+            <Tooltip title={reminder.condizioneDettaglio || ''}>
+              <Chip
+                label={
+                  reminder.emailMittente &&
+                  (reminder.condizioneTipo === 'se_risponde_mail' || reminder.condizioneTipo === 'se_non_risponde_mail')
+                    ? `${tr.condizione[reminder.condizioneTipo] || reminder.condizioneTipo} — ${reminder.emailMittente}`
+                    : tr.condizione[reminder.condizioneTipo] || reminder.condizioneTipo
+                }
+                size="small"
+                variant="outlined"
+                sx={{ height: 22 }}
+              />
+            </Tooltip>
           )}
           {reminder.azione !== 'altro' && (
             <Chip
