@@ -1178,6 +1178,12 @@ export const en: AppTranslations = {
         confidence: 'Confidence',
       },
     },
+    category: {
+      support: 'Support',
+      sales: 'Sales',
+      internal: 'Internal',
+      newsletter: 'Newsletter',
+    },
     labels: {
       title: 'Labels',
       manageLabels: 'Manage Labels',

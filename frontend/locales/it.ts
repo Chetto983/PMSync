@@ -1168,6 +1168,12 @@ export const it: AppTranslations = {
         confidence: 'Affidabilità',
       },
     },
+    category: {
+      support: 'Supporto',
+      sales: 'Vendite',
+      internal: 'Interno',
+      newsletter: 'Newsletter',
+    },
     labels: {
       title: 'Etichette',
       manageLabels: 'Gestisci etichette',

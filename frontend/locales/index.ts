@@ -1093,6 +1093,12 @@ export interface AppTranslations {
         confidence: string;
       };
     };
+    category: {
+      support: string;
+      sales: string;
+      internal: string;
+      newsletter: string;
+    };
     labels: {
       title: string;
       manageLabels: string;

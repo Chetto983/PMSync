@@ -43,6 +43,7 @@ import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { TriageReasonChip } from '@/src/components/triage/TriageReasonChip';
+import { CategoryChip } from '@/components/email/CategoryChip';
 import { ContactName } from '@/components/contacts/ContactName';
 import { extractEmailAddress } from '@/components/email/utils/email-formatters';
 
@@ -92,6 +93,7 @@ export interface ThreadListItemData {
   aiLane?: string | null;
   aiIntent?: string | null;
   aiActionability?: string | null;
+  aiCategory?: string | null;
 }
 
 interface ThreadListItemProps {
@@ -160,7 +162,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   const userLabels = (thread.labels || []).slice(0, 2);
   const aiLabels = (thread.aiLabels || []).slice(0, 1); // Max 1 AI label to avoid clutter
   const hasLane = !!thread.aiLane;
-  const showIndicators = hasP || hasS || userLabels.length > 0 || aiLabels.length > 0 || hasLane;
+  const hasCategory = !!thread.aiCategory;
+  const showIndicators = hasP || hasS || userLabels.length > 0 || aiLabels.length > 0 || hasLane || hasCategory;
   const showSelectionAffordance = isTouchLayout || isHovered || isSelected;
   const showQuickActions = isHovered || isFocused || (isTouchLayout && isSelected);
 
@@ -429,6 +432,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
                 }}
               />
             ))}
+            {hasCategory && <CategoryChip category={thread.aiCategory} />}
           </Box>
         )}
       </Box>
@@ -549,6 +553,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   prev.thread.aiPriority === next.thread.aiPriority &&
   prev.thread.aiSentiment === next.thread.aiSentiment &&
   prev.thread.aiLabels === next.thread.aiLabels &&
+  prev.thread.aiCategory === next.thread.aiCategory &&
   prev.isSelected === next.isSelected &&
   prev.isHovered === next.isHovered &&
   prev.isFocused === next.isFocused

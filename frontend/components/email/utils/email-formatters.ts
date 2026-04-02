@@ -71,6 +71,7 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
     aiLane: email.aiLane,
     aiIntent: email.aiIntent,
     aiActionability: email.aiActionability,
+    aiCategory: email.aiCategory,
   };
 }
 
@@ -102,5 +103,6 @@ export function mapEmailToThreadMessage(email: Email, timezone: string): ThreadM
         color: bg && isValidHexColor(bg) ? bg : '#9E9E9E',
       };
     }).filter((l) => l.id),
+    aiCategory: email.aiCategory,
   };
 }

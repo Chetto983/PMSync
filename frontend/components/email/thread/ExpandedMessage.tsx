@@ -51,6 +51,7 @@ import { AiInsightsPanel } from './AiInsightsPanel';
 import { AiActionButtons } from './AiActionButtons';
 import { ContactName } from '@/components/contacts/ContactName';
 import { extractEmailAddress } from '@/components/email/utils/email-formatters';
+import { CategoryChip } from '@/components/email/CategoryChip';
 
 interface ExpandedMessageProps {
   message: {
@@ -75,6 +76,7 @@ interface ExpandedMessageProps {
     aiLane?: string | null;
     aiIntent?: string | null;
     aiActionability?: string | null;
+    aiCategory?: string | null;
     labels?: Array<{ id: string; name: string; color: string }>;
   };
   onCollapse: () => void;
@@ -273,10 +275,11 @@ export const ExpandedMessage = memo(function ExpandedMessage({
       }}
     >
       {/* Subject Line */}
-      <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: 2, pb: 1 }}>
-        <Typography variant="h6" sx={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.4, letterSpacing: '-0.01em' }}>
+      <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="h6" sx={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.4, letterSpacing: '-0.01em', flex: 1, minWidth: 0 }}>
           {message.subject || '(No Subject)'}
         </Typography>
+        <CategoryChip category={message.aiCategory} />
       </Box>
 
       <Divider sx={{ opacity: 0.3 }} />

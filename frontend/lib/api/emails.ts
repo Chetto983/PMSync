@@ -105,6 +105,7 @@ export interface Email {
   aiLane?: string | null;
   aiIntent?: string | null;
   aiActionability?: string | null;
+  aiCategory?: string | null;
   isAutoTriaged?: boolean;
   autoTriagedAt?: string | null;
 }

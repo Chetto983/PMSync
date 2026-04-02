@@ -47,6 +47,7 @@ export interface ThreadMessageData {
   attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
   avatarUrl?: string;
   isAutoReply?: boolean;
+  aiCategory?: string | null;
   labels?: Array<{ id: string; name: string; color: string }>;
 }
 
