@@ -45,6 +45,20 @@ export interface TriageRecommendedLabel {
   color: { backgroundColor: string; textColor: string };
 }
 
+export interface TriageDerivedRule {
+  type: 'domain' | 'sender' | 'keyword' | 'phrase';
+  action:
+    | 'important'
+    | 'customer-vip'
+    | 'system-alert'
+    | 'review-later'
+    | 'suppress'
+    | 'billing'
+    | 'follow-up';
+  pattern: string;
+  labelName?: string;
+}
+
 const LIST_LIMIT = 12;
 const TEXT_LIMIT = 120;
 
@@ -295,6 +309,70 @@ export function buildRecommendedLabelSet(
   });
 
   return labels;
+}
+
+export function buildDerivedTriageRules(
+  rules: TriageOnboardingRules,
+): TriageDerivedRule[] {
+  const derived: TriageDerivedRule[] = [];
+
+  for (const domain of rules.customerDomains) {
+    derived.push({
+      type: 'domain',
+      action: 'customer-vip',
+      pattern: domain,
+    });
+  }
+
+  for (const sender of rules.importantSenders) {
+    derived.push({
+      type: 'sender',
+      action: 'important',
+      pattern: sender,
+    });
+  }
+
+  for (const topic of rules.projectTopics) {
+    derived.push({
+      type: 'phrase',
+      action: 'important',
+      pattern: topic,
+    });
+  }
+
+  for (const source of rules.systemAlertSources) {
+    derived.push({
+      type: 'phrase',
+      action: 'system-alert',
+      pattern: source,
+    });
+  }
+
+  for (const topic of rules.billingTopics) {
+    derived.push({
+      type: 'phrase',
+      action: 'billing',
+      pattern: topic,
+    });
+  }
+
+  for (const topic of rules.reviewLaterTopics) {
+    derived.push({
+      type: 'phrase',
+      action: 'review-later',
+      pattern: topic,
+    });
+  }
+
+  if (rules.followUpSlaHours) {
+    derived.push({
+      type: 'phrase',
+      action: 'follow-up',
+      pattern: `follow-up target ${rules.followUpSlaHours} hours`,
+    });
+  }
+
+  return derived;
 }
 
 function buildCustomerPrompt(rules: TriageOnboardingRules): string {

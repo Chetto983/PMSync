@@ -33,7 +33,7 @@ jest.mock('@/lib/hooks/use-translations', () => ({
       reviewLaterPlaceholder: 'product newsletter, weekly digest',
       helper: 'Use natural phrases and names, not just isolated keywords.',
       preview: 'Preview',
-      willCreate: 'Will create or update these labels',
+      willCreate: 'This setup will guide triage with patterns like these',
       catchTitle: 'This will catch',
       avoidTitle: 'This will avoid',
       previewButton: 'Preview',
@@ -41,9 +41,9 @@ jest.mock('@/lib/hooks/use-translations', () => ({
       skipButton: 'Skip for now',
       loading: 'Loading triage setup...',
       genericError: 'Unable to complete the action. Please try again.',
-      applyReady: 'Preview is ready. Review the labels before saving.',
-      applySuccess: 'Triage rules saved. AI label prompts were updated.',
-      currentLabels: 'Current labels',
+      applyReady: 'Preview is ready. Review the guidance before saving.',
+      applySuccess: 'Triage rules saved. Labels remain user-defined.',
+      currentLabels: 'Existing user labels',
       dialogTitle: 'Guided Triage Setup',
       openGuided: 'Open guided triage setup',
     },
@@ -136,7 +136,7 @@ describe('TriageSetupForm', () => {
       ),
     );
 
-    expect(await screen.findByText('Will create or update these labels')).toBeInTheDocument();
-    expect(screen.getByText('Customer +')).toBeInTheDocument();
+    expect(await screen.findByText('This setup will guide triage with patterns like these')).toBeInTheDocument();
+    expect(screen.getByText('Customer')).toBeInTheDocument();
   });
 });

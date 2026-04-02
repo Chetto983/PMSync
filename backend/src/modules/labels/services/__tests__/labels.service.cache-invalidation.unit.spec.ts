@@ -2,6 +2,9 @@ import { LabelsService } from '../labels.service';
 
 describe('LabelsService cache invalidation', () => {
   const mockEmailsService = {};
+  const mockTriageRuleService = {
+    setTriageRules: jest.fn(),
+  };
   const mockRealtimeEvents = {
     emitLabelUpdate: jest.fn(),
     emitLabelNew: jest.fn(),
@@ -40,6 +43,7 @@ describe('LabelsService cache invalidation', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
     );
 
     await service.create('tenant-1', { name: 'CI Incident', aiPrompt: 'Use for CI failures' });
@@ -86,6 +90,7 @@ describe('LabelsService cache invalidation', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
     );
 
     await service.update('tenant-1', 'label-1', {
@@ -121,6 +126,7 @@ describe('LabelsService cache invalidation', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
     );
 
     await service.delete('tenant-1', 'label-1');

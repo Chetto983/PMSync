@@ -11,7 +11,14 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export interface TriageRule {
   type: 'domain' | 'sender' | 'keyword' | 'phrase';
   pattern: string; // e.g. "acme.com", "billing@", "project alpha"
-  action: 'important' | 'customer-vip' | 'system-alert' | 'review-later' | 'suppress';
+  action:
+    | 'important'
+    | 'customer-vip'
+    | 'system-alert'
+    | 'review-later'
+    | 'suppress'
+    | 'billing'
+    | 'follow-up';
   labelName?: string; // optional label to apply
 }
 
@@ -39,6 +46,8 @@ const VALID_RULE_ACTIONS = new Set<TriageRule['action']>([
   'system-alert',
   'review-later',
   'suppress',
+  'billing',
+  'follow-up',
 ]);
 
 @Injectable()

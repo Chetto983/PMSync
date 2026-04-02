@@ -1,4 +1,5 @@
 import {
+  buildDerivedTriageRules,
   buildRecommendedLabelSet,
   normalizeTriageOnboardingRules,
   TRIAGE_LABEL_TAXONOMY,
@@ -51,6 +52,30 @@ describe('triage-onboarding.contract', () => {
     );
     expect(recommendations.find((label) => label.name === 'Customer')?.aiPrompt).toContain('acme.com');
     expect(recommendations.find((label) => label.name === 'Follow-up')?.aiPrompt).toContain('48 hours');
+  });
+
+  it('derives prompt-safe triage rules without generating labels', () => {
+    const rules = buildDerivedTriageRules(
+      normalizeTriageOnboardingRules({
+        customerDomains: ['acme.com'],
+        importantSenders: ['cto@acme.com'],
+        systemAlertSources: ['GitHub Actions'],
+        billingTopics: ['invoice overdue'],
+        reviewLaterTopics: ['weekly digest'],
+        followUpSlaHours: 48,
+      }),
+    );
+
+    expect(rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'domain', action: 'customer-vip', pattern: 'acme.com' }),
+        expect.objectContaining({ type: 'sender', action: 'important', pattern: 'cto@acme.com' }),
+        expect.objectContaining({ type: 'phrase', action: 'system-alert', pattern: 'GitHub Actions' }),
+        expect.objectContaining({ type: 'phrase', action: 'billing', pattern: 'invoice overdue' }),
+        expect.objectContaining({ type: 'phrase', action: 'review-later', pattern: 'weekly digest' }),
+        expect.objectContaining({ type: 'phrase', action: 'follow-up', pattern: 'follow-up target 48 hours' }),
+      ]),
+    );
   });
 
   it('marks suppression labels explicitly in the taxonomy', () => {

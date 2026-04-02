@@ -13,6 +13,7 @@ import { EmailsService } from '../../email/services/emails.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderSyncBackQueueService } from '../../email-sync/services/provider-sync-back-queue.service';
 import { EmailInsightsService } from '../../ai/services/email-insights.service';
+import { TriageRuleService } from '../../ai/services/triage-rule.service';
 import {
   AddEmailsToLabelDto,
   CreateLabelDto,
@@ -32,6 +33,7 @@ import {
 } from '../label-prompt-builder';
 import type { TenantLabel } from '../../ai/services/label-resolution.service';
 import {
+  buildDerivedTriageRules,
   buildRecommendedLabelSet,
   normalizeTriageOnboardingRules,
   TRIAGE_LABEL_TAXONOMY,
@@ -48,6 +50,7 @@ export class LabelsService {
     private readonly emailsService: EmailsService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly syncBackQueue: ProviderSyncBackQueueService,
+    private readonly triageRuleService: TriageRuleService,
     @Optional() private readonly emailInsightsService?: EmailInsightsService,
   ) {}
 
@@ -132,83 +135,13 @@ export class LabelsService {
 
   async applyTriageOnboarding(tenantId: string, dto: TriageOnboardingRulesDto) {
     const preview = await this.previewTriageOnboarding(tenantId, dto);
-    const existingLabels = await this.prisma.userLabel.findMany({
-      where: { tenantId, isArchived: false },
-      select: { id: true, slug: true },
-    });
-    const existingBySlug = new Map(existingLabels.map((label) => [label.slug, label]));
-
-    const labels = await this.prisma.$transaction(async (tx) => {
-      const nextLabels = [];
-      for (const recommendation of preview.recommendedLabels) {
-        const existing = existingBySlug.get(recommendation.slug);
-
-        if (existing) {
-          const updated = await tx.userLabel.update({
-            where: { id: existing.id },
-            data: { aiPrompt: recommendation.aiPrompt },
-            select: {
-              id: true,
-              tenantId: true,
-              name: true,
-              slug: true,
-              type: true,
-              color: true,
-              icon: true,
-              parentId: true,
-              level: true,
-              orderIndex: true,
-              isArchived: true,
-              aiPrompt: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-          });
-          nextLabels.push(updated);
-          continue;
-        }
-
-        const maxOrder = await tx.userLabel.aggregate({
-          where: { tenantId, parentId: null },
-          _max: { orderIndex: true },
-        });
-
-        const created = await tx.userLabel.create({
-          data: {
-            tenantId,
-            name: recommendation.name,
-            slug: recommendation.slug,
-            type: 'USER',
-            color: recommendation.color as Prisma.InputJsonValue,
-            aiPrompt: recommendation.aiPrompt,
-            level: 0,
-            parentId: null,
-            orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
-          },
-          select: {
-            id: true,
-            tenantId: true,
-            name: true,
-            slug: true,
-            type: true,
-            color: true,
-            icon: true,
-            parentId: true,
-            level: true,
-            orderIndex: true,
-            isArchived: true,
-            aiPrompt: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        });
-        nextLabels.push(created);
-      }
-
-      return nextLabels;
-    });
+    const rules = await this.triageRuleService.setTriageRules(
+      tenantId,
+      buildDerivedTriageRules(preview.normalizedRules),
+    );
 
     await this.invalidateTenantAnalysisCache(tenantId, 'triage-onboarding-applied');
+    const labels = await this.findAllByTenant(tenantId);
 
     return {
       version: 'v1' as const,
@@ -216,6 +149,7 @@ export class LabelsService {
       taxonomy: TRIAGE_LABEL_TAXONOMY,
       examples: TRIAGE_ONBOARDING_EXAMPLES,
       labels,
+      rules,
     };
   }
 

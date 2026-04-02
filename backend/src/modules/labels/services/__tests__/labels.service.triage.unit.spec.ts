@@ -5,6 +5,9 @@ describe('LabelsService triage onboarding', () => {
   const mockEmailInsights = {
     analyzeEmailUnified: jest.fn(),
   };
+  const mockTriageRuleService = {
+    setTriageRules: jest.fn(),
+  };
   const mockRealtimeEvents = {
     emitLabelUpdate: jest.fn(),
     emitLabelNew: jest.fn(),
@@ -18,6 +21,7 @@ describe('LabelsService triage onboarding', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockEmailInsights.analyzeEmailUnified.mockReset();
+    mockTriageRuleService.setTriageRules.mockReset();
   });
 
   it('previews normalized rules and flags existing labels', async () => {
@@ -36,6 +40,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
       mockEmailInsights as any,
     );
 
@@ -49,25 +54,17 @@ describe('LabelsService triage onboarding', () => {
     expect(preview.recommendedLabels.find((label) => label.name === 'Customer')?.willCreate).toBe(true);
   });
 
-  it('updates existing labels and creates missing operational labels when applied', async () => {
-    const txUserLabel = {
-      aggregate: jest.fn().mockResolvedValue({ _max: { orderIndex: 7 } }),
-      update: jest.fn().mockImplementation(async ({ where, data }) => ({
-        id: where.id,
-        ...data,
-      })),
-      create: jest.fn().mockImplementation(async ({ data }) => ({
-        id: `created-${data.slug}`,
-        ...data,
-      })),
-    };
-
+  it('stores onboarding rules without creating stock labels when applied', async () => {
+    mockTriageRuleService.setTriageRules.mockResolvedValue([
+      { type: 'domain', pattern: 'acme.com', action: 'customer-vip' },
+      { type: 'phrase', pattern: 'Railway', action: 'system-alert' },
+      { type: 'phrase', pattern: 'follow-up target 48 hours', action: 'follow-up' },
+    ]);
     const prisma = {
       emailAnalysis: {
         updateMany: jest.fn().mockResolvedValue({ count: 12 }),
       },
       userLabel: {
-        count: jest.fn().mockResolvedValue(8),
         findMany: jest
           .fn()
           .mockResolvedValueOnce([
@@ -75,12 +72,10 @@ describe('LabelsService triage onboarding', () => {
             { id: 'follow-up-1', name: 'Follow-up', slug: 'follow-up', aiPrompt: 'old', type: 'USER' },
           ])
           .mockResolvedValueOnce([
-            { id: 'important-1', slug: 'important' },
-            { id: 'follow-up-1', slug: 'follow-up' },
+            { id: 'important-1', name: 'Important', slug: 'important', aiPrompt: 'old', type: 'USER', children: [], _count: { emailLabels: 0 } },
+            { id: 'follow-up-1', name: 'Follow-up', slug: 'follow-up', aiPrompt: 'old', type: 'USER', children: [], _count: { emailLabels: 0 } },
           ]),
       },
-      $transaction: jest.fn(async (callback: (tx: { userLabel: typeof txUserLabel }) => Promise<unknown>) =>
-        callback({ userLabel: txUserLabel })),
     };
 
     const service = new LabelsService(
@@ -88,6 +83,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
       mockEmailInsights as any,
     );
 
@@ -97,27 +93,26 @@ describe('LabelsService triage onboarding', () => {
       followUpSlaHours: 48,
     });
 
-    expect(txUserLabel.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'important-1' },
-        data: expect.objectContaining({
-          aiPrompt: expect.stringContaining('business-critical'),
-        }),
-      }),
-    );
-    expect(txUserLabel.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          name: 'Customer',
-          slug: 'customer',
-        }),
-      }),
+    expect(mockTriageRuleService.setTriageRules).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'domain', pattern: 'acme.com', action: 'customer-vip' }),
+        expect.objectContaining({ type: 'phrase', pattern: 'Railway', action: 'system-alert' }),
+        expect.objectContaining({ type: 'phrase', pattern: 'follow-up target 48 hours', action: 'follow-up' }),
+      ]),
     );
     expect(prisma.emailAnalysis.updateMany).toHaveBeenCalledWith({
       where: { tenantId: 'tenant-1' },
       data: { processedAt: expect.any(Date) },
     });
-    expect(result.labels.some((label: { name: string }) => label.name === 'System Alert')).toBe(true);
+    expect(result.labels.map((label: { name: string }) => label.name)).toEqual(['Important', 'Follow-up']);
+    expect(result.rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: 'customer-vip' }),
+        expect.objectContaining({ action: 'system-alert' }),
+        expect.objectContaining({ action: 'follow-up' }),
+      ]),
+    );
   });
 
   it('previews whether a wizard label matches a real email analysis', async () => {
@@ -189,6 +184,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
       mockEmailInsights as any,
     );
 
@@ -261,6 +257,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
       mockEmailInsights as any,
     );
 
@@ -320,6 +317,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
       mockEmailInsights as any,
     );
 
@@ -394,6 +392,7 @@ describe('LabelsService triage onboarding', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
       mockEmailInsights as any,
     );
 

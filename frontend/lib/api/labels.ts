@@ -172,6 +172,20 @@ export interface TriageOnboardingRules {
   followUpSlaHours: number | null;
 }
 
+export interface TriageRuleDefinition {
+  type: 'domain' | 'sender' | 'keyword' | 'phrase';
+  action:
+    | 'important'
+    | 'customer-vip'
+    | 'system-alert'
+    | 'review-later'
+    | 'suppress'
+    | 'billing'
+    | 'follow-up';
+  pattern: string;
+  labelName?: string;
+}
+
 export interface TriageOnboardingContractResponse {
   version: 'v1';
   schema: TriageOnboardingFieldDefinition[];
@@ -195,6 +209,7 @@ export interface TriageOnboardingApplyResponse {
   taxonomy: TriageLabelTaxonomyRule[];
   examples: TriageOnboardingExamples;
   labels: Label[];
+  rules: TriageRuleDefinition[];
 }
 
 export interface LabelPreviewResponse {

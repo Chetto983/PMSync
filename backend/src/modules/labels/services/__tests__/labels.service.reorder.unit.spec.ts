@@ -2,6 +2,9 @@ import { LabelsService } from '../labels.service';
 
 describe('LabelsService reorder logic', () => {
   const mockEmailsService = {};
+  const mockTriageRuleService = {
+    setTriageRules: jest.fn(),
+  };
   const mockRealtimeEvents = {
     emitLabelUpdate: jest.fn(),
     emitLabelNew: jest.fn(),
@@ -55,6 +58,8 @@ describe('LabelsService reorder logic', () => {
       prisma as any,
       mockEmailsService as any,
       mockRealtimeEvents as any,
+      undefined as any,
+      mockTriageRuleService as any,
     );
 
     await service.update('tenant-1', 'label-c', { orderIndex: 0 });
@@ -131,6 +136,8 @@ describe('LabelsService reorder logic', () => {
       prisma as any,
       mockEmailsService as any,
       mockRealtimeEvents as any,
+      undefined as any,
+      mockTriageRuleService as any,
     );
 
     await service.update('tenant-1', 'moving', {

@@ -26,11 +26,11 @@ export class TriageRuleDto {
   pattern: string;
 
   @ApiProperty({
-    enum: ['important', 'customer-vip', 'system-alert', 'review-later', 'suppress'],
+    enum: ['important', 'customer-vip', 'system-alert', 'review-later', 'suppress', 'billing', 'follow-up'],
     example: 'customer-vip',
   })
-  @IsIn(['important', 'customer-vip', 'system-alert', 'review-later', 'suppress'])
-  action: 'important' | 'customer-vip' | 'system-alert' | 'review-later' | 'suppress';
+  @IsIn(['important', 'customer-vip', 'system-alert', 'review-later', 'suppress', 'billing', 'follow-up'])
+  action: 'important' | 'customer-vip' | 'system-alert' | 'review-later' | 'suppress' | 'billing' | 'follow-up';
 
   @ApiPropertyOptional({ example: 'Customer' })
   @IsOptional()

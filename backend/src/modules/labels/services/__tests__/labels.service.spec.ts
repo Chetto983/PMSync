@@ -19,6 +19,9 @@ const mockRealtimeEvents = {
 const mockSyncBackQueue = {
   enqueueBulkSyncBack: jest.fn().mockResolvedValue(undefined),
 };
+const mockTriageRuleService = {
+  setTriageRules: jest.fn().mockResolvedValue([]),
+};
 
 describe('LabelsService', () => {
   let service: LabelsService;
@@ -31,12 +34,14 @@ describe('LabelsService', () => {
       mockEmailsService as any,
       mockRealtimeEvents as any,
       mockSyncBackQueue as any,
+      mockTriageRuleService as any,
     );
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockSyncBackQueue.enqueueBulkSyncBack.mockResolvedValue(undefined);
+    mockTriageRuleService.setTriageRules.mockResolvedValue([]);
   });
 
   afterAll(async () => {
@@ -96,21 +101,12 @@ describe('LabelsService', () => {
       expect(ids).not.toContain(archived.id);
     });
 
-    it('seeds the default onboarding labels for a tenant with no labels', async () => {
+    it('returns empty when a tenant has no user-defined labels', async () => {
       const tenant = await createTestTenant();
 
       const results = await service.findAllByTenant(tenant.id);
 
-      expect(results.map((label) => label.name)).toEqual([
-        'Important',
-        'Follow-up',
-        'Action Items',
-        'Info',
-        'Personal',
-        'Finance',
-        'Promotions',
-        'Updates',
-      ]);
+      expect(results).toEqual([]);
     });
   });
 
@@ -131,7 +127,7 @@ describe('LabelsService', () => {
       expect(preview.taxonomy.find((label) => label.name === 'Review Later')).toBeDefined();
     });
 
-    it('creates missing operational labels and updates existing prompts when applied', async () => {
+    it('stores onboarding rules without creating labels when applied', async () => {
       const tenant = await createTestTenant();
 
       const applied = await service.applyTriageOnboarding(tenant.id, {
@@ -143,18 +139,19 @@ describe('LabelsService', () => {
         followUpSlaHours: 48,
       });
 
-      expect(applied.labels.map((label) => label.name)).toEqual(
-        expect.arrayContaining(['Customer', 'System Alert', 'Review Later', 'Important']),
-      );
-
       const labels = await prisma.userLabel.findMany({
         where: { tenantId: tenant.id, isArchived: false },
         select: { name: true, aiPrompt: true },
       });
 
-      expect(labels.find((label) => label.name === 'Customer')?.aiPrompt).toContain('acme.com');
-      expect(labels.find((label) => label.name === 'System Alert')?.aiPrompt).toContain('Railway');
-      expect(labels.find((label) => label.name === 'Follow-up')?.aiPrompt).toContain('48 hours');
+      expect(labels).toEqual([]);
+      expect(applied.rules).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action: 'customer-vip', pattern: 'acme.com' }),
+          expect.objectContaining({ action: 'system-alert', pattern: 'Railway' }),
+          expect.objectContaining({ action: 'follow-up', pattern: 'follow-up target 48 hours' }),
+        ]),
+      );
     });
   });
 
@@ -319,7 +316,7 @@ describe('LabelsService', () => {
   });
 
   describe('Tenant isolation', () => {
-    it('findAllByTenant for tenant B seeds only tenant B defaults when labels were created in tenant A', async () => {
+    it('findAllByTenant for tenant B remains empty when labels exist only in tenant A', async () => {
       const tenantA = await createTestTenant();
       const tenantB = await createTestTenant();
 
@@ -328,16 +325,7 @@ describe('LabelsService', () => {
 
       const resultsB = await service.findAllByTenant(tenantB.id);
 
-      expect(resultsB.map((label) => label.name)).toEqual([
-        'Important',
-        'Follow-up',
-        'Action Items',
-        'Info',
-        'Personal',
-        'Finance',
-        'Promotions',
-        'Updates',
-      ]);
+      expect(resultsB).toEqual([]);
     });
   });
 

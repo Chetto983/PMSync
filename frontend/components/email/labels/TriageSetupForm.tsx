@@ -282,7 +282,7 @@ export function TriageSetupForm({
               {preview.recommendedLabels.map((label) => (
                 <Chip
                   key={label.slug}
-                  label={`${label.name}${label.willCreate ? ' +' : ''}`}
+                  label={label.name}
                   size="small"
                   sx={{
                     bgcolor: label.color.backgroundColor,
