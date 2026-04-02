@@ -43,6 +43,10 @@ const HIGH_RISK_TEMPLATES: Record<string, (args: Record<string, unknown>) => str
     const memoryId = typeof args.memoryId === 'string' ? args.memoryId : 'selected memory';
     return `Delete memory ${memoryId}`;
   },
+  delete_reminder: (args) => {
+    const id = typeof args.reminderId === 'string' ? args.reminderId : 'selected reminder';
+    return `Delete reminder ${id}`;
+  },
 };
 
 export const HIGH_RISK_TOOLS = new Set(Object.keys(HIGH_RISK_TEMPLATES));

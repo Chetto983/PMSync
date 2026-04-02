@@ -28,7 +28,7 @@ const CreateReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => (
 const ListRemindersRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.ListRemindersRenderer })));
 const CompleteReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.CompleteReminderRenderer })));
 const UpdateReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.UpdateReminderRenderer })));
-const DeleteReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.DeleteReminderRenderer })));
+// delete_reminder intentionally omitted — uses FallbackToolRenderer for HITL approval flow
 const SnoozeReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.SnoozeReminderRenderer })));
 // Sprint 14.1: CRM deal + intelligence + governance renderers
 const DealListRenderer = lazy(() => import('./DealsToolUI').then(m => ({ default: m.DealListRenderer })));
@@ -67,7 +67,7 @@ export const TOOL_RENDERERS = {
   list_reminders: ListRemindersRenderer,
   complete_reminder: CompleteReminderRenderer,
   update_reminder: UpdateReminderRenderer,
-  delete_reminder: DeleteReminderRenderer,
+  // delete_reminder: uses FallbackToolRenderer for HITL approval
   snooze_reminder: SnoozeReminderRenderer,
   // Sprint 14.1: CRM deal + intelligence + governance
   get_deals_by_pipeline: DealListRenderer,
