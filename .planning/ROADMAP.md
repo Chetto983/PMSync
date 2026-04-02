@@ -209,7 +209,7 @@ Plans:
 **Requirements**: CTX-03, CTX-04, CTX-05
 **Plans:** 2 plans
 Plans:
-- [ ] 141-01-PLAN.md — Backend unified timeline endpoint + frontend timeline upgrade and related entities
+- [x] 141-01-PLAN.md — Backend unified timeline endpoint + frontend timeline upgrade and related entities
 - [ ] 141-02-PLAN.md — Contact hover card system (useHoverPopover, ContactHoverCard, ContactName) with integration
 **Success Criteria** (what must be TRUE):
   1. User sees a unified activity timeline (emails, deals, tasks, meetings, notes) on the contact detail page

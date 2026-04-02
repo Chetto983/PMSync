@@ -20,8 +20,8 @@ Requirements for UX Unification — 4-Pillar Simplification. Each maps to roadma
 
 - [x] **CTX-01**: User sees sender's contact profile in right sidebar when viewing an email
 - [x] **CTX-02**: User sees sender's company, open deals, and recent tickets in email right sidebar
-- [ ] **CTX-03**: User sees activity timeline (emails, deals, tasks, meetings, notes) on contact detail page
-- [ ] **CTX-04**: User sees related emails, deal history, and upcoming tasks when viewing a contact
+- [x] **CTX-03**: User sees activity timeline (emails, deals, tasks, meetings, notes) on contact detail page
+- [x] **CTX-04**: User sees related emails, deal history, and upcoming tasks when viewing a contact
 - [ ] **CTX-05**: User sees mini-CRM hover card (name, company, deal status, last interaction) when hovering any contact name in the app
 - [x] **CTX-06**: User can collapse/expand the contextual right sidebar to reclaim reading space
 
@@ -84,8 +84,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NAV-06 | Phase 135 | Complete |
 | CTX-01 | Phase 140 | Complete |
 | CTX-02 | Phase 140 | Complete |
-| CTX-03 | Phase 141 | Pending |
-| CTX-04 | Phase 141 | Pending |
+| CTX-03 | Phase 141 | Complete |
+| CTX-04 | Phase 141 | Complete |
 | CTX-05 | Phase 141 | Pending |
 | CTX-06 | Phase 140 | Complete |
 | TASK-01 | Phase 137 | Complete |
