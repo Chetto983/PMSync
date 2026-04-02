@@ -25,6 +25,11 @@ export const apiClient = axios.create({
   // CRITICAL FIX: Add timeout to prevent requests hanging indefinitely
   // Increased to 90s to support RAG/AI operations
   timeout: 90000, // 90 seconds default
+  // Serialize arrays as repeat-key (status=a&status=b) not bracket notation (status[]=a)
+  // NestJS forbidNonWhitelisted rejects bracket keys as unknown properties
+  paramsSerializer: {
+    indexes: null, // null = repeat key, false = brackets, true = indexed brackets
+  },
 });
 
 /**
