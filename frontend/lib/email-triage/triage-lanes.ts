@@ -143,6 +143,11 @@ export function isWeakBriefingSummary(summary?: string | null): boolean {
   ].some((fragment) => normalized.includes(fragment));
 }
 
+/**
+ * @deprecated Lanes are now computed server-side and stored in Email.aiLane.
+ * Use the `lane` query param on GET /emails or `useLaneCounts()` hook instead.
+ * Kept for backward compatibility with existing callers.
+ */
 export function deriveTriageLane(
   email: TriageEmailCandidate,
   followUp?: TriageFollowUpSignal,

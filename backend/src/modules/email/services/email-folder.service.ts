@@ -42,6 +42,8 @@ export interface EmailListFilters {
   excludeTrashSpam?: boolean;
   /** Filter emails from VIP contacts only */
   fromVip?: boolean;
+  /** Filter by AI-computed triage lane (action-now, waiting-on-reply, etc.) */
+  lane?: string;
 }
 
 /**
@@ -365,6 +367,9 @@ export class EmailFolderService {
           ...(filters.startDate && { gte: filters.startDate }),
           ...(filters.endDate && { lte: filters.endDate }),
         };
+      }
+      if (filters.lane) {
+        where.aiLane = filters.lane;
       }
       // VIP filter is handled in emails.service.ts via the fromVip return value
       // since Email doesn't have a direct relation to Contact

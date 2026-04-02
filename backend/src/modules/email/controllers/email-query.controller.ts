@@ -67,6 +67,7 @@ export class EmailQueryController {
   @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Filter from date (ISO 8601)' })
   @ApiQuery({ name: 'endDate', required: false, type: String, description: 'Filter to date (ISO 8601)' })
   @ApiQuery({ name: 'excludeTrashSpam', required: false, type: Boolean, description: 'SECURITY: Exclude emails from TRASH/SPAM/JUNK folders' })
+  @ApiQuery({ name: 'lane', required: false, type: String, description: 'Filter by AI triage lane (action-now, waiting-on-reply, system-alerts, review-later)' })
   @ApiResponse({ status: 200, description: 'Paginated list of emails' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async listEmails(
@@ -90,6 +91,7 @@ export class EmailQueryController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('excludeTrashSpam') excludeTrashSpam?: string,
+    @Query('lane') lane?: string,
   ) {
     const tenantId = req.user.tenantId;
 
@@ -149,6 +151,7 @@ export class EmailQueryController {
       throw new BadRequestException('startDate cannot be after endDate');
     }
     if (excludeTrashSpam !== undefined) filters.excludeTrashSpam = excludeTrashSpam === 'true';
+    if (lane) filters.lane = lane;
 
     return this.emailsService.listEmails({
       tenantId,

@@ -347,6 +347,15 @@ export const labelsApi = {
     const response = await apiClient.put(`/labels/${labelId}/wizard`, dto);
     return response.data;
   },
+
+  /**
+   * Get email counts per AI triage lane
+   * GET /ai/triage-rules/lane-counts
+   */
+  async getLaneCounts(): Promise<Record<string, number>> {
+    const response = await apiClient.get('/ai/triage-rules/lane-counts');
+    return response.data;
+  },
 };
 
 // ===== WIZARD TYPES =====

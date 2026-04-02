@@ -115,4 +115,28 @@ export class TriageRulesController {
       triageContext: context,
     };
   }
+
+  @Get('lane-counts')
+  @ApiOperation({ summary: 'Get email counts per triage lane' })
+  @ApiResponse({ status: 200, description: 'Count per lane' })
+  async getLaneCounts(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<Record<string, number>> {
+    const tenantId = req.user.tenantId;
+
+    const rows = await this.prisma.email.groupBy({
+      by: ['aiLane'],
+      where: { tenantId, isDeleted: false, aiLane: { not: null } },
+      _count: { id: true },
+    });
+
+    const counts: Record<string, number> = {};
+    for (const row of rows) {
+      if (row.aiLane) {
+        counts[row.aiLane] = row._count.id;
+      }
+    }
+
+    return counts;
+  }
 }

@@ -128,6 +128,8 @@ export interface ListEmailsParams {
   endDate?: string;
   excludeTrashSpam?: boolean;
   fromVip?: boolean; // Filter emails from VIP contacts only
+  /** Filter by AI triage lane (action-now, waiting-on-reply, system-alerts, review-later) */
+  lane?: string;
 }
 
 /**
