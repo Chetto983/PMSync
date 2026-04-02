@@ -1997,6 +1997,35 @@ export interface AppTranslations {
       vipHelper: string;
       relationshipScore: string;
       addEmailHint: string;
+      // Unified timeline (Phase 141)
+      timeline: {
+        title: string;
+        empty: string;
+        loadMore: string;
+        emailSent: string;
+        emailReceived: string;
+        dealActivity: string;
+        task: string;
+        meeting: string;
+        ticket: string;
+        note: string;
+      };
+      relatedEmails: {
+        title: string;
+        empty: string;
+      };
+      upcomingTasks: {
+        title: string;
+        empty: string;
+      };
+      hoverCard: {
+        deals: string;
+        lastInteraction: string;
+        emails: string;
+        noDealData: string;
+        viewProfile: string;
+        noData: string;
+      };
     };
     list: {
       emptyTitle: string;

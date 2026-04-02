@@ -74,7 +74,6 @@ export const ContactCrmTab = memo(function ContactCrmTab({ contactId }: ContactC
   // Extract upcoming tasks from unified timeline
   const upcomingTasks = useMemo(() => {
     if (!timelineResult.data?.pages) return [];
-    const now = new Date().toISOString();
     return timelineResult.data.pages
       .flatMap((p) => p.entries)
       .filter((e) => e.type === 'task' && (e.metadata?.status === 'pending' || e.metadata?.status === 'in_progress'))
@@ -175,7 +174,7 @@ export const ContactCrmTab = memo(function ContactCrmTab({ contactId }: ContactC
                 primaryTypographyProps={{ variant: 'body2', noWrap: true }}
                 secondaryTypographyProps={{ variant: 'caption' }}
               />
-              {entry.metadata?.status && (
+              {entry.metadata?.status != null && (
                 <Chip
                   label={String(entry.metadata.status).replace('_', ' ')}
                   size="small"
