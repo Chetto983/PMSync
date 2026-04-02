@@ -217,6 +217,14 @@ Plans:
   3. User sees a mini-CRM hover card (name, company, deal status, last interaction) when hovering any contact name anywhere in the app
 **UI hint**: yes
 - [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
+### Phase 142: AI Background Automation
+**Goal**: The system automatically links and categorizes incoming emails without user intervention
+**Depends on**: Phase 140
+**Requirements**: AI-01, AI-02, AI-03
+**Success Criteria** (what must be TRUE):
+  1. Incoming emails are automatically linked to matching contacts in the background
+  2. Incoming emails are automatically linked to relevant deals/tickets based on contact and context
+  3. Emails are auto-categorized by type (support, sales, internal, newsletter) and the category is visible in the UI
 - [ ] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize
 - [ ] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss
 - [ ] **Phase 144: AI Assistant Overlay** - Slide-over AI panel from any screen
