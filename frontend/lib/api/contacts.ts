@@ -253,6 +253,14 @@ export const contactsApi = {
     return response.data;
   },
 
+  async getContactTimeline(id: string, cursor?: string, limit?: number): Promise<TimelineResponse> {
+    const params: Record<string, string> = {};
+    if (cursor) params.cursor = cursor;
+    if (limit) params.limit = String(limit);
+    const response = await apiClient.get<TimelineResponse>(`/contacts/${id}/timeline`, { params });
+    return response.data;
+  },
+
   async getContactHistory(id: string, limit: number = 50): Promise<ContactInteraction[]> {
     const response = await apiClient.get(`/contacts/${id}/history`, { params: { limit } });
     return response.data;
@@ -337,6 +345,33 @@ export interface DuplicateCandidate {
 export interface DuplicateCandidatesResponse {
   success: boolean;
   duplicates: DuplicateCandidate[];
+  total: number;
+}
+
+// ── Unified Timeline Types (Phase 141) ────────────────────────────
+
+export type TimelineEntryType =
+  | 'email_sent'
+  | 'email_received'
+  | 'deal_activity'
+  | 'task'
+  | 'meeting'
+  | 'ticket'
+  | 'note';
+
+export interface TimelineEntry {
+  id: string;
+  type: TimelineEntryType;
+  title: string;
+  summary: string | null;
+  date: string;
+  metadata: Record<string, unknown>;
+  entityId: string;
+}
+
+export interface TimelineResponse {
+  entries: TimelineEntry[];
+  nextCursor: string | null;
   total: number;
 }
 

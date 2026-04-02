@@ -3891,6 +3891,28 @@ export const en: AppTranslations = {
         loadError: 'Failed to load activity history.',
         noActivity: 'No recent activity found.',
       },
+      // Unified timeline
+      timeline: {
+        title: 'Activity Timeline',
+        empty: 'No activity recorded',
+        loadMore: 'Load more',
+        emailSent: 'Email sent',
+        emailReceived: 'Email received',
+        dealActivity: 'Deal activity',
+        task: 'Task',
+        meeting: 'Meeting',
+        ticket: 'Ticket',
+        note: 'Note',
+      },
+      // Related emails & upcoming tasks
+      relatedEmails: {
+        title: 'Related Emails',
+        empty: 'No related emails',
+      },
+      upcomingTasks: {
+        title: 'Upcoming Tasks',
+        empty: 'No upcoming tasks',
+      },
       // Notes section
       notes: {
         title: 'Notes',

@@ -11,7 +11,7 @@
  * @see https://tanstack.com/query/v5/docs/framework/react/guides/queries
  */
 
-import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import {
   contactsApi,
   type ListContactsParams,
@@ -24,6 +24,7 @@ import {
   type ExtractContactsResult,
   type VCardImportResult,
   type DuplicateCandidatesResponse,
+  type TimelineResponse,
 } from '@/lib/api/contacts';
 import { contactsKeys } from './contacts-keys';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
@@ -270,6 +271,21 @@ export function useContactsByProvider(providerId: string) {
  */
 export function useContactHistory(id: string, limit: number = 50) {
   return useQuery(contactHistoryOptions(id, limit));
+}
+
+/**
+ * Hook for fetching unified contact timeline with cursor pagination (Phase 141)
+ */
+export function useContactTimeline(id: string) {
+  return useInfiniteQuery<TimelineResponse, Error, { pages: TimelineResponse[] }, readonly string[], string | undefined>({
+    queryKey: contactsKeys.timeline(id),
+    queryFn: ({ pageParam }) => contactsApi.getContactTimeline(id, pageParam),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: undefined,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    enabled: !!id,
+  });
 }
 
 /**
