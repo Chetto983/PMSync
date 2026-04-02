@@ -436,6 +436,7 @@ export interface TriageOverrideItem {
 export interface CreateLabelWizardDto {
   name: string;
   color?: LabelColor;
+  parentId?: string;
   category: string;
   roles: string[];
   contents: string[];

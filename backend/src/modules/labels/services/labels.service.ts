@@ -928,8 +928,24 @@ export class LabelsService {
       actionType: dto.actionType, aiPrompt: dto.aiPrompt,
     });
     const defaultLane = ACTION_TO_LANE[dto.actionType] || null;
+    let level = 0;
+    if (dto.parentId) {
+      const parent = await this.prisma.userLabel.findUnique({
+        where: { id: dto.parentId },
+        select: { tenantId: true, level: true },
+      });
+      if (!parent || parent.tenantId !== tenantId) {
+        throw new NotFoundException('Parent label not found');
+      }
+      level = parent.level + 1;
+    }
 
-    return this.prisma.userLabel.create({
+    const maxOrder = await this.prisma.userLabel.aggregate({
+      where: { tenantId, parentId: dto.parentId ?? null },
+      _max: { orderIndex: true },
+    });
+
+    const newLabel = await this.prisma.userLabel.create({
       data: {
         tenantId, name: dto.name, slug, type: 'USER',
         color: dto.color ? (dto.color as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
@@ -938,17 +954,59 @@ export class LabelsService {
         suppressUrgency: dto.suppressUrgency ?? false,
         mutuallyExclusiveWith: dto.mutuallyExclusiveWith ?? [],
         defaultLane,
-        orderIndex: count,
+        parentId: dto.parentId ?? null,
+        level,
+        orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
+      },
+      include: {
+        children: {
+          where: { isArchived: false },
+          orderBy: { orderIndex: 'asc' },
+        },
+        _count: { select: { emailLabels: true } },
       },
     });
+
+    this.realtimeEvents.emitLabelNew(tenantId, {
+      labelId: newLabel.id,
+      reason: 'label-created',
+      label: newLabel as any,
+      timestamp: new Date().toISOString(),
+    });
+    await this.invalidateTenantAnalysisCache(tenantId, 'label-wizard-created');
+
+    return newLabel;
   }
 
   async updateFromWizard(tenantId: string, labelId: string, dto: CreateLabelWizardDto) {
-    const label = await this.prisma.userLabel.findFirst({ where: { id: labelId, tenantId } });
-    if (!label) throw new NotFoundException('Label not found');
+    const currentLabel = await this.prisma.userLabel.findUnique({
+      where: { id: labelId },
+      select: {
+        id: true,
+        tenantId: true,
+        slug: true,
+        parentId: true,
+        level: true,
+        orderIndex: true,
+      },
+    });
+    if (!currentLabel || currentLabel.tenantId !== tenantId) {
+      throw new NotFoundException('Label not found');
+    }
+
+    const tenantLabels = await this.prisma.userLabel.findMany({
+      where: { tenantId, isArchived: false },
+      select: {
+        id: true,
+        parentId: true,
+        level: true,
+        orderIndex: true,
+      },
+      orderBy: [{ parentId: 'asc' }, { orderIndex: 'asc' }],
+    });
 
     const slug = this.slugify(dto.name);
-    if (slug !== label.slug) {
+    if (slug !== currentLabel.slug) {
       const duplicate = await this.prisma.userLabel.findUnique({ where: { tenantId_slug: { tenantId, slug } } });
       if (duplicate && duplicate.id !== labelId && !duplicate.isArchived) {
         throw new ConflictException(`Label "${dto.name}" already exists`);
@@ -960,19 +1018,145 @@ export class LabelsService {
       actionType: dto.actionType, aiPrompt: dto.aiPrompt,
     });
     const defaultLane = ACTION_TO_LANE[dto.actionType] || null;
+    const data: Prisma.UserLabelUncheckedUpdateInput = {
+      name: dto.name,
+      slug,
+      color: dto.color ? (dto.color as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+      aiPrompt: generatedPrompt,
+      category: dto.category,
+      roles: dto.roles,
+      contents: dto.contents,
+      actionType: dto.actionType,
+      suppressUrgency: dto.suppressUrgency ?? false,
+      mutuallyExclusiveWith: dto.mutuallyExclusiveWith ?? [],
+      defaultLane,
+    };
 
-    return this.prisma.userLabel.update({
-      where: { id: labelId },
-      data: {
-        name: dto.name, slug,
-        color: dto.color ? (dto.color as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-        aiPrompt: generatedPrompt, category: dto.category,
-        roles: dto.roles, contents: dto.contents, actionType: dto.actionType,
-        suppressUrgency: dto.suppressUrgency ?? false,
-        mutuallyExclusiveWith: dto.mutuallyExclusiveWith ?? [],
-        defaultLane,
-      },
+    let nextParentId = currentLabel.parentId;
+    let nextLevel = currentLabel.level;
+    if (dto.parentId !== undefined) {
+      const parent = await this.prisma.userLabel.findUnique({
+        where: { id: dto.parentId },
+        select: { tenantId: true, level: true },
+      });
+      if (!parent || parent.tenantId !== tenantId) {
+        throw new NotFoundException('Parent label not found');
+      }
+      if (await this.wouldCreateCircularReference(labelId, dto.parentId)) {
+        throw new ConflictException('Cannot create circular label hierarchy');
+      }
+      nextParentId = dto.parentId;
+      nextLevel = parent.level + 1;
+    }
+
+    const shouldReorder = nextParentId !== currentLabel.parentId;
+    if (!shouldReorder) {
+      const updatedLabel = await this.prisma.userLabel.update({
+        where: { id: labelId },
+        data,
+        include: {
+          children: {
+            where: { isArchived: false },
+            orderBy: { orderIndex: 'asc' },
+          },
+          _count: { select: { emailLabels: true } },
+        },
+      });
+
+      this.realtimeEvents.emitLabelUpdate(tenantId, {
+        labelId: updatedLabel.id,
+        reason: 'label-updated',
+        label: updatedLabel as any,
+        updates: dto as any,
+        timestamp: new Date().toISOString(),
+      });
+      await this.invalidateTenantAnalysisCache(tenantId, 'label-wizard-updated');
+
+      return updatedLabel;
+    }
+
+    const sourceParentId = currentLabel.parentId;
+    const targetSiblings = tenantLabels
+      .filter((label) => label.parentId === nextParentId && label.id !== labelId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    const targetOrderIds = [...targetSiblings.map((label) => label.id), labelId];
+    const sourceSiblings =
+      sourceParentId !== nextParentId
+        ? tenantLabels
+            .filter((label) => label.parentId === sourceParentId && label.id !== labelId)
+            .sort((a, b) => a.orderIndex - b.orderIndex)
+        : [];
+    const levelDelta = nextLevel - currentLabel.level;
+    const descendants =
+      levelDelta === 0
+        ? []
+        : this.getDescendantLabels(tenantLabels, labelId);
+
+    const updatedLabel = await this.prisma.$transaction(async (tx) => {
+      if (sourceSiblings.length > 0) {
+        await Promise.all(
+          sourceSiblings.map((label, index) =>
+            tx.userLabel.update({
+              where: { id: label.id },
+              data: { orderIndex: index },
+            }),
+          ),
+        );
+      }
+
+      await Promise.all(
+        targetOrderIds.map((id, index) =>
+          tx.userLabel.update({
+            where: { id },
+            data:
+              id === labelId
+                ? {
+                    ...data,
+                    parentId: nextParentId,
+                    level: nextLevel,
+                    orderIndex: index,
+                  }
+                : { orderIndex: index },
+          }),
+        ),
+      );
+
+      if (descendants.length > 0) {
+        await Promise.all(
+          descendants.map((label) =>
+            tx.userLabel.update({
+              where: { id: label.id },
+              data: { level: label.level + levelDelta },
+            }),
+          ),
+        );
+      }
+
+      return tx.userLabel.findUnique({
+        where: { id: labelId },
+        include: {
+          children: {
+            where: { isArchived: false },
+            orderBy: { orderIndex: 'asc' },
+          },
+          _count: { select: { emailLabels: true } },
+        },
+      });
     });
+    if (!updatedLabel) {
+      throw new NotFoundException('Label not found');
+    }
+
+    this.realtimeEvents.emitLabelUpdate(tenantId, {
+      labelId: updatedLabel.id,
+      reason: 'label-updated',
+      label: updatedLabel as any,
+      updates: dto as any,
+      timestamp: new Date().toISOString(),
+    });
+    await this.invalidateTenantAnalysisCache(tenantId, 'label-wizard-updated');
+
+    return updatedLabel;
   }
 
   async previewLabelOnEmail(tenantId: string, labelId: string, dto: LabelPreviewDto) {

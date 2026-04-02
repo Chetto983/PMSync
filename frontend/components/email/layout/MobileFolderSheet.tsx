@@ -40,7 +40,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useLabels } from '@/hooks/queries';
 import { useEmailUIStore, type SpecialFolder } from '@/stores/email-ui-store';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
-import { LabelDialog } from '../labels/LabelDialog';
+import { LabelWizardDialog } from '../labels/LabelWizardDialog';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
 import {
   FolderDialog,
@@ -80,7 +80,8 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
 
   // Labels section state
   const [labelsExpanded, setLabelsExpanded] = useState(true);
-  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
+  const [labelWizardOpen, setLabelWizardOpen] = useState(false);
+  const [labelWizardParentId, setLabelWizardParentId] = useState<string | undefined>();
 
   // Label context menu state
   const [labelMenuAnchor, setLabelMenuAnchor] = useState<HTMLElement | null>(null);
@@ -131,6 +132,16 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
 
   const handleLabelMenuClose = useCallback(() => {
     setLabelMenuAnchor(null);
+  }, []);
+
+  const handleOpenLabelWizard = useCallback((parentId?: string) => {
+    setLabelWizardParentId(parentId);
+    setLabelWizardOpen(true);
+  }, []);
+
+  const handleCloseLabelWizard = useCallback(() => {
+    setLabelWizardParentId(undefined);
+    setLabelWizardOpen(false);
   }, []);
 
   return (
@@ -298,7 +309,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                setLabelDialogOpen(true);
+                handleOpenLabelWizard();
               }}
               sx={{ mr: 0.5 }}
             >
@@ -519,10 +530,10 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
         <Box sx={{ height: 16 }} />
       </Box>
 
-      {/* Create Label Dialog */}
-      <LabelDialog
-        open={labelDialogOpen}
-        onClose={() => setLabelDialogOpen(false)}
+      <LabelWizardDialog
+        open={labelWizardOpen}
+        onClose={handleCloseLabelWizard}
+        defaultParentId={labelWizardParentId}
       />
 
       {/* Label Context Menu */}
@@ -531,6 +542,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
         open={Boolean(labelMenuAnchor)}
         onClose={handleLabelMenuClose}
         label={selectedLabel}
+        onAddChild={handleOpenLabelWizard}
       />
 
       {/* Folder Context Menu */}

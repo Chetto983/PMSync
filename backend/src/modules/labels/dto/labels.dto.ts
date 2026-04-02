@@ -102,6 +102,10 @@ export class CreateLabelWizardDto {
   @Type(() => LabelColorDto)
   color?: LabelColorDto;
 
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
   @IsString()
   @IsIn(['workflow', 'semantic', 'suppression', 'custom'])
   category!: string;

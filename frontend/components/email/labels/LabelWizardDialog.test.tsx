@@ -8,6 +8,8 @@ const mockUseCreateLabelWizard = jest.fn();
 const mockUseUpdateLabelWizard = jest.fn();
 const mockUseEmails = jest.fn();
 const mockUseWizardLabelPreview = jest.fn();
+const createMutateAsync = jest.fn();
+const updateMutateAsync = jest.fn();
 
 jest.mock('@/lib/api/labels', () => ({
   labelColorToHex: (color?: { backgroundColor?: string } | null) => color?.backgroundColor || '#9E9E9E',
@@ -118,6 +120,8 @@ jest.mock('@/lib/hooks/use-translations', () => ({
 describe('LabelWizardDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    createMutateAsync.mockReset();
+    updateMutateAsync.mockReset();
 
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -141,8 +145,8 @@ describe('LabelWizardDialog', () => {
       },
     });
     mockUseLabels.mockReturnValue({ data: [] });
-    mockUseCreateLabelWizard.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
-    mockUseUpdateLabelWizard.mockReturnValue({ isPending: false, mutateAsync: jest.fn() });
+    mockUseCreateLabelWizard.mockReturnValue({ isPending: false, mutateAsync: createMutateAsync });
+    mockUseUpdateLabelWizard.mockReturnValue({ isPending: false, mutateAsync: updateMutateAsync });
     mockUseEmails.mockReturnValue({
       data: {
         emails: [
@@ -225,6 +229,99 @@ describe('LabelWizardDialog', () => {
           name: 'CI Incident',
         }),
         true,
+      );
+    });
+  });
+
+  it('preserves the existing parent and aiPrompt when editing through the wizard', async () => {
+    updateMutateAsync.mockResolvedValue({
+      label: {
+        id: 'label-1',
+        name: 'CI Incident',
+      },
+    });
+
+    render(
+      <LabelWizardDialog
+        open
+        onClose={jest.fn()}
+        editLabel={{
+          id: 'label-1',
+          tenantId: 'tenant-1',
+          name: 'CI Incident',
+          slug: 'ci-incident',
+          type: 'USER',
+          color: { backgroundColor: '#ff0000', textColor: '#ffffff' },
+          icon: null,
+          parentId: 'parent-1',
+          level: 1,
+          orderIndex: 0,
+          isArchived: false,
+          aiPrompt: 'Use for CI failures and escalations from GitHub Actions.',
+          category: 'workflow',
+          roles: ['tech'],
+          contents: ['system-alert'],
+          actionType: 'urgent',
+          suppressUrgency: false,
+          mutuallyExclusiveWith: [],
+          defaultLane: 'action-now',
+          createdAt: '2026-04-02T10:00:00.000Z',
+          updatedAt: '2026-04-02T10:00:00.000Z',
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiorna etichetta' }));
+
+    await waitFor(() => {
+      expect(updateMutateAsync).toHaveBeenCalledWith({
+        id: 'label-1',
+        dto: expect.objectContaining({
+          parentId: 'parent-1',
+          aiPrompt: 'Use for CI failures and escalations from GitHub Actions.',
+        }),
+      });
+    });
+  });
+
+  it('uses the wizard parent preset when creating a child label', async () => {
+    createMutateAsync.mockResolvedValue({
+      label: {
+        id: 'child-1',
+        name: 'Vendor Escalation',
+      },
+    });
+
+    render(
+      <LabelWizardDialog
+        open
+        onClose={jest.fn()}
+        defaultParentId="parent-9"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Nome etichetta'), {
+      target: { value: 'Vendor Escalation' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tech / IT' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Avvisi di sistema' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Richiede una decisione' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Crea etichetta' }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Vendor Escalation',
+          parentId: 'parent-9',
+        }),
       );
     });
   });

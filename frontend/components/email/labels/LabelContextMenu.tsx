@@ -27,7 +27,7 @@ import { Pencil, Plus, Palette, FolderInput, Trash2 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLabels, useMoveLabel } from '@/hooks/queries';
 import { getDescendantIdsFlat, MAX_DEPTH } from '@/lib/label-tree-utils';
-import { LabelDialog } from './LabelDialog';
+import { LabelWizardDialog } from './LabelWizardDialog';
 import { LabelDeleteDialog } from './LabelDeleteDialog';
 import type { Label } from '@/lib/api/labels';
 
@@ -164,15 +164,13 @@ export function LabelContextMenu({
   onAddChild,
 }: LabelContextMenuProps) {
   const t = useTranslations();
-  const [editOpen, setEditOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
-  // "Change color" opens the edit dialog (which has the color picker)
-  const [colorEditOpen, setColorEditOpen] = useState(false);
 
   const handleEdit = useCallback(() => {
     onClose();
-    setTimeout(() => setEditOpen(true), 0);
+    setTimeout(() => setWizardOpen(true), 0);
   }, [onClose]);
 
   const handleAddChild = useCallback(() => {
@@ -184,7 +182,7 @@ export function LabelContextMenu({
 
   const handleChangeColor = useCallback(() => {
     onClose();
-    setTimeout(() => setColorEditOpen(true), 0);
+    setTimeout(() => setWizardOpen(true), 0);
   }, [onClose]);
 
   const handleMoveTo = useCallback(() => {
@@ -270,18 +268,10 @@ export function LabelContextMenu({
         )}
       </Menu>
 
-      {/* Edit Dialog */}
-      <LabelDialog
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        label={label}
-      />
-
-      {/* Change Color Dialog (opens edit dialog - color picker is inside) */}
-      <LabelDialog
-        open={colorEditOpen}
-        onClose={() => setColorEditOpen(false)}
-        label={label}
+      <LabelWizardDialog
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        editLabel={label}
       />
 
       {/* Move To Dialog */}

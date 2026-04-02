@@ -8,7 +8,7 @@ import {
   Stepper, Step, StepLabel, MobileStepper,
   TextField, Button, Box, Typography, Chip, Alert,
   FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel,
-  Autocomplete, Collapse, CircularProgress, useMediaQuery, useTheme,
+  Autocomplete, Collapse, CircularProgress, useMediaQuery, useTheme, ButtonBase,
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useCreateLabelWizard, useUpdateLabelWizard, useLabelWizardOptions, useLabels, useEmails, useWizardLabelPreview } from '@/hooks/queries';
@@ -23,6 +23,7 @@ interface LabelWizardDialogProps {
   onClose: () => void;
   onCreated?: (label: Label) => void;
   editLabel?: Label | null;
+  defaultParentId?: string;
 }
 
 const STEPS = ['stepName', 'stepClassify', 'stepBehavior', 'stepReview'] as const;
@@ -39,6 +40,7 @@ const ACTION_OPTIONS = ['none', 'followup', 'urgent', 'decide'] as const;
 interface WizardState {
   name: string;
   color: LabelColor;
+  parentId: string | null;
   category: string;
   roles: string[];
   contents: string[];
@@ -49,22 +51,63 @@ interface WizardState {
   showAdvanced: boolean;
 }
 
-function initState(label?: Label | null): WizardState {
+interface SelectionCardProps {
+  selected: boolean;
+  onClick: () => void;
+  label: string;
+  description?: string;
+}
+
+function SelectionCard({ selected, onClick, label, description }: SelectionCardProps) {
+  return (
+    <ButtonBase
+      onClick={onClick}
+      sx={{
+        width: '100%',
+        display: 'block',
+        textAlign: 'left',
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: selected ? 'primary.main' : 'divider',
+        bgcolor: selected ? 'primary.50' : 'background.paper',
+        px: 1.5,
+        py: 1.25,
+        transition: 'all 0.15s ease',
+        '&:hover': {
+          borderColor: selected ? 'primary.main' : 'text.secondary',
+          bgcolor: selected ? 'primary.50' : 'action.hover',
+        },
+      }}
+    >
+      <Typography variant="body2" fontWeight={selected ? 700 : 500} color={selected ? 'primary.main' : 'text.primary'}>
+        {label}
+      </Typography>
+      {description ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+          {description}
+        </Typography>
+      ) : null}
+    </ButtonBase>
+  );
+}
+
+function initState(label?: Label | null, defaultParentId?: string): WizardState {
   return {
     name: label?.name ?? '',
     color: label?.color ?? DEFAULT_LABEL_COLOR,
+    parentId: label?.parentId ?? defaultParentId ?? null,
     category: label?.category ?? 'custom',
     roles: label?.roles ?? [],
     contents: label?.contents ?? [],
     actionType: label?.actionType ?? 'none',
     suppressUrgency: label?.suppressUrgency ?? false,
     mutuallyExclusiveWith: label?.mutuallyExclusiveWith ?? [],
-    aiPrompt: '',
+    aiPrompt: label?.aiPrompt ?? '',
     showAdvanced: false,
   };
 }
 
-export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: LabelWizardDialogProps) {
+export function LabelWizardDialog({ open, onClose, onCreated, editLabel, defaultParentId }: LabelWizardDialogProps) {
   const t = useTranslations();
   const tw = t.email.labels.wizard;
   const theme = useTheme();
@@ -72,7 +115,7 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
   const { locale } = useLocale();
 
   const [step, setStep] = useState(0);
-  const [state, setState] = useState<WizardState>(() => initState(editLabel));
+  const [state, setState] = useState<WizardState>(() => initState(editLabel, defaultParentId));
   const [error, setError] = useState<string | null>(null);
   const [colorAnchor, setColorAnchor] = useState<HTMLElement | null>(null);
   const [previewEmailId, setPreviewEmailId] = useState('');
@@ -90,11 +133,11 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
   React.useEffect(() => {
     if (open) {
       setStep(0);
-      setState(initState(editLabel));
+      setState(initState(editLabel, defaultParentId));
       setError(null);
       setPreviewEmailId('');
     }
-  }, [open, editLabel]);
+  }, [open, editLabel, defaultParentId]);
 
   const set = useCallback(<K extends keyof WizardState>(key: K, val: WizardState[K]) => {
     setState((s) => ({ ...s, [key]: val }));
@@ -125,13 +168,14 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
     const dto: CreateLabelWizardDto = {
       name: state.name.trim(),
       color: state.color,
+      ...(state.parentId ? { parentId: state.parentId } : {}),
       category: state.category,
       roles: state.roles,
       contents: state.contents,
       actionType: state.actionType,
       suppressUrgency: state.suppressUrgency,
       mutuallyExclusiveWith: state.mutuallyExclusiveWith,
-      ...(state.showAdvanced && state.aiPrompt.trim() ? { aiPrompt: state.aiPrompt.trim() } : {}),
+      ...(state.aiPrompt.trim() ? { aiPrompt: state.aiPrompt.trim() } : {}),
     };
     try {
       let result: Label;
@@ -185,7 +229,7 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
       actionType: state.actionType,
       suppressUrgency: state.suppressUrgency,
       mutuallyExclusiveWith: state.mutuallyExclusiveWith,
-      ...(state.showAdvanced && state.aiPrompt.trim() ? { aiPrompt: state.aiPrompt.trim() } : {}),
+      ...(state.aiPrompt.trim() ? { aiPrompt: state.aiPrompt.trim() } : {}),
     };
   }, [step, previewEmailId, editLabel?.id, locale, state]);
   const deferredPreviewRequest = useDeferredValue(previewRequest);
@@ -196,6 +240,14 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
   const roleLabel = (id: string) => (tw.roles as Record<string, string>)[id] ?? id;
   const contentLabel = (id: string) => (tw.contents as Record<string, string>)[id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())] ?? id;
   const actionLabel = (id: string) => (tw.action as Record<string, string>)[id] ?? id;
+  const toggleSelection = useCallback((key: 'roles' | 'contents', value: string) => {
+    setState((current) => ({
+      ...current,
+      [key]: current[key].includes(value)
+        ? current[key].filter((item) => item !== value)
+        : [...current[key], value],
+    }));
+  }, []);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}>
@@ -259,44 +311,64 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel }: Label
         {/* Step 1: Classification */}
         {step === 1 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Autocomplete
-              multiple value={state.roles} onChange={(_, v) => set('roles', v)}
-              options={roleOptions} getOptionLabel={roleLabel}
-              renderTags={(val, getTagProps) =>
-                val.map((opt, i) => <Chip {...getTagProps({ index: i })} key={opt} label={roleLabel(opt)} size="small" />)
-              }
-              renderInput={(params) => (
-                <TextField {...params} label={tw.whoSends} helperText={tw.whoSendsHelp}
-                  error={state.roles.length === 0 && state.contents.length > 0} />
-              )}
-            />
-            <Autocomplete
-              multiple value={state.contents} onChange={(_, v) => set('contents', v)}
-              options={contentOptions} getOptionLabel={contentLabel}
-              renderTags={(val, getTagProps) =>
-                val.map((opt, i) => <Chip {...getTagProps({ index: i })} key={opt} label={contentLabel(opt)} size="small" />)
-              }
-              renderInput={(params) => (
-                <TextField {...params} label={tw.whatContains} helperText={tw.whatContainsHelp} />
-              )}
-            />
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{tw.whoSends}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{tw.whoSendsHelp}</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }}>
+                {roleOptions.map((option) => (
+                  <SelectionCard
+                    key={option}
+                    selected={state.roles.includes(option)}
+                    onClick={() => toggleSelection('roles', option)}
+                    label={roleLabel(option)}
+                  />
+                ))}
+              </Box>
+              {state.roles.length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1.25 }}>
+                  {state.roles.map((role) => <Chip key={role} label={roleLabel(role)} size="small" color="primary" variant="outlined" />)}
+                </Box>
+              ) : null}
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{tw.whatContains}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{tw.whatContainsHelp}</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }}>
+                {contentOptions.map((option) => (
+                  <SelectionCard
+                    key={option}
+                    selected={state.contents.includes(option)}
+                    onClick={() => toggleSelection('contents', option)}
+                    label={contentLabel(option)}
+                  />
+                ))}
+              </Box>
+              {state.contents.length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1.25 }}>
+                  {state.contents.map((content) => <Chip key={content} label={contentLabel(content)} size="small" color="secondary" variant="outlined" />)}
+                </Box>
+              ) : null}
+            </Box>
           </Box>
         )}
 
         {/* Step 2: Behavior */}
         {step === 2 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel>{tw.actionNeeded}</InputLabel>
-              <Select
-                label={tw.actionNeeded} value={state.actionType}
-                onChange={(e) => set('actionType', e.target.value)}
-              >
-                {ACTION_OPTIONS.map((a) => (
-                  <MenuItem key={a} value={a}>{actionLabel(a)}</MenuItem>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{tw.actionNeeded}</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1, mt: 1 }}>
+                {ACTION_OPTIONS.map((option) => (
+                  <SelectionCard
+                    key={option}
+                    selected={state.actionType === option}
+                    onClick={() => set('actionType', option)}
+                    label={actionLabel(option)}
+                  />
                 ))}
-              </Select>
-            </FormControl>
+              </Box>
+            </Box>
             <FormControlLabel
               control={<Switch checked={state.suppressUrgency} onChange={(_, v) => set('suppressUrgency', v)} />}
               label={<Box><Typography variant="body2">{tw.suppressUrgency}</Typography>

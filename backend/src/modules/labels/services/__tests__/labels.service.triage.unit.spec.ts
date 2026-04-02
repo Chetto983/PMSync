@@ -293,4 +293,140 @@ describe('LabelsService triage onboarding', () => {
     expect(preview.label.name).toBe('Vendor Escalation');
     expect(preview.analysis.summary).toContain('supplier');
   });
+
+  it('creates a nested wizard label and invalidates analysis cache', async () => {
+    const prisma = {
+      emailAnalysis: {
+        updateMany: jest.fn().mockResolvedValue({ count: 3 }),
+      },
+      userLabel: {
+        count: jest.fn().mockResolvedValue(2),
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ tenantId: 'tenant-1', level: 1 }),
+        aggregate: jest.fn().mockResolvedValue({ _max: { orderIndex: 4 } }),
+        create: jest.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+          id: 'child-1',
+          ...data,
+          children: [],
+          _count: { emailLabels: 0 },
+        })),
+      },
+    };
+
+    const service = new LabelsService(
+      prisma as any,
+      mockEmailsService as any,
+      mockRealtimeEvents as any,
+      mockSyncBackQueue as any,
+      mockEmailInsights as any,
+    );
+
+    const label = await service.createFromWizard('tenant-1', {
+      name: 'Vendor Escalation',
+      parentId: 'parent-1',
+      color: { backgroundColor: '#ff0000', textColor: '#ffffff' },
+      category: 'workflow',
+      roles: ['supplier'],
+      contents: ['delivery'],
+      actionType: 'decide',
+      suppressUrgency: false,
+      mutuallyExclusiveWith: [],
+      aiPrompt: 'Use when a supplier blocks work until we decide.',
+    });
+
+    expect(prisma.userLabel.aggregate).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-1', parentId: 'parent-1' },
+      _max: { orderIndex: true },
+    });
+    expect(prisma.userLabel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          parentId: 'parent-1',
+          level: 2,
+          orderIndex: 5,
+          defaultLane: 'action-now',
+        }),
+      }),
+    );
+    expect(mockRealtimeEvents.emitLabelNew).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.objectContaining({ labelId: 'child-1', reason: 'label-created' }),
+    );
+    expect(prisma.emailAnalysis.updateMany).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-1' },
+      data: { processedAt: expect.any(Date) },
+    });
+    expect(label.parentId).toBe('parent-1');
+  });
+
+  it('updates a wizard label without dropping nested placement or cache invalidation', async () => {
+    const prisma = {
+      emailAnalysis: {
+        updateMany: jest.fn().mockResolvedValue({ count: 4 }),
+      },
+      userLabel: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'label-1',
+          tenantId: 'tenant-1',
+          slug: 'vendor-escalation',
+          parentId: 'parent-1',
+          level: 1,
+          orderIndex: 2,
+        }),
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'parent-1', parentId: null, level: 0, orderIndex: 0 },
+          { id: 'label-1', parentId: 'parent-1', level: 1, orderIndex: 2 },
+        ]),
+        update: jest.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+          id: 'label-1',
+          ...data,
+          parentId: 'parent-1',
+          children: [],
+          _count: { emailLabels: 0 },
+        })),
+      },
+    };
+
+    const service = new LabelsService(
+      prisma as any,
+      mockEmailsService as any,
+      mockRealtimeEvents as any,
+      mockSyncBackQueue as any,
+      mockEmailInsights as any,
+    );
+
+    const label = await service.updateFromWizard('tenant-1', 'label-1', {
+      name: 'Vendor Escalation',
+      parentId: 'parent-1',
+      color: { backgroundColor: '#00ff00', textColor: '#000000' },
+      category: 'workflow',
+      roles: ['supplier'],
+      contents: ['delivery'],
+      actionType: 'decide',
+      suppressUrgency: false,
+      mutuallyExclusiveWith: [],
+      aiPrompt: 'Use when a supplier blocks work until we decide.',
+    });
+
+    expect(prisma.userLabel.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'label-1' },
+        data: expect.objectContaining({
+          name: 'Vendor Escalation',
+          defaultLane: 'action-now',
+        }),
+      }),
+    );
+    expect(mockRealtimeEvents.emitLabelUpdate).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.objectContaining({ labelId: 'label-1', reason: 'label-updated' }),
+    );
+    expect(prisma.emailAnalysis.updateMany).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-1' },
+      data: { processedAt: expect.any(Date) },
+    });
+    expect(label.parentId).toBe('parent-1');
+  });
 });

@@ -27,7 +27,6 @@ import { useLabelTreeStore } from '@/stores/label-tree-store';
 import { buildTree, flattenTree, getAncestorIds } from '@/lib/label-tree-utils';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import { LabelTreeDndWrapper } from '../labels/LabelTreeDndWrapper';
-import { LabelDialog } from '../labels/LabelDialog';
 import { LabelWizardDialog } from '../labels/LabelWizardDialog';
 import { LabelsEmptyState } from '../labels/LabelsEmptyState';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
@@ -60,10 +59,8 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Dialog state
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createParentId, setCreateParentId] = useState<string | undefined>();
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardEditLabel, setWizardEditLabel] = useState<Label | null>(null);
 
   // Context menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -187,12 +184,12 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
   // Handle create dialog open with optional parent
   const handleOpenCreate = useCallback((parentId?: string) => {
     setCreateParentId(parentId);
-    setCreateDialogOpen(true);
+    setWizardOpen(true);
   }, []);
 
-  const handleCloseCreate = useCallback(() => {
-    setCreateDialogOpen(false);
+  const handleCloseWizard = useCallback(() => {
     setCreateParentId(undefined);
+    setWizardOpen(false);
   }, []);
 
   // Bulk selection handlers
@@ -494,18 +491,11 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
         </Tooltip>
       )}
 
-      {/* Create Label Dialog */}
-      <LabelDialog
-        open={createDialogOpen}
-        onClose={handleCloseCreate}
-        defaultParentId={createParentId}
-      />
-
       {/* Label Wizard Dialog */}
       <LabelWizardDialog
         open={wizardOpen}
-        onClose={() => { setWizardOpen(false); setWizardEditLabel(null); }}
-        editLabel={wizardEditLabel}
+        onClose={handleCloseWizard}
+        defaultParentId={createParentId}
       />
 
       {/* Context Menu */}
