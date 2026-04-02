@@ -86,6 +86,7 @@ export class LabelsController {
   @Post(':id/preview')
   @Roles('super-admin', 'admin', 'manager')
   @RateTierDecorator('safe-write')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Preview label against a real email',
     description: 'Runs unified email analysis and returns whether the selected label would match the given email.',
