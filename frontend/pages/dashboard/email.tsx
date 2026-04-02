@@ -72,7 +72,11 @@ export default function EmailPage() {
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [folderPickerEmailIds, setFolderPickerEmailIds] = useState<string[]>([]);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
-  const [contextSidebarOpen, setContextSidebarOpen] = useState(true);
+  const [contextSidebarOpen, setContextSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem('pmsync:crm-sidebar-open');
+    return stored !== null ? stored === 'true' : true;
+  });
   const queryClient = useQueryClient();
   const createLocalContact = useCreateLocalContact();
 
@@ -450,6 +454,7 @@ export default function EmailPage() {
   useEffect(() => {
     if (selectedThreadId && isDesktop) {
       setContextSidebarOpen(true);
+      localStorage.setItem('pmsync:crm-sidebar-open', 'true');
     }
   }, [isDesktop, selectedThreadId]);
 
@@ -580,7 +585,11 @@ export default function EmailPage() {
           email={senderEmail}
           contactName={senderName}
           open={contextSidebarOpen}
-          onToggle={() => setContextSidebarOpen((current) => !current)}
+          onToggle={() => setContextSidebarOpen((current) => {
+            const next = !current;
+            localStorage.setItem('pmsync:crm-sidebar-open', String(next));
+            return next;
+          })}
           onCreateContact={handleCreateContextContact}
         />
       </Box>

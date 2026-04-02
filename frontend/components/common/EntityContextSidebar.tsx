@@ -154,6 +154,20 @@ const SidebarContent = memo(function SidebarContent({
         company={resolvedCompany}
       />
 
+      {data.contact.tags.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+          {data.contact.tags.map((tag) => (
+            <Chip
+              key={tag}
+              label={tag}
+              size="small"
+              variant="outlined"
+              sx={{ height: 22, fontSize: '0.7rem' }}
+            />
+          ))}
+        </Box>
+      )}
+
       {!hasCrmContext && (
         <Alert severity="info" variant="outlined" sx={{ mb: 2, fontSize: '0.8rem' }}>
           {tc?.noCrmData ?? 'No CRM data yet - AI will analyze after next sync.'}

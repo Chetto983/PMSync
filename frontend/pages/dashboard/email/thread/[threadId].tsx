@@ -46,7 +46,11 @@ export default function ThreadDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return !isMobile;
+    const stored = localStorage.getItem('pmsync:crm-sidebar-open');
+    return stored !== null ? stored === 'true' : !isMobile;
+  });
   const { data: emails, isLoading, error, refetch } = useEmailThread(threadId);
   const moveEmails = useBulkMoveEmails();
   const markRead = useBulkMarkRead();
@@ -86,7 +90,11 @@ export default function ThreadDetailPage() {
   }, [emails]);
 
   const handleSidebarToggle = useCallback(() => {
-    setSidebarOpen((prev) => !prev);
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem('pmsync:crm-sidebar-open', String(next));
+      return next;
+    });
   }, []);
 
   const hasFlaggedMessages = useMemo(
