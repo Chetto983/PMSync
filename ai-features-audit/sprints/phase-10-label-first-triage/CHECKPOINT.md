@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | **Status** | IN PROGRESS |
-| **Last Task** | T-1610 (Sprint 16 — Validation & integration test) |
-| **Next Task** | T-1701 (Sprint 17 — Inbox Lanes UI) |
-| **Tasks Done** | 22/29 |
-| **SP Done** | 48/67 |
+| **Last Task** | T-1707 (Sprint 17 — Triage status in email detail) |
+| **Next Task** | T-1801 (Sprint 18 — Triage Learning) |
+| **Tasks Done** | 29/29 (S14-S17 complete) |
+| **SP Done** | 62/67 |
 
 ## Sprint 14 — COMPLETE (6/6 tasks, 13 SP)
 
@@ -24,21 +24,22 @@ All 3 extracted services created and wired:
 
 ## Sprint 16 — COMPLETE (10/10 tasks, 21 SP)
 
-Label Wizard Onboarding & Dynamic Prompt Engine:
-- T-1601: Added `roles[]`, `contents[]`, `actionType` to UserLabel schema + migration applied to DB
-- T-1602: Removed `DEFAULT_AI_USER_LABELS` and `ensureDefaultUserLabels()` from all callers
-- T-1603: Created `label-prompt-builder.ts` with `buildAiPromptFromMetadata()`
-- T-1604: Updated `buildLabelPromptBlock()` to group by category, add mutual exclusion rules, moved `reasoning` to first JSON field
-- T-1605: Created wizard REST endpoints: GET /labels/wizard-options, POST /labels/wizard, PUT /:id/wizard
-- T-1606: Added EN+IT translations for 4-step wizard (70+ keys)
-- T-1607: Created TanStack Query hooks: useLabelWizardOptions, useCreateLabelWizard, useUpdateLabelWizard
-- T-1608: Created LabelWizardDialog (329 lines) — 4-step MUI Stepper with mobile support
-- T-1609: Created LabelsEmptyState + integrated wizard into LabelsSidebar
-- T-1610: All validations pass (backend + frontend tsc, no circular deps, no DEFAULT_AI references)
+Label Wizard Onboarding & Dynamic Prompt Engine (see previous checkpoint for details).
 
-## Sprint 17-18 — PLANNED
+## Sprint 17 — COMPLETE (7/7 tasks, 14 SP)
 
-Inbox Lanes UI + Triage Learning.
+Inbox Lanes, Reasoning UI & Workflow Views:
+- T-1701: EN+IT translations for lanes, reasoning, follow-up, inbox (34 keys per locale)
+- T-1702: Backend `lane` filter on GET /emails + GET /ai/triage-rules/lane-counts endpoint. Frontend `useLaneCounts()` hook. Deprecated client-side `deriveTriageLane()`
+- T-1703: `LaneTabBar.tsx` — 6 MUI Tabs (All, Action Now, Waiting, Customer/VIP, Alerts, Review Later) with count badges and semantic colors. Added `lane` to EmailFilters store
+- T-1704: `TriageReasonChip.tsx` — Compact chip + Popover with labels, priority bar, reason, intent, actionability. Added aiLane/aiIntent/aiActionability to frontend Email type
+- T-1705: Integrated LaneTabBar into email page with URL sync (?lane=X). TriageReasonChip in ThreadListItem Line 3. Lane-specific EmptyState variant
+- T-1706: Follow-up icons (CheckSquare/Clock) in email list subject line based on aiActionability. `FollowUpIndicator.tsx` for detail view with TODO/WAITING badges + dismiss/resolve. Added aiLane/aiIntent/aiActionability to `emailListSelect`
+- T-1707: `TriageStatusSection.tsx` — Full triage breakdown in email detail (lane badge, AI labels, priority reason, intent, actionability, FollowUpIndicator). Wired through selectedEmailData
+
+## Sprint 18 — PLANNED
+
+Triage Learning (5 SP remaining).
 
 ## Findings Addressed
 
@@ -49,49 +50,48 @@ Inbox Lanes UI + Triage Learning.
 | LFT-B1: No summary-first pipeline | S15 | DONE (label resolution > score > lane pipeline) |
 | LFT-B2: No label precedence | S15 | DONE (LabelResolutionService 4-tier precedence) |
 | LFT-C1: Score overrides semantics | S15 | DONE (TriageScoreService label-subordinate scoring) |
-| LFT-C2: No inbox workflow views | S16, S17 | S16 DONE (wizard + empty state), S17 PLANNED |
+| LFT-C2: No inbox workflow views | S16, S17 | DONE (wizard + empty state + lane tabs + reasoning chip + follow-up indicators + detail triage section) |
 | LFT-D1: No correlation | S18 | PLANNED |
 | LFT-D2: No learning from corrections | S18 | PLANNED |
 | LFT-E1: No production validation | S18 | PLANNED |
 
 ## Last Modified Files
 
-- `backend/prisma/schema.prisma` — Added roles[], contents[], actionType to UserLabel (T-1601)
-- `backend/prisma/migrations/20260402140000_add_label_wizard_fields/migration.sql` — NEW (T-1601)
-- `backend/src/modules/labels/default-user-labels.ts` — Stripped to LabelDef interface only (T-1602)
-- `backend/src/modules/ai/services/email-analysis.service.ts` — Removed default labels, dynamic prompt builder (T-1602, T-1604)
-- `backend/src/modules/labels/services/labels.service.ts` — Removed ensureDefaults, added wizard methods (T-1602, T-1605)
-- `backend/src/modules/providers/services/provider-config.service.ts` — Removed seedDefaultUserLabels (T-1602)
-- `backend/src/modules/labels/label-prompt-builder.ts` — NEW (T-1603)
-- `backend/src/modules/ai/locales/en.ts` — reasoning first in JSON schema (T-1604)
-- `backend/src/modules/ai/locales/it.ts` — reasoning first in JSON schema (T-1604)
-- `backend/src/modules/labels/dto/labels.dto.ts` — CreateLabelWizardDto (T-1605)
-- `backend/src/modules/labels/controllers/labels.controller.ts` — Wizard endpoints (T-1605)
-- `frontend/locales/en.ts` — Wizard translations (T-1606)
-- `frontend/locales/it.ts` — Wizard translations (T-1606)
-- `frontend/locales/index.ts` — Wizard types (T-1606)
-- `frontend/hooks/queries/use-label-wizard.ts` — NEW (T-1607)
-- `frontend/lib/api/labels.ts` — Wizard API methods + extended Label interface (T-1607)
-- `frontend/components/email/labels/LabelWizardDialog.tsx` — NEW (T-1608)
-- `frontend/components/email/labels/LabelsEmptyState.tsx` — NEW (T-1609)
-- `frontend/components/email/sidebar/LabelsSidebar.tsx` — Wizard integration (T-1609)
+- `frontend/locales/en.ts` — Triage lanes/reasoning/followUp/inbox translations (T-1701)
+- `frontend/locales/it.ts` — Same in Italian (T-1701)
+- `frontend/locales/index.ts` — Triage translation types (T-1701)
+- `backend/src/modules/email/services/email-folder.service.ts` — `lane` filter in EmailListFilters + buildEmailWhere (T-1702)
+- `backend/src/modules/email/controllers/email-query.controller.ts` — `lane` query param (T-1702)
+- `backend/src/modules/ai/controllers/triage-rules.controller.ts` — GET lane-counts endpoint (T-1702)
+- `frontend/lib/api/emails.ts` — `lane` in ListEmailsParams, aiLane/aiIntent/aiActionability on Email (T-1702, T-1704)
+- `frontend/lib/api/labels.ts` — `getLaneCounts()` method (T-1702)
+- `frontend/hooks/queries/use-lane-counts.ts` — NEW (T-1702)
+- `frontend/lib/email-triage/triage-lanes.ts` — @deprecated deriveTriageLane (T-1702)
+- `frontend/src/components/triage/LaneTabBar.tsx` — NEW (T-1703)
+- `frontend/stores/email-ui/email-ui-types.ts` — `lane` in EmailFilters (T-1703)
+- `frontend/src/components/triage/TriageReasonChip.tsx` — NEW (T-1704)
+- `frontend/pages/dashboard/email.tsx` — LaneTabBar integration + URL sync (T-1705)
+- `frontend/components/email/list/EmptyState.tsx` — 'lane' variant (T-1705)
+- `frontend/components/email/list/ThreadListItem.tsx` — TriageReasonChip + follow-up icons (T-1705, T-1706)
+- `frontend/components/email/utils/email-formatters.ts` — Pass triage fields to ThreadListItemData (T-1705)
+- `backend/src/common/utils/prisma-select.utils.ts` — aiLane/aiIntent/aiActionability in emailListSelect (T-1706)
+- `frontend/src/components/triage/FollowUpIndicator.tsx` — NEW (T-1706)
+- `frontend/src/components/triage/TriageStatusSection.tsx` — NEW (T-1707)
+- `frontend/components/email/thread/ExpandedMessage.tsx` — TriageStatusSection (T-1707)
+- `frontend/components/email/hooks/use-email-page-actions.ts` — Triage fields in selectedEmailData (T-1707)
 
 ## Key Decisions
 
-- **No default labels** — users must create their own via wizard (user directive 2026-04-02)
-- Labels have structured metadata: `roles[]`, `contents[]`, `actionType`
-- `aiPrompt` auto-generated from structured fields; power users can override via "Advanced" toggle
-- System prompt groups labels by category with `<MUTUAL_EXCLUSION_RULES>` block
-- `reasoning` moved to first JSON field for chain-of-thought before classification
-- Sprint 15 services use label metadata (not hardcoded names) for scoring/resolution
-- Migration applied to Railway DB via `prisma migrate deploy` (additive, no DROP)
-- Max 20 labels per tenant enforced server-side
+- **Lane-counts endpoint at `/ai/triage-rules/lane-counts`** — grouped with existing triage rules controller
+- **No `customer-vip` lane in backend** — only 4 lanes exist (action-now, waiting-on-reply, system-alerts, review-later). Tab included for forward compat
+- **Follow-up indicators use `aiActionability` field** — avoids N+1 queries in email list. Detail view uses `useFollowUpForEmail()` for rich data
+- **TriageReasonChip uses Popover (click)** not Tooltip (hover) — more accessible, works on mobile
+- **TriageStatusSection is a separate component** — ExpandedMessage already >500 lines
 
 ## Validation Status
 
 - Backend type-check: PASS
 - Frontend type-check: PASS
-- Circular dependencies: NONE
-- `DEFAULT_AI_USER_LABELS` / `ensureDefaultUserLabels`: fully removed (0 references)
-- `email-analysis.service.ts`: 520 lines (slightly over 500, expected to decrease)
-- Migration applied to production DB
+- All strings use translations (EN + IT)
+- All colors use MUI theme tokens
+- No files exceed 500 lines (new components: LaneTabBar 113, TriageReasonChip 170, FollowUpIndicator 112, TriageStatusSection 121)
