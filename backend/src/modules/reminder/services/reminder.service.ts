@@ -10,6 +10,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ReminderAiParserService } from './reminder-ai-parser.service';
 import { REMINDER_NOTIFY_QUEUE, type IReminderNotifyQueue } from '../../../common/interfaces/reminder-notify.interface';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { AuditService } from '../../../common/services/audit.service';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
 
@@ -29,6 +30,7 @@ export class ReminderService {
     private readonly prisma: PrismaService,
     private readonly aiParser: ReminderAiParserService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly auditService: AuditService,
     @Optional() @Inject(REMINDER_NOTIFY_QUEUE) private readonly reminderNotifyQueue?: IReminderNotifyQueue,
   ) {
     // Startup diagnostic: verify queue injection from @Global() TelegramCoreModule
@@ -144,6 +146,7 @@ export class ReminderService {
     });
 
     this.logger.log(`Created reminder ${reminder.id} for user ${userId} in tenant ${tenantId}`);
+    this.auditService.logAudit(tenantId, userId, 'create', 'Reminder', reminder.id, { titolo, priorita: dto.priorita ?? 'media' }).catch(() => {});
 
     // Schedule Telegram notification at exact scadenzaDatetime
     if (reminder.scadenzaDatetime && this.reminderNotifyQueue) {
@@ -256,6 +259,8 @@ export class ReminderService {
       data,
     });
 
+    this.auditService.logAudit(tenantId, userId, 'update', 'Reminder', id, data).catch(() => {});
+
     // Reschedule notification if scadenzaDatetime changed
     if (dto.scadenzaDatetime !== undefined && this.reminderNotifyQueue) {
       try {
@@ -296,6 +301,8 @@ export class ReminderService {
       data: { status: 'completato', completatoAt: new Date() },
     });
 
+    this.auditService.logAudit(tenantId, userId, 'complete', 'Reminder', id, { previousStatus: reminder.status }).catch(() => {});
+
     this.realtimeEvents.emitReminderCompleted(tenantId, {
       reminderId: id,
       titolo: reminder.titolo,
@@ -310,13 +317,15 @@ export class ReminderService {
   }
 
   async deleteReminder(tenantId: string, userId: string, id: string) {
-    await this.getReminder(tenantId, userId, id);
+    const reminder = await this.getReminder(tenantId, userId, id);
     if (this.reminderNotifyQueue) {
       await this.reminderNotifyQueue.cancelNotification(id);
     }
-    return this.prisma.reminder.delete({
+    const deleted = await this.prisma.reminder.delete({
       where: { id },
     });
+    this.auditService.logAudit(tenantId, userId, 'delete', 'Reminder', id, { titolo: reminder.titolo }).catch(() => {});
+    return deleted;
   }
 
   async bulkUpdateReminders(
@@ -342,6 +351,7 @@ export class ReminderService {
     }
 
     this.logger.log(`Bulk-updated ${result.count} reminders for user ${userId}`);
+    this.auditService.logAudit(tenantId, userId, 'bulk_update', 'Reminder', ids.join(','), { ...data, count: result.count }).catch(() => {});
     return { updated: result.count };
   }
 
@@ -356,6 +366,7 @@ export class ReminderService {
       where: { id: { in: ids }, tenantId, userId },
     });
     this.logger.log(`Bulk-deleted ${result.count} reminders for user ${userId}`);
+    this.auditService.logAudit(tenantId, userId, 'bulk_delete', 'Reminder', ids.join(','), { count: result.count }).catch(() => {});
     return { deleted: result.count };
   }
 }
