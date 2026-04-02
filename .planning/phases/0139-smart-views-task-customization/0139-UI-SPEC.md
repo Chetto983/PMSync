@@ -50,9 +50,11 @@ Exceptions: none
 | Role | Size | Weight | Line Height | Usage in this phase |
 |------|------|--------|-------------|---------------------|
 | Body | 14px (0.875rem) | 400 (normal) | 1.5 | Popover view names, dialog body text, filter summary caption |
-| Label | 12px (0.75rem) | 500 (medium) | 1.5 | Chip labels, "Filters:" caption in save dialog, popover section header |
+| Label | 12px (0.75rem) | 400 (normal) | 1.5 | Chip labels, "Filters:" caption in save dialog, popover section header |
 | Heading | 16px (1rem) | 600 (semibold) | 1.25 | Dialog titles ("Save Current View", "Delete View") |
 | Display | not used | - | - | No display text in this phase |
+
+Two weights only: 400 (normal) for Body and Label, 600 (semibold) for Heading. Label is visually differentiated from Body by its smaller 12px size, not by weight.
 
 Source: `design-tokens.ts` typography section. Use MUI `variant` props: `body2` for Body, `caption` for Label, `h6` or `DialogTitle` for Heading.
 
@@ -89,8 +91,9 @@ Source: `design-tokens.ts` semantic.tasks = `142 71% 45%` (green). MUI theme map
 | Position | Above the filter row in TasksList, below the page heading |
 | Bookmark icon | `lucide-react` Bookmark, 16px, `color: text.secondary` |
 | View chips | MUI `Chip`, `size="small"`, `variant="outlined"` (inactive) / `variant="filled"` + `color="success"` (active) |
+| Chip delete button | MUI `Chip` `onDelete` prop (renders X icon). `aria-label`: i18n `tasks.smartViews.deleteViewAriaLabel` with view name interpolation |
 | Pin indicator | `lucide-react` Pin icon, 12px, shown inside chip avatar slot when `isPinned === true` |
-| Add button | MUI `IconButton` `size="small"` with `lucide-react` Plus, 16px |
+| Add button | MUI `IconButton` `size="small"` with `lucide-react` Plus, 16px. `aria-label`: i18n `tasks.smartViews.addViewAriaLabel` |
 | Active state | Clicking a chip sets it as active (filled green), applies its filters. Clicking again or changing any filter manually clears active state. |
 
 **States:**
@@ -154,6 +157,17 @@ Source: `design-tokens.ts` semantic.tasks = `142 71% 45%` (green). MUI theme map
 
 ---
 
+## Accessibility
+
+### Icon-Only Button ARIA Labels
+
+| Element | `aria-label` i18n Key | English Value |
+|---------|----------------------|---------------|
+| Plus IconButton (SavedViewsBar) | `tasks.smartViews.addViewAriaLabel` | "Add saved view" |
+| Chip delete X button | `tasks.smartViews.deleteViewAriaLabel` | "Remove view {name}" (interpolated) |
+
+---
+
 ## Interaction Contracts
 
 ### Save a View
@@ -195,26 +209,28 @@ Source: `design-tokens.ts` semantic.tasks = `142 71% 45%` (green). MUI theme map
 
 All strings via i18n at `tasks.smartViews.*` namespace.
 
-| Element | i18n Key | English Copy |
-|---------|----------|-------------|
-| Primary CTA | `tasks.smartViews.saveView` | "Save View" |
-| Save dialog title | `tasks.smartViews.saveCurrentView` | "Save Current View" |
-| Name field label | `tasks.smartViews.nameLabel` | "View Name" |
-| Name field placeholder | `tasks.smartViews.namePlaceholder` | "e.g. My Follow-ups, Open Tickets" |
-| Pin toggle label | `tasks.smartViews.pinToSidebar` | "Pin to sidebar" |
-| Filter summary prefix | `tasks.smartViews.filters` | "Filters" |
-| Applied toast | `tasks.smartViews.applied` | "View applied" |
-| Create success toast | `tasks.smartViews.createSuccess` | "View saved" |
-| Create error toast | `tasks.smartViews.createError` | "Failed to save view" |
-| Delete dialog title | `tasks.smartViews.deleteTitle` | "Delete View" |
-| Delete confirmation | `tasks.smartViews.deleteConfirm` | "Are you sure you want to delete this saved view? This cannot be undone." |
-| Delete success toast | `tasks.smartViews.deleteSuccess` | "View deleted" |
-| Delete error toast | `tasks.smartViews.deleteError` | "Failed to delete view" |
-| Pinned views header | `tasks.smartViews.pinnedViews` | "Pinned Views" |
-| No pinned views heading | `tasks.smartViews.noPinnedViews` | "No pinned views" |
-| No pinned views body | `tasks.smartViews.noPinnedViewsHint` | "Save a view and pin it for quick access" |
-| Pin limit warning | `tasks.smartViews.pinLimitReached` | "Maximum 5 pinned views. Unpin one to add another." |
-| Saved views tooltip | `tasks.smartViews.title` | "Saved Views" |
+| Element | i18n Key | English Copy | Italian Copy |
+|---------|----------|-------------|-------------|
+| Primary CTA | `tasks.smartViews.saveView` | "Save View" | "Salva Vista" |
+| Save dialog title | `tasks.smartViews.saveCurrentView` | "Save Current View" | "Salva Vista Corrente" |
+| Name field label | `tasks.smartViews.nameLabel` | "View Name" | "Nome Vista" |
+| Name field placeholder | `tasks.smartViews.namePlaceholder` | "e.g. My Follow-ups, Open Tickets" | "es. I miei Follow-up, Ticket Aperti" |
+| Pin toggle label | `tasks.smartViews.pinToSidebar` | "Pin to sidebar" | "Fissa nella barra laterale" |
+| Filter summary prefix | `tasks.smartViews.filters` | "Filters" | "Filtri" |
+| Applied toast | `tasks.smartViews.applied` | "View applied" | "Vista applicata" |
+| Create success toast | `tasks.smartViews.createSuccess` | "View saved" | "Vista salvata" |
+| Create error toast | `tasks.smartViews.createError` | "Failed to save view. Check your connection and try again." | "Impossibile salvare la vista. Controlla la connessione e riprova." |
+| Delete dialog title | `tasks.smartViews.deleteTitle` | "Delete View" | "Elimina Vista" |
+| Delete confirmation | `tasks.smartViews.deleteConfirm` | "Are you sure you want to delete this saved view? This cannot be undone." | "Sei sicuro di voler eliminare questa vista salvata? L'operazione non puo essere annullata." |
+| Delete success toast | `tasks.smartViews.deleteSuccess` | "View deleted" | "Vista eliminata" |
+| Delete error toast | `tasks.smartViews.deleteError` | "Failed to delete view. Refresh the page and try again." | "Impossibile eliminare la vista. Aggiorna la pagina e riprova." |
+| Pinned views header | `tasks.smartViews.pinnedViews` | "Pinned Views" | "Viste Fissate" |
+| No pinned views heading | `tasks.smartViews.noPinnedViews` | "No pinned views" | "Nessuna vista fissata" |
+| No pinned views body | `tasks.smartViews.noPinnedViewsHint` | "Save a view and pin it for quick access" | "Salva una vista e fissala per un accesso rapido" |
+| Pin limit warning | `tasks.smartViews.pinLimitReached` | "Maximum 5 pinned views. Unpin one to add another." | "Massimo 5 viste fissate. Rimuovine una per aggiungerne un'altra." |
+| Saved views tooltip | `tasks.smartViews.title` | "Saved Views" | "Viste Salvate" |
+| Add view aria-label | `tasks.smartViews.addViewAriaLabel` | "Add saved view" | "Aggiungi vista salvata" |
+| Delete view aria-label | `tasks.smartViews.deleteViewAriaLabel` | "Remove view {name}" | "Rimuovi vista {name}" |
 
 ---
 
