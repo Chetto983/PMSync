@@ -669,6 +669,9 @@ model UserLabel {
   suppressUrgency       Boolean      @default(false) // if true, urgency capped to low
   mutuallyExclusiveWith String[]     @default([]) // label names that cannot coexist
   defaultLane           String? // preferred lane when this label is primary
+  roles                 String[]     @default([]) // sender role tags (e.g. customer, supplier, internal)
+  contents              String[]     @default([]) // content type tags (e.g. invoice, order, complaint)
+  actionType            String       @default("none") // urgent | followup | decide | none
   parentId              String?
   level       Int          @default(0)
   orderIndex  Int          @default(0)

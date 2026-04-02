@@ -224,6 +224,16 @@ export interface RealtimeCrmTicketEvent {
   timestamp?: string;
 }
 
+export interface RealtimeReminderEvent {
+  reminderId: string;
+  titolo: string;
+  contatto: string | null;
+  scadenzaDatetime: string;
+  tenantId: string;
+  userId: string;
+  timestamp: string;
+}
+
 export type EventHandler<T> = (data: T) => void;
 
 interface RealtimeAuthTokenResponse {
@@ -809,6 +819,30 @@ class WebSocketClient {
 
   onTicketAssigned(handler: EventHandler<RealtimeCrmTicketEvent>): () => void {
     return this.registerHandler('crm:ticket:assigned', handler as (...args: unknown[]) => void);
+  }
+
+  /**
+   * REMINDER EVENTS
+   */
+
+  onReminderUpcoming(handler: EventHandler<RealtimeReminderEvent>): () => void {
+    return this.registerHandler('reminder:upcoming', handler as (...args: unknown[]) => void);
+  }
+
+  onReminderImminent(handler: EventHandler<RealtimeReminderEvent>): () => void {
+    return this.registerHandler('reminder:imminent', handler as (...args: unknown[]) => void);
+  }
+
+  onReminderOverdue(handler: EventHandler<RealtimeReminderEvent>): () => void {
+    return this.registerHandler('reminder:overdue', handler as (...args: unknown[]) => void);
+  }
+
+  onReminderCompleted(handler: EventHandler<RealtimeReminderEvent>): () => void {
+    return this.registerHandler('reminder:completed', handler as (...args: unknown[]) => void);
+  }
+
+  onReminderTelegramSent(handler: EventHandler<RealtimeReminderEvent>): () => void {
+    return this.registerHandler('reminder:telegram-sent', handler as (...args: unknown[]) => void);
   }
 
 }
