@@ -69,6 +69,13 @@ export interface Label {
   orderIndex: number;
   isArchived: boolean;
   aiPrompt: string | null;
+  category: string;
+  roles: string[];
+  contents: string[];
+  actionType: string;
+  suppressUrgency: boolean;
+  mutuallyExclusiveWith: string[];
+  defaultLane: string | null;
   createdAt: string;
   updatedAt: string;
   children?: Label[];
@@ -323,4 +330,41 @@ export const labelsApi = {
     const response = await apiClient.post('/labels/triage-onboarding/apply', dto);
     return response.data;
   },
+
+  // --- Label Wizard ---
+
+  async getWizardOptions(): Promise<WizardOptionsResponse> {
+    const response = await apiClient.get('/labels/wizard-options');
+    return response.data;
+  },
+
+  async createFromWizard(dto: CreateLabelWizardDto): Promise<LabelResponse> {
+    const response = await apiClient.post('/labels/wizard', dto);
+    return response.data;
+  },
+
+  async updateFromWizard(labelId: string, dto: CreateLabelWizardDto): Promise<LabelResponse> {
+    const response = await apiClient.put(`/labels/${labelId}/wizard`, dto);
+    return response.data;
+  },
 };
+
+// ===== WIZARD TYPES =====
+
+export interface CreateLabelWizardDto {
+  name: string;
+  color?: LabelColor;
+  category: string;
+  roles: string[];
+  contents: string[];
+  actionType: string;
+  mutuallyExclusiveWith?: string[];
+  suppressUrgency?: boolean;
+  aiPrompt?: string;
+}
+
+export interface WizardOptionsResponse {
+  roles: string[];
+  contents: string[];
+  actions: string[];
+}

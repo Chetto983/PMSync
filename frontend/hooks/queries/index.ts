@@ -18,6 +18,7 @@ export * from './use-contacts';
 export * from './email-keys';
 export * from './use-emails';
 export * from './use-labels';
+export * from './use-label-wizard';
 export * from './providers-keys';
 export * from './use-signatures';
 export * from './use-templates';

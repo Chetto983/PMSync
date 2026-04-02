@@ -14,6 +14,13 @@ const makeLabel = (id: string, parentId?: string): Label => ({
   orderIndex: 0,
   isArchived: false,
   aiPrompt: null,
+  category: 'custom',
+  roles: [],
+  contents: [],
+  actionType: 'none',
+  suppressUrgency: false,
+  mutuallyExclusiveWith: [],
+  defaultLane: null,
   createdAt: '2026-03-11T00:00:00Z',
   updatedAt: '2026-03-11T00:00:00Z',
 });
