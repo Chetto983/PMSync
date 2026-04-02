@@ -174,7 +174,7 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
   - [x] 0138-02-PLAN.md — TaskCard, CreateTaskDialog, TasksKanbanBoard, TasksList, and page wiring
 - [ ] **Phase 139: Smart Views & Task Customization** - Saved filter combos, pinned sidebar views
   Plans:
-  - [ ] 0139-01-PLAN.md — Backend: TaskSmartView model, DTOs, SmartViewService, controller endpoints
+  - [x] 0139-01-PLAN.md — Backend: TaskSmartView model, DTOs, SmartViewService, controller endpoints
   - [ ] 0139-02-PLAN.md — Frontend: translations, API types, hooks, SavedViewsBar, SavedViewDialog, PinnedViewsPopover, sidebar integration
 
 ### Phase 139: Smart Views & Task Customization
