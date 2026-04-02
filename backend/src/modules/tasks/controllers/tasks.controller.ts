@@ -20,9 +20,9 @@ import { TasksAggregationService } from '../services/tasks-aggregation.service';
 import { ManualTaskService } from '../services/manual-task.service';
 import { SmartViewService } from '../services/smart-view.service';
 import { normalizeManualTask } from '../services/normalizers';
-import type { ListTasksQueryDto } from '../dto/list-tasks-query.dto';
-import type { CreateManualTaskDto } from '../dto/create-task.dto';
-import type { UpdateManualTaskDto } from '../dto/update-task.dto';
+import { ListTasksQueryDto } from '../dto/list-tasks-query.dto';
+import { CreateManualTaskDto } from '../dto/create-task.dto';
+import { UpdateManualTaskDto } from '../dto/update-task.dto';
 import { CreateSmartViewDto } from '../dto/create-smart-view.dto';
 import { UpdateSmartViewDto } from '../dto/update-smart-view.dto';
 import {

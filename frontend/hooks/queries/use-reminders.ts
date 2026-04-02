@@ -123,7 +123,7 @@ export function useUpdateReminder() {
   });
 }
 
-/** Mutation: mark reminder as completed */
+/** Mutation: mark reminder as completed (with optimistic update) */
 export function useCompleteReminder() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -131,13 +131,35 @@ export function useCompleteReminder() {
       const response = await remindersApi.complete(id);
       return response.data?.data;
     },
-    onSuccess: () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: reminderKeys.all });
+      const queries = queryClient.getQueriesData<ListRemindersResponse>({ queryKey: reminderKeys.lists() });
+      const snapshots = queries.map(([key, data]) => [key, data] as const);
+      for (const [key, data] of queries) {
+        if (!data) continue;
+        queryClient.setQueryData<ListRemindersResponse>(key, {
+          ...data,
+          reminders: data.reminders.map((r) =>
+            r.id === id ? { ...r, status: 'completato' as const, completatoAt: new Date().toISOString() } : r,
+          ),
+        });
+      }
+      return { snapshots };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.snapshots) {
+        for (const [key, data] of context.snapshots) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
     },
   });
 }
 
-/** Mutation: delete reminder permanently */
+/** Mutation: delete reminder permanently (with optimistic update) */
 export function useDeleteReminder() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -145,7 +167,28 @@ export function useDeleteReminder() {
       const response = await remindersApi.delete(id);
       return response.data?.data;
     },
-    onSuccess: () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: reminderKeys.all });
+      const queries = queryClient.getQueriesData<ListRemindersResponse>({ queryKey: reminderKeys.lists() });
+      const snapshots = queries.map(([key, data]) => [key, data] as const);
+      for (const [key, data] of queries) {
+        if (!data) continue;
+        queryClient.setQueryData<ListRemindersResponse>(key, {
+          ...data,
+          reminders: data.reminders.filter((r) => r.id !== id),
+          total: data.total - 1,
+        });
+      }
+      return { snapshots };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.snapshots) {
+        for (const [key, data] of context.snapshots) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all });
     },
   });
