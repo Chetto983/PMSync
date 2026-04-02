@@ -16,9 +16,11 @@ import { ReminderStatus } from '@prisma/client';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { ReminderService } from '../services/reminder.service';
+import { ReminderUnifiedService } from '../services/reminder-unified.service';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
 import { BulkUpdateReminderDto } from '../dto/bulk-update-reminder.dto';
+import { UnifiedSource } from '../dto/unified-reminder.dto';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 interface AuthenticatedRequest {
@@ -30,7 +32,10 @@ interface AuthenticatedRequest {
 @UseGuards(TenantGuard, RolesGuard)
 @Controller('reminders')
 export class ReminderController {
-  constructor(private readonly reminderService: ReminderService) {}
+  constructor(
+    private readonly reminderService: ReminderService,
+    private readonly unifiedService: ReminderUnifiedService,
+  ) {}
 
   @Post()
   @RateTierDecorator('safe-write')
@@ -72,6 +77,74 @@ export class ReminderController {
       },
     );
     return { data: result.reminders, meta: { total: result.total, page: result.page, limit: result.limit } };
+  }
+
+  // =========================================================================
+  // Unified endpoints (Reminder + EmailFollowUp merged view)
+  // =========================================================================
+
+  @Get('unified')
+  @ApiOperation({ summary: 'List unified reminders + AI follow-ups' })
+  @ApiQuery({ name: 'source', enum: ['user', 'ai-followup'], required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async listUnified(
+    @Req() req: AuthenticatedRequest,
+    @Query('source') source?: UnifiedSource,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const result = await this.unifiedService.listUnified(
+      req.user.tenantId,
+      req.user.id,
+      {
+        source,
+        page: page ? parseInt(page, 10) : 1,
+        limit: limit ? parseInt(limit, 10) : 30,
+      },
+    );
+    return { data: result.items, meta: { total: result.total, page: result.page, limit: result.limit, counts: result.counts } };
+  }
+
+  @Post('unified/:id/resolve')
+  @RateTierDecorator('safe-write')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Resolve a unified item (complete reminder or resolve follow-up)' })
+  @ApiQuery({ name: 'source', enum: ['user', 'ai-followup'], required: true })
+  async resolveUnified(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Query('source') source: UnifiedSource,
+  ) {
+    const result = await this.unifiedService.resolveUnified(req.user.tenantId, req.user.id, id, source);
+    return { data: result };
+  }
+
+  @Post('unified/:id/snooze')
+  @RateTierDecorator('safe-write')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Snooze a unified item to a new date' })
+  @ApiQuery({ name: 'source', enum: ['user', 'ai-followup'], required: true })
+  async snoozeUnified(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Query('source') source: UnifiedSource,
+    @Body() body: { dueDate: string },
+  ) {
+    const result = await this.unifiedService.snoozeUnified(req.user.tenantId, req.user.id, id, source, body.dueDate);
+    return { data: result };
+  }
+
+  @Post('unified/:id/convert')
+  @RateTierDecorator('safe-write')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Convert an AI follow-up into a user reminder' })
+  async convertToReminder(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const result = await this.unifiedService.convertFollowUpToReminder(req.user.tenantId, req.user.id, id);
+    return { data: result };
   }
 
   @Get('search')
