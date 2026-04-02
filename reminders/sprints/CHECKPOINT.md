@@ -47,4 +47,9 @@
 ## Validation Status
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Production: ⏳ pending push + deploy validation
+- Production health: ✅ DB up, Redis up, 7 workers, 0 errors
+- Search endpoint: ✅ returns 401 without auth (endpoint exists)
+- Bulk update endpoint: ✅ returns 403 without auth (endpoint exists)
+- UI search bar: ✅ visible, filtering works ("Telegram" query filters correctly)
+- UI slot fields: ✅ removed from Telegram settings panel
+- UI bulk checkbox: ✅ visible for selection

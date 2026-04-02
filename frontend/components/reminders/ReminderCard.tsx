@@ -9,7 +9,7 @@ import {
   Tooltip,
   Checkbox,
 } from '@mui/material';
-import { CheckCircle2, Mail, Pencil, Trash2, Send } from 'lucide-react';
+import { CheckCircle2, Mail, Pencil, Repeat, Trash2, Send } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
@@ -125,6 +125,16 @@ export function ReminderCard({ reminder, selected, onSelect, onEdit, onComplete,
             <Chip
               label={tr.azione[reminder.azione] || reminder.azione}
               size="small"
+              variant="outlined"
+              sx={{ height: 22 }}
+            />
+          )}
+          {reminder.isRecurring && (
+            <Chip
+              icon={<Repeat size={14} />}
+              label={tr.recurrence.badge}
+              size="small"
+              color="secondary"
               variant="outlined"
               sx={{ height: 22 }}
             />

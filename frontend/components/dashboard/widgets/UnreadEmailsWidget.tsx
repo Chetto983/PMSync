@@ -32,7 +32,7 @@ export function UnreadEmailsWidget() {
         <BaseWidget
             id="unread-emails"
             title={t.dashboard.widgets.unreadEmails.title}
-            loading={isLoading || countsLoading}
+            loading={!error && (isLoading || countsLoading)}
             error={error?.message}
             rawError={error}
             onRefresh={() => refetch()}

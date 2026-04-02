@@ -140,9 +140,7 @@ export class ChurnController {
     });
 
     if (!signal) {
-      throw new NotFoundException(
-        `No churn signal for contact ${contactId}`,
-      );
+      return null;
     }
 
     return signal;
@@ -172,9 +170,7 @@ export class ChurnController {
     });
 
     if (!signal) {
-      throw new NotFoundException(
-        `No churn signal for account ${accountId}`,
-      );
+      return null;
     }
 
     return signal;

@@ -32,7 +32,8 @@ export function BriefingWidget() {
   const noConsentMessage =
     t.settings?.consentPanel?.features?.ai_email_processing?.description ||
     'Enable AI email processing in Settings to see your daily briefing.';
-  const loading = consentLoading || isLoading || triageLoading || followUpsLoading;
+  const hasError = !!error;
+  const loading = !hasError && (consentLoading || isLoading || triageLoading || followUpsLoading);
   const emptyText = hasAiConsent
     ? t.dashboard?.widgets?.common?.noItems || 'No items'
     : noConsentMessage;
