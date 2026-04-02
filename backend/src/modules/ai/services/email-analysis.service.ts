@@ -366,7 +366,7 @@ export class EmailAnalysisService {
   private async getEmailOrThrow(tenantId: string, emailId: string): Promise<EmailRecord> {
     const email = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId },
-      select: { id: true, subject: true, from: true, to: true, bodyText: true, bodyHtml: true, snippet: true, receivedAt: true },
+      select: { id: true, subject: true, from: true, to: true, bodyText: true, bodyHtml: true, snippet: true, receivedAt: true, threadId: true },
     });
     if (!email) throw new NotFoundException('Email not found');
     return email;
