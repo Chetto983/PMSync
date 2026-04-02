@@ -72,9 +72,10 @@ export class TriageScoreService {
     const resolvedDefs = labelResult.labels
       .map((name) => tenantLabels.find((l) => l.name === name))
       .filter((d): d is TenantLabel => d !== undefined);
+    const operationalFailureAlert = this.isOperationalFailureAlert(resolvedDefs, signals, email);
 
     // Rule: suppressUrgency → cap urgency to low, priority 4-5
-    if (labelResult.suppressUrgency) {
+    if (labelResult.suppressUrgency && !operationalFailureAlert) {
       urgency = 'low';
       priority = Math.max(priority, 4) as 1 | 2 | 3 | 4 | 5;
       const suppressLabel = resolvedDefs.find((d) => d.suppressUrgency);
@@ -83,8 +84,15 @@ export class TriageScoreService {
       }
     }
 
+    // Exception: explicit operational failure alerts should bypass suppression.
+    if (operationalFailureAlert) {
+      priority = Math.min(priority, 2) as 1 | 2 | 3 | 4 | 5;
+      if (urgency !== 'critical') urgency = 'high';
+      reasons.push('Operational failure alert requires action');
+    }
+
     // Rule: workflow label with defaultLane=action-now → floor priority to 1-2
-    if (!labelResult.suppressUrgency) {
+    if (!labelResult.suppressUrgency && !operationalFailureAlert) {
       const actionNowLabel = resolvedDefs.find(
         (d) => d.category === 'workflow' && d.defaultLane === 'action-now',
       );
@@ -96,7 +104,12 @@ export class TriageScoreService {
     }
 
     // Rule: actionability=none + no deadline → cap urgency to medium
-    if (signals.actionability === 'none' && !signals.hasDeadline && !labelResult.suppressUrgency) {
+    if (
+      signals.actionability === 'none'
+      && !signals.hasDeadline
+      && !labelResult.suppressUrgency
+      && !operationalFailureAlert
+    ) {
       if (urgency === 'critical' || urgency === 'high') {
         urgency = 'medium';
         reasons.push('No action needed and no deadline');
@@ -104,7 +117,7 @@ export class TriageScoreService {
     }
 
     // Rule: actionability=waiting → set urgency to medium (unless deadline close)
-    if (signals.actionability === 'waiting' && !labelResult.suppressUrgency) {
+    if (signals.actionability === 'waiting' && !labelResult.suppressUrgency && !operationalFailureAlert) {
       const isDeadlineClose = deadlineDate && this.isWithin48h(deadlineDate);
       if (!isDeadlineClose && (urgency === 'critical' || urgency === 'high')) {
         urgency = 'medium';
@@ -154,5 +167,25 @@ export class TriageScoreService {
     const now = Date.now();
     const diff = date.getTime() - now;
     return diff > 0 && diff <= 48 * 60 * 60 * 1000;
+  }
+
+  private isOperationalFailureAlert(
+    resolvedDefs: TenantLabel[],
+    signals: TriageSignals,
+    email: { from: string; subject: string | null },
+  ): boolean {
+    const hasSystemAlertLabel = resolvedDefs.some((label) =>
+      label.name.toLowerCase().includes('alert')
+      || label.defaultLane === 'system-alerts',
+    );
+    if (!hasSystemAlertLabel) return false;
+
+    const sample = `${email.subject || ''} ${email.from}`.toLowerCase();
+    const explicitFailure =
+      /\b(build failed|run failed|failed|failure|incident|outage|degraded|rollback|blocked|security alert|error)\b/.test(sample);
+    const operationalSource =
+      /\b(github|railway|vercel|buildkite|deploy|deployment|workflow|ci|defender)\b/.test(sample);
+
+    return explicitFailure && (operationalSource || signals.intent === 'alert' || signals.needsFollowUp);
   }
 }
