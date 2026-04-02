@@ -71,7 +71,7 @@ export function BriefingWidget() {
       id="briefing"
       title={t.dashboard?.widgets?.briefing?.title || 'Daily Briefing'}
       loading={loading}
-      error={hasAiConsent ? error?.message : undefined}
+      error={error?.message}
       rawError={error}
       onRefresh={hasAiConsent ? () => refetch() : undefined}
       icon={<Sparkles size={18} />}
