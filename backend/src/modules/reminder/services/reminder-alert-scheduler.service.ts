@@ -12,7 +12,7 @@
  *
  * Separate from ReminderSchedulerService which handles EmailFollowUp only.
  */
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit, Optional, forwardRef } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -23,6 +23,8 @@ import {
   ScheduledJobType,
   ScheduledJobData,
 } from '../../../common/services/scheduled-jobs.queue';
+import { ReminderRecurrenceService } from './reminder-recurrence.service';
+import { REMINDER_NOTIFY_QUEUE, type IReminderNotifyQueue } from '../../../common/interfaces/reminder-notify.interface';
 
 const MS_1H = 60 * 60 * 1000;
 const MS_24H = 24 * MS_1H;
@@ -44,6 +46,8 @@ export class ReminderAlertSchedulerService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly scheduledJobs: ScheduledJobsQueueService,
+    private readonly recurrenceService: ReminderRecurrenceService,
+    @Optional() @Inject(REMINDER_NOTIFY_QUEUE) private readonly reminderNotifyQueue?: IReminderNotifyQueue,
   ) {}
 
   onModuleInit() {
@@ -142,11 +146,20 @@ export class ReminderAlertSchedulerService implements OnModuleInit {
       const overdueMs = now - reminder.scadenzaDatetime.getTime();
 
       if (overdueMs > MS_48H) {
-        // Expired: overdue by more than 48 hours — auto-cancel
-        await this.prisma.reminder.update({
-          where: { id: reminder.id },
-          data: { status: ReminderStatus.annullato },
-        });
+        if (reminder.isRecurring && reminder.recurrenceRule) {
+          // Recurring: auto-create next instance instead of cancelling
+          await this.createNextRecurringInstance(reminder);
+          await this.prisma.reminder.update({
+            where: { id: reminder.id },
+            data: { status: ReminderStatus.annullato },
+          });
+        } else {
+          // Non-recurring: auto-cancel
+          await this.prisma.reminder.update({
+            where: { id: reminder.id },
+            data: { status: ReminderStatus.annullato },
+          });
+        }
         result.expired++;
       } else {
         result.overdue++;
@@ -163,6 +176,77 @@ export class ReminderAlertSchedulerService implements OnModuleInit {
     }
 
     return result;
+  }
+
+  /**
+   * Create next recurring instance when current one expires without completion.
+   */
+  private async createNextRecurringInstance(reminder: {
+    id: string;
+    tenantId: string;
+    userId: string;
+    titolo: string;
+    descrizione: string | null;
+    contatto: string | null;
+    scadenzaDatetime: Date | null;
+    periodo: any;
+    azione: any;
+    priorita: any;
+    condizioneTipo: any;
+    condizioneDettaglio: string | null;
+    monitoraEmail: boolean;
+    emailKeywords: string[];
+    emailMittente: string | null;
+    messaggioTelegram: string | null;
+    isRecurring: boolean;
+    recurrenceRule: string | null;
+    recurrenceParentId: string | null;
+  }): Promise<void> {
+    const referenceDate = reminder.scadenzaDatetime ?? new Date();
+    const nextDate = this.recurrenceService.getNextOccurrence(reminder.recurrenceRule!, referenceDate);
+    if (!nextDate) {
+      this.logger.log(`Recurrence exhausted for expired reminder ${reminder.id}`);
+      return;
+    }
+
+    const parentId = reminder.recurrenceParentId ?? reminder.id;
+    const next = await this.prisma.reminder.create({
+      data: {
+        tenantId: reminder.tenantId,
+        userId: reminder.userId,
+        titolo: reminder.titolo,
+        descrizione: reminder.descrizione,
+        contatto: reminder.contatto,
+        scadenzaDatetime: nextDate,
+        periodo: reminder.periodo,
+        azione: reminder.azione,
+        priorita: reminder.priorita,
+        condizioneTipo: reminder.condizioneTipo,
+        condizioneDettaglio: reminder.condizioneDettaglio,
+        monitoraEmail: reminder.monitoraEmail,
+        emailKeywords: reminder.emailKeywords,
+        emailMittente: reminder.emailMittente,
+        messaggioTelegram: reminder.messaggioTelegram,
+        isRecurring: true,
+        recurrenceRule: reminder.recurrenceRule,
+        recurrenceParentId: parentId,
+      },
+    });
+
+    this.logger.log(`Created next recurring instance ${next.id} (expired parent: ${reminder.id}) at ${nextDate.toISOString()}`);
+
+    if (this.reminderNotifyQueue) {
+      try {
+        await this.reminderNotifyQueue.scheduleNotification(next.id, nextDate);
+        await this.prisma.reminder.update({
+          where: { id: next.id },
+          data: { notificationScheduled: true },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Failed to schedule notification for recurring reminder ${next.id}: ${msg}`);
+      }
+    }
   }
 
   private buildPayload(reminder: {
