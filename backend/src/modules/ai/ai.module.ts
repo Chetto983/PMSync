@@ -73,6 +73,7 @@ import { TriageRuleService } from './services/triage-rule.service';
 import { TriageRulesController } from './controllers/triage-rules.controller';
 // Phase 10 Sprint 15: Extracted label resolution pipeline
 import { LabelResolutionService } from './services/label-resolution.service';
+import { TriageScoreService } from './services/triage-score.service';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
@@ -149,6 +150,7 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageRuleService,
     // Phase 10 Sprint 15: Extracted label resolution pipeline
     LabelResolutionService,
+    TriageScoreService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController],
   exports: [
