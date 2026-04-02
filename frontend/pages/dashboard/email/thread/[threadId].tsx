@@ -89,6 +89,11 @@ export default function ThreadDetailPage() {
     return extractSenderDisplayName(lastEmail.from);
   }, [emails]);
 
+  const lastEmailId = useMemo(() => {
+    if (!emails?.length) return '';
+    return emails[emails.length - 1].id;
+  }, [emails]);
+
   const handleSidebarToggle = useCallback(() => {
     setSidebarOpen((prev) => {
       const next = !prev;
@@ -428,6 +433,7 @@ export default function ThreadDetailPage() {
             <EntityContextSidebar
               email={senderEmail}
               contactName={senderName}
+              emailId={lastEmailId}
               open={sidebarOpen}
               onToggle={handleSidebarToggle}
             />

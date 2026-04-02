@@ -1,41 +1,21 @@
 import { memo, useMemo } from 'react';
-import {
-  Alert,
-  Avatar,
-  Box,
-  Chip,
-  Divider,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Skeleton,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import {
-  Activity,
-  Building2,
-  Handshake,
-  Mail,
-  PanelRightClose,
-  PanelRightOpen,
-  Ticket,
-  UserPlus,
-} from 'lucide-react';
+import { Alert, Avatar, Box, Chip, Divider, Drawer, IconButton, List, ListItem,
+  ListItemIcon, ListItemText, Skeleton, Tooltip, Typography } from '@mui/material';
+import { Activity, Building2, Handshake, Mail, PanelRightClose, PanelRightOpen,
+  Ticket, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useCrmContextByContact, useCrmContextByEmail } from '@/hooks/queries/use-crm-context';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CrmContactContext } from '@/lib/api/crm-context';
+import { SidebarSuggestionsSection } from './SidebarSuggestionsSection';
 
 const SIDEBAR_WIDTH = 320;
 
 export interface EntityContextSidebarProps {
   contactId?: string;
   email?: string;
+  emailId?: string;
   contactName?: string | null;
   contactCompany?: string | null;
   open: boolean;
@@ -117,6 +97,7 @@ interface SidebarContentProps {
   data: CrmContactContext;
   contactName: string | null;
   email?: string;
+  emailId?: string;
   contactCompany: string | null;
 }
 
@@ -124,6 +105,7 @@ const SidebarContent = memo(function SidebarContent({
   data,
   contactName,
   email,
+  emailId,
   contactCompany,
 }: SidebarContentProps) {
   const t = useTranslations();
@@ -368,6 +350,8 @@ const SidebarContent = memo(function SidebarContent({
           </Typography>
         )}
       </Box>
+
+      {emailId && <SidebarSuggestionsSection emailId={emailId} />}
     </Box>
   );
 });
@@ -375,6 +359,7 @@ const SidebarContent = memo(function SidebarContent({
 export const EntityContextSidebar = memo(function EntityContextSidebar({
   contactId,
   email,
+  emailId,
   contactName,
   contactCompany,
   open,
@@ -489,6 +474,7 @@ export const EntityContextSidebar = memo(function EntityContextSidebar({
             data={data}
             contactName={contactName ?? data.contact.displayName ?? null}
             email={email ?? data.contact.email ?? undefined}
+            emailId={emailId}
             contactCompany={contactCompany ?? data.contact.company ?? null}
           />
         )}
