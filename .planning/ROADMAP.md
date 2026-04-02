@@ -154,7 +154,7 @@
 
 See `milestones/v12.0-ROADMAP.md` for full phase details.
 
-**Plans:** 12 plans
+**Plans:** 14 plans
 
 - [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
   Plans:
@@ -202,6 +202,20 @@ Plans:
   4. Sidebar loads without blocking email content rendering
 **UI hint**: yes
 - [x] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view (completed 2026-04-02)
+
+### Phase 141: Contact 360 & Hover Cards
+**Goal**: Users get a complete picture of any contact's history and relationship without leaving their current context
+**Depends on**: Phase 140
+**Requirements**: CTX-03, CTX-04, CTX-05
+**Plans:** 2 plans
+Plans:
+- [ ] 141-01-PLAN.md — Backend unified timeline endpoint + frontend timeline upgrade and related entities
+- [ ] 141-02-PLAN.md — Contact hover card system (useHoverPopover, ContactHoverCard, ContactName) with integration
+**Success Criteria** (what must be TRUE):
+  1. User sees a unified activity timeline (emails, deals, tasks, meetings, notes) on the contact detail page
+  2. User sees related emails, deal history, and upcoming tasks when viewing a contact
+  3. User sees a mini-CRM hover card (name, company, deal status, last interaction) when hovering any contact name anywhere in the app
+**UI hint**: yes
 - [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
 - [ ] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize
 - [ ] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss
