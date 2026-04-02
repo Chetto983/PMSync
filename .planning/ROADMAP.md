@@ -187,6 +187,17 @@ See `milestones/v12.0-ROADMAP.md` for full phase details.
   2. User can pin smart views to the Tasks sidebar for one-click access
   3. Pinned smart views persist across sessions
 **UI hint**: yes
+
+### Phase 140: Email Contextual Sidebar
+**Goal**: When viewing an email, users see a contextual right sidebar showing the sender's contact profile, company, open deals, and recent tickets — collapsible for reading space
+**Depends on**: Phase 139
+**Requirements**: CTX-01, CTX-02, CTX-06
+**Success Criteria** (what must be TRUE):
+  1. User sees sender's contact profile (name, email, company, tags) in right sidebar when viewing an email
+  2. User sees sender's company, open deals, and recent tickets in the sidebar
+  3. User can collapse/expand the contextual sidebar to reclaim reading space
+  4. Sidebar loads without blocking email content rendering
+**UI hint**: yes
 - [ ] **Phase 140: Email Contextual Sidebar** - Contact/company/deals sidebar on email view
 - [ ] **Phase 141: Contact 360 & Hover Cards** - Activity timeline, related entities, hover cards
 - [ ] **Phase 142: AI Background Automation** - Auto-link emails to contacts/deals, auto-categorize
