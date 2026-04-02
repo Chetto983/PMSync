@@ -103,4 +103,15 @@ export class CreateReminderDto {
   @IsString()
   @MaxLength(200)
   messaggioTelegram?: string;
+
+  @ApiPropertyOptional({ description: 'Whether this reminder recurs' })
+  @IsOptional()
+  @IsBoolean()
+  isRecurring?: boolean;
+
+  @ApiPropertyOptional({ description: 'RRULE string (RFC 5545), e.g. FREQ=WEEKLY;INTERVAL=1' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  recurrenceRule?: string;
 }

@@ -13,6 +13,7 @@ import { RealtimeEventsService } from '../../realtime/services/realtime-events.s
 import { AuditService } from '../../../common/services/audit.service';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
+import { ReminderRecurrenceService } from './reminder-recurrence.service';
 
 export interface ReminderListFilters {
   status?: ReminderStatus;
@@ -31,6 +32,7 @@ export class ReminderService {
     private readonly aiParser: ReminderAiParserService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly auditService: AuditService,
+    private readonly recurrenceService: ReminderRecurrenceService,
     @Optional() @Inject(REMINDER_NOTIFY_QUEUE) private readonly reminderNotifyQueue?: IReminderNotifyQueue,
   ) {
     // Startup diagnostic: verify queue injection from @Global() TelegramCoreModule
@@ -140,6 +142,8 @@ export class ReminderService {
         emailKeywords: dto.emailKeywords ?? [],
         emailMittente: dto.emailMittente ?? null,
         messaggioTelegram: dto.messaggioTelegram ?? null,
+        isRecurring: dto.isRecurring ?? false,
+        recurrenceRule: dto.recurrenceRule ?? null,
         inputUtente: dto.inputUtente ?? null,
         aiRawResponse: aiRawResponse ?? undefined,
       },
@@ -252,6 +256,8 @@ export class ReminderService {
     if (dto.emailKeywords !== undefined) data.emailKeywords = dto.emailKeywords;
     if (dto.emailMittente !== undefined) data.emailMittente = dto.emailMittente;
     if (dto.messaggioTelegram !== undefined) data.messaggioTelegram = dto.messaggioTelegram;
+    if (dto.isRecurring !== undefined) data.isRecurring = dto.isRecurring;
+    if (dto.recurrenceRule !== undefined) data.recurrenceRule = dto.recurrenceRule;
     if (dto.status !== undefined) data.status = dto.status;
 
     const updated = await this.prisma.reminder.update({
@@ -313,7 +319,68 @@ export class ReminderService {
       timestamp: new Date().toISOString(),
     });
 
+    // Auto-create next occurrence for recurring reminders
+    if (reminder.isRecurring && reminder.recurrenceRule) {
+      await this.createNextOccurrence(reminder);
+    }
+
     return updated;
+  }
+
+  /**
+   * Clone a recurring reminder with the next occurrence date.
+   * Links to the recurrence parent (or the original if this is the parent).
+   */
+  private async createNextOccurrence(reminder: Awaited<ReturnType<typeof this.getReminder>>) {
+    const referenceDate = reminder.scadenzaDatetime ?? new Date();
+    const nextDate = this.recurrenceService.getNextOccurrence(reminder.recurrenceRule!, referenceDate);
+    if (!nextDate) {
+      this.logger.log(`Recurrence exhausted for reminder ${reminder.id} — no next occurrence`);
+      return null;
+    }
+
+    const parentId = reminder.recurrenceParentId ?? reminder.id;
+
+    const nextReminder = await this.prisma.reminder.create({
+      data: {
+        tenantId: reminder.tenantId,
+        userId: reminder.userId,
+        titolo: reminder.titolo,
+        descrizione: reminder.descrizione,
+        contatto: reminder.contatto,
+        scadenzaDatetime: nextDate,
+        periodo: reminder.periodo,
+        azione: reminder.azione,
+        priorita: reminder.priorita,
+        condizioneTipo: reminder.condizioneTipo,
+        condizioneDettaglio: reminder.condizioneDettaglio,
+        monitoraEmail: reminder.monitoraEmail,
+        emailKeywords: reminder.emailKeywords,
+        emailMittente: reminder.emailMittente,
+        messaggioTelegram: reminder.messaggioTelegram,
+        isRecurring: true,
+        recurrenceRule: reminder.recurrenceRule,
+        recurrenceParentId: parentId,
+      },
+    });
+
+    this.logger.log(`Created next recurring instance ${nextReminder.id} (parent: ${parentId}) at ${nextDate.toISOString()}`);
+
+    // Schedule notification for the new instance
+    if (this.reminderNotifyQueue) {
+      try {
+        await this.reminderNotifyQueue.scheduleNotification(nextReminder.id, nextDate);
+        await this.prisma.reminder.update({
+          where: { id: nextReminder.id },
+          data: { notificationScheduled: true },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Failed to schedule notification for recurring reminder ${nextReminder.id}: ${msg}`);
+      }
+    }
+
+    return nextReminder;
   }
 
   async deleteReminder(tenantId: string, userId: string, id: string) {

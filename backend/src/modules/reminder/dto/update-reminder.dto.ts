@@ -92,4 +92,15 @@ export class UpdateReminderDto {
   @IsOptional()
   @IsEnum(ReminderStatus)
   status?: ReminderStatus;
+
+  @ApiPropertyOptional({ description: 'Whether this reminder recurs' })
+  @IsOptional()
+  @IsBoolean()
+  isRecurring?: boolean;
+
+  @ApiPropertyOptional({ description: 'RRULE string (RFC 5545), e.g. FREQ=WEEKLY;INTERVAL=1' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  recurrenceRule?: string;
 }
