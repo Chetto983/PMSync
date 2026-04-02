@@ -1,12 +1,12 @@
 # Reminder Sprint — Checkpoint
 
 ## Status
-- **Sprint:** 03 — Frontend Real-Time & UX — COMPLETE
-- **Last Task Completed:** T-0309 — Type-check + validation
-- **Next Task:** Sprint 04 — Search, Bulk Ops & Audit
-- **Tasks Done:** 9/9
-- **SP Completed:** 16/16
-- **Last Updated:** 2026-04-02 16:30
+- **Sprint:** 04 — Search, Bulk Ops & Audit Trail — COMPLETE
+- **Last Task Completed:** T-0407 — Type-check + wire frontend hooks/API
+- **Next Task:** Sprint 05 — Recurring Reminders
+- **Tasks Done:** 7/7
+- **SP Completed:** 14/14
+- **Last Updated:** 2026-04-02 17:30
 
 ## Audit Findings Addressed
 - C1: No pre-deadline alerts — ✅ fixed in S01
@@ -19,26 +19,30 @@
 - H3: Email monitor batch across all tenants — ✅ fixed in S01
 
 ## Last Modified Files
-- frontend/hooks/use-reminder-realtime.ts (NEW — Socket.IO hook)
-- frontend/lib/websocket-client.ts (6 new reminder handlers)
-- frontend/components/layout/Layout.tsx (toast wiring)
-- frontend/components/reminders/ReminderCard.tsx (Telegram status, email monitoring, condition chips)
-- frontend/hooks/queries/use-reminders.ts (optimistic updates, error toasts)
-- frontend/locales/en.ts, it.ts, index.ts (i18n strings)
-- backend/src/modules/realtime/types/realtime.types.ts (delivery-failed event)
-- backend/src/modules/realtime/services/realtime-events.service.ts (emitReminderDeliveryFailed)
-- backend/src/modules/telegram/services/reminder-notify.queue.ts (emit on failure)
+- backend/prisma/schema.prisma (GIN indexes on Reminder, removed slot columns)
+- backend/prisma/migrations/20260402160000_remove_slot_columns_telegram_settings/migration.sql
+- backend/src/modules/reminder/services/reminder.service.ts (search, bulkUpdate, audit)
+- backend/src/modules/reminder/controllers/reminder.controller.ts (search, bulkUpdate endpoints)
+- backend/src/modules/reminder/dto/bulk-update-reminder.dto.ts (NEW)
+- backend/src/modules/reminder/reminder.module.ts (AuditModule import)
+- backend/src/modules/telegram/controllers/telegram-settings.controller.ts (removed slot fields)
+- frontend/components/reminders/RemindersBoard.tsx (search bar, bulk action dropdown)
+- frontend/components/reminders/TelegramSettingsPanel.tsx (removed slot UI)
+- frontend/lib/api/reminders.ts (search, bulkUpdate APIs)
+- frontend/hooks/queries/use-reminders.ts (useSearchReminders, useBulkUpdateReminders)
+- frontend/hooks/queries/reminder-keys.ts (search keys)
+- frontend/locales/en.ts, it.ts, index.ts (new i18n keys)
 
 ## Key Decisions Made
-- useReminderRealtime wired in Layout (app-wide) not per-page — reminders can fire while user is on any page
-- Imminent toast: 8s warning. Overdue toast: 10s error. Delivery-failed: 15s persistent error
-- Optimistic updates use snapshot-and-rollback pattern (same as TanStack Query docs)
-- Error toasts use getGlobalToast() for non-React context compatibility
-- Condition chip shows emailMittente inline for email-based conditions
+- GIN trigram indexes on titolo + contatto (same pattern as Email/Contact models)
+- Search minimum 2 chars before triggering query (debounce 300ms)
+- Bulk update max 100 IDs per request (DTO validation)
+- Audit uses fire-and-forget pattern (.catch(() => {})) to never block business logic
+- Manual migration for slot column removal (prisma migrate dev shadow DB broken)
 
 ## Blockers / Notes
-- Pre-existing label-store test type errors from another branch — not related to S03 work
-- User requested: "on telegram settings, add link not only QR code" — not in S03 scope, backlog item
+- prisma migrate dev shadow DB fails due to missing CRM tables — manual migration created
+- Slot column i18n keys left in place (harmless, avoids type breakage)
 
 ## Validation Status
 - Backend tsc: ✅ passing
