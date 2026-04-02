@@ -11,13 +11,13 @@
 
 ## Sprint Backlog
 
-- [ ] T-0601 — Creare endpoint unificato `GET /reminders/unified` che combina `Reminder` + `EmailFollowUp` in un unico formato. Aggiungere campo `source: 'user' | 'ai-followup'` per distinguere. Sort unificato per `scadenzaDatetime / dueDate`. — [3 SP]
-- [ ] T-0602 — Creare `UnifiedReminderDto` che mappa entrambi i modelli: `{ id, source, titolo, descrizione, contatto, scadenzaDatetime, priorita, status, emailSubject?, emailFrom?, monitoraEmail, telegramInviato }`. — [1 SP]
-- [ ] T-0603 — Aggiungere azioni per follow-ups nell'endpoint unificato: `POST /reminders/unified/:id/resolve`, `POST /reminders/unified/:id/snooze`. Routing interno basato su `source`. — [2 SP]
-- [ ] T-0604 — Frontend: modificare `RemindersBoard` per usare endpoint unificato. Aggiungere filter chip "Fonte" (Tutti, Utente, AI Follow-up). — [2 SP]
-- [ ] T-0605 — Frontend: `ReminderCard` deve gestire entrambi i tipi. Follow-ups mostrano email subject/from. Reminders mostrano contatto/azione. Badge "AI" per follow-ups. — [2 SP]
-- [ ] T-0606 — Aggiungere "Converti in promemoria" su follow-up cards: crea `Reminder` da `EmailFollowUp` con campi pre-compilati, poi resolve il follow-up. — [2 SP]
-- [ ] T-0607 — Type-check backend + frontend. Validazione E2E su Railway/Vercel. Sprint finale: cleanup e E2E completo. — [2 SP]
+- [x] T-0601 — Creare endpoint unificato `GET /reminders/unified` che combina `Reminder` + `EmailFollowUp` in un unico formato. Aggiungere campo `source: 'user' | 'ai-followup'` per distinguere. Sort unificato per `scadenzaDatetime / dueDate`. — [3 SP] — ✅ DONE
+- [x] T-0602 — Creare `UnifiedReminderDto` che mappa entrambi i modelli: `{ id, source, titolo, descrizione, contatto, scadenzaDatetime, priorita, status, emailSubject?, emailFrom?, monitoraEmail, telegramInviato }`. — [1 SP] — ✅ DONE
+- [x] T-0603 — Aggiungere azioni per follow-ups nell'endpoint unificato: `POST /reminders/unified/:id/resolve`, `POST /reminders/unified/:id/snooze`. Routing interno basato su `source`. — [2 SP] — ✅ DONE
+- [x] T-0604 — Frontend: modificare `RemindersBoard` per usare endpoint unificato. Aggiungere filter chip "Fonte" (Tutti, Utente, AI Follow-up). — [2 SP] — ✅ DONE
+- [x] T-0605 — Frontend: `ReminderCard` deve gestire entrambi i tipi. Follow-ups mostrano email subject/from. Reminders mostrano contatto/azione. Badge "AI" per follow-ups. — [2 SP] — ✅ DONE
+- [x] T-0606 — Aggiungere "Converti in promemoria" su follow-up cards: crea `Reminder` da `EmailFollowUp` con campi pre-compilati, poi resolve il follow-up. — [2 SP] — ✅ DONE
+- [x] T-0607 — Type-check backend + frontend. Validazione E2E su Railway/Vercel. Sprint finale: cleanup e E2E completo. — [2 SP] — ✅ DONE
 
 ---
 
@@ -35,11 +35,11 @@
 
 ## Definition of Done
 
-- [ ] Una singola pagina "Promemoria" mostra sia reminders utente che follow-ups AI
-- [ ] Filter "Fonte" filtra per user-created vs AI-detected
-- [ ] Follow-up può essere convertito in reminder con un click
-- [ ] Azioni resolve/snooze funzionano per entrambi i tipi
-- [ ] Nessuna notifica duplicata tra i due sistemi
-- [ ] `cd backend && npx tsc --noEmit` passa
-- [ ] `cd frontend && npx tsc --noEmit` passa
+- [x] Una singola pagina "Promemoria" mostra sia reminders utente che follow-ups AI
+- [x] Filter "Fonte" filtra per user-created vs AI-detected
+- [x] Follow-up può essere convertito in reminder con un click
+- [x] Azioni resolve/snooze funzionano per entrambi i tipi
+- [x] Nessuna notifica duplicata tra i due sistemi (convert resolves follow-up first)
+- [x] `cd backend && npx tsc --noEmit` passa
+- [x] `cd frontend && npx tsc --noEmit` passa
 - [ ] E2E validato su Railway/Vercel
