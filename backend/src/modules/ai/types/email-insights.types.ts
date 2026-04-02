@@ -16,6 +16,7 @@ export interface UnifiedEmailAnalysis {
   intent: string;
   actionability: 'none' | 'todo' | 'waiting';
   lane: string | null;
+  laneReason: string | null;
   escalationRisk: boolean;
   hasDeadline: boolean;
   deadlineDate: Date | null;

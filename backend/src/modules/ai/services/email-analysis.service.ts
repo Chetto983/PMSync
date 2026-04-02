@@ -156,6 +156,7 @@ export class EmailAnalysisService {
         intent,
         actionability,
         lane: laneResult.lane,
+        laneReason: laneResult.laneReason,
         escalationRisk,
         hasDeadline,
         deadlineDate: scoreResult.deadlineDate,
@@ -186,7 +187,7 @@ export class EmailAnalysisService {
         suggestedActions: {
           locale: lang, smartReplies: result.smartReplies, intent: result.intent, urgency: result.urgency,
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,
-          followUpReason: result.followUpReason, labels: result.labels, labelRulesSignature,
+          followUpReason: result.followUpReason, labels: result.labels, labelRulesSignature, laneReason: result.laneReason,
         },
         processedAt, latencyMs,
       };
@@ -422,6 +423,7 @@ export class EmailAnalysisService {
       intent: analysis.intent || (actions.intent as string) || 'fyi',
       actionability: this.validateActionability(analysis.actionability),
       lane: analysis.lane ?? null,
+      laneReason: (actions.laneReason as string) ?? null,
       escalationRisk: Boolean(actions.escalationRisk),
       hasDeadline: analysis.hasDeadline, deadlineDate: analysis.deadlineDate, needsFollowUp: analysis.needsFollowUp,
       followUpDate: analysis.followUpDate ?? null, followUpReason: (actions.followUpReason as string) ?? null,
