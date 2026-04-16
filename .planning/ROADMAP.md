@@ -155,7 +155,7 @@
 
 See `milestones/v12.0-ROADMAP.md` for full phase details.
 
-**Plans:** 16 plans
+**Plans:** 19 plans
 
 - [ ] **Phase 135: Sidebar Reduction & Route Preservation** - Collapse sidebar to 4 pillars, preserve deep links
   Plans:
@@ -239,6 +239,11 @@ Plans:
 **Goal**: Users access the AI assistant from any screen without navigating to a separate page
 **Depends on**: Phase 140
 **Requirements**: AI-06, AI-07
+**Plans:** 3 plans
+Plans:
+- [ ] 144-01-PLAN.md — Zustand store, i18n translations, usePageContext hook (foundation contracts)
+- [ ] 144-02-PLAN.md — AiOverlayDrawer, AiOverlayHeader, ContextIndicator, ResizeHandle components
+- [ ] 144-03-PLAN.md — Layout wiring (Cmd+J, ChatRuntimeProvider lift), Header/ChatPage/CommandPalette updates
 **Success Criteria** (what must be TRUE):
   1. User can open the AI Assistant as a slide-over panel from any screen via keyboard shortcut
   2. The AI Assistant knows the current context (which email, contact, or deal the user is viewing)
