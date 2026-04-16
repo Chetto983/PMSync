@@ -252,6 +252,17 @@ Plans:
 **UI hint**: yes
 
 - [ ] **Phase 144: AI Assistant Overlay** - Slide-over AI panel from any screen
+
+### Phase 145: Smart Today Dashboard
+**Goal**: Users start their day with an AI-curated view of what needs attention, replacing the generic home page
+**Depends on**: Phase 137, Phase 142
+**Requirements**: NAV-05
+**Success Criteria** (what must be TRUE):
+  1. User sees an AI-curated "Today" dashboard as the home page
+  2. Dashboard shows due tasks, pending replies, deal alerts, and upcoming meetings in prioritized order
+  3. User can click any item to navigate directly to the relevant email, task, deal, or calendar event
+**UI hint**: yes
+
 - [ ] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
 - [ ] **Phase 146: RAM Harden** - Redis connection consolidation & memory optimization
 
