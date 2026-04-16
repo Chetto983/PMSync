@@ -17,9 +17,9 @@ import {
   Menu,
   Sparkles,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 
+import { useAiOverlay } from '@/stores/ai-overlay-store';
 import { authClient } from '@/lib/auth-client';
 import { clearOfflineData } from '@/lib/logout-cleanup';
 import { useLocale } from '@/lib/hooks/use-locale';
@@ -121,10 +121,9 @@ export function Header({ onOpenSidebar }: PmSyncHeaderProps) {
         {/* Right Side Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {/* AI Assistant entry point. HITL approvals are handled inline in chat. */}
-          <Tooltip title={t.ai?.title || 'AI Assistant'}>
+          <Tooltip title={`${t.ai?.title || 'AI Assistant'} (${t.ai?.overlay?.shortcutHint || 'Ctrl+J'})`}>
             <IconButton
-              component={Link}
-              href="/dashboard/ai"
+              onClick={() => useAiOverlay.getState().toggleOpen()}
               sx={{
                 position: 'relative',
                 color: 'inherit',

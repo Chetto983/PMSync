@@ -23,11 +23,11 @@ import {
   Ticket,
   UserMinus,
   Users,
-  Wand2,
   Workflow,
 } from 'lucide-react';
 import type { AppTranslations } from '@/locales';
 import type { CommandGroup, CommandItem } from './types';
+import { useAiOverlay } from '@/stores/ai-overlay-store';
 
 export const GROUP_ORDER = ['navigation', 'crm', 'actions', 'ai', 'productivity', 'system'] as const;
 
@@ -317,15 +317,15 @@ export function buildCommands(
       keywords: ['reply', 'respond', 'ai', 'quick'],
     },
     {
-      id: 'ai-compose',
-      name: t.commandPalette.commands.aiComposeContext,
+      id: 'ai-assistant',
+      name: t.ai?.overlay?.commandLabel || 'Open AI Assistant',
       shortcut: 'Cmd+J',
-      icon: Wand2,
+      icon: Sparkles,
       action: () => {
-        window.dispatchEvent(new CustomEvent('command:ai-compose'));
+        useAiOverlay.getState().open();
       },
       group: 'ai',
-      keywords: ['compose', 'write', 'ai', 'context'],
+      keywords: ['ai', 'assistant', 'chat', 'overlay', 'copilot', 'compose'],
     },
     {
       id: 'followups',
