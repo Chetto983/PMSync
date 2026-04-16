@@ -7,6 +7,9 @@ import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { CommandPalette } from '@/components/ai/CommandPalette';
 import { consentOptions } from '@/hooks/queries/use-consent';
+import { useAiOverlay } from '@/stores/ai-overlay-store';
+import { AiOverlayDrawer } from '@/components/ai-overlay';
+import { ChatRuntimeProvider } from '@/src/components/chat/ChatRuntimeProvider';
 
 // useWebSocket moved to _app.tsx PrivateRouteGate (prevents connection leak on Layout remount)
 import { useSyncStore } from '@/stores/sync-store';
@@ -85,6 +88,11 @@ export function Layout({ children }: LayoutProps) {
         event.preventDefault();
         setCommandPaletteOpen((prev) => !prev);
       }
+      // Cmd+J / Ctrl+J toggles AI overlay (D-01)
+      if (event.key.toLowerCase() === 'j' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        useAiOverlay.getState().toggleOpen();
+      }
     };
 
     document.addEventListener('keydown', down);
@@ -112,6 +120,7 @@ export function Layout({ children }: LayoutProps) {
   }, [lastStatus, t]);
 
   return (
+    <ChatRuntimeProvider>
       <Box
         sx={{
           display: 'flex',
@@ -240,6 +249,8 @@ export function Layout({ children }: LayoutProps) {
           open={commandPaletteOpen}
           onClose={() => setCommandPaletteOpen(false)}
         />
+        <AiOverlayDrawer />
       </Box>
+    </ChatRuntimeProvider>
   );
 }
