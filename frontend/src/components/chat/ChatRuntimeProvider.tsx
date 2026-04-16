@@ -135,9 +135,13 @@ export function ChatRuntimeProvider({
 
   // Set the outer runtime so initialize() can resolve the current thread's
   // remoteId through the adapter before each request.
-  if (transport instanceof AssistantChatTransport) {
-    transport.setRuntime(runtime);
-  }
+  // Moved to useEffect to avoid render-path side-effects that can trigger
+  // infinite re-render loops (assistant-ui #3395).
+  useEffect(() => {
+    if (transport instanceof AssistantChatTransport) {
+      transport.setRuntime(runtime);
+    }
+  }, [runtime]);
 
   useEffect(() => {
     const restoreMostRecentConversation = () => {
