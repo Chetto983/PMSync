@@ -244,9 +244,9 @@ Plans:
 **Plans:** 6 plans
 
 Plans:
-- [ ] 146-01-PLAN.md — Shared worker connection singleton, retention presets, enableOfflineQueue
+- [ ] 146-01-PLAN.md — Extract redis-connections.ts, shared worker connection singleton, retention presets, enableOfflineQueue
 - [ ] 146-02-PLAN.md — BaseWorker shared connection, retention fix, feature flag hierarchy + subclass module toggles
-- [ ] 146-03-PLAN.md — Inline worker services migration (scheduled-jobs, reminder-notify, sla-timer, csat, calendar-webhook)
+- [ ] 146-03-PLAN.md — Inline worker services migration (scheduled-jobs, reminder-notify, sla-timer, csat, calendar-webhook, email-embedding, contact-embedding) + CRM/AI module toggles
 - [ ] 146-04-PLAN.md — Tri-queue services migration (calendar-sync, contacts-sync, email-sync base-queue, email-sync queue)
 - [ ] 146-05-PLAN.md — QueueHealthService rework: direct Redis pipeline commands
 - [ ] 146-06-PLAN.md — Startup maxmemory-policy check + base-worker and queue-health tests
