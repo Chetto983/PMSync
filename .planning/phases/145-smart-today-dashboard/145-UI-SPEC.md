@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-04-16
+revised: 2026-04-16
 ---
 
 # Phase 145 -- UI Design Contract
@@ -34,8 +35,7 @@ Declared values from existing project tokens (`frontend/theme/tokens.ts`). This 
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | 1 | 4px | Icon-to-text gaps inside feed items |
-| 2 | 8px | Compact padding inside feed item rows, inline chip margins |
-| 3 | 12px | Feed item internal padding (left/right) |
+| 2 | 8px | Compact padding inside feed item rows, inline chip margins, feed item internal padding (left/right) |
 | 4 | 16px | Section header padding, container side padding (xs) |
 | 6 | 24px | Gap between urgency tier sections, container side padding (sm+) |
 | 8 | 32px | Container top/bottom padding |
@@ -47,16 +47,16 @@ Exceptions: Feed item rows are 48px total height (not a spacing token; this is t
 
 ## Typography
 
-Uses existing MUI typography variants from `frontend/theme/typography.ts`. This phase declares 4 roles:
+Uses existing MUI typography variants from `frontend/theme/typography.ts`. This phase declares 4 roles using exactly 2 weights (400 normal, 600 semibold) and 3 sizes (12px, 14px, 18px):
 
 | Role | MUI Variant | Size | Weight | Line Height | Usage |
 |------|-------------|------|--------|-------------|-------|
 | Greeting heading | h5 | 18px (`lg`) | 600 (semibold) | 1.5 (`normal`) | Optional greeting line at top of feed |
 | Tier section header | overline | 12px (`xs`) | 600 (semibold) | 1.5 (`normal`) | "URGENT", "TODAY", "FYI" tier labels, uppercase, letter-spacing 0.08em |
-| Feed item title | body2 | 13px (`sm`) | 500 (medium) | 1.625 (`relaxed`) | Primary text of each feed item (email subject, task title, deal name, event title) |
+| Feed item title | body2 | 14px (`sm`) | 400 (normal) | 1.5 (`normal`) | Primary text of each feed item (email subject, task title, deal name, event title) |
 | Feed item subtitle | caption | 12px (`xs`) | 400 (normal) | 1.5 (`normal`) | Secondary metadata line (contact name, time, context) |
 
-Summary count badges inside the greeting use `subtitle2` (14px, weight 500).
+Summary count badges inside the greeting use `subtitle2` (14px, weight 600).
 
 ---
 
@@ -129,9 +129,9 @@ Each feed item type uses its established semantic color from `pmSyncColors.seman
 - **Text column**: `flex: 1`, `overflow: hidden`. Title truncates with ellipsis. Subtitle truncates with ellipsis.
 - **Time badge**: `Chip` size="small", variant="outlined". Shows relative time ("2h ago", "in 30m"). Overdue items use `color="error"`.
 - **Quick actions column**: Visible on hover (`opacity: 0` -> `opacity: 1` on row hover, `transition: opacity 150ms`). Contains:
-  - Complete button (`Check` icon, 28px `IconButton`) -- tasks only, conditionally rendered
-  - Dismiss button (`X` icon, 28px `IconButton`) -- all items
-  - Snooze button (`Clock` icon, 28px `IconButton`) -- all items, opens `Menu` with snooze options
+  - Complete button (`Check` icon, 28px `IconButton`, `aria-label` per copywriting contract) -- tasks only, conditionally rendered
+  - Dismiss button (`X` icon, 28px `IconButton`, `aria-label` per copywriting contract) -- all items
+  - Snooze button (`Clock` icon, 28px `IconButton`, `aria-label` per copywriting contract) -- all items, opens `Menu` with snooze options
 
 ### Snooze Menu
 
@@ -244,6 +244,9 @@ All copy lives in `frontend/locales/en.ts` and `frontend/locales/it.ts` under `d
 | Snooze: 1h | `dashboard.today.snooze.oneHour` | "In 1 hour" | "Tra 1 ora" |
 | Snooze: tomorrow | `dashboard.today.snooze.tomorrow` | "Tomorrow morning" | "Domani mattina" |
 | Snooze: next week | `dashboard.today.snooze.nextWeek` | "Next week" | "Settimana prossima" |
+| Aria: Complete | `dashboard.today.aria.complete` | "Mark task as complete" | "Segna attivita come completata" |
+| Aria: Dismiss | `dashboard.today.aria.dismiss` | "Dismiss item" | "Nascondi elemento" |
+| Aria: Snooze | `dashboard.today.aria.snooze` | "Snooze item" | "Posticipa elemento" |
 
 ---
 
