@@ -235,6 +235,21 @@ Plans:
 - [x] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss (completed 2026-04-02)
 - [ ] **Phase 144: AI Assistant Overlay** - Slide-over AI panel from any screen
 - [ ] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
+- [ ] **Phase 146: RAM Harden** - Redis connection consolidation & memory optimization
+
+### Phase 146: RAM Harden — Redis Connection Consolidation & Memory Optimization
+
+**Goal:** Reduce backend RAM usage on Railway by consolidating ~80+ Redis connections, removing QueueHealthService Queue bloat, lowering BullMQ job retention, and adding worker feature flags
+**Depends on:** None (infrastructure)
+**Plans:** 6 plans
+
+Plans:
+- [ ] 146-01-PLAN.md — Shared worker connection singleton, retention presets, enableOfflineQueue
+- [ ] 146-02-PLAN.md — BaseWorker shared connection, retention fix, feature flag hierarchy + subclass module toggles
+- [ ] 146-03-PLAN.md — Inline worker services migration (scheduled-jobs, reminder-notify, sla-timer, csat, calendar-webhook)
+- [ ] 146-04-PLAN.md — Tri-queue services migration (calendar-sync, contacts-sync, email-sync base-queue, email-sync queue)
+- [ ] 146-05-PLAN.md — QueueHealthService rework: direct Redis pipeline commands
+- [ ] 146-06-PLAN.md — Startup maxmemory-policy check + base-worker and queue-health tests
 
 ---
 *Roadmap created: 2026-02-09*
