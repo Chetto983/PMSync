@@ -38,11 +38,11 @@ const GENERAL_CONTEXT: PageContext = {
 export function usePageContext(): PageContext {
   const { pathname, query } = useRouter();
 
-  // Zustand store selectors (reactive -- re-renders on store changes)
-  const { activeThreadId, activeEmailId } = useEmailUIStore((s) => ({
-    activeThreadId: s.activeThreadId,
-    activeEmailId: s.activeEmailId,
-  }));
+  // Select primitives independently so Zustand doesn't see a fresh object on
+  // every render. Returning a new object here causes a React 19 / Zustand 5
+  // useSyncExternalStore loop in the always-mounted AI overlay shell.
+  const activeThreadId = useEmailUIStore((s) => s.activeThreadId);
+  const activeEmailId = useEmailUIStore((s) => s.activeEmailId);
   const selectedContact = useContactStore((s) => s.selectedContact);
   const selectedEvent = useCalendarStore((s) => s.selectedEvent);
 
