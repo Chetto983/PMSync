@@ -239,11 +239,12 @@ Plans:
 **Goal**: Users access the AI assistant from any screen without navigating to a separate page
 **Depends on**: Phase 140
 **Requirements**: AI-06, AI-07
-**Plans:** 3 plans
+**Plans:** 4 plans
 Plans:
 - [ ] 144-01-PLAN.md — Zustand store, i18n translations, usePageContext hook (foundation contracts)
 - [ ] 144-02-PLAN.md — AiOverlayDrawer, AiOverlayHeader, ContextIndicator, ResizeHandle components
 - [ ] 144-03-PLAN.md — Layout wiring (Cmd+J, ChatRuntimeProvider lift), Header/ChatPage/CommandPalette updates
+- [ ] 144-04-PLAN.md — Context injection (PageContextInjector, transport extension, backend system prompt)
 **Success Criteria** (what must be TRUE):
   1. User can open the AI Assistant as a slide-over panel from any screen via keyboard shortcut
   2. The AI Assistant knows the current context (which email, contact, or deal the user is viewing)

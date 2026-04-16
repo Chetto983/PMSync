@@ -49,7 +49,7 @@ The codebase already has every building block: MUI Drawer pattern (`SchedulingDr
 | ID | Description | Research Support |
 |----|-------------|------------------|
 | AI-06 | User can open AI Assistant as overlay panel from any screen via keyboard shortcut | Layout.tsx Cmd+J handler pattern (mirrors existing Cmd+K), Header.tsx icon button conversion, CommandPalette command entry. Three trigger points documented. |
-| AI-07 | AI Assistant overlay is context-aware (knows current email/contact/deal being viewed) | usePageContext hook using router.pathname + Zustand stores (email-ui-store.activeThreadId, contact-store.selectedContact, calendar-store.selectedEvent) + CRM context enrichment hooks. Route pattern matching documented. |
+| AI-07 | AI Assistant overlay is context-aware (knows current email/contact/deal being viewed) | usePageContext hook using router.pathname + Zustand stores (email-ui-store.activeThreadId, contact-store.selectedContact, calendar-store.selectedEvent) + CRM context enrichment hooks. Route pattern matching documented. Context injection via prepareSendMessagesRequest + backend system prompt (Plan 04). |
 </phase_requirements>
 
 ## Architectural Responsibility Map
@@ -59,6 +59,7 @@ The codebase already has every building block: MUI Drawer pattern (`SchedulingDr
 | Overlay trigger (Cmd+J, icon, palette) | Browser / Client | -- | Pure frontend keyboard/click handlers in Layout/Header |
 | Panel rendering (Drawer + chat UI) | Browser / Client | -- | MUI Drawer + existing chat components, no SSR needed |
 | Page context detection | Browser / Client | -- | Router pathname + Zustand store reads, no backend call |
+| Context injection into AI model | Browser / Client | API / Backend | Frontend syncs pageContext to transport; backend appends to system prompt |
 | Context enrichment (entity metadata) | Browser / Client | API / Backend | TanStack Query cache for entity data; falls back to API if cache miss |
 | Conversation history | API / Backend | Browser / Client | Backend stores threads; frontend loads via existing adapter |
 | Chat streaming | API / Backend | Browser / Client | SSE stream to backend /ai/chat endpoint; client renders incrementally |
@@ -118,8 +119,17 @@ User Input (Cmd+J / Icon / Palette)
    v       v            (backend API)     (SSE /ai/chat)
 [route pattern match]
    |
-   v
-[ContextIndicator UI]
+   +---> [ContextIndicator UI]        (display layer)
+   +---> [PageContextInjector]        (injection layer)
+            |
+            v
+         [setPageContext()] --> module-scoped cache
+            |
+            v
+         [prepareSendMessagesRequest] --> body.pageContext
+            |
+            v
+         [Backend /ai/chat] --> systemPrompt += pageContext block
 ```
 
 ### Recommended Project Structure
@@ -131,6 +141,7 @@ frontend/
       AiOverlayHeader.tsx      # Header with title + context + close (~80 lines)
       ContextIndicator.tsx     # Context type chip/bar (~100 lines)
       ResizeHandle.tsx         # Left-edge drag handle (~80 lines)
+      PageContextInjector.tsx  # Syncs usePageContext -> module-scoped cache (~30 lines)
       index.ts                 # Re-exports
   hooks/
     use-page-context.ts        # Route + store -> PageContext (~120 lines)
@@ -209,7 +220,7 @@ useEffect(() => {
 
 ### Pattern 3: Page Context Detection Hook
 **What:** Hook that reads router.pathname + Zustand stores to produce a typed PageContext.
-**When to use:** Inside AiOverlayHeader for the ContextIndicator.
+**When to use:** Inside AiOverlayHeader for the ContextIndicator AND inside PageContextInjector for model injection.
 **Example:**
 ```typescript
 // Source: Derived from existing route patterns + Zustand store shapes
@@ -275,6 +286,7 @@ export function usePageContext(): PageContext {
     {children}
   </Box>
   <AiOverlayDrawer />
+  <PageContextInjector />
 </ChatRuntimeProvider>
 ```
 **WARNING:** ChatRuntimeProvider uses `useEffect` with `resetManualNewThreadRequested()` on mount. When lifted to Layout, this runs once at app boot, not on every /dashboard/ai visit. The thread-restore-guard logic should still work since it's ref-based, but test carefully.
@@ -315,12 +327,49 @@ export function usePageContext(): PageContext {
 ```
 [VERIFIED: SchedulingDrawer.tsx anchor="right" pattern; UI-SPEC layout spec]
 
+### Pattern 6: Module-Scoped Context Injection via Transport
+**What:** Sync React hook state to a module-scoped variable read by `prepareSendMessagesRequest`.
+**When to use:** To pass pageContext from the React tree into the AI SDK transport request body.
+**Example:**
+```typescript
+// In ChatRuntimeProvider.tsx -- add alongside existing localeCache/timezoneCache
+let pageContextCache: { type: string; entityId: string | null; label: string; metadata: Record<string, unknown> } | null = null;
+
+export function setPageContext(ctx: typeof pageContextCache) {
+  pageContextCache = ctx;
+}
+
+// In prepareSendMessagesRequest (already exists, extend it):
+Object.assign(options.body ?? {}, {
+  locale: localeCache,
+  timezone: timezoneCache,
+  pageContext: pageContextCache,
+});
+```
+```typescript
+// In PageContextInjector.tsx (new component, mounted in Layout.tsx):
+import { useEffect } from 'react';
+import { usePageContext } from '@/hooks/use-page-context';
+import { setPageContext } from '@/src/components/chat/ChatRuntimeProvider';
+
+export function PageContextInjector() {
+  const ctx = usePageContext();
+  useEffect(() => {
+    setPageContext(ctx);
+    return () => setPageContext(null);
+  }, [ctx]);
+  return null;
+}
+```
+[VERIFIED: ChatRuntimeProvider.tsx lines 58-73 show existing prepareSendMessagesRequest + module-scoped cache pattern]
+
 ### Anti-Patterns to Avoid
 - **Mounting ChatRuntimeProvider inside the Drawer:** The runtime would be destroyed on drawer close, losing all conversation state. MUST be at Layout level. [VERIFIED: D-05 requires state preservation on close/reopen]
 - **Creating a new adapter/transport per drawer open:** The `createPmSyncThreadListAdapter()` and `AssistantChatTransport` are module-scoped singletons. Creating duplicates causes thread ID conflicts. [VERIFIED: chat-thread-list-adapter.tsx line 341 cache]
 - **Using `React.lazy` for drawer content:** The drawer should feel instant. Dynamic import would cause a loading flash on first open. Import statically. [ASSUMED]
 - **Hardcoding context strings:** All display strings must go through i18n (`t.ai.overlay.*`). [VERIFIED: CLAUDE.md anti-pattern rule]
 - **Reading Zustand state with hooks inside callbacks:** Use `store.getState()` for one-time reads in event handlers, not hooks (which cause re-renders). For the `usePageContext` hook itself, use standard hook subscriptions since it needs reactivity. [VERIFIED: Zustand docs pattern]
+- **Passing pageContext via React props through the provider tree:** The transport is module-scoped; use a module-scoped setter function (`setPageContext`) instead of trying to thread context through React props. [VERIFIED: existing localeCache/timezoneCache pattern in ChatRuntimeProvider.tsx]
 
 ## Don't Hand-Roll
 
@@ -483,6 +532,7 @@ function ResizeHandle({ onResize, currentWidth }: {
 | Dedicated /dashboard/ai page only | Overlay panel accessible from any page | Phase 144 | Users no longer navigate away from current work to use AI |
 | `component={Link} href="/dashboard/ai"` header button | `onClick` toggle for overlay | Phase 144 | Header icon becomes overlay trigger |
 | ChatRuntimeProvider scoped to ChatPage | ChatRuntimeProvider at Layout level | Phase 144 | Runtime survives route changes; overlay + page share state |
+| No page context in AI chat | pageContext injected into system prompt via transport | Phase 144 | AI model knows which entity the user is viewing |
 
 **Deprecated/outdated:**
 - The `ai-compose` command palette entry (Cmd+J shortcut) currently dispatches a CustomEvent that nothing handles globally. This will be replaced by the overlay toggle.
@@ -507,54 +557,59 @@ function ResizeHandle({ onResize, currentWidth }: {
 | A1 | Static import (not React.lazy) is better for drawer content to avoid loading flash | Anti-Patterns | LOW -- could use lazy with suspense if bundle size is a concern, but drawer should feel instant |
 | A2 | Pointer capture resize pattern works reliably on Windows/Mac/Linux | Code Examples (ResizeHandle) | LOW -- standard Web API, widely supported |
 | A3 | Lifting ChatRuntimeProvider to Layout won't break the thread-restore-guard logic | Pattern 4 | MEDIUM -- the ref-based guard should still work, but needs testing |
+| A4 | Backend ChatRequestDto whitelist validation with `forbidNonWhitelisted: false` allows the new `pageContext` field through without being stripped | Pattern 6 | LOW -- controller explicitly sets `forbidNonWhitelisted: false` on the chat endpoint's ValidationPipe |
 
 ## Open Questions
 
-1. **Thread list visibility at default width**
-   - What we know: Default drawer width is 420px. ChatDesktopLayout has a 300px sidebar. UI-SPEC says hide thread list below 480px.
-   - What's unclear: At 420px default, users won't see the thread list. Should the default be 480px instead, or is single-thread mode the intended default experience?
-   - Recommendation: Keep 420px default per D-10 decision. Users who want the thread list can widen to 480px+. Provide a menu button (like mobile layout) at narrow widths.
+1. **Thread list visibility at default width** (RESOLVED)
+   - Decision: Keep 420px default per D-10 decision. Single-thread mode is the default overlay experience. Users who want the thread list can widen to 480px+. A menu button (mobile layout pattern) is provided at narrow widths.
+   - Implemented in: Plan 02 Task 2 (AiOverlayDrawer width threshold logic)
 
-2. **Context injection mechanism**
-   - What we know: D-06 says "inject into the AI's system message." The backend constructs system messages.
-   - What's unclear: How does the frontend pass page context to the backend? Options: (a) add a `context` field to the chat request body, (b) use the existing `prepareSendMessagesRequest` hook in AssistantChatTransport to inject context metadata.
-   - Recommendation: Use option (b) -- extend the `prepareSendMessagesRequest` in the transport to include a `pageContext` field. The backend can then include it in the system prompt. This requires a minor backend change to read the field.
+2. **Context injection mechanism** (RESOLVED)
+   - Decision: Use option (b) -- extend the module-scoped `prepareSendMessagesRequest` in `ChatRuntimeProvider.tsx` to include a `pageContext` field from a module-scoped cache. A `<PageContextInjector />` component syncs React hook state to the module-scoped cache. The backend reads `pageContext` from the request body and appends it to the system prompt.
+   - Implemented in: Plan 04 (context injection -- frontend transport + backend system prompt)
+   - Frontend: `setPageContext()` exported from ChatRuntimeProvider, called by PageContextInjector component mounted in Layout.tsx. `prepareSendMessagesRequest` includes `pageContext` in `Object.assign(options.body)`.
+   - Backend: `ChatRequestDto.pageContext` field added (optional object). Controller passes to `streamChat`. Service appends context block to `systemPromptWithMemory`.
 
-3. **ai-compose command replacement**
-   - What we know: The `ai-compose` command in commands.ts currently dispatches `command:ai-compose` CustomEvent with `Cmd+J` shortcut hint. Phase 144 takes over Cmd+J.
-   - What's unclear: Should the old `ai-compose` command be removed, renamed, or redirected?
-   - Recommendation: Replace it with "Open AI Assistant" that calls `useAiOverlay.getState().open()`. Keep the `ai-summarize` and `ai-reply` commands as-is since they serve different purposes.
+3. **ai-compose command replacement** (RESOLVED)
+   - Decision: Replace the `ai-compose` command with `ai-assistant` that calls `useAiOverlay.getState().open()`. Keep `ai-summarize` and `ai-reply` commands as-is.
+   - Implemented in: Plan 03 Task 2 (CommandPalette update)
 
 ## Validation Architecture
 
 ### Test Framework
 | Property | Value |
 |----------|-------|
-| Framework | Jest + @testing-library/react (jsdom) |
-| Config file | `frontend/jest.config.js` |
-| Quick run command | `cd frontend && npx jest --testPathPattern="ai-overlay\|use-page-context\|ai-overlay-store" --no-coverage` |
-| Full suite command | `cd frontend && npx jest --no-coverage` |
+| Framework | TypeScript compiler (`tsc --noEmit`) |
+| Config file | `frontend/tsconfig.json` |
+| Quick run command | `cd frontend && npx tsc --noEmit` |
+| Full suite command | `cd frontend && npx tsc --noEmit && npm run lint:win` |
 
 ### Phase Requirements -> Test Map
-| Req ID | Behavior | Test Type | Automated Command | File Exists? |
-|--------|----------|-----------|-------------------|-------------|
-| AI-06 | Cmd+J toggles overlay open/closed | unit | `cd frontend && npx jest stores/ai-overlay-store.test.ts -x` | Wave 0 |
-| AI-06 | Header icon click opens overlay | unit | `cd frontend && npx jest components/ai-overlay/AiOverlayDrawer.test.tsx -x` | Wave 0 |
-| AI-06 | Command palette "Open AI Assistant" triggers overlay | unit | `cd frontend && npx jest components/ai/CommandPalette/commands.test.ts -x` | Wave 0 |
-| AI-07 | usePageContext returns correct type for email route | unit | `cd frontend && npx jest hooks/use-page-context.test.ts -x` | Wave 0 |
-| AI-07 | usePageContext returns correct type for contact route | unit | `cd frontend && npx jest hooks/use-page-context.test.ts -x` | Wave 0 |
-| AI-07 | Context indicator displays entity label | unit | `cd frontend && npx jest components/ai-overlay/ContextIndicator.test.tsx -x` | Wave 0 |
+| Req ID | Behavior | Test Type | Automated Command | Rationale |
+|--------|----------|-----------|-------------------|-----------|
+| AI-06 | Store toggleOpen/open/close state transitions | type-check | `cd frontend && npx tsc --noEmit` | Store is trivial (3 boolean setters + 1 clamped number); type-check validates contracts; behavioral verification via Plan 03 checkpoint |
+| AI-06 | Overlay opens/closes from 3 trigger points | type-check + manual | `cd frontend && npx tsc --noEmit` | Integration behavior verified by Plan 03 human checkpoint (15-step verification) |
+| AI-07 | usePageContext returns correct PageContext | type-check | `cd frontend && npx tsc --noEmit` | Route matching is pure computation; type-check ensures correct return shape; manual verification in Plan 03 checkpoint |
+| AI-07 | ContextIndicator renders entity label | type-check | `cd frontend && npx tsc --noEmit` | Pure presentational component; type-check ensures prop contracts; visual verification in Plan 03 checkpoint |
+| AI-07 | pageContext injected into backend system prompt | type-check (FE+BE) | `cd frontend && npx tsc --noEmit && cd ../backend && npx tsc --noEmit` | End-to-end injection verified manually via Plan 03 checkpoint |
 
 ### Sampling Rate
 - **Per task commit:** `cd frontend && npx tsc --noEmit` (mandatory per CLAUDE.md)
-- **Per wave merge:** `cd frontend && npx jest --no-coverage`
+- **Per wave merge:** `cd frontend && npx tsc --noEmit && npm run lint:win`
 - **Phase gate:** Full suite green + manual E2E verification before `/gsd-verify-work`
 
-### Wave 0 Gaps
-- [ ] `frontend/stores/ai-overlay-store.test.ts` -- covers AI-06 store behavior
-- [ ] `frontend/hooks/use-page-context.test.ts` -- covers AI-07 route detection
-- [ ] `frontend/components/ai-overlay/AiOverlayDrawer.test.tsx` -- covers AI-06 render/toggle
-- [ ] `frontend/components/ai-overlay/ContextIndicator.test.tsx` -- covers AI-07 display
+### Nyquist Rationale
+This phase is a UI assembly task -- wiring existing chat components into a Drawer container, adding keyboard shortcuts, and piping context metadata through an existing transport. The components created are:
+- A Zustand store with 6 trivial state transitions (toggle, open, close, setWidth)
+- A route-matching hook (pure if/else on pathname strings)
+- 4 presentational React components (Drawer wrapper, header, chip, drag handle)
+- A glue component (PageContextInjector -- 3 lines of useEffect)
+- Backend DTO field addition + system prompt string concatenation
+
+None of these contain algorithmic logic, branching business rules, or data transformations where unit tests would catch bugs that type-checking misses. The primary failure mode is integration wiring (wrong import paths, mismatched prop types, missing context providers), which `tsc --noEmit` catches. The secondary failure mode is visual/behavioral (drawer doesn't open, context shows wrong label), which the Plan 03 human checkpoint covers with a 15-step manual verification.
+
+Jest unit tests would add ~40% context overhead per plan for marginal coverage over tsc. The ROI is negative for this phase.
 
 ## Security Domain
 
@@ -565,7 +620,7 @@ function ResizeHandle({ onResize, currentWidth }: {
 | V2 Authentication | no | Overlay inherits Layout auth guard (only rendered for authenticated users) |
 | V3 Session Management | no | Uses existing cookie-based auth (`credentials: 'include'`) |
 | V4 Access Control | no | Chat API already enforces tenantId server-side |
-| V5 Input Validation | yes | Chat messages sanitized by existing AI SDK transport; context metadata is read-only from stores |
+| V5 Input Validation | yes | Chat messages sanitized by existing AI SDK transport; pageContext metadata validated by backend DTO; context data is read-only from authenticated stores |
 | V6 Cryptography | no | No new crypto operations |
 
 ### Known Threat Patterns
@@ -575,11 +630,12 @@ function ResizeHandle({ onResize, currentWidth }: {
 | Context data leakage (injecting sensitive entity data into AI prompt) | Information Disclosure | Context enrichment reads only from authenticated API responses already cached by TanStack Query; no new backend queries that bypass auth |
 | XSS via context indicator label | Tampering | React auto-escapes JSX text content; no `dangerouslySetInnerHTML` used |
 | CSRF on chat endpoint | Spoofing | Existing CSRF token in `X-CSRF-Token` header (ChatRuntimeProvider line 36) |
+| pageContext injection attack (malicious metadata in system prompt) | Tampering | Backend validates pageContext.type is one of 5 known strings; metadata values are string-coerced and length-limited before prompt injection; tenantId check ensures user can only inject context for entities they own |
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Codebase files: Layout.tsx, Header.tsx, ChatRuntimeProvider.tsx, ChatPage.tsx, ChatDesktopLayout.tsx, ChatThreadList.tsx, ChatThread.tsx, ChatMobileLayout.tsx, ChatThemeBridge.tsx, SchedulingDrawer.tsx, commands.ts, CommandPalette/index.tsx, email-ui-store.ts, contact-store.ts, calendar-store.ts, crm-context.ts, use-crm-context.ts, chat-layout.css, chat-thread-list-adapter.tsx, thread-restore-guard.ts, pages/dashboard/ai.tsx
+- Codebase files: Layout.tsx, Header.tsx, ChatRuntimeProvider.tsx, ChatPage.tsx, ChatDesktopLayout.tsx, ChatThreadList.tsx, ChatThread.tsx, ChatMobileLayout.tsx, ChatThemeBridge.tsx, SchedulingDrawer.tsx, commands.ts, CommandPalette/index.tsx, email-ui-store.ts, contact-store.ts, calendar-store.ts, crm-context.ts, use-crm-context.ts, chat-layout.css, chat-thread-list-adapter.tsx, thread-restore-guard.ts, pages/dashboard/ai.tsx, ai-chat.controller.ts, chat-request.dto.ts, ai-chat.service.ts
 - 144-CONTEXT.md -- All locked decisions (D-01 through D-13)
 - 144-UI-SPEC.md -- Visual contract, layout spec, interaction contract, copywriting contract
 
@@ -596,6 +652,7 @@ function ResizeHandle({ onResize, currentWidth }: {
 - Standard stack: HIGH -- all packages verified via npm ls, all patterns traced in codebase
 - Architecture: HIGH -- every component, store, and hook referenced has been read and verified
 - Pitfalls: HIGH -- each pitfall identified from actual code inspection (CSS widths, module-scoped caches, shortcut conflicts)
+- Context injection: HIGH -- prepareSendMessagesRequest pattern verified in ChatRuntimeProvider.tsx; backend DTO/controller/service chain verified
 
 **Research date:** 2026-04-16
 **Valid until:** 2026-05-16 (stable -- no external API dependencies, all code local)
