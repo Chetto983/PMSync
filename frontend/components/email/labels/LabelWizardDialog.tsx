@@ -167,7 +167,7 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel, default
     setError(null);
     const dto: CreateLabelWizardDto = {
       name: state.name.trim(),
-      color: state.color,
+      color: { backgroundColor: state.color.backgroundColor, textColor: state.color.textColor },
       ...(state.parentId ? { parentId: state.parentId } : {}),
       category: state.category,
       roles: state.roles,
@@ -222,7 +222,7 @@ export function LabelWizardDialog({ open, onClose, onCreated, editLabel, default
       labelId: editLabel?.id,
       locale,
       name: state.name.trim(),
-      color: state.color,
+      color: { backgroundColor: state.color.backgroundColor, textColor: state.color.textColor },
       category: state.category,
       roles: state.roles,
       contents: state.contents,
