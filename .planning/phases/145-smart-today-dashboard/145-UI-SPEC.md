@@ -147,7 +147,7 @@ Each feed item type uses its established semantic color from `pmSyncColors.seman
 |---------|------|
 | Container | `Paper` elevation=0, border: none, centered, `py: 8` |
 | Icon | `PartyPopper` (lucide), 48px, color `success.main`, in 80px circle with `success.subtle` bg |
-| Heading | `Typography` variant="h5", weight 700: "You're all caught up!" |
+| Heading | `Typography` variant="h5", weight 600: "You're all caught up!" |
 | Body | `Typography` variant="body1", color `text.secondary`, max-width 400px: "No urgent items right now. Here's what's coming up next:" |
 | Next item preview | If a future item exists, show a single muted `TodayFeedItem` with `opacity: 0.6` |
 | No items at all | Body text: "Nothing on your plate today. Enjoy the calm." |
