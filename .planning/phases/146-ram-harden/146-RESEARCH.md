@@ -474,17 +474,17 @@ async function checkRedisMaxMemoryPolicy(redis: Redis): Promise<void> {
 | A1 | Railway-managed Redis may restrict CONFIG GET command | Code Examples (D-15) | Check would throw; error handling covers this but logging would be misleading |
 | A2 | BullMQ Queue objects create internal event listeners even with shared connections | Architecture Patterns (Pattern 3) | If Queue objects are truly zero-overhead, D-05 rework has less impact on memory (but still valid for code simplicity) |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **QueueEvents fate in consolidated services**
+1. **RESOLVED (Plan 04): QueueEvents fate in consolidated services**
    - What we know: email-sync QueueService, contacts-sync, calendar-sync, and base-queue all create QueueEvents instances for metrics tracking. These cannot share a connection.
    - What's unclear: Are these QueueEvents still needed after QueueHealthService provides direct Redis monitoring? They track in-process metrics (completed/failed counts) that could be replaced by Prometheus gauges from QueueMetricsCollector.
-   - Recommendation: For this phase, keep QueueEvents in queue services but ensure they receive connection *options* (not a shared instance). Removing them is a future optimization.
+   - Resolution: Plan 04 keeps QueueEvents in tri-queue services but migrates them to receive connection *options* (`getRedisConnectionOptions()`) instead of the shared instance. Removing them entirely is a future optimization.
 
-2. **Inline worker migration scope**
+2. **RESOLVED (Plan 03): Inline worker migration scope**
    - What we know: 4 services (scheduled-jobs, reminder-notify, sla-timer, csat) create workers inline with `new Worker(..., { connection: new Redis(...) })`.
    - What's unclear: Should these inline workers use `getSharedWorkerConnection()` or keep creating local connections?
-   - Recommendation: Migrate them to use `getSharedWorkerConnection()`. They are simple workers (no BaseWorker subclass overhead). Their `new Redis()` for the Worker connection should be replaced with the shared worker singleton.
+   - Resolution: Plan 03 migrates all inline workers to use `getSharedWorkerConnection()`. They are simple workers (no BaseWorker subclass overhead). Their `new Redis()` for the Worker connection is replaced with the shared worker singleton.
 
 ## Environment Availability
 
