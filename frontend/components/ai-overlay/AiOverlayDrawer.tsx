@@ -7,6 +7,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAiOverlay } from '@/stores/ai-overlay-store';
 import { AiOverlayHeader } from './AiOverlayHeader';
 import { ResizeHandle } from './ResizeHandle';
+import { ChatRuntimeProvider } from '@/src/components/chat/ChatRuntimeProvider';
 import { ChatThemeBridge } from '@/src/components/chat/ChatThemeBridge';
 import { ChatDesktopLayout } from '@/src/components/chat/ChatDesktopLayout';
 import { ChatThread } from '@/src/components/chat/ChatThread';
@@ -73,64 +74,66 @@ export function AiOverlayDrawer() {
       >
         <AiOverlayHeader />
 
-        <ChatThemeBridge>
-          <Box
-            sx={{
-              flex: 1,
-              minHeight: 0,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* Narrow mode: thread list toggle */}
-            {!isWide && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  px: 1,
-                  py: 0.5,
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  flexShrink: 0,
-                }}
-              >
-                <Tooltip
-                  title={
-                    showThreadList
-                      ? t.ai.overlay.close
-                      : t.ai.overlay.newConversation
-                  }
-                >
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowThreadList((v) => !v)}
-                    aria-label={t.ai.overlay.newConversation}
-                  >
-                    <MessagesSquare size={18} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            )}
-
-            {/* Chat content area */}
-            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
-              {isWide ? (
-                <ChatDesktopLayout />
-              ) : showThreadList ? (
+        <ChatRuntimeProvider>
+          <ChatThemeBridge>
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Narrow mode: thread list toggle */}
+              {!isWide && (
                 <Box
-                  sx={{ width: '100%', height: '100%' }}
-                  onClick={() => setShowThreadList(false)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    px: 1,
+                    py: 0.5,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    flexShrink: 0,
+                  }}
                 >
-                  <ChatThreadList />
+                  <Tooltip
+                    title={
+                      showThreadList
+                        ? t.ai.overlay.close
+                        : t.ai.overlay.newConversation
+                    }
+                  >
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowThreadList((v) => !v)}
+                      aria-label={t.ai.overlay.newConversation}
+                    >
+                      <MessagesSquare size={18} />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
-              ) : (
-                <ChatThread />
               )}
+
+              {/* Chat content area */}
+              <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
+                {isWide ? (
+                  <ChatDesktopLayout />
+                ) : showThreadList ? (
+                  <Box
+                    sx={{ width: '100%', height: '100%' }}
+                    onClick={() => setShowThreadList(false)}
+                  >
+                    <ChatThreadList />
+                  </Box>
+                ) : (
+                  <ChatThread />
+                )}
+              </Box>
             </Box>
-          </Box>
-        </ChatThemeBridge>
+          </ChatThemeBridge>
+        </ChatRuntimeProvider>
       </Box>
     </Drawer>
   );
