@@ -76,17 +76,19 @@ const serwist = new Serwist({
     // CRITICAL: /api/* uses NetworkOnly to prevent ANY SW interception.
     // This MUST come before ...filteredCache to take priority.
     // Protects: httpOnly cookie auth, SSE streaming, TanStack Query caching.
-    // Anchored regex (^) ensures only paths starting with /api/ are matched,
-    // not arbitrary URLs that happen to contain /api/ elsewhere.
+    // NOTE: Function matchers required — Serwist tests regex against url.href
+    // (full URL incl. origin), so ^-anchored pathname regexes never match.
     {
-      matcher: /^\/api\/.*/,
+      matcher: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
+        sameOrigin && url.pathname.startsWith('/api/'),
       handler: new NetworkOnly(),
     },
     // CRITICAL: /_next/data/* must bypass SW cache.
     // Next.js Pages Router uses these for client-side navigation (getServerSideProps).
     // Caching them causes stale page data and broken navigation transitions.
     {
-      matcher: /^\/_next\/data\/.*/,
+      matcher: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
+        sameOrigin && url.pathname.startsWith('/_next/data/'),
       handler: new NetworkOnly(),
     },
     // Navigation requests (HTML pages) use NetworkOnly.
