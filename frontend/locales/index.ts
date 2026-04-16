@@ -3751,6 +3751,26 @@ export interface AppTranslations {
       executionSuccess: string;
       executionFailed: string;
     };
+    overlay: {
+      title: string;
+      shortcutHint: string;
+      resizeHandle: string;
+      commandLabel: string;
+      commandDescription: string;
+      close: string;
+      newConversation: string;
+      emptyTitle: string;
+      emptyBody: string;
+      errorConnection: string;
+      errorGeneric: string;
+      context: {
+        email: string;
+        contact: string;
+        deal: string;
+        calendar: string;
+        general: string;
+      };
+    };
   };
   commandPalette: {
     title: string;
