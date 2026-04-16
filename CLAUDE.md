@@ -68,8 +68,8 @@ npx claude-flow memory query "<search>" --namespace pmsync
 
 ## Tech Stack
 
-**Backend** (`backend/`): NestJS 11, Prisma + PostgreSQL, BullMQ + Redis, Mistral AI + pgvector, Socket.IO
-**Frontend** (`frontend/`): Next.js 16 + React 19, TanStack Query + Zustand, MUI (no Tailwind utilities)
+**Backend** (`backend/`): NestJS 11, Prisma 7 + PostgreSQL, BullMQ + Redis, AI SDK v6 (`ai`) via OpenRouter/Mistral providers + pgvector, Socket.IO, `better-auth` (sessions-only; JWT fully removed 2026-04)
+**Frontend** (`frontend/`): Next.js 16 + React 19, TanStack Query v5 + Zustand, MUI v7 (no Tailwind utilities), `@assistant-ui/react` + AI SDK v6
 
 **Commands:**
 ```bash
@@ -129,7 +129,7 @@ await prisma.email.findMany({ where: { ... } });
 
 **Embeddings:** Always use indexed FK fields (`emailId`, `contactId`), NEVER JSONB metadata path queries.
 
-**Email consolidation:** Before any email module changes, read `backend/docs/EMAIL_CONSOLIDATION_ENTRY.md` first. Never proceed to next phase until current phase test passes.
+**Email/Label audit:** Active audit roadmap at `email-label-audit/` (Phase 4 Sprint 09 pending). Use the `/email-label-sprint-executor` skill for sprint work. Never proceed to next sprint until the current sprint's tests pass.
 
 **Reference:** See `docs/CLAUDE_REFERENCE.md` for utils locations, test commands, race condition fixes, and RAG architecture.
 
@@ -138,10 +138,12 @@ await prisma.email.findMany({ where: { ... } });
 See `docs/technical_overview.md` for full architecture.
 See `docs/AUDIT.md` for security audit and remediation roadmap.
 
-Key caveats:
-- Auth is dual-stack: `better-auth` sessions (active) + legacy JWT (transition). Don't assume JWT is removed.
-- AI HITL approval is inconsistent. Some mutating tools bypass approval.
-- Authorization is coarse RBAC, not enterprise ABAC.
+Key caveats (current as of 2026-04):
+
+- Auth: `better-auth` sessions only. Legacy JWT fully removed — do not reintroduce JWT code paths.
+- AI HITL: hardened in the 2026-04-01 AI Features Audit (closed at 9.3/10). DLQ admin endpoints + 7d retention are live. Treat HITL as the contract; if you see a mutating tool without explicit approval wiring, that's a regression — stop and ask.
+- Authorization is coarse RBAC, not enterprise ABAC. Expect gaps on per-resource policies.
+- `docs/AUDIT.md` is dated 2026-03-09 and pre-dates several closed audits (AI, Calendar/Contacts, CRM Phase 3). Trust memory entries + live code over that doc for current-state questions.
 
 ## Final Reminders
 
