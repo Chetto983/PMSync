@@ -27,6 +27,12 @@ Source: `frontend/theme/tokens.ts`, `frontend/theme/appTheme.ts`
 
 ---
 
+## Visual Focal Point
+
+Primary visual anchor: chat message area (fills drawer body, receives immediate eye focus on open). Secondary anchor: context indicator bar (top of drawer, communicates page-awareness at a glance).
+
+---
+
 ## Spacing Scale
 
 Declared values from existing `frontend/theme/tokens.ts` spacing scale (8px base unit, MUI `spacing(n)` where 1 = 8px):
@@ -35,7 +41,7 @@ Declared values from existing `frontend/theme/tokens.ts` spacing scale (8px base
 |-------|-------|---------------------|
 | 0.5 | 4px | Inline icon gaps in context indicator |
 | 1 | 8px | Gap between icon and text in header button, internal element spacing |
-| 1.5 | 12px | Padding inside context indicator bar |
+| 1.5 | 12px | Padding inside context indicator bar (intentional MUI token: `theme.spacing(1.5)` resolves to 12px; not on the canonical 8-point set but a first-party MUI fractional token used deliberately for compact UI density in the indicator bar) |
 | 2 | 16px | Drawer body padding, section spacing |
 | 3 | 24px | Drawer header padding |
 | 4 | 32px | Vertical spacing between major sections |
@@ -57,10 +63,10 @@ All values from existing `frontend/theme/typography.ts`. This phase introduces N
 |------|------|--------|-------------|---------------------|
 | body1 | 14px (0.875rem) | 400 (normal) | 1.625 (relaxed) | Chat messages, AI response text |
 | body2 | 13px (0.8125rem) | 400 (normal) | 1.625 (relaxed) | Context indicator description, timestamps |
-| subtitle2 | 14px (0.875rem) | 500 (medium) | 1.5 (normal) | Context indicator entity name |
+| subtitle2 | 14px (0.875rem) | 600 (semibold) | 1.5 (normal) | Context indicator entity name |
 | h6 | 16px (1rem) | 600 (semibold) | 1.5 (normal) | Drawer header title "AI Assistant" |
 
-No new font sizes or weights introduced. All values pre-existing in the design system.
+Font weights used: 400 (normal) and 600 (semibold). Two weights only.
 
 ---
 
