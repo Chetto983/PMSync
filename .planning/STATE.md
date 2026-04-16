@@ -4,14 +4,14 @@ milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: executing
 stopped_at: Phase 144 UI-SPEC approved
-last_updated: "2026-04-16T12:34:45.625Z"
-last_activity: 2026-04-16 -- Phase 146 planning complete
+last_updated: "2026-04-16T13:34:41.452Z"
+last_activity: 2026-04-16 -- Phase 144 execution started
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 14
+  total_plans: 18
   completed_plans: 7
-  percent: 50
+  percent: 39
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 142 — AI Background Automation
+**Current focus:** Phase 144 — ai-assistant-overlay
 
 ## Current Position
 
-Phase: 142 (AI Background Automation) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-04-16 -- Phase 146 planning complete
+Phase: 144 (ai-assistant-overlay) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 144
+Last activity: 2026-04-16 -- Phase 144 execution started
 
 Progress: [██████████] 100%
 
