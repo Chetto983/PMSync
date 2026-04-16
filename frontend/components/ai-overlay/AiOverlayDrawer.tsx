@@ -34,6 +34,10 @@ export function AiOverlayDrawer() {
   const setWidth = useAiOverlay((s) => s.setWidth);
 
   const [showThreadList, setShowThreadList] = useState(false);
+  // Defer ChatRuntimeProvider mount until Drawer slide-in completes.
+  // MUI Drawer transition re-renders interact with assistant-ui's runtime
+  // initialization causing React error #185 (max update depth exceeded).
+  const [chatReady, setChatReady] = useState(false);
 
   // Reset thread list view when width crosses above threshold
   useEffect(() => {
@@ -41,6 +45,11 @@ export function AiOverlayDrawer() {
       setShowThreadList(false);
     }
   }, [width]);
+
+  // Reset chatReady when drawer closes
+  useEffect(() => {
+    if (!isOpen) setChatReady(false);
+  }, [isOpen]);
 
   const isWide = width >= WIDE_THRESHOLD;
 
@@ -51,6 +60,9 @@ export function AiOverlayDrawer() {
       onClose={close}
       variant="temporary"
       aria-label={t.ai.overlay.title}
+      SlideProps={{
+        onEntered: () => setChatReady(true),
+      }}
       PaperProps={{
         sx: {
           width,
@@ -74,6 +86,7 @@ export function AiOverlayDrawer() {
       >
         <AiOverlayHeader />
 
+        {chatReady ? (
         <ChatRuntimeProvider>
           <ChatThemeBridge>
             <Box
@@ -134,6 +147,11 @@ export function AiOverlayDrawer() {
             </Box>
           </ChatThemeBridge>
         </ChatRuntimeProvider>
+        ) : (
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ width: 24, height: 24, borderRadius: '50%', border: 2, borderColor: 'primary.main', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', '@keyframes spin': { to: { transform: 'rotate(360deg)' } } }} />
+          </Box>
+        )}
       </Box>
     </Drawer>
   );
