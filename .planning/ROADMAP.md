@@ -21,7 +21,8 @@
 - [ ] **CRM Pro 360 Phase 3 — Customer Service** — Sprints 15-18 (next)
 - :check_mark: **v10.0 Email & Sync Production Validation** — Phases 112-124 (shipped 2026-03-30)
 - :check_mark: **v11.0 Legacy Cleanup, Scalability & Billing Hardening** — Phases 125-134 (shipped 2026-04-01)
-- [ ] **v12.0 UX Unification — 4-Pillar Simplification** — Phases 135-145 (in progress)
+- [ ] **v12.0 UX Unification — 4-Pillar Simplification** — Phases 135-146 (in progress)
+- [ ] **v13.0 Intelligent Triage & Memory Consolidation** — Phases 147-156 (next)
 
 ## Phases
 
@@ -233,6 +234,17 @@ Plans:
   3. User can dismiss a suggestion and it does not reappear for that email
 **UI hint**: yes
 - [x] **Phase 143: AI Suggestions & Actions** - Contextual suggestions with accept/dismiss (completed 2026-04-02)
+
+### Phase 144: AI Assistant Overlay
+**Goal**: Users access the AI assistant from any screen without navigating to a separate page
+**Depends on**: Phase 140
+**Requirements**: AI-06, AI-07
+**Success Criteria** (what must be TRUE):
+  1. User can open the AI Assistant as a slide-over panel from any screen via keyboard shortcut
+  2. The AI Assistant knows the current context (which email, contact, or deal the user is viewing)
+  3. User can close the overlay and return to exactly where they were
+**UI hint**: yes
+
 - [ ] **Phase 144: AI Assistant Overlay** - Slide-over AI panel from any screen
 - [ ] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
 - [ ] **Phase 146: RAM Harden** - Redis connection consolidation & memory optimization
@@ -251,8 +263,28 @@ Plans:
 - [ ] 146-05-PLAN.md — QueueHealthService rework: direct Redis pipeline commands
 - [ ] 146-06-PLAN.md — Startup maxmemory-policy check + base-worker and queue-health tests
 
+### v13.0 — Intelligent Triage & Memory Consolidation (Next)
+
+**Milestone Goal:** Transform email triage from a stateless LLM classifier into a learning system with graph-based memory consolidation, per-label accuracy tracking, and OpenClaw-inspired dreaming phases — hardening label creation with safety governance.
+
+See `milestones/v13.0-ROADMAP.md` for full phase details.
+
+**Plans:** TBD (estimated ~30)
+
+- [ ] **Phase 147: Close the Feedback Loop** - Wire triage corrections back into future classifications
+- [ ] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time
+- [ ] **Phase 149: Temporal Memory Decay** - Replace flat 30-day TTL with exponential decay (14-day half-life)
+- [ ] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating
+- [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
+- [ ] **Phase 152: Triage Safety Governance** - SSGM-inspired anti-poisoning, contradiction gates, auto-rollback
+- [ ] **Phase 153: Label Creation Hardening** - Semantic overlap detection, mutual exclusivity enforcement, label merge
+- [ ] **Phase 154: Batch Reclassification Engine** - RLM-inspired partition+map+aggregate re-triage on aiPrompt change
+- [ ] **Phase 155: Triage Observability Dashboard** - Accuracy metrics, consolidation health, correction trends
+- [ ] **Phase 156: E2E Validation & Benchmarking** - Before/after accuracy benchmark, alerting, architecture ADR
+
 ---
 *Roadmap created: 2026-02-09*
 *v10.0 completed: 2026-03-30 -- 13 phases, 27 plans, 49/50 requirements*
 *v11.0 completed: 2026-04-01 -- 10 phases, 18 plans, 16/16 requirements*
 *v12.0 roadmap created: 2026-04-01 -- 11 phases, 26 requirements*
+*v13.0 roadmap created: 2026-04-16 -- 10 phases, 23 requirements, research-backed (OpenClaw/Graphiti/SSGM/RLM)*

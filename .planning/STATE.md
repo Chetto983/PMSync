@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: executing
-stopped_at: Phase 144 context gathered
-last_updated: "2026-04-16T11:52:28.332Z"
+stopped_at: Phase 144 UI-SPEC approved
+last_updated: "2026-04-16T12:34:45.625Z"
 last_activity: 2026-04-16 -- Phase 146 planning complete
 progress:
   total_phases: 6
@@ -80,6 +80,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-04-16T11:52:28.325Z
-Stopped at: Phase 144 context gathered
-Resume file: .planning/phases/144-ai-assistant-overlay/144-CONTEXT.md
+Last session: 2026-04-16T12:34:45.616Z
+Stopped at: Phase 144 UI-SPEC approved
+Resume file: .planning/phases/144-ai-assistant-overlay/144-UI-SPEC.md
