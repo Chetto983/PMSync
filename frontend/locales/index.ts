@@ -273,6 +273,46 @@ interface MfaTranslations {
   };
 }
 
+export interface TodayTranslations {
+  title: string;
+  subtitle: string;
+  greeting: string;
+  tiers: {
+    urgent: string;
+    today: string;
+    fyi: string;
+  };
+  filters: {
+    all: string;
+    emails: string;
+    tasks: string;
+    deals: string;
+    events: string;
+  };
+  toasts: {
+    completed: string;
+    dismissed: string;
+    snoozed: string;
+    undo: string;
+  };
+  empty: {
+    title: string;
+    body: string;
+    bodyClean: string;
+  };
+  error: string;
+  snooze: {
+    oneHour: string;
+    tomorrow: string;
+    nextWeek: string;
+  };
+  aria: {
+    complete: string;
+    dismiss: string;
+    snooze: string;
+  };
+}
+
 export interface AppTranslations {
   /**
    * Current locale code (e.g., 'en', 'it')
@@ -677,6 +717,7 @@ export interface AppTranslations {
       addToDashboard: string;
       noResults: string;
     };
+    today: TodayTranslations;
   };
   email: {
     title: string;

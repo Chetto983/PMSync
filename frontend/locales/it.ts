@@ -745,6 +745,45 @@ export const it: AppTranslations = {
       addToDashboard: 'Aggiungi alla Dashboard',
       noResults: 'Nessun widget trovato per la ricerca.',
     },
+    today: {
+      title: 'Oggi',
+      subtitle: "Le tue priorita a colpo d'occhio",
+      greeting: 'Buongiorno. Hai {urgent} urgenti, {today} per oggi e {fyi} in arrivo.',
+      tiers: {
+        urgent: 'Urgente',
+        today: 'Oggi',
+        fyi: 'Per info',
+      },
+      filters: {
+        all: 'Tutti',
+        emails: 'Email',
+        tasks: 'Attivita',
+        deals: 'Trattative',
+        events: 'Eventi',
+      },
+      toasts: {
+        completed: 'Attivita completata',
+        dismissed: 'Nascosto',
+        snoozed: 'Posticipato a {time}',
+        undo: 'Annulla',
+      },
+      empty: {
+        title: 'Tutto in ordine!',
+        body: "Nessun elemento urgente. Ecco cosa c'e in programma:",
+        bodyClean: 'Niente in programma per oggi. Goditi la calma.',
+      },
+      error: 'Impossibile caricare il feed Oggi. Controlla la connessione e riprova.',
+      snooze: {
+        oneHour: 'Tra 1 ora',
+        tomorrow: 'Domani mattina',
+        nextWeek: 'Settimana prossima',
+      },
+      aria: {
+        complete: 'Segna attivita come completata',
+        dismiss: 'Nascondi elemento',
+        snooze: 'Posticipa elemento',
+      },
+    },
   },
   email: {
     title: 'Centro di controllo posta',

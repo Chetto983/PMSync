@@ -752,6 +752,45 @@ export const en: AppTranslations = {
       addToDashboard: 'Add to Dashboard',
       noResults: 'No widgets found matching your search.',
     },
+    today: {
+      title: 'Today',
+      subtitle: 'Your priorities at a glance',
+      greeting: 'Good morning. You have {urgent} urgent, {today} for today, and {fyi} upcoming.',
+      tiers: {
+        urgent: 'Urgent',
+        today: 'Today',
+        fyi: 'FYI',
+      },
+      filters: {
+        all: 'All',
+        emails: 'Emails',
+        tasks: 'Tasks',
+        deals: 'Deals',
+        events: 'Events',
+      },
+      toasts: {
+        completed: 'Task completed',
+        dismissed: 'Dismissed',
+        snoozed: 'Snoozed until {time}',
+        undo: 'Undo',
+      },
+      empty: {
+        title: "You're all caught up!",
+        body: "No urgent items right now. Here's what's coming up next:",
+        bodyClean: 'Nothing on your plate today. Enjoy the calm.',
+      },
+      error: "Couldn't load your Today feed. Check your connection and try again.",
+      snooze: {
+        oneHour: 'In 1 hour',
+        tomorrow: 'Tomorrow morning',
+        nextWeek: 'Next week',
+      },
+      aria: {
+        complete: 'Mark task as complete',
+        dismiss: 'Dismiss item',
+        snooze: 'Snooze item',
+      },
+    },
   },
   email: {
     title: 'Inbox control center',
