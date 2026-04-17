@@ -1,5 +1,11 @@
 /**
- * TanStack Query hooks for dashboard widgets
+ * TanStack Query hooks for dashboard-adjacent data
+ *
+ * Phase 145 Plan 03 cleanup: legacy widget-only hooks removed (briefing, deadlines,
+ * todayEvents, recentUnreadEmails, importantEmails, triagedEmails, dashboard preferences).
+ * The /dashboard page is now served by `<TodayDashboard />` and consumes `useTodayFeed`
+ * from `frontend/hooks/queries/use-today.ts`. The remaining exports are the ones still
+ * imported by non-widget surfaces (analytics page, contacts page, etc.).
  *
  * Best practices implemented:
  * - Uses existing API modules (aiChatApi, crmApi, contactsApi, calendarApi)
@@ -9,40 +15,18 @@
  */
 
 import { useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
-import axios from 'axios';
+import { useQuery, queryOptions } from '@tanstack/react-query';
 import { dashboardKeys } from './dashboard-keys';
 import { aiChatApi } from '@/lib/api/ai';
 import { crmApi, type ContactRelationshipStats } from '@/lib/api/crm';
 import { contactsApi } from '@/lib/api/contacts';
-import { calendarApi } from '@/lib/api/calendar';
 import { apiClient } from '@/lib/api-client';
 import { useConsent } from './use-consent';
 import { useLocale } from '@/lib/hooks/use-locale';
-import type { WidgetLayout, DashboardLayout } from '@/lib/dashboard/layout-engine';
 
 // ============================================================================
 // Types
 // ============================================================================
-
-export interface BriefingData {
-  summary: string;
-  urgentEmails: number;
-  deadlinesToday: number;
-  pendingFollowUps: number;
-  staleContacts: number;
-  highlights: string[];
-  generatedAt: string;
-}
-
-export interface Deadline {
-  id: string;
-  title: string;
-  dueDate: string;
-  source: 'email' | 'calendar' | 'task';
-  sourceId?: string;
-  priority: 'high' | 'medium' | 'low';
-}
 
 export interface FollowUp {
   id: string;
@@ -87,80 +71,6 @@ export interface StaleContact {
 // ============================================================================
 // Query Options
 // ============================================================================
-
-/**
- * Query options for daily briefing
- * Uses aiChatApi.getBriefing()
- */
-export function briefingOptions(locale?: string, enabled = true) {
-  return queryOptions({
-    queryKey: dashboardKeys.briefing(locale),
-    queryFn: async (): Promise<BriefingData> => {
-      const response = await aiChatApi.getBriefing(locale);
-      const briefing = response.data?.briefing || {};
-      const b = briefing as Record<string, unknown>;
-      const priorityEmails = Array.isArray(b.priorityEmails) ? b.priorityEmails : [];
-      return {
-        summary: b.summary as string || '',
-        urgentEmails: (b.urgentEmails as number) || priorityEmails.length,
-        deadlinesToday: b.deadlinesToday as number || 0,
-        pendingFollowUps: b.pendingFollowUps as number || 0,
-        staleContacts: b.staleContacts as number || 0,
-        highlights: (b.highlights as string[]) || [],
-        generatedAt: b.generatedAt as string || new Date().toISOString(),
-      };
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    retry: 1,
-    enabled,
-  });
-}
-
-/**
- * Query options for deadlines
- * Uses calendarApi.listEvents() only — calendar events are facts, not AI guesses
- */
-export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }) {
-  return queryOptions({
-    queryKey: dashboardKeys.deadlines(params),
-    queryFn: async (): Promise<{ deadlines: Deadline[]; total: number; todayCount: number; weekCount: number }> => {
-      const limit = params?.limit || 5;
-
-      const weekEnd = new Date();
-      weekEnd.setDate(weekEnd.getDate() + 7);
-
-      const response = await calendarApi.listEvents({
-        startTime: new Date().toISOString(),
-        endTime: weekEnd.toISOString(),
-        limit,
-      });
-
-      const events = response.data?.events || [];
-      const deadlines: Deadline[] = events.map((e) => ({
-        id: e.id,
-        title: e.title,
-        dueDate: e.startTime,
-        source: 'calendar' as const,
-        sourceId: e.id,
-        priority: 'medium' as const,
-      }));
-
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-
-      return {
-        deadlines,
-        total: events.length,
-        todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
-        weekCount: deadlines.length,
-      };
-    },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
-  });
-}
 
 /**
  * Query options for follow-ups
@@ -210,6 +120,9 @@ export function followUpsOptions(params?: { status?: string; limit?: number }) {
 /**
  * Query options for stale contacts
  * Uses crmApi.getStaleContacts()
+ *
+ * Kept after Phase 145 Plan 03 cleanup: still consumed by
+ * `frontend/components/dashboard/contacts-page/useContactsPageData.ts`.
  */
 export function staleContactsOptions(params?: { limit?: number; days?: number }) {
   return queryOptions({
@@ -251,114 +164,6 @@ export function staleContactsOptions(params?: { limit?: number; days?: number })
   });
 }
 
-// ============================================================================
-// Additional Query Options
-// ============================================================================
-
-export interface Email {
-  id: string;
-  subject: string;
-  from: { name: string; email: string };
-  preview: string;
-  date: string;
-  isRead: boolean;
-  isStarred: boolean;
-  provider?: { providerType: string };
-}
-
-/**
- * Query options for important emails (starred OR flagged)
- * Uses the backend isImportant filter for provider-agnostic "important" concept
- */
-export function importantEmailsOptions(params?: { limit?: number }) {
-  return queryOptions({
-    queryKey: [...dashboardKeys.all, 'importantEmails', params] as const,
-    queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
-      const limit = params?.limit || 5;
-      const response = await apiClient.get('/emails', {
-        // isImportant = starred OR flagged (provider-agnostic)
-        params: { limit, isImportant: true },
-      });
-      return {
-        emails: response.data?.emails || [],
-        total: response.data?.total || 0,
-      };
-    },
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-    retry: 1,
-  });
-}
-
-
-/**
- * Query options for recent unread emails (for briefing highlights)
- * IMPORTANT: Uses specialUse=INBOX to exclude TRASH and SPAM folders
- */
-export function recentUnreadEmailsOptions(params?: { limit?: number }, enabled = true) {
-  return queryOptions({
-    queryKey: [...dashboardKeys.all, 'recentUnreadEmails', params] as const,
-    queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
-      const limit = params?.limit || 5;
-      const response = await apiClient.get('/emails', {
-        // Use specialUse: INBOX to exclude TRASH/SPAM from recent unread
-        params: { limit, isRead: false, specialUse: 'INBOX' },
-      });
-      return {
-        emails: response.data?.emails || [],
-        total: response.data?.total || 0,
-      };
-    },
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-    retry: 1,
-    enabled,
-  });
-}
-
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  startTime: string;
-  endTime?: string;
-  location?: string;
-  type: 'meeting' | 'event';
-}
-
-/**
- * Query options for today's events
- * Uses calendarApi.listEvents()
- */
-export function todayEventsOptions() {
-  return queryOptions({
-    queryKey: [...dashboardKeys.all, 'todayEvents'] as const,
-    queryFn: async (): Promise<{ events: CalendarEvent[]; total: number }> => {
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-
-      const response = await calendarApi.listEvents({
-        startTime: startOfDay.toISOString(),
-        endTime: endOfDay.toISOString(),
-      });
-
-      const events: CalendarEvent[] = (response.data?.events || []).map((e) => ({
-        id: e.id,
-        title: e.title,
-        startTime: e.startTime,
-        endTime: e.endTime,
-        location: e.location,
-        type: 'event' as const,
-      }));
-
-      return { events, total: events.length };
-    },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
-  });
-}
-
 export interface RecentContact {
   id: string;
   name: string;
@@ -395,105 +200,8 @@ export function recentContactsOptions(params?: { limit?: number }) {
 }
 
 // ============================================================================
-// Dashboard Preferences (Layout)
-// ============================================================================
-
-/**
- * Default dashboard layout
- */
-function getDefaultLayout(): DashboardLayout {
-  return {
-    id: 'default',
-    name: 'Default Layout',
-    isDefault: true,
-    isPreset: false,
-    cols: 12,
-    rowHeight: 60,
-    widgets: [
-      { i: 'briefing-1', widgetId: 'briefing', x: 0, y: 0, w: 6, h: 3, minW: 4, minH: 3 },
-      { i: 'unread-emails-1', widgetId: 'unread-emails', x: 6, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-      { i: 'today-events-1', widgetId: 'today-events', x: 9, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
-      { i: 'deadlines-1', widgetId: 'deadlines', x: 6, y: 2, w: 3, h: 2, minW: 2, minH: 2 },
-      { i: 'follow-up-tracker-1', widgetId: 'follow-up-tracker', x: 9, y: 2, w: 3, h: 2, minW: 3, minH: 2 },
-    ],
-  };
-}
-
-/**
- * Query options for dashboard preferences (layout)
- */
-export function dashboardPreferencesOptions() {
-  return queryOptions({
-    queryKey: dashboardKeys.preferences(),
-    queryFn: async (): Promise<DashboardLayout> => {
-      try {
-        const response = await apiClient.get('/users/me/dashboard-preferences');
-        if (response.data?.layout && Array.isArray(response.data.layout)) {
-          return {
-            ...getDefaultLayout(),
-            widgets: response.data.layout as WidgetLayout[],
-          };
-        }
-        return getDefaultLayout();
-      } catch (error) {
-        // 404 = no saved preferences yet, return default layout
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          return getDefaultLayout();
-        }
-        throw error; // Re-throw non-404 errors
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000,
-  });
-}
-
-/**
- * Hook for dashboard preferences (layout)
- */
-export function useDashboardPreferences() {
-  return useQuery(dashboardPreferencesOptions());
-}
-
-/**
- * Hook for saving dashboard layout
- */
-export function useSaveDashboardLayout() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (layout: WidgetLayout[]) => {
-      await apiClient.put('/users/me/dashboard-preferences', { layout });
-      return layout;
-    },
-    onSuccess: (layout) => {
-      // Update cache optimistically
-      queryClient.setQueryData(dashboardKeys.preferences(), (old: DashboardLayout | undefined) => ({
-        ...(old || getDefaultLayout()),
-        widgets: layout,
-      }));
-    },
-  });
-}
-
-// ============================================================================
 // Hooks
 // ============================================================================
-
-/**
- * Hook for daily briefing
- */
-export function useBriefing(enabled = true) {
-  const { locale } = useLocale();
-  return useQuery(briefingOptions(locale, enabled));
-}
-
-/**
- * Hook for deadlines
- */
-export function useDeadlines(params?: { limit?: number; dueWithin?: string }) {
-  return useQuery(deadlinesOptions(params));
-}
 
 /**
  * Hook for follow-ups
@@ -504,24 +212,12 @@ export function useFollowUps(params?: { status?: string; limit?: number }) {
 
 /**
  * Hook for stale contacts
+ *
+ * Kept after Phase 145 Plan 03 cleanup: still consumed by
+ * `frontend/components/dashboard/contacts-page/useContactsPageData.ts`.
  */
 export function useStaleContacts(params?: { limit?: number; days?: number }) {
   return useQuery(staleContactsOptions(params));
-}
-
-/**
- * Hook for important emails (starred OR flagged)
- */
-export function useImportantEmails(params?: { limit?: number }, enabled = true) {
-  return useQuery({ ...importantEmailsOptions(params), enabled });
-}
-
-
-/**
- * Hook for today's events
- */
-export function useTodayEvents() {
-  return useQuery(todayEventsOptions());
 }
 
 /**
@@ -529,13 +225,6 @@ export function useTodayEvents() {
  */
 export function useRecentContacts(params?: { limit?: number }) {
   return useQuery(recentContactsOptions(params));
-}
-
-/**
- * Hook for recent unread emails (for briefing highlights)
- */
-export function useRecentUnreadEmails(params?: { limit?: number }, enabled = true) {
-  return useQuery(recentUnreadEmailsOptions(params, enabled));
 }
 
 // ============================================================================
@@ -553,6 +242,9 @@ export interface EmailTrendDataPoint {
 /**
  * Query options for email trends
  * Uses the AI analytics endpoint for email volume data
+ *
+ * Kept after Phase 145 Plan 03 cleanup: still consumed by
+ * `frontend/components/dashboard/AnalyticsChart.tsx` (analytics page).
  */
 export function emailTrendsOptions(enabled: boolean = true) {
   return queryOptions({
@@ -583,6 +275,9 @@ export function emailTrendsOptions(enabled: boolean = true) {
 
 /**
  * Hook for email trends
+ *
+ * Kept after Phase 145 Plan 03 cleanup: still consumed by
+ * `frontend/components/dashboard/AnalyticsChart.tsx` (analytics page).
  */
 export function useEmailTrends() {
   const { locale } = useLocale();
@@ -612,77 +307,4 @@ export function useEmailTrends() {
     ...query,
     data,
   };
-}
-
-// ============================================================================
-// AI Triaged Emails
-// ============================================================================
-
-export interface TriagedEmail {
-  id: string;
-  subject: string;
-  from: string | { name?: string; email?: string };
-  aiPriority: number;
-  aiPriorityReason?: string;
-  aiSentiment?: string | null;
-  aiLabels?: string[];
-  isRead: boolean;
-  receivedAt: string;
-  autoTriagedAt?: string;
-}
-
-/**
- * Query options for AI-triaged emails
- * Fetches emails that have been auto-triaged, ordered by priority
- */
-export function triagedEmailsOptions(params?: { limit?: number; priority?: number }) {
-  return queryOptions({
-    queryKey: dashboardKeys.triagedEmails(params),
-    queryFn: async (): Promise<{ emails: TriagedEmail[]; total: number; byPriority: Record<number, number> }> => {
-      const limit = params?.limit || 10;
-      // Fetch emails with isAutoTriaged=true
-      const response = await apiClient.get('/emails', {
-        params: {
-          limit,
-          isAutoTriaged: true,
-          ...(params?.priority && { aiPriority: params.priority }),
-        },
-      });
-
-      const emails: TriagedEmail[] = (response.data?.emails || []).map((e: Record<string, unknown>) => ({
-        id: e.id as string,
-        subject: (e.subject as string) || '(No subject)',
-        from: e.from as string | { name?: string; email?: string },
-        aiPriority: (e.aiPriority as number) || 3,
-        aiPriorityReason: e.aiPriorityReason as string | undefined,
-        aiSentiment: (e.aiSentiment as string | null | undefined) ?? null,
-        aiLabels: (e.aiLabels as string[]) || [],
-        isRead: (e.isRead as boolean) || false,
-        receivedAt: (e.receivedAt as string) || '',
-        autoTriagedAt: e.autoTriagedAt as string | undefined,
-      }));
-
-      // Count emails by priority
-      const byPriority: Record<number, number> = {};
-      for (const email of emails) {
-        byPriority[email.aiPriority] = (byPriority[email.aiPriority] || 0) + 1;
-      }
-
-      return {
-        emails,
-        total: response.data?.pagination?.total || emails.length,
-        byPriority,
-      };
-    },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
-  });
-}
-
-/**
- * Hook for AI-triaged emails
- */
-export function useTriagedEmails(params?: { limit?: number; priority?: number }, enabled = true) {
-  return useQuery({ ...triagedEmailsOptions(params), enabled });
 }
