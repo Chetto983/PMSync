@@ -42,6 +42,7 @@ import { TelegramModule } from './modules/telegram/telegram.module';
 import { PushModule } from './modules/push/push.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { HttpMetricsInterceptor } from './common/metrics/http-metrics.interceptor';
@@ -117,6 +118,7 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     PushModule, // Phase 105: Web Push subscription management
     CrmModule, // CRM Phase 1: Account management
     TasksModule, // Phase 137: Unified task aggregation (follow-ups, reminders, deals, tickets, manual)
+    DashboardModule, // Phase 145: Smart Today Dashboard — GET /dashboard/today
   ],
   providers: [
     // Redis-backed throttler storage for distributed rate limiting
