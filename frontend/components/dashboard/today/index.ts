@@ -11,4 +11,5 @@ export { SnoozeMenu } from './SnoozeMenu';
 export { TodayGreeting } from './TodayGreeting';
 export { TodayEmptyState } from './TodayEmptyState';
 export { TodayLoadingSkeleton } from './TodayLoadingSkeleton';
-// TodayFeedList + TodayDashboard exported in Task 3 (see TodayFeedList.tsx, TodayDashboard.tsx).
+export { TodayFeedList } from './TodayFeedList';
+export { TodayDashboard } from './TodayDashboard';
