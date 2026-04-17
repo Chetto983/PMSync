@@ -257,19 +257,19 @@ Plans:
 **Goal**: Users start their day with an AI-curated view of what needs attention, replacing the generic home page
 **Depends on**: Phase 137, Phase 142
 **Requirements**: NAV-05
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 145-01-PLAN.md — Backend dashboard module: GET /dashboard/today endpoint, scorer, DTOs, and Wave 0 specs (tenant isolation + tz validation)
 - [x] 145-02-PLAN.md — Frontend Today components, TanStack Query hook, Zustand session store, i18n (en + it + types), Wave 0 RTL specs
-- [ ] 145-03-PLAN.md — Wire /dashboard page swap, prune use-dashboard.ts dead exports, delete 21+ legacy widget files, manual Edge CDP E2E checkpoint
+- [x] 145-03-PLAN.md — Wire /dashboard page swap, prune use-dashboard.ts dead exports, delete 21+ legacy widget files, manual Edge CDP E2E checkpoint
 **Success Criteria** (what must be TRUE):
   1. User sees an AI-curated "Today" dashboard as the home page
   2. Dashboard shows due tasks, pending replies, deal alerts, and upcoming meetings in prioritized order
   3. User can click any item to navigate directly to the relevant email, task, deal, or calendar event
 **UI hint**: yes
 
-- [ ] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
+- [x] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page (completed 2026-04-17)
 - [ ] **Phase 146: RAM Harden** - Redis connection consolidation & memory optimization
 
 ### Phase 146: RAM Harden — Redis Connection Consolidation & Memory Optimization
