@@ -257,10 +257,10 @@ Plans:
 **Goal**: Users start their day with an AI-curated view of what needs attention, replacing the generic home page
 **Depends on**: Phase 137, Phase 142
 **Requirements**: NAV-05
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 145-01-PLAN.md — Backend dashboard module: GET /dashboard/today endpoint, scorer, DTOs, and Wave 0 specs (tenant isolation + tz validation)
+- [x] 145-01-PLAN.md — Backend dashboard module: GET /dashboard/today endpoint, scorer, DTOs, and Wave 0 specs (tenant isolation + tz validation)
 - [ ] 145-02-PLAN.md — Frontend Today components, TanStack Query hook, Zustand session store, i18n (en + it + types), Wave 0 RTL specs
 - [ ] 145-03-PLAN.md — Wire /dashboard page swap, prune use-dashboard.ts dead exports, delete 21+ legacy widget files, manual Edge CDP E2E checkpoint
 **Success Criteria** (what must be TRUE):
