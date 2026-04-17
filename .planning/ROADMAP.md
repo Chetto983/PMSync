@@ -272,6 +272,16 @@ Plans:
 - [x] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page (completed 2026-04-17)
 - [ ] **Phase 146: RAM Harden** - Redis connection consolidation & memory optimization
 
+### Phase 145.1: today-dashboard-v2 (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 145
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 145.1 to break down)
+
 ### Phase 146: RAM Harden — Redis Connection Consolidation & Memory Optimization
 
 **Goal:** Reduce backend RAM usage on Railway by consolidating ~80+ Redis connections, removing QueueHealthService Queue bloat, lowering BullMQ job retention, and adding worker feature flags
