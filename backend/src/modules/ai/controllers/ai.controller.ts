@@ -713,7 +713,7 @@ export class AiController {
     const followUp = await this.prisma.emailFollowUp.updateMany({
       where: { id, tenantId: req.user.tenantId, userId: req.user.userId },
       data: {
-        status: status as FollowUpStatus,
+        status: status,
         ...(status === FollowUpStatus.RESOLVED ? { resolvedAt: new Date() } : {}),
       },
     });

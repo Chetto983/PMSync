@@ -295,7 +295,7 @@ export class EmailTriageService implements OnModuleInit {
         if (email) {
           // Phase CONSOLIDATION: Create follow-up records from triage signals (fire-and-forget)
           if (needsFollowUp) {
-            this.triageActionService!
+            this.triageActionService
               .processTriageSignals(
                 { emailId, tenantId, userId: options.userId, from: email.from, subject: email.subject },
                 analysis,
@@ -306,7 +306,7 @@ export class EmailTriageService implements OnModuleInit {
           }
           // Phase 4 CRM: Auto-populate CRM suggestions from triaged email (fire-and-forget)
           if (needsCrmSuggestion) {
-            this.crmSuggestionTrigger!
+            this.crmSuggestionTrigger
               .processTriagedEmail(tenantId, emailId, email.from, email.subject)
               .catch((err) =>
                 this.logger.warn(`CRM suggestion trigger failed for ${emailId}: ${err instanceof Error ? err.message : String(err)}`),
