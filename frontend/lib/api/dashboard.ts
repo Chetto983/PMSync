@@ -12,15 +12,28 @@ import { apiClient } from '../api-client';
 // ---- Types (mirror backend DTOs exactly) ----
 
 export type TodayItemType = 'email' | 'task' | 'deal' | 'event';
-export type TodayTier = 'urgent' | 'today' | 'fyi';
+
+/**
+ * 4-stream action-driven taxonomy (Phase 145.1 Plan 01 backend contract).
+ * Precedence: replies-needed > due-today > waiting-on-others > fyi.
+ */
+export type TodayStream =
+  | 'replies-needed'
+  | 'due-today'
+  | 'waiting-on-others'
+  | 'fyi';
 
 export interface TodayFeedItem {
   id: string;
   type: TodayItemType;
-  tier: TodayTier;
+  stream: TodayStream;
   score: number;
   title: string;
   subtitle: string | null;
+  /** Backend-computed click-through URL (fixes WR-06 — frontend renders plain <a href>). */
+  routeUrl: string;
+  /** Deterministic 1-line reason (no LLM). Null when no signal is present. */
+  rationale: string | null;
   dueAt: string | null;
   isOverdue: boolean;
   emailId: string | null;
@@ -34,11 +47,23 @@ export interface TodayFeedItem {
   canSnooze: boolean;
 }
 
+/**
+ * KPI chip counts driving the header chip strip (D-04).
+ */
+export interface TodayFeedKpiCounts {
+  inbox: number;
+  calendar: number;
+  deals: number;
+  tasks: number;
+}
+
 export interface TodayFeedCounts {
-  urgent: number;
-  today: number;
+  repliesNeeded: number;
+  dueToday: number;
+  waitingOnOthers: number;
   fyi: number;
   total: number;
+  kpi: TodayFeedKpiCounts;
 }
 
 export interface TodayFeedResponse {
