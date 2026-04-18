@@ -1,15 +1,16 @@
 /**
- * Today Dashboard component barrel.
+ * Today Dashboard component barrel (145.1-04).
  *
- * Phase 145 Plan 02 — exports the entire Today surface.
+ * Exports the v2 surface: container + header + primitives. Six legacy
+ * tier/greeting components were deleted in Plans 03-04 once the 4-stream
+ * redesign landed (see 145.1-04-SUMMARY.md for the deletion list).
  */
 
-export { TodayTierSection } from './TodayTierSection';
-export { TodayFeedItem } from './TodayFeedItem';
+export { TodayDashboard } from './TodayDashboard';
+export { TodayHeader } from './TodayHeader';
+export { TodayKpiChip } from './TodayKpiChip';
+export { TodayStream } from './TodayStream';
+export { TodayRow } from './TodayRow';
 export { TodayActions } from './TodayActions';
 export { SnoozeMenu } from './SnoozeMenu';
-export { TodayGreeting } from './TodayGreeting';
 export { TodayEmptyState } from './TodayEmptyState';
-export { TodayLoadingSkeleton } from './TodayLoadingSkeleton';
-export { TodayFeedList } from './TodayFeedList';
-export { TodayDashboard } from './TodayDashboard';
