@@ -16,11 +16,17 @@
 import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import {
+  QUEUE_NAMES,
+  getSharedRedisConnection,
+  getSharedWorkerConnection,
+  releaseSharedRedisConnection,
+  releaseSharedWorkerConnection,
+} from '../../../common/config';
 import { getErrorMessage } from '../../../common/utils';
 
 /**
@@ -46,6 +52,7 @@ export abstract class AbstractCalendarWebhookService implements OnModuleInit, On
   private maintenanceQueue: Queue | null = null;
   private maintenanceWorker: Worker | null = null;
   private redisConnection: Redis | null = null;
+  private workerConnection: Redis | null = null;
 
   protected readonly jobsEnabled: boolean;
   protected readonly webhookRenewalIntervalHours: number;
@@ -117,8 +124,8 @@ export abstract class AbstractCalendarWebhookService implements OnModuleInit, On
       return;
     }
 
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    // D-01: use shared producer connection (was `new Redis(redisOptions)`)
+    this.redisConnection = getSharedRedisConnection();
 
     // Create maintenance queue
     this.maintenanceQueue = new Queue(QUEUE_NAMES.WEBHOOK_MAINTENANCE, {
@@ -129,6 +136,12 @@ export abstract class AbstractCalendarWebhookService implements OnModuleInit, On
       },
     });
 
+    // D-01/D-02: SPLIT worker connection from queue connection. The worker
+    // requires `maxRetriesPerRequest: null` which the producer singleton does
+    // not provide. Previously the same `redisConnection` was reused here,
+    // which "worked" only because BullMQ internally calls duplicate().
+    const workerConnection = getSharedWorkerConnection();
+    this.workerConnection = workerConnection;
     // Create worker to process renewal jobs
     this.maintenanceWorker = new Worker(
       QUEUE_NAMES.WEBHOOK_MAINTENANCE,
@@ -138,7 +151,7 @@ export abstract class AbstractCalendarWebhookService implements OnModuleInit, On
         }
       },
       {
-        connection: this.redisConnection,
+        connection: workerConnection,
         concurrency: 1, // Only one renewal at a time
       },
     );
@@ -175,8 +188,14 @@ export abstract class AbstractCalendarWebhookService implements OnModuleInit, On
     if (this.maintenanceQueue) {
       await this.maintenanceQueue.close();
     }
-    if (this.redisConnection && this.redisConnection.status !== 'end') {
-      await this.redisConnection.quit();
+    // D-01: release ref-counted shared connections instead of .quit()
+    if (this.redisConnection) {
+      releaseSharedRedisConnection();
+      this.redisConnection = null;
+    }
+    if (this.workerConnection) {
+      releaseSharedWorkerConnection();
+      this.workerConnection = null;
     }
     this.logger.log(`${this.providerType} Calendar webhook service shut down`);
   }

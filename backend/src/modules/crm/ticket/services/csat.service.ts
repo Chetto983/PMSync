@@ -4,13 +4,17 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import { nanoid } from 'nanoid';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { EmailService } from '../../../email/services/email.service';
 import {
-  getRedisConnectionOptions,
+  getSharedRedisConnection,
+  getSharedWorkerConnection,
+  releaseSharedRedisConnection,
+  releaseSharedWorkerConnection,
   scaleForReplicas,
 } from '../../../../common/config/queue.config';
 import { getConfiguration } from '../../../../config/configuration';
@@ -34,18 +38,29 @@ interface CsatJobData {
 @Injectable()
 export class CsatService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CsatService.name);
-  private queue: Queue<CsatJobData>;
-  private worker: Worker<CsatJobData>;
-  private redisConnection: Redis;
+  private queue: Queue<CsatJobData> | null = null;
+  private worker: Worker<CsatJobData> | null = null;
+  private redisConnection: Redis | null = null;
+  private workerConnection: Redis | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    // D-12: CRM module-level worker toggle. When CRM_WORKERS_ENABLED=false
+    // this instance serves HTTP only and does not consume CSAT survey jobs.
+    const crmWorkersEnabled =
+      this.configService.get<string>('CRM_WORKERS_ENABLED') || 'true';
+    if (crmWorkersEnabled.toLowerCase() === 'false') {
+      this.logger.warn('CSAT workers disabled (CRM_WORKERS_ENABLED=false)');
+      return;
+    }
+
+    // D-01: use shared producer connection
+    this.redisConnection = getSharedRedisConnection();
 
     this.queue = new Queue<CsatJobData>(QUEUE_NAME, {
       connection: this.redisConnection,
@@ -57,11 +72,13 @@ export class CsatService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
+    // D-01/D-02: use shared worker connection
+    this.workerConnection = getSharedWorkerConnection();
     this.worker = new Worker<CsatJobData>(
       QUEUE_NAME,
       (job) => this.processCsatJob(job),
       {
-        connection: new Redis(redisOptions),
+        connection: this.workerConnection,
         concurrency: scaleForReplicas(3),
       },
     );
@@ -76,12 +93,15 @@ export class CsatService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     if (this.worker) await this.worker.close();
     if (this.queue) await this.queue.close();
-    if (
-      this.redisConnection &&
-      this.redisConnection.status !== 'end' &&
-      this.redisConnection.status !== 'close'
-    ) {
-      await this.redisConnection.quit();
+    // D-01: release ref-counted shared connections instead of .quit().
+    // Guards handle CRM_WORKERS_ENABLED=false early return (no ref acquired).
+    if (this.redisConnection) {
+      releaseSharedRedisConnection();
+      this.redisConnection = null;
+    }
+    if (this.workerConnection) {
+      releaseSharedWorkerConnection();
+      this.workerConnection = null;
     }
   }
 
@@ -96,6 +116,14 @@ export class CsatService implements OnModuleInit, OnModuleDestroy {
     });
     if (existing) {
       this.logger.debug(`CSAT survey already exists for ticket ${ticketId}`);
+      return;
+    }
+
+    // D-12: queue is null when CRM_WORKERS_ENABLED=false
+    if (!this.queue) {
+      this.logger.debug(
+        `CSAT queue unavailable (CRM workers disabled) — skipping schedule for ticket ${ticketId}`,
+      );
       return;
     }
 
@@ -117,6 +145,7 @@ export class CsatService implements OnModuleInit, OnModuleDestroy {
    * Cancel a pending CSAT job (e.g. if ticket is reopened before job fires).
    */
   async cancelForTicket(ticketId: string): Promise<void> {
+    if (!this.queue) return; // D-12: queue not initialized (CRM workers disabled)
     const jobId = `csat-${ticketId}`;
     const job = await this.queue.getJob(jobId);
     if (job) {

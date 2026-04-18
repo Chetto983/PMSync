@@ -21,14 +21,17 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import { ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
-  getRedisConnectionOptions,
   getDefaultJobOptions,
+  getSharedRedisConnection,
+  getSharedWorkerConnection,
   QUEUE_NAMES,
+  releaseSharedRedisConnection,
+  releaseSharedWorkerConnection,
 } from '../../../common/config/queue.config';
 import { TelegramBotService } from './telegram-bot.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -44,7 +47,8 @@ export class ReminderNotifyQueueService
   implements OnModuleInit, OnModuleDestroy, OnApplicationBootstrap
 {
   private readonly logger = new Logger(ReminderNotifyQueueService.name);
-  private redisConnection: Redis;
+  private redisConnection: Redis | null = null;
+  private workerConnection: Redis | null = null;
   private queue: Queue<ReminderNotifyJobData>;
   private worker: Worker<ReminderNotifyJobData>;
 
@@ -55,8 +59,8 @@ export class ReminderNotifyQueueService
   ) {}
 
   async onModuleInit() {
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    // D-01: use shared producer connection (was `new Redis(redisOptions)`)
+    this.redisConnection = getSharedRedisConnection();
 
     this.queue = new Queue<ReminderNotifyJobData>(QUEUE_NAMES.REMINDER_NOTIFY, {
       connection: this.redisConnection,
@@ -80,12 +84,13 @@ export class ReminderNotifyQueueService
       return;
     }
 
-    const redisOptions = getRedisConnectionOptions();
+    // D-01/D-02: use shared worker connection
+    this.workerConnection = getSharedWorkerConnection();
     this.worker = new Worker<ReminderNotifyJobData>(
       QUEUE_NAMES.REMINDER_NOTIFY,
       async (job) => this.processNotification(job),
       {
-        connection: new Redis(redisOptions),
+        connection: this.workerConnection,
         concurrency: 5, // Multiple notifications can fire simultaneously
         lockDuration: 30000, // 30s lock — notification is fast
       },
@@ -111,7 +116,15 @@ export class ReminderNotifyQueueService
   async onModuleDestroy() {
     await this.worker?.close();
     await this.queue?.close();
-    await this.redisConnection?.quit();
+    // D-01: release ref-counted shared connections instead of .quit()
+    if (this.redisConnection) {
+      releaseSharedRedisConnection();
+      this.redisConnection = null;
+    }
+    if (this.workerConnection) {
+      releaseSharedWorkerConnection();
+      this.workerConnection = null;
+    }
   }
 
   /**
