@@ -41,6 +41,11 @@ export class CalendarSyncWorker extends BaseWorker<CalendarSyncJobData, Calendar
   protected readonly workerName = 'calendar-sync';
   protected readonly envToggle = 'CALENDAR_SYNC_WORKERS_ENABLED';
 
+  /** D-12: Module-level toggle — CALENDAR_WORKERS_ENABLED=false disables all calendar workers. */
+  protected getModuleToggle(): string | null {
+    return 'CALENDAR_WORKERS_ENABLED';
+  }
+
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,

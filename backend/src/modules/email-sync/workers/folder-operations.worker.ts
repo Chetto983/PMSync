@@ -42,6 +42,11 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
   protected readonly workerName = 'folder-operations';
   protected readonly envToggle = 'EMAIL_SYNC_WORKERS_ENABLED';
 
+  /** D-12: Module-level toggle — EMAIL_WORKERS_ENABLED=false disables all email workers. */
+  protected getModuleToggle(): string | null {
+    return 'EMAIL_WORKERS_ENABLED';
+  }
+
   // Lock TTL for folder operations (10 minutes - same as lockDuration)
   private readonly FOLDER_LOCK_TTL = 600000;
 

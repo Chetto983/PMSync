@@ -37,6 +37,11 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
   protected readonly workerName = 'bulk-operations';
   protected readonly envToggle = 'BULK_OPERATIONS_WORKERS_ENABLED';
 
+  /** D-12: Module-level toggle — EMAIL_WORKERS_ENABLED=false disables all email workers. */
+  protected getModuleToggle(): string | null {
+    return 'EMAIL_WORKERS_ENABLED';
+  }
+
   private readonly DEFAULT_CHUNK_SIZE = 50;
   // Lock TTL for bulk operations (10 minutes)
   private readonly BULK_LOCK_TTL = 600000;

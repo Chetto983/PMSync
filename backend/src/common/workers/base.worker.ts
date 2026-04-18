@@ -2,7 +2,10 @@ import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
-import { getRedisConnectionOptions } from '../config';
+import {
+  getSharedWorkerConnection,
+  releaseSharedWorkerConnection,
+} from '../config';
 
 /** Default timeout for Redis connection check (5 seconds) */
 const REDIS_CONNECT_TIMEOUT = 5000;
@@ -16,6 +19,33 @@ const PAUSE_COOLDOWN_MS = 60 * 1000;
 
 /** Whether the global unhandledRejection handler has been installed */
 let globalRejectionHandlerInstalled = false;
+
+/**
+ * Minimal shape of BullMQ's KeepJobs type. Kept locally to avoid leaking a
+ * BullMQ type import into the BaseWorkerConfig public surface (consumers
+ * already import BaseWorkerConfig by way of BaseWorker).
+ */
+type KeepJobsOption = { count: number } | { age: number; count?: number; limit?: number };
+
+/**
+ * D-10 helper: Normalize the ergonomic `number | boolean | KeepJobsOption`
+ * that BaseWorkerConfig exposes into the strict `KeepJobs` shape BullMQ's
+ * WorkerOptions require.
+ *
+ *  - `true`               → immediate removal (`{ count: 0 }`)
+ *  - `number N`           → `{ count: N }`
+ *  - `KeepJobsOption obj` → passed through unchanged
+ *  - `false` / `undefined`→ fall back to the caller-provided default
+ */
+function normalizeKeepJobs(
+  value: number | boolean | KeepJobsOption | undefined,
+  fallback: KeepJobsOption,
+): KeepJobsOption {
+  if (value === true) return { count: 0 };
+  if (typeof value === 'number') return { count: value };
+  if (value && typeof value === 'object') return value;
+  return fallback;
+}
 
 /**
  * Worker health status returned by getStatus()
@@ -162,11 +192,36 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
   }
 
   /**
-   * Check if workers are enabled via environment variable
+   * Check if this worker is enabled via three-level feature flag hierarchy:
+   * 1. WORKERS_ENABLED (global master toggle, D-11)
+   * 2. Module-level toggle (e.g., EMAIL_WORKERS_ENABLED, D-12) — override getModuleToggle()
+   * 3. Per-worker toggle (this.envToggle, D-13) — existing behavior
+   *
+   * If any level is false, the worker is disabled.
    */
   protected isEnabled(): boolean {
+    // Level 1: Global master toggle (D-11)
+    const globalEnabled = this.configService.get<string>('WORKERS_ENABLED') || 'true';
+    if (globalEnabled.toLowerCase() === 'false') return false;
+
+    // Level 2: Module-level toggle (D-12)
+    const moduleToggle = this.getModuleToggle();
+    if (moduleToggle) {
+      const moduleEnabled = this.configService.get<string>(moduleToggle) || 'true';
+      if (moduleEnabled.toLowerCase() === 'false') return false;
+    }
+
+    // Level 3: Per-worker toggle (existing behavior)
     const value = this.configService.get<string>(this.envToggle) || 'true';
     return value.toLowerCase() !== 'false';
+  }
+
+  /**
+   * Override in subclass to specify the module-level feature flag.
+   * Return null if no module-level toggle applies.
+   */
+  protected getModuleToggle(): string | null {
+    return null;
   }
 
   /**
@@ -191,7 +246,9 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
     }
 
     if (!this.isEnabled()) {
-      this.logger.warn(`${this.workerName} workers disabled via ${this.envToggle}=false`);
+      this.logger.warn(
+        `${this.workerName} workers disabled (check WORKERS_ENABLED, module toggle, or ${this.envToggle})`,
+      );
       return;
     }
 
@@ -199,22 +256,14 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
     const configArray = Array.isArray(configs) ? configs : [configs];
     const queueNames = configArray.map((config) => config.queueName);
 
-    // Initialize Redis connection
-    // CRITICAL: Override lazyConnect to false. BullMQ internally calls
-    // connection.duplicate() for its blocking client. If lazyConnect is true,
-    // the duplicate also gets lazyConnect: true and may never actually connect,
-    // causing workers to silently not pick up jobs.
-    const redisOptions = {
-      ...getRedisConnectionOptions(),
-      connectionName: `${this.workerName}-worker`,
-      lazyConnect: false,
-    };
-    this.redisConnection = new Redis(redisOptions);
-
-    // Add Redis error handler to prevent unhandled errors
-    this.redisConnection.on('error', (err) => {
-      this.logger.error(`${this.workerName} Redis connection error: ${err.message}`);
-    });
+    // D-02: Use the shared worker Redis connection singleton.
+    // BullMQ internally calls connection.duplicate() per worker, so sharing
+    // the base connection across all BaseWorker subclasses yields 1 base + N
+    // duplicates instead of N bases + N duplicates. The singleton is configured
+    // with maxRetriesPerRequest: null, lazyConnect: false, and
+    // enableOfflineQueue: true (required for BullMQ workers).
+    // Error handling is owned by the singleton in redis-connections.ts.
+    this.redisConnection = getSharedWorkerConnection();
 
     // Wait for Redis connection to be ready with timeout
     await this.waitForRedisConnection(queueNames);
@@ -320,9 +369,19 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
         stalledInterval: config.stalledInterval ?? 30000,
         // BullMQ best practice: null prevents Redis command exceptions from breaking worker
         maxStalledCount: 3,
-        // Job cleanup to prevent Redis memory bloat
-        removeOnComplete: { count: config.removeOnComplete === true ? 100 : (config.removeOnComplete || 100) },
-        removeOnFail: { count: config.removeOnFail === true ? 50 : (config.removeOnFail || 50) },
+        // D-10: Pass retention config through as-is so QUEUE_PRESETS
+        // (e.g. removeOnComplete: true) reach BullMQ without coercion.
+        // Defaults match the aggressive phase-wide retention profile.
+        // BaseWorkerConfig accepts `number | boolean` for ergonomics, but
+        // BullMQ's WorkerOptions.removeOnComplete/removeOnFail want `KeepJobs`
+        // (strictly `{ count } | { age, count?, limit? }`). Normalize here:
+        //  - `true`   → `{ count: 0 }` (immediate removal, matches D-08)
+        //  - number N → `{ count: N }`
+        //  - object   → passed through unchanged
+        // `false` and `undefined` fall back to the aggressive phase-wide
+        // default of `{ count: 0 }` for complete / `{ count: 20 }` for fail.
+        removeOnComplete: normalizeKeepJobs(config.removeOnComplete, { count: 0 }),
+        removeOnFail: normalizeKeepJobs(config.removeOnFail, { count: 20 }),
         ...(config.limiter ? { limiter: config.limiter } : {}),
       },
     );
@@ -450,20 +509,10 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
         }
       }
 
-      // Close Redis connection
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        try {
-          await this.redisConnection.quit();
-        } catch (error) {
-          this.logger.debug(
-            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
-          );
-        }
-      }
+      // D-02: Release our ref on the shared worker connection. The singleton
+      // closes the underlying ioredis client only when the last ref is released,
+      // so workers can shut down independently without tearing down others.
+      releaseSharedWorkerConnection();
     } catch (outerError) {
       this.logger.warn(
         `${this.workerName} shutdown error (swallowed): ${

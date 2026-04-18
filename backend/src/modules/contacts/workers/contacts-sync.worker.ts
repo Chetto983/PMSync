@@ -44,6 +44,11 @@ export class ContactsSyncWorker extends BaseWorker<ContactsSyncJobData, Contacts
   protected readonly workerName = 'contacts-sync';
   protected readonly envToggle = 'CONTACTS_SYNC_WORKERS_ENABLED';
 
+  /** D-12: Module-level toggle — CONTACTS_WORKERS_ENABLED=false disables all contacts workers. */
+  protected getModuleToggle(): string | null {
+    return 'CONTACTS_WORKERS_ENABLED';
+  }
+
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,
