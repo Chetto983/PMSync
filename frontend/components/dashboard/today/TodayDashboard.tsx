@@ -1,75 +1,100 @@
 /**
- * TodayDashboard — Top-level container for the Smart Today Dashboard (NAV-05).
+ * TodayDashboard — Top-level container for the Smart Today Dashboard (145.1-04).
  *
- * Phase 145 Plan 02 — calls useTodayFeed and branches on loading/error/empty/data.
- * Container max-width 720px per UI-SPEC § Responsive (single-column Superhuman pattern).
+ * Composes TodayHeader + 4 × TodayStream inside a direct Stack shell; the
+ * header owns the page heading via TodayHeader's greeting (no wrapper chrome).
  *
- * Wired into pages/dashboard/index.tsx in Plan 03.
+ * Critical guarantees (grep-verified):
+ *   - Exactly one dismiss-id filter pass on items, via useMemo (WR-04 fix —
+ *     no downstream re-filter in TodayStream).
+ *   - Streams rendered in STREAM_ORDER with pre-filtered itemsByStream[name].
+ *   - Stack shell uses maxWidth={880}, mx="auto", px={{ xs: 2, md: 3 }},
+ *     py={3}, spacing={2}.
+ *   - Empty-all (no visible items after dismissed filter) renders TodayEmptyState.
  */
 
 'use client';
 
-import { Stack } from '@mui/material';
-import { PageContainer } from '@/components/common/PageContainer';
-import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
+import { useMemo } from 'react';
+import { Alert, Stack } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { useTodayFeed } from '@/hooks/queries/use-today';
 import { useTodayFeedStore } from '@/stores/today-feed-store';
-import type { TodayFeedCounts } from '@/lib/api/dashboard';
-import { TodayLoadingSkeleton } from './TodayLoadingSkeleton';
+import type { TodayFeedItem, TodayStream } from '@/lib/api/dashboard';
+import { TodayHeader } from './TodayHeader';
+import { TodayStream as TodayStreamComponent } from './TodayStream';
 import { TodayEmptyState } from './TodayEmptyState';
-import { TodayGreeting } from './TodayGreeting';
-import { TodayFeedList } from './TodayFeedList';
+
+const STREAM_ORDER: TodayStream[] = [
+  'replies-needed',
+  'due-today',
+  'waiting-on-others',
+  'fyi',
+];
+
+const DEFAULT_EXPANDED: Record<TodayStream, boolean> = {
+  'replies-needed': true,
+  'due-today': true,
+  'waiting-on-others': false,
+  'fyi': false,
+};
+
+function groupByStream(items: TodayFeedItem[]): Record<TodayStream, TodayFeedItem[]> {
+  const out: Record<TodayStream, TodayFeedItem[]> = {
+    'replies-needed': [],
+    'due-today': [],
+    'waiting-on-others': [],
+    'fyi': [],
+  };
+  for (const i of items) {
+    out[i.stream].push(i);
+  }
+  return out;
+}
 
 export function TodayDashboard() {
   const t = useTranslations();
   const tz = useUserTimezone();
-  const { data, isLoading, error, refetch } = useTodayFeed({ tz, includeGreeting: true });
+  const { data, isLoading, error } = useTodayFeed({ tz });
   const dismissedIds = useTodayFeedStore((s) => s.dismissedIds);
 
-  const visibleItems = (data?.items ?? []).filter((i) => !dismissedIds.has(i.id));
+  // WR-04 fix: filter ONCE here in the parent, pass pre-filtered arrays down.
+  const { visibleItems, itemsByStream } = useMemo(() => {
+    const items = data?.items ?? [];
+    const visible = items.filter((i) => !dismissedIds.has(i.id));
+    return { visibleItems: visible, itemsByStream: groupByStream(visible) };
+  }, [data?.items, dismissedIds]);
 
-  // Recompute counts AFTER applying client-side dismiss for greeting accuracy.
-  const liveCounts: TodayFeedCounts = data
-    ? {
-        urgent: visibleItems.filter((i) => i.tier === 'urgent').length,
-        today: visibleItems.filter((i) => i.tier === 'today').length,
-        fyi: visibleItems.filter((i) => i.tier === 'fyi').length,
-        total: visibleItems.length,
-      }
-    : { urgent: 0, today: 0, fyi: 0, total: 0 };
-
-  const isEmpty = !isLoading && !error && visibleItems.length === 0;
+  const isEmptyAll = !isLoading && !error && visibleItems.length === 0;
 
   return (
-    <PageContainer
-      title={t.dashboard.today.title}
-      subtitle={t.dashboard.today.subtitle}
-      maxWidth={720}
+    <Stack
+      component="main"
+      maxWidth={880}
+      mx="auto"
+      px={{ xs: 2, md: 3 }}
+      py={3}
+      spacing={2}
+      sx={{ width: '100%' }}
     >
-      <Stack spacing={3}>
-        {isLoading && <TodayLoadingSkeleton />}
-        {error && (
-          <QueryErrorAlert
-            error={error as Error}
-            onRetry={() => refetch()}
-            title={t.dashboard.today.error}
+      <TodayHeader counts={data?.counts} loading={isLoading} />
+      {error && (
+        <Alert severity="error">{t.dashboard.today.error}</Alert>
+      )}
+      {isEmptyAll ? (
+        <TodayEmptyState />
+      ) : (
+        STREAM_ORDER.map((stream) => (
+          <TodayStreamComponent
+            key={stream}
+            name={stream}
+            items={itemsByStream[stream]}
+            defaultExpanded={DEFAULT_EXPANDED[stream]}
+            loading={isLoading}
           />
-        )}
-        {!isLoading && !error && data && (
-          <>
-            {data.greeting !== null || liveCounts.total > 0 ? (
-              <TodayGreeting greeting={data.greeting} counts={liveCounts} />
-            ) : null}
-            {isEmpty ? (
-              <TodayEmptyState nextItem={data.items[0] ?? undefined} />
-            ) : (
-              <TodayFeedList items={data.items} counts={liveCounts} />
-            )}
-          </>
-        )}
-      </Stack>
-    </PageContainer>
+        ))
+      )}
+    </Stack>
   );
 }
