@@ -11,12 +11,24 @@
  * - Type-safe configuration
  */
 
-import { Logger } from '@nestjs/common';
 import { JobsOptions, WorkerOptions, QueueOptions } from 'bullmq';
-import { Redis } from 'ioredis';
-import { getRedisConnectionOptions, RedisConnectionOptions } from '../../config/configuration';
+import { RedisConnectionOptions } from '../../config/configuration';
 
-const logger = new Logger('QueueConfig');
+/**
+ * Re-export shared Redis connection singletons from the dedicated
+ * redis-connections module. Keeps this file under the CLAUDE.md
+ * 500-line hard limit while preserving the public API surface —
+ * existing consumers that import these functions from queue.config.ts
+ * (directly or via the barrel) continue to work unchanged.
+ */
+export {
+  getSharedRedisConnection,
+  releaseSharedRedisConnection,
+  forceCloseSharedRedisConnection,
+  getSharedWorkerConnection,
+  releaseSharedWorkerConnection,
+  forceCloseSharedWorkerConnection,
+} from './redis-connections';
 
 /**
  * Get the number of replicas this instance shares work with.
@@ -39,71 +51,6 @@ export function getReplicaCount(): number {
 export function scaleForReplicas(baseConcurrency: number): number {
   const replicas = getReplicaCount();
   return Math.max(1, Math.floor(baseConcurrency / replicas));
-}
-
-/**
- * Shared Redis connection singleton for BullMQ
- * Prevents connection sprawl by reusing a single ioredis instance
- * across all queue services.
- *
- * Use `getSharedRedisConnection()` in queue services instead of `new Redis()`
- */
-let sharedRedisConnection: Redis | null = null;
-let connectionRefCount = 0;
-
-/**
- * Get or create the shared Redis connection for BullMQ
- * This connection is shared across all BullMQ queues and workers.
- *
- * @returns Shared ioredis connection instance
- */
-export function getSharedRedisConnection(): Redis {
-  if (!sharedRedisConnection) {
-    const options = getRedisConnectionOptions();
-    sharedRedisConnection = new Redis({
-      ...options,
-      lazyConnect: true, // Lazy connect - don't block app startup
-      // Connection name for debugging in Redis CLIENT LIST
-      connectionName: 'bullmq-shared',
-    });
-
-    sharedRedisConnection.on('error', (err) => {
-      logger.error(`Redis connection error: ${err.message}`);
-    });
-
-    sharedRedisConnection.on('connect', () => {
-      logger.log('Redis connected');
-    });
-  }
-  connectionRefCount++;
-  return sharedRedisConnection;
-}
-
-/**
- * Release a reference to the shared connection
- * Call this in onModuleDestroy to properly clean up
- */
-export function releaseSharedRedisConnection(): void {
-  connectionRefCount--;
-  // Only close when all references are released
-  if (connectionRefCount <= 0 && sharedRedisConnection) {
-    sharedRedisConnection.quit().catch(() => {
-      // Ignore quit errors during shutdown
-    });
-    sharedRedisConnection = null;
-    connectionRefCount = 0;
-  }
-}
-
-/**
- * Force close the shared connection (for testing/emergency)
- */
-export function forceCloseSharedRedisConnection(): void {
-  if (sharedRedisConnection) {
-    sharedRedisConnection.disconnect();
-    sharedRedisConnection = null;
-    connectionRefCount = 0;
-  }
 }
 
 /**
@@ -402,7 +349,7 @@ export function getWorkerOptions(
  * Get Redis connection for BullMQ
  * Re-exported for convenience
  */
-export { getRedisConnectionOptions };
+export { getRedisConnectionOptions } from '../../config/configuration';
 
 /**
  * Queue names constants - centralized registry of all queue names
