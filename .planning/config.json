@@ -14,5 +14,47 @@
   "git": {
     "branching_strategy": "none"
   },
-  "granularity": "fine"
+  "granularity": "fine",
+  "agent_skills": {
+    "gsd-ui-researcher": [
+      ".claude/skills/refactoring-ui",
+      ".claude/skills/ui-engineer",
+      ".claude/skills/mui",
+      ".claude/skills/ux-antipatterns",
+      ".claude/skills/accessibility-a11y"
+    ],
+    "gsd-ui-checker": [
+      ".claude/skills/refactoring-ui",
+      ".claude/skills/ux-antipatterns",
+      ".claude/skills/accessibility-a11y"
+    ],
+    "gsd-ui-auditor": [
+      ".claude/skills/refactoring-ui",
+      ".claude/skills/ux-antipatterns",
+      ".claude/skills/accessibility-a11y"
+    ],
+    "gsd-executor": [
+      ".claude/skills/mui",
+      ".claude/skills/ui-engineer",
+      ".claude/skills/typescript-expert",
+      ".claude/skills/nestjs-best-practices",
+      ".claude/skills/prisma-client-api",
+      ".claude/skills/vercel-react-best-practices"
+    ],
+    "gsd-planner": [
+      ".claude/skills/refactoring-ui",
+      ".claude/skills/ux-antipatterns"
+    ],
+    "gsd-code-reviewer": [
+      ".claude/skills/ux-antipatterns",
+      ".claude/skills/accessibility-a11y",
+      ".claude/skills/typescript-expert",
+      ".claude/skills/nestjs-best-practices",
+      ".claude/skills/prisma-client-api"
+    ],
+    "gsd-verifier": [
+      ".claude/skills/ux-antipatterns",
+      ".claude/skills/accessibility-a11y"
+    ]
+  }
 }
