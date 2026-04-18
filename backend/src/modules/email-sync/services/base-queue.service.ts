@@ -23,7 +23,12 @@ import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Queue, QueueEvents, JobType, Job, JobsOptions } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
-import { getRedisConnectionOptions, getDefaultJobOptions } from '../../../common/config';
+import {
+  getRedisConnectionOptions,
+  getSharedRedisConnection,
+  releaseSharedRedisConnection,
+  getDefaultJobOptions,
+} from '../../../common/config';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 
 /**
@@ -128,7 +133,7 @@ export abstract class BaseQueueService<TJobData, TJobResult>
 
   async onModuleInit(): Promise<void> {
     const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    this.redisConnection = getSharedRedisConnection();
 
     const queueName = this.getQueueName();
     this.logger.log(`Connecting to Redis for ${queueName} at ${redisOptions.host}:${redisOptions.port}`);
@@ -154,8 +159,10 @@ export abstract class BaseQueueService<TJobData, TJobResult>
   private setupQueueEvents(): void {
     const queueName = this.getQueueName();
 
+    // CRITICAL: QueueEvents uses blocking XREAD. Pass connection OPTIONS
+    // (not the shared instance) so BullMQ creates a dedicated connection.
     this.queueEvents = new QueueEvents(queueName, {
-      connection: this.redisConnection,
+      connection: getRedisConnectionOptions(),
     });
 
     this.queueEvents.on('completed', ({ jobId }) => {
@@ -197,13 +204,8 @@ export abstract class BaseQueueService<TJobData, TJobResult>
         await this.queue.close();
       }
 
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        await this.redisConnection.quit();
-      }
+      // Release shared connection ref (D-01) — do NOT call .quit() on shared
+      releaseSharedRedisConnection();
     } catch (error) {
       this.logger.warn(
         `${queueName} shutdown error: ${error instanceof Error ? error.message : error}`,
