@@ -259,3 +259,105 @@ describe('BaseWorker — IF-C1 error isolation', () => {
     });
   });
 });
+
+// ─── Feature flag hierarchy tests (D-11 / D-12 / D-13) ───
+
+describe('BaseWorker — Feature Flag Hierarchy (D-11/D-12/D-13)', () => {
+  /**
+   * Subclass that opts into a module-level toggle by overriding
+   * getModuleToggle(). TestWorker (from above) returns null by default.
+   */
+  class ModuleToggleWorker extends TestWorker {
+    protected getModuleToggle(): string | null {
+      return 'TEST_MODULE_WORKERS_ENABLED';
+    }
+  }
+
+  const buildConfig = (map: Record<string, string>): ConfigService =>
+    ({
+      get: jest.fn((key: string) => map[key]),
+    }) as unknown as ConfigService;
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('disables worker when WORKERS_ENABLED=false (Level 1 short-circuit)', () => {
+    // Global off wins even if module and per-worker are explicitly on.
+    const config = buildConfig({
+      WORKERS_ENABLED: 'false',
+      TEST_MODULE_WORKERS_ENABLED: 'true',
+      TEST_WORKERS_ENABLED: 'true',
+    });
+
+    const worker = new ModuleToggleWorker(config);
+    expect((worker as any).isEnabled()).toBe(false);
+  });
+
+  it('disables worker when module toggle is false (Level 2 short-circuit)', () => {
+    // Global on, module off, per-worker on — module toggle wins.
+    const config = buildConfig({
+      WORKERS_ENABLED: 'true',
+      TEST_MODULE_WORKERS_ENABLED: 'false',
+      TEST_WORKERS_ENABLED: 'true',
+    });
+
+    const worker = new ModuleToggleWorker(config);
+    expect((worker as any).isEnabled()).toBe(false);
+  });
+
+  it('disables worker when per-worker toggle is false (Level 3)', () => {
+    // Global on, module on, per-worker off — per-worker wins.
+    const config = buildConfig({
+      WORKERS_ENABLED: 'true',
+      TEST_MODULE_WORKERS_ENABLED: 'true',
+      TEST_WORKERS_ENABLED: 'false',
+    });
+
+    const worker = new ModuleToggleWorker(config);
+    expect((worker as any).isEnabled()).toBe(false);
+  });
+
+  it('enables worker when all three toggles are true', () => {
+    const config = buildConfig({
+      WORKERS_ENABLED: 'true',
+      TEST_MODULE_WORKERS_ENABLED: 'true',
+      TEST_WORKERS_ENABLED: 'true',
+    });
+
+    const worker = new ModuleToggleWorker(config);
+    expect((worker as any).isEnabled()).toBe(true);
+  });
+
+  it('enables worker when no toggles are set (defaults to true at every level)', () => {
+    // Nothing configured anywhere — all levels default to 'true'.
+    const config = {
+      get: jest.fn(() => undefined),
+    } as unknown as ConfigService;
+
+    const worker = new ModuleToggleWorker(config);
+    expect((worker as any).isEnabled()).toBe(true);
+  });
+
+  it('skips module toggle when getModuleToggle() returns null', () => {
+    // TestWorker (the base version) does NOT override getModuleToggle(),
+    // so module toggle is null and the module-level env var is ignored
+    // even if it would otherwise disable the worker.
+    const config = buildConfig({
+      WORKERS_ENABLED: 'true',
+      TEST_MODULE_WORKERS_ENABLED: 'false', // should be ignored
+      TEST_WORKERS_ENABLED: 'true',
+    });
+
+    const worker = new TestWorker(config);
+    expect((worker as any).isEnabled()).toBe(true);
+  });
+
+  it('is case-insensitive for WORKERS_ENABLED (e.g. "FALSE")', () => {
+    // Hierarchy implementation lowercases the string before comparing.
+    const config = buildConfig({
+      WORKERS_ENABLED: 'FALSE',
+    });
+
+    const worker = new ModuleToggleWorker(config);
+    expect((worker as any).isEnabled()).toBe(false);
+  });
+});

@@ -6,7 +6,7 @@
 
 export { TodayTierSection } from './TodayTierSection';
 export { TodayFeedItem } from './TodayFeedItem';
-export { TodayQuickActions } from './TodayQuickActions';
+export { TodayActions } from './TodayActions';
 export { SnoozeMenu } from './SnoozeMenu';
 export { TodayGreeting } from './TodayGreeting';
 export { TodayEmptyState } from './TodayEmptyState';
