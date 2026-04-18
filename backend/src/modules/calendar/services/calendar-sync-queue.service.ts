@@ -4,6 +4,8 @@ import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
 import {
   getRedisConnectionOptions,
+  getSharedRedisConnection,
+  releaseSharedRedisConnection,
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
@@ -103,9 +105,9 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
   constructor() { }
 
   async onModuleInit() {
-    // Initialize Redis connection using centralized config
+    // Initialize Redis connection using shared singleton (D-01)
     const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    this.redisConnection = getSharedRedisConnection();
 
     this.logger.log(
       `Connecting to Redis for calendar sync at ${redisOptions.host}:${redisOptions.port}`,
@@ -146,8 +148,10 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
     ];
 
     for (const { name, queue } of queues) {
+      // CRITICAL: QueueEvents uses blocking XREAD. Pass connection OPTIONS
+      // (not the shared instance) so BullMQ creates a dedicated connection.
       const queueEvents = new QueueEvents(queue.name, {
-        connection: this.redisConnection,
+        connection: getRedisConnectionOptions(),
       });
 
       // Track metrics
@@ -207,20 +211,8 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      // Close Redis connection safely
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        try {
-          await this.redisConnection.quit();
-        } catch (error) {
-          this.logger.debug(
-            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
-          );
-        }
-      }
+      // Release shared connection ref (D-01) — do NOT call .quit() on shared
+      releaseSharedRedisConnection();
     } catch (outerError) {
       this.logger.warn(
         `CalendarSyncQueueService shutdown encountered an error (swallowed): ${outerError instanceof Error ? outerError.message : outerError
