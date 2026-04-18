@@ -1,8 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { ValidationPipe, RequestMethod } from '@nestjs/common';
+import { ValidationPipe, RequestMethod, Logger as NestLogger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
+import { Redis } from 'ioredis';
+import {
+  getSharedRedisConnection,
+  releaseSharedRedisConnection,
+} from './common/config';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 
@@ -354,6 +359,45 @@ async function enableNestDiTrace(trap: StartupTrap): Promise<void> {
 }
 
 /**
+ * D-15: Check Redis maxmemory-policy is set to 'noeviction'.
+ *
+ * BullMQ requires `noeviction` — any other eviction policy can cause silent
+ * queue corruption when Redis evicts BullMQ keys under memory pressure.
+ *
+ * This is a non-blocking startup check:
+ *  - Warns at WARN level if the policy is wrong
+ *  - Logs info at LOG level if the policy is correct
+ *  - Swallows errors (Railway-managed Redis may restrict `CONFIG GET`) and
+ *    emits a warning that the check could not be performed.
+ *
+ * Never throws — does not block startup even if Redis is unreachable.
+ */
+async function checkRedisMaxMemoryPolicy(redis: Redis): Promise<void> {
+  try {
+    const config = await redis.config('GET', 'maxmemory-policy');
+    // Redis CONFIG GET returns a flat array: ['maxmemory-policy', 'noeviction']
+    const policy = Array.isArray(config) ? (config[1] as string | undefined) : null;
+    if (policy && policy !== 'noeviction') {
+      NestLogger.warn(
+        `Redis maxmemory-policy is "${policy}" — BullMQ requires "noeviction". ` +
+          `Queues may silently corrupt if Redis evicts keys.`,
+        'Bootstrap',
+      );
+    } else if (policy === 'noeviction') {
+      NestLogger.log('Redis maxmemory-policy: noeviction (correct)', 'Bootstrap');
+    }
+  } catch (error) {
+    // Railway managed Redis may restrict the CONFIG command — handle gracefully.
+    NestLogger.warn(
+      `Could not check Redis maxmemory-policy (CONFIG GET may be restricted): ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      'Bootstrap',
+    );
+  }
+}
+
+/**
  * Bootstraps and starts the NestJS HTTP server with configured middleware, docs, legacy-route handling, and graceful shutdown.
  *
  * Configures proxy trust, Helmet security, CORS (allowlist, regex, or allow-all), global validation and exception filters, and Swagger when not in production. Mounts a legacy watchdog for /email-configs that responds 410, enables shutdown hooks, starts listening on the configured port, logs startup details (URL, Swagger, database, Redis), and registers SIGTERM/SIGINT handlers that attempt a graceful shutdown before exiting.
@@ -666,6 +710,17 @@ async function bootstrap() {
       `Redis: ${config.redis.host}:${config.redis.port}${config.redis.tls.enabled ? ' (TLS)' : ''}`,
     );
     trap.stop('[startup] application bootstrap completed');
+
+    // D-15: Non-blocking Redis maxmemory-policy check. Runs after app.listen()
+    // so it never slows startup. Acquires a ref on the shared producer
+    // connection, runs the check, then releases the ref immediately.
+    try {
+      const redisForCheck = getSharedRedisConnection();
+      await checkRedisMaxMemoryPolicy(redisForCheck);
+      releaseSharedRedisConnection();
+    } catch {
+      // Non-critical — never fail startup on the check itself.
+    }
 
     // Graceful shutdown with timeout safety net
     const SHUTDOWN_TIMEOUT_MS = parseInt(
