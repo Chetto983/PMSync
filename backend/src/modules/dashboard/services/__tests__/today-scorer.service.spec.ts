@@ -258,9 +258,12 @@ describe('TodayScorerService', () => {
   });
 
   describe('scoreItem — tz-aware isToday', () => {
-    it('2026-04-17T05Z due, 2026-04-17T07Z now, LA tz -> due-today (both local = 2026-04-16)', () => {
+    it('2026-04-17T05Z due, 2026-04-17T06Z now, LA tz -> due-today (both local = 2026-04-16)', () => {
+      // LA is UTC-7 (PDT) on 2026-04-17. Both UTC timestamps fall within the
+      // April 16 local day (22:00 and 23:00 PDT respectively). With the old
+      // server-local `isToday` this pair was misclassified (WR-02).
       const due = new Date('2026-04-17T05:00:00Z');
-      const nowTz = new Date('2026-04-17T07:00:00Z');
+      const nowTz = new Date('2026-04-17T06:00:00Z');
       const result = service.scoreItem(
         {
           type: 'event',

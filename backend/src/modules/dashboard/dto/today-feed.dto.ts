@@ -1,19 +1,28 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
- * Phase 145 — Smart Today Dashboard DTOs.
+ * Phase 145.1 — Smart Today Dashboard v2 DTOs.
  *
- * Per RESEARCH.md (lines 530-585): the Today feed is a single curated list grouped
- * into three urgency tiers (urgent, today, fyi). Each item carries enough source
- * linkage to support click-through navigation and quick actions (complete, dismiss,
- * snooze) without an extra round-trip.
+ * Per CONTEXT.md §D-02 and §D-07: each feed item belongs to exactly one of 4
+ * action-driven streams (replies-needed > due-today > waiting-on-others > fyi)
+ * with strict precedence. Items ship a backend-computed `routeUrl` so the
+ * frontend renders a plain `<a href>` (fixes WR-06) and an optional
+ * deterministic `rationale` 1-liner.
+ *
+ * `counts` carries both per-stream totals and a `kpi` block driving the header
+ * chip strip (D-04): inbox / calendar / deals / tasks.
  */
 
 export const TODAY_ITEM_TYPES = ['email', 'task', 'deal', 'event'] as const;
 export type TodayItemType = (typeof TODAY_ITEM_TYPES)[number];
 
-export const TODAY_TIERS = ['urgent', 'today', 'fyi'] as const;
-export type TodayTier = (typeof TODAY_TIERS)[number];
+export const TODAY_STREAMS = [
+  'replies-needed',
+  'due-today',
+  'waiting-on-others',
+  'fyi',
+] as const;
+export type TodayStream = (typeof TODAY_STREAMS)[number];
 
 export class TodayFeedItemDto {
   @ApiProperty({ description: 'Composite ID: type_sourceType_sourceId' })
@@ -22,8 +31,8 @@ export class TodayFeedItemDto {
   @ApiProperty({ enum: TODAY_ITEM_TYPES })
   type!: TodayItemType;
 
-  @ApiProperty({ enum: TODAY_TIERS })
-  tier!: TodayTier;
+  @ApiProperty({ enum: TODAY_STREAMS })
+  stream!: TodayStream;
 
   @ApiProperty({ description: 'Numeric priority score (higher = more urgent)' })
   score!: number;
@@ -34,7 +43,19 @@ export class TodayFeedItemDto {
   @ApiPropertyOptional({ nullable: true })
   subtitle!: string | null;
 
-  @ApiPropertyOptional({ description: 'ISO 8601 datetime for time badge', nullable: true })
+  @ApiProperty({ description: 'Backend-computed click-through URL' })
+  routeUrl!: string;
+
+  @ApiPropertyOptional({
+    description: 'Deterministic 1-line reason (no LLM)',
+    nullable: true,
+  })
+  rationale!: string | null;
+
+  @ApiPropertyOptional({
+    description: 'ISO 8601 datetime for time badge',
+    nullable: true,
+  })
   dueAt!: string | null;
 
   @ApiProperty({ description: 'true = past due' })
@@ -70,18 +91,38 @@ export class TodayFeedItemDto {
   canSnooze!: boolean;
 }
 
-export class TodayFeedCountsDto {
+export class TodayFeedKpiCountsDto {
   @ApiProperty()
-  urgent!: number;
+  inbox!: number;
 
   @ApiProperty()
-  today!: number;
+  calendar!: number;
+
+  @ApiProperty()
+  deals!: number;
+
+  @ApiProperty()
+  tasks!: number;
+}
+
+export class TodayFeedCountsDto {
+  @ApiProperty()
+  repliesNeeded!: number;
+
+  @ApiProperty()
+  dueToday!: number;
+
+  @ApiProperty()
+  waitingOnOthers!: number;
 
   @ApiProperty()
   fyi!: number;
 
   @ApiProperty()
   total!: number;
+
+  @ApiProperty({ type: TodayFeedKpiCountsDto })
+  kpi!: TodayFeedKpiCountsDto;
 }
 
 export class TodayFeedResponseDto {
