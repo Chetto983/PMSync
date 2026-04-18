@@ -160,10 +160,15 @@ describe('useSnoozeFeedItem (snooze follow-up)', () => {
     });
   });
 
-  it('rejects snooze for non-follow-up items', async () => {
-    const item = mkItem({ taskSourceType: 'manual' });
+  it('PATCHes /tasks/{sourceType}/{id}/snooze for non-follow-up items (Plan 01 dispatcher)', async () => {
+    (apiClient.patch as jest.Mock).mockResolvedValue({ data: { success: true } });
+    const item = mkItem({ taskSourceType: 'manual', taskSourceId: 'm1' });
+    const until = new Date('2026-04-17T09:00:00Z');
     const { result } = renderHook(() => useSnoozeFeedItem(), { wrapper: createWrapper() });
-    await expect(result.current.mutateAsync({ item, until: new Date() })).rejects.toThrow();
+    await result.current.mutateAsync({ item, until });
+    expect(apiClient.patch).toHaveBeenCalledWith('/tasks/manual/m1/snooze', {
+      dueDate: until.toISOString(),
+    });
   });
 
   it('rejects snooze when canSnooze is false', async () => {
