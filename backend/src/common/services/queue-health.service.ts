@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
-import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import {
   getSharedRedisConnection,
@@ -70,6 +69,17 @@ export interface QueueMetrics {
  * - Prometheus-compatible metrics export
  * - Degradation detection
  *
+ * Implementation (D-05/D-06/D-07, Phase 146 Plan 05):
+ * - Does NOT instantiate BullMQ `Queue` objects for monitoring. Instead
+ *   reads BullMQ's internal Redis keys directly via a single pipeline
+ *   per queue (LLEN/ZCARD/HGET on `bull:{queueName}:{wait,active,
+ *   completed,failed,delayed,meta}`). This eliminates ~30 Queue objects
+ *   and their internal housekeeping (event listeners, Lua script loading).
+ * - Uses the shared BullMQ Redis connection via `getSharedRedisConnection()`;
+ *   no separate connection for monitoring.
+ * - Public API surface (QueueStatus, QueueHealthStatus, QueueMetrics
+ *   interfaces + all public methods) is preserved unchanged.
+ *
  * Usage:
  * ```typescript
  * // Get health status
@@ -80,7 +90,8 @@ export interface QueueMetrics {
 export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(QueueHealthService.name);
   private redisConnection: Redis;
-  private queues: Map<string, Queue> = new Map();
+  // D-05: Track queue names only — no Queue object instantiation
+  private queueNames: string[] = [];
 
   constructor(
     @Optional() @Inject(OpsAlertService) private readonly opsAlert?: OpsAlertService,
@@ -95,23 +106,13 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   };
 
   async onModuleInit() {
-    // Use shared Redis connection to prevent connection sprawl (AUDIT-03)
+    // D-06: Use shared BullMQ Redis connection for monitoring
     this.redisConnection = getSharedRedisConnection();
-
-    // Initialize queues for monitoring using shared connection
-    const queueNames = Object.values(QUEUE_NAMES);
-    for (const name of queueNames) {
-      try {
-        const queue = new Queue(name, {
-          connection: this.redisConnection,
-        });
-        this.queues.set(name, queue);
-      } catch (error) {
-        this.logger.warn(`Failed to initialize queue ${name} for monitoring: ${error}`);
-      }
-    }
-
-    this.logger.log(`Queue health monitoring initialized for ${this.queues.size} queues`);
+    // D-05: Store queue names only — no Queue objects needed
+    this.queueNames = Object.values(QUEUE_NAMES);
+    this.logger.log(
+      `Queue health monitoring initialized for ${this.queueNames.length} queues (direct Redis)`,
+    );
   }
 
   /**
@@ -185,32 +186,50 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get individual queue status
+   * Get individual queue status via direct Redis commands.
+   *
+   * BullMQ internal key patterns (verified from getCounts-1.lua + hexdocs):
+   *   bull:{queueName}:wait       -> LIST       -> LLEN
+   *   bull:{queueName}:active     -> LIST       -> LLEN
+   *   bull:{queueName}:completed  -> SORTED SET -> ZCARD
+   *   bull:{queueName}:failed     -> SORTED SET -> ZCARD
+   *   bull:{queueName}:delayed    -> SORTED SET -> ZCARD
+   *   bull:{queueName}:meta       -> HASH       -> HGET 'paused' (1/'1' = paused)
+   *
+   * Pipelined in a single round-trip per queue.
    */
   async getQueueStatus(queueName: string): Promise<QueueStatus | null> {
-    const queue = this.queues.get(queueName);
-    if (!queue) {
+    if (!this.queueNames.includes(queueName)) {
       return null;
     }
 
+    const prefix = `bull:${queueName}`;
     try {
-      const [waiting, active, completed, failed, delayed, isPaused] = await Promise.all([
-        queue.getWaitingCount(),
-        queue.getActiveCount(),
-        queue.getCompletedCount(),
-        queue.getFailedCount(),
-        queue.getDelayedCount(),
-        queue.isPaused(),
-      ]);
+      const pipeline = this.redisConnection.pipeline();
+      pipeline.llen(`${prefix}:wait`);       // [0] waiting
+      pipeline.llen(`${prefix}:active`);     // [1] active
+      pipeline.zcard(`${prefix}:completed`); // [2] completed
+      pipeline.zcard(`${prefix}:failed`);    // [3] failed
+      pipeline.zcard(`${prefix}:delayed`);   // [4] delayed
+      pipeline.hget(`${prefix}:meta`, 'paused'); // [5] paused state
+
+      const results = await pipeline.exec();
+      if (!results) return null;
+
+      // Pause detection: BullMQ stores paused state in meta hash.
+      // Redis HGET returns a string, but ioredis pipeline results can
+      // vary in type — defensive guard handles both integer and string.
+      const pausedValue = results[5]?.[1];
+      const paused = pausedValue === 1 || pausedValue === '1';
 
       return {
         name: queueName,
-        waiting,
-        active,
-        completed,
-        failed,
-        delayed,
-        paused: isPaused,
+        waiting: (results[0]?.[1] as number) || 0,
+        active: (results[1]?.[1] as number) || 0,
+        completed: (results[2]?.[1] as number) || 0,
+        failed: (results[3]?.[1] as number) || 0,
+        delayed: (results[4]?.[1] as number) || 0,
+        paused,
       };
     } catch (error) {
       this.logger.error(`Failed to get status for queue ${queueName}: ${error}`);
@@ -219,13 +238,20 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get all queue statuses
+   * Get all queue statuses in parallel.
+   *
+   * Each queue status is a single pipelined Redis round-trip, so
+   * running them concurrently via Promise.all means total wall time
+   * is dominated by the slowest queue rather than the sum of all.
    */
   async getQueueStatuses(): Promise<QueueStatus[]> {
     const statuses: QueueStatus[] = [];
 
-    for (const [name] of this.queues) {
-      const status = await this.getQueueStatus(name);
+    const results = await Promise.all(
+      this.queueNames.map((name) => this.getQueueStatus(name)),
+    );
+
+    for (const status of results) {
       if (status) {
         statuses.push(status);
       }
@@ -317,20 +343,11 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    this.logger.log('Closing queue health monitoring connections...');
+    this.logger.log('Closing queue health monitoring...');
 
-    // Close all queue connections
-    for (const [name, queue] of this.queues) {
-      try {
-        await queue.close();
-      } catch (error) {
-        this.logger.debug(`Failed to close queue ${name}: ${error}`);
-      }
-    }
-    this.queues.clear();
-
-    // Release shared Redis connection reference (AUDIT-03)
-    // Connection only closes when all references are released
+    // D-05: No Queue objects to close — just release the shared connection ref.
+    // Connection only closes when all references across the app are released.
+    this.queueNames = [];
     releaseSharedRedisConnection();
 
     this.logger.log('Queue health monitoring closed');
