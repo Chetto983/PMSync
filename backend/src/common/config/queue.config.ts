@@ -86,8 +86,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 2000, // 2s, 4s, 8s, 16s, 32s
     },
-    removeOnComplete: { count: 100, age: 3600 }, // Keep last 100 or 1 hour
-    removeOnFail: { count: 200 }, // Keep failed for analysis
+    removeOnComplete: true, // D-08: immediate removal — DLQ captures failures
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -100,8 +100,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 5000, // 5s, 10s, 20s
     },
-    removeOnComplete: true,
-    removeOnFail: { count: 100 },
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -114,8 +114,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 10000, // 10s, 20s
     },
-    removeOnComplete: true,
-    removeOnFail: true,
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -129,8 +129,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 1000, // 1s, 2s, 4s, 8s, 16s, 32s
     },
-    removeOnComplete: true,
-    removeOnFail: { count: 1000 }, // Keep more failures for debugging
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -143,8 +143,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 5000,
     },
-    removeOnComplete: { count: 50, age: 3600 },
-    removeOnFail: { count: 100 },
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -157,8 +157,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 2000,
     },
-    removeOnComplete: { count: 100, age: 3600 },
-    removeOnFail: { count: 200 },
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -171,8 +171,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 5000, // 5s, 10s, 20s
     },
-    removeOnComplete: { count: 100 },
-    removeOnFail: { count: 100 },
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -186,8 +186,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 5000, // 5s, 10s, 20s
     },
-    removeOnComplete: { count: 100 },
-    removeOnFail: { count: 100 },
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 
   /**
@@ -201,8 +201,8 @@ export const QUEUE_PRESETS = {
       type: 'exponential' as const,
       delay: 1000,
     },
-    removeOnComplete: { count: 10, age: 86400 }, // Keep 10 or 24h
-    removeOnFail: { count: 50 },
+    removeOnComplete: true, // D-08: immediate removal
+    removeOnFail: { count: 20 }, // D-09: keep last 20 for debugging
   },
 } as const;
 
