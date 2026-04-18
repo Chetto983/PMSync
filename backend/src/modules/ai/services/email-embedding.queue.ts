@@ -12,9 +12,12 @@ import { AlertingService } from '../../../common/services/alerting.service';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { isRateLimitError } from '../../../common/utils/error.utils';
 import {
-  getRedisConnectionOptions,
   getDefaultJobOptions,
+  getSharedRedisConnection,
+  getSharedWorkerConnection,
   QUEUE_NAMES,
+  releaseSharedRedisConnection,
+  releaseSharedWorkerConnection,
 } from '../../../common/config';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
@@ -80,21 +83,24 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
   }
 
   onModuleInit() {
+    // D-12: AI module-level toggle (HTTP-only when false)
+    const aiWorkersEnabled = this.config.get<string>('AI_WORKERS_ENABLED') || 'true';
+    if (aiWorkersEnabled.toLowerCase() === 'false') {
+      this.logger.warn('Email embedding workers disabled (AI_WORKERS_ENABLED=false)');
+      return;
+    }
+
     this.knowledgeBaseService = this.resolveKnowledgeBaseService();
 
-    // Use centralized Redis connection options (includes maxRetriesPerRequest: null for BullMQ)
-    // Override lazyConnect: false — BullMQ Worker.duplicate() inherits lazyConnect and may never connect
-    const connection = { ...getRedisConnectionOptions(), lazyConnect: false };
-
-    // Use centralized job defaults for AI embedding operations
+    // D-01/D-02: shared producer + worker connections
+    // D-09: no removeOnFail override — DLQ captures failures, preset is { count: 20 }
+    const producerConnection = getSharedRedisConnection();
+    const workerConnection = getSharedWorkerConnection();
     const jobDefaults = getDefaultJobOptions('AI_EMBEDDING');
 
     this.queue = new Queue<EmailEmbeddingJob>(QUEUE_NAMES.EMAIL_EMBEDDING, {
-      connection,
-      defaultJobOptions: {
-        ...jobDefaults,
-        removeOnFail: 1000, // Override: keep more for embedding debugging
-      },
+      connection: producerConnection,
+      defaultJobOptions: { ...jobDefaults },
     });
 
     this.worker = new Worker<EmailEmbeddingJob, boolean>(
@@ -122,7 +128,7 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
         }
       },
       {
-        connection,
+        connection: workerConnection,
         concurrency: this.WORKER_CONCURRENCY,
         limiter: {
           max: this.RATE_MAX,
@@ -187,6 +193,9 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
     }
+    // D-01: release refs only if init created queue/worker (else AI_WORKERS_ENABLED=false)
+    if (this.queue) releaseSharedRedisConnection();
+    if (this.worker) releaseSharedWorkerConnection();
   }
 
   async enqueue(job: EmailEmbeddingJob): Promise<void> {
