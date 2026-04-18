@@ -38,6 +38,11 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
   protected readonly workerName = 'email-sync';
   protected readonly envToggle = 'EMAIL_SYNC_WORKERS_ENABLED';
 
+  /** D-12: Module-level toggle — EMAIL_WORKERS_ENABLED=false disables all email workers. */
+  protected getModuleToggle(): string | null {
+    return 'EMAIL_WORKERS_ENABLED';
+  }
+
   // CRIT-2 FIX: Operation timeout configuration (prevents indefinite hangs)
   private readonly SYNC_TIMEOUT_MS: number;
   private readonly FOLDER_SYNC_TIMEOUT_MS = 60000; // 60 seconds for folder sync

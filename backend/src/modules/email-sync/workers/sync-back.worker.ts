@@ -38,6 +38,11 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
   protected readonly workerName = 'sync-back';
   protected readonly envToggle = 'SYNC_BACK_WORKERS_ENABLED';
 
+  /** D-12: Module-level toggle — EMAIL_WORKERS_ENABLED=false disables all email workers. */
+  protected getModuleToggle(): string | null {
+    return 'EMAIL_WORKERS_ENABLED';
+  }
+
   private readonly BATCH_SIZE = 50; // Max emails per API call
 
   constructor(

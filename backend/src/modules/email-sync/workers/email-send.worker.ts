@@ -38,6 +38,11 @@ export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobRe
   protected readonly workerName = 'email-send';
   protected readonly envToggle = 'EMAIL_SEND_WORKERS_ENABLED';
 
+  /** D-12: Module-level toggle — EMAIL_WORKERS_ENABLED=false disables all email workers. */
+  protected getModuleToggle(): string | null {
+    return 'EMAIL_WORKERS_ENABLED';
+  }
+
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,
