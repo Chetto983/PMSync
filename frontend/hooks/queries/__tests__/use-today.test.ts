@@ -41,10 +41,12 @@ function createWrapper() {
 const mkItem = (overrides: Partial<TodayFeedItem> = {}): TodayFeedItem => ({
   id: 'email_follow_up_fu1',
   type: 'email',
-  tier: 'urgent',
+  stream: 'replies-needed',
   score: 800,
   title: 'subj',
   subtitle: 'from',
+  routeUrl: '/dashboard/email/thread/t1',
+  rationale: null,
   dueAt: null,
   isOverdue: false,
   emailId: 'e1',
@@ -83,7 +85,14 @@ describe('useTodayFeed', () => {
       data: {
         data: {
           items: [],
-          counts: { urgent: 0, today: 0, fyi: 0, total: 0 },
+          counts: {
+            repliesNeeded: 0,
+            dueToday: 0,
+            waitingOnOthers: 0,
+            fyi: 0,
+            total: 0,
+            kpi: { inbox: 0, calendar: 0, deals: 0, tasks: 0 },
+          },
           greeting: null,
           generatedAt: 'x',
         },
@@ -98,7 +107,14 @@ describe('useTodayFeed', () => {
     (dashboardApi.getTodayFeed as jest.Mock).mockResolvedValue({
       data: {
         items: [mkItem()],
-        counts: { urgent: 1, today: 0, fyi: 0, total: 1 },
+        counts: {
+          repliesNeeded: 1,
+          dueToday: 0,
+          waitingOnOthers: 0,
+          fyi: 0,
+          total: 1,
+          kpi: { inbox: 0, calendar: 0, deals: 0, tasks: 0 },
+        },
         greeting: 'hi',
         generatedAt: 'y',
       },

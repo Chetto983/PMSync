@@ -154,6 +154,7 @@ function mkResponse(items: TodayFeedItem[]): TodayFeedResponse {
       total: items.length,
       kpi: { inbox: 0, calendar: 0, deals: 0, tasks: 0 },
     },
+    greeting: null,
     generatedAt: new Date().toISOString(),
   };
 }
