@@ -15,11 +15,14 @@
 
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, OnApplicationBootstrap } from '@nestjs/common';
 import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import {
-  getRedisConnectionOptions,
   getDefaultJobOptions,
+  getSharedRedisConnection,
+  getSharedWorkerConnection,
   QUEUE_NAMES,
+  releaseSharedRedisConnection,
+  releaseSharedWorkerConnection,
 } from '../config/queue.config';
 import { CorrelationContext } from '../services/correlation-context.service';
 
@@ -134,7 +137,8 @@ export type ScheduledJobHandler = (job: Job<ScheduledJobData>) => Promise<void>;
 @Injectable()
 export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy, OnApplicationBootstrap {
   private readonly logger = new Logger(ScheduledJobsQueueService.name);
-  private redisConnection: Redis;
+  private redisConnection: Redis | null = null;
+  private workerConnection: Redis | null = null;
   private queue: Queue<ScheduledJobData>;
   private worker: Worker<ScheduledJobData>;
 
@@ -142,8 +146,8 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
   private isInitialized = false;
 
   async onModuleInit() {
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    // D-01: use shared producer connection (was `new Redis(redisOptions)`)
+    this.redisConnection = getSharedRedisConnection();
 
     // Create queue for scheduled jobs
     this.queue = new Queue<ScheduledJobData>(QUEUE_NAMES.SYNC_SCHEDULER, {
@@ -170,14 +174,14 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
       return;
     }
 
-    // Create worker AFTER all modules have initialized (handlers registered)
-    // This fixes race condition where jobs were processed before handlers existed
-    const redisOptions = getRedisConnectionOptions();
+    // Create worker AFTER all modules have initialized (handlers registered).
+    // D-01/D-02: use shared worker connection (BullMQ duplicates internally for blocking client).
+    this.workerConnection = getSharedWorkerConnection();
     this.worker = new Worker<ScheduledJobData>(
       QUEUE_NAMES.SYNC_SCHEDULER,
       async (job) => this.processJob(job),
       {
-        connection: new Redis(redisOptions),
+        connection: this.workerConnection,
         concurrency: 1, // Process one scheduled job at a time
         lockDuration: 300000, // 5 minute lock (for long-running jobs)
       },
@@ -207,7 +211,15 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
   async onModuleDestroy() {
     await this.worker?.close();
     await this.queue?.close();
-    await this.redisConnection?.quit();
+    // D-01: release ref-counted shared connections instead of .quit()
+    if (this.redisConnection) {
+      releaseSharedRedisConnection();
+      this.redisConnection = null;
+    }
+    if (this.workerConnection) {
+      releaseSharedWorkerConnection();
+      this.workerConnection = null;
+    }
   }
 
   /**

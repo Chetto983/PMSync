@@ -4,12 +4,15 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import {
-  getRedisConnectionOptions,
-  QUEUE_NAMES,
+  getSharedRedisConnection,
+  getSharedWorkerConnection,
+  releaseSharedRedisConnection,
+  releaseSharedWorkerConnection,
   scaleForReplicas,
 } from '../../../../common/config/queue.config';
 
@@ -34,15 +37,28 @@ const QUEUE_NAME = 'sla-escalation';
 @Injectable()
 export class SlaTimerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SlaTimerService.name);
-  private queue: Queue<SlaEscalationJobData>;
-  private worker: Worker<SlaEscalationJobData>;
-  private redisConnection: Redis;
+  private queue: Queue<SlaEscalationJobData> | null = null;
+  private worker: Worker<SlaEscalationJobData> | null = null;
+  private redisConnection: Redis | null = null;
+  private workerConnection: Redis | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async onModuleInit(): Promise<void> {
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    // D-12: CRM module-level worker toggle. When CRM_WORKERS_ENABLED=false
+    // this instance serves HTTP only and does not consume SLA escalation jobs.
+    const crmWorkersEnabled =
+      this.configService.get<string>('CRM_WORKERS_ENABLED') || 'true';
+    if (crmWorkersEnabled.toLowerCase() === 'false') {
+      this.logger.warn('SLA timer workers disabled (CRM_WORKERS_ENABLED=false)');
+      return;
+    }
+
+    // D-01: use shared producer connection
+    this.redisConnection = getSharedRedisConnection();
 
     this.queue = new Queue<SlaEscalationJobData>(QUEUE_NAME, {
       connection: this.redisConnection,
@@ -54,11 +70,13 @@ export class SlaTimerService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
+    // D-01/D-02: use shared worker connection
+    this.workerConnection = getSharedWorkerConnection();
     this.worker = new Worker<SlaEscalationJobData>(
       QUEUE_NAME,
       (job) => this.processEscalation(job),
       {
-        connection: new Redis(redisOptions),
+        connection: this.workerConnection,
         concurrency: scaleForReplicas(5),
       },
     );
@@ -75,12 +93,15 @@ export class SlaTimerService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     if (this.worker) await this.worker.close();
     if (this.queue) await this.queue.close();
-    if (
-      this.redisConnection &&
-      this.redisConnection.status !== 'end' &&
-      this.redisConnection.status !== 'close'
-    ) {
-      await this.redisConnection.quit();
+    // D-01: release ref-counted shared connections instead of .quit().
+    // Guards handle CRM_WORKERS_ENABLED=false early return (no ref acquired).
+    if (this.redisConnection) {
+      releaseSharedRedisConnection();
+      this.redisConnection = null;
+    }
+    if (this.workerConnection) {
+      releaseSharedWorkerConnection();
+      this.workerConnection = null;
     }
   }
 
@@ -111,6 +132,15 @@ export class SlaTimerService implements OnModuleInit, OnModuleDestroy {
     // Remove any existing SLA job for this ticket (e.g. priority changed)
     await this.cancelForTicket(ticketId);
 
+    // D-12: when CRM_WORKERS_ENABLED=false the queue is null. Still return the
+    // policy/deadline so callers can persist slaDeadline for status reporting.
+    if (!this.queue) {
+      this.logger.debug(
+        `SLA queue unavailable (CRM workers disabled) — skipping escalation enqueue for ticket ${ticketId}`,
+      );
+      return { slaPolicyId: policy.id, slaDeadline };
+    }
+
     await this.queue.add(
       'sla-check',
       { ticketId, tenantId, slaPolicyId: policy.id },
@@ -131,6 +161,7 @@ export class SlaTimerService implements OnModuleInit, OnModuleDestroy {
    * Cancel SLA timer for a ticket (e.g. ticket resolved/closed).
    */
   async cancelForTicket(ticketId: string): Promise<void> {
+    if (!this.queue) return; // D-12: queue not initialized (CRM workers disabled)
     const jobId = `sla-${ticketId}`;
     const job = await this.queue.getJob(jobId);
     if (job) {

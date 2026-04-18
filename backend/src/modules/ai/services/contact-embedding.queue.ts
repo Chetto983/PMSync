@@ -8,9 +8,12 @@ import { AlertingService } from '../../../common/services/alerting.service';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { isRateLimitError } from '../../../common/utils/error.utils';
 import {
-  getRedisConnectionOptions,
   getDefaultJobOptions,
+  getSharedRedisConnection,
+  getSharedWorkerConnection,
   QUEUE_NAMES,
+  releaseSharedRedisConnection,
+  releaseSharedWorkerConnection,
 } from '../../../common/config';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
@@ -86,16 +89,32 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
   }
 
   onModuleInit() {
+    // D-12: AI module-level worker toggle. When AI_WORKERS_ENABLED=false this
+    // instance serves HTTP only and does not consume/produce embedding jobs.
+    const aiWorkersEnabled =
+      this.config.get<string>('AI_WORKERS_ENABLED') || 'true';
+    if (aiWorkersEnabled.toLowerCase() === 'false') {
+      this.logger.warn(
+        'Contact embedding workers disabled (AI_WORKERS_ENABLED=false)',
+      );
+      return;
+    }
+
     this.knowledgeBaseService = this.resolveKnowledgeBaseService();
 
-    const connection = { ...getRedisConnectionOptions(), lazyConnect: false };
+    // D-01: use shared producer connection (was per-instance options object).
+    // D-02: use shared worker connection (BullMQ duplicates internally).
+    const producerConnection = getSharedRedisConnection();
+    const workerConnection = getSharedWorkerConnection();
+
+    // D-09: removed `removeOnFail: 1000` override — DLQ captures permanent
+    // failures and the preset value ({ count: 20 }) is the phase-wide mandate.
     const jobDefaults = getDefaultJobOptions('AI_EMBEDDING');
 
     this.queue = new Queue<ContactEmbeddingJob>(QUEUE_NAMES.CONTACT_EMBEDDING, {
-      connection,
+      connection: producerConnection,
       defaultJobOptions: {
         ...jobDefaults,
-        removeOnFail: 1000,
       },
     });
 
@@ -131,7 +150,7 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
         }
       },
       {
-        connection,
+        connection: workerConnection,
         concurrency: this.WORKER_CONCURRENCY,
         limiter: {
           max: this.RATE_MAX,
@@ -186,6 +205,15 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
     await this.queue?.close();
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
+    }
+    // D-01: release ref-counted shared connections. The queue/worker presence
+    // acts as a guard for the AI_WORKERS_ENABLED=false early-return case —
+    // when init bailed out early neither was created and no refs were acquired.
+    if (this.queue) {
+      releaseSharedRedisConnection();
+    }
+    if (this.worker) {
+      releaseSharedWorkerConnection();
     }
   }
 
