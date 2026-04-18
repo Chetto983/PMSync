@@ -8,6 +8,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { FollowUpStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ManualTaskService } from './manual-task.service';
 import {
@@ -228,6 +229,80 @@ export class TasksAggregationService {
       }
       default:
         throw new BadRequestException('This task type cannot be dismissed');
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Snooze
+  // -------------------------------------------------------------------------
+
+  /**
+   * Snooze a task until a future `dueDate`.
+   *
+   * - `manual`    -> ManualTaskService.update
+   * - `follow_up` -> prisma.emailFollowUp.updateMany (tenant+user+status guard)
+   * - `reminder`  -> prisma.reminder.update after tenant check
+   * - `deal_action` / `ticket` -> BadRequestException (snooze not supported)
+   *
+   * Multi-tenant rule: every write includes `tenantId` in the where clause.
+   */
+  async snoozeTask(
+    tenantId: string,
+    userId: string,
+    sourceType: TaskSourceType,
+    sourceId: string,
+    dueDate: Date,
+  ): Promise<void> {
+    switch (sourceType) {
+      case 'manual': {
+        // ManualTaskService.update itself enforces tenant ownership via findOne.
+        await this.manualTaskService.update(tenantId, sourceId, {
+          dueDate: dueDate.toISOString(),
+        });
+        break;
+      }
+      case 'follow_up': {
+        const result = await this.prisma.emailFollowUp.updateMany({
+          where: {
+            id: sourceId,
+            tenantId,
+            userId,
+            status: {
+              in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED],
+            },
+          },
+          data: { dueDate, status: FollowUpStatus.PENDING, remindCount: 0 },
+        });
+        if (result.count === 0) {
+          throw new NotFoundException(
+            `Follow-up ${sourceId} not found or resolved`,
+          );
+        }
+        break;
+      }
+      case 'reminder': {
+        const record = await this.prisma.reminder.findUnique({
+          where: { id: sourceId },
+        });
+        if (!record || record.tenantId !== tenantId) {
+          throw new NotFoundException(`Reminder ${sourceId} not found`);
+        }
+        // Reminder model uses `scadenzaDatetime` (Italian for "due datetime"),
+        // not `dueDate`. The existing reminder normalizer / aggregation code
+        // maps this to the unified `dueDate` field externally.
+        await this.prisma.reminder.update({
+          where: { id: sourceId },
+          data: { scadenzaDatetime: dueDate },
+        });
+        break;
+      }
+      case 'deal_action':
+      case 'ticket':
+        throw new BadRequestException(
+          `Snooze not supported for source type: ${sourceType}`,
+        );
+      default:
+        throw new BadRequestException(`Unknown source type: ${sourceType}`);
     }
   }
 

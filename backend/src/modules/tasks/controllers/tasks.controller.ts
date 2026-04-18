@@ -25,6 +25,7 @@ import { CreateManualTaskDto } from '../dto/create-task.dto';
 import { UpdateManualTaskDto } from '../dto/update-task.dto';
 import { CreateSmartViewDto } from '../dto/create-smart-view.dto';
 import { UpdateSmartViewDto } from '../dto/update-smart-view.dto';
+import { SnoozeTaskDto } from '../dto/snooze-task.dto';
 import {
   TASK_SOURCE_TYPES,
   type TaskSourceType,
@@ -186,5 +187,45 @@ export class TasksController {
       id,
     );
     return { success: true };
+  }
+
+  /**
+   * Phase 145.1 — Snooze a task until a future date.
+   *
+   * Dispatches on `sourceType`:
+   *   - manual    -> ManualTaskService.update (dueDate passthrough)
+   *   - follow_up -> prisma.emailFollowUp.updateMany (tenant+user+status guard)
+   *   - reminder  -> prisma.reminder.update after tenant check
+   *   - deal_action / ticket -> BadRequestException (snooze not supported)
+   *
+   * Mirrors PATCH /ai/follow-ups/:id/snooze for parity. Both endpoints remain
+   * available — the follow-ups admin page still calls the /ai path, and the
+   * today dashboard will call /tasks/... for unified snooze.
+   */
+  @Patch(':sourceType/:id/snooze')
+  @RateTierDecorator('safe-write')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Snooze a task until a future date' })
+  async snooze(
+    @Req() req: AuthenticatedRequest,
+    @Param('sourceType') sourceType: TaskSourceType,
+    @Param('id') id: string,
+    @Body() dto: SnoozeTaskDto,
+  ) {
+    const dueDate = new Date(dto.dueDate);
+    if (isNaN(dueDate.getTime()) || dueDate.getTime() <= Date.now()) {
+      throw new BadRequestException('dueDate must be a valid future date');
+    }
+    if (!TASK_SOURCE_TYPES.includes(sourceType)) {
+      throw new BadRequestException(`Invalid source type: ${sourceType}`);
+    }
+    await this.aggregationService.snoozeTask(
+      req.user.tenantId,
+      req.user.id,
+      sourceType,
+      id,
+      dueDate,
+    );
+    return { success: true, dueDate: dueDate.toISOString() };
   }
 }

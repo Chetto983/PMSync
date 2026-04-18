@@ -128,7 +128,8 @@ describe('TasksController.snooze', () => {
     });
     expect(mockPrisma.reminder.update).toHaveBeenCalledWith({
       where: { id: 'rem-1' },
-      data: { dueDate: expect.any(Date) },
+      // Reminder model uses Italian field name `scadenzaDatetime`.
+      data: { scadenzaDatetime: expect.any(Date) },
     });
   });
 
