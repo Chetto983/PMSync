@@ -276,40 +276,49 @@ interface MfaTranslations {
 export interface TodayTranslations {
   title: string;
   subtitle: string;
-  greeting: string;
-  tiers: {
-    urgent: string;
-    today: string;
+  error: string;
+  greeting: {
+    morning: string;
+    afternoon: string;
+    evening: string;
+  };
+  stream: {
+    repliesNeeded: string;
+    dueToday: string;
+    waitingOnOthers: string;
     fyi: string;
   };
-  filters: {
-    all: string;
-    emails: string;
-    tasks: string;
+  kpi: {
+    inbox: string;
+    calendar: string;
     deals: string;
-    events: string;
+    tasks: string;
   };
-  toasts: {
-    completed: string;
-    dismissed: string;
-    snoozed: string;
-    undo: string;
+  actions: {
+    complete: string;
+    snooze: string;
+    dismiss: string;
+  };
+  snooze: {
+    quarterHour: string;
+    oneHour: string;
+    tonight: string;
+    tomorrow: string;
+    nextWeek: string;
+    custom: string;
   };
   empty: {
     title: string;
     body: string;
-    bodyClean: string;
   };
-  error: string;
-  snooze: {
-    oneHour: string;
-    tomorrow: string;
-    nextWeek: string;
-  };
-  aria: {
-    complete: string;
-    dismiss: string;
-    snooze: string;
+  toast: {
+    completed: string;
+    snoozed: string;
+    dismissed: string;
+    failed: string;
+    undo: string;
+    unsnooze: string;
+    retry: string;
   };
 }
 
