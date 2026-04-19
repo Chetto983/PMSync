@@ -47,6 +47,7 @@ export function Header({ onOpenSidebar }: PmSyncHeaderProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
+  const isAiOpen = useAiOverlay((s) => s.isOpen);
   const { data: session } = authClient.useSession();
   const user = session?.user as import('@/lib/auth-client').SessionUser | undefined;
   const t = useTranslations();
@@ -90,12 +91,16 @@ export function Header({ onOpenSidebar }: PmSyncHeaderProps) {
       position="static"
       elevation={0}
       sx={{
-        zIndex: (theme) => theme.zIndex.drawer + 1,
+        zIndex: (theme) =>
+          isAiOpen ? theme.zIndex.drawer - 1 : theme.zIndex.drawer + 1,
         backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.7),
         backdropFilter: 'blur(12px)',
         color: 'text.primary',
         borderBottom: 1,
         borderColor: (theme) => alpha(theme.palette.divider, 0.1),
+        opacity: isAiOpen ? 0 : 1,
+        pointerEvents: isAiOpen ? 'none' : 'auto',
+        transition: 'opacity 180ms ease',
       }}
     >
       <Toolbar sx={{ minHeight: 64, gap: 1 }}>

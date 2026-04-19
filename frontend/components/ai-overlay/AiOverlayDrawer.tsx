@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Drawer, Box, IconButton, Tooltip } from '@mui/material';
+import { Drawer, Box, IconButton, Tooltip, alpha } from '@mui/material';
 import { MessagesSquare } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAiOverlay } from '@/stores/ai-overlay-store';
@@ -65,6 +65,23 @@ export function AiOverlayDrawer() {
       keepMounted
       aria-label={t.ai.overlay.title}
       SlideProps={{ onEntered: handleEntered }}
+      sx={{
+        zIndex: (theme) => theme.zIndex.drawer + 4,
+      }}
+      ModalProps={{
+        keepMounted: true,
+        slotProps: {
+          backdrop: {
+            sx: (theme) => ({
+              backgroundColor:
+                theme.palette.mode === 'dark'
+                  ? alpha('#020617', 0.66)
+                  : alpha('#dbe7f3', 0.62),
+              backdropFilter: 'blur(12px)',
+            }),
+          },
+        },
+      }}
       PaperProps={{
         sx: {
           width,
@@ -77,6 +94,8 @@ export function AiOverlayDrawer() {
           background:
             'linear-gradient(180deg, color-mix(in srgb, var(--mui-palette-background-paper) 96%, white 4%) 0%, var(--mui-palette-background-paper) 100%)',
           boxShadow: '-18px 0 44px rgba(15, 23, 42, 0.14)',
+          borderTopLeftRadius: 24,
+          borderBottomLeftRadius: 24,
         },
       }}
     >
