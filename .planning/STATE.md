@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v12.0
-milestone_name: UX Unification — 4-Pillar Simplification
+milestone: v13.0
+milestone_name: Intelligent Triage & Memory Consolidation
 status: executing
-stopped_at: Phase 145 UI-SPEC approved
-last_updated: "2026-04-19T14:50:00.000Z"
+stopped_at: Phase 147 Plan 05 complete (plumbing-verified; awaits verifier + Railway smoke)
+last_updated: "2026-04-19T21:40:00.000Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 21
-  completed_plans: 16
-  percent: 76
+  total_plans: 26
+  completed_plans: 21
+  percent: 81
 ---
 
 # Project State
@@ -25,13 +25,14 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 ## Current Position
 
-Phase: 157 — PARTIAL complete
-Shipped: 157-01 (googleapis→scoped, −192 MB/replica), 157-02 (tenantCounters cleanup + 7-case Jest spec), 157-03 (Artillery v2 load-test rig)
-Deferred: 157-04 (baseline load-test execution — needs Railway `staging` + `backend-staging` + `-staging` Postgres; none exist as of 2026-04-19). 157-05 (HTTP/worker split — needs baseline from 157-04 + Railway dashboard work).
-Production health: backend deployment fe363ef5 is SUCCESS. Triage running clean, WebSocket auth succeeding, `/api/v1/ai/health` 200, zero googleapis-related runtime errors in live logs.
+Phase: 147 — Plan 05 complete (all 5 plans shipped at plumbing level)
+Shipped (Phase 147, v13.0): 147-01 (schema + helpers + corrections service), 147-02 (Prisma migration), 147-03 (promotion math + prompt rebalance + BullMQ queue), 147-04 (capture + override application + triageSource), 147-05 (admin endpoint + lane-correction forward-compat + plumbing spec)
+Previous (v12.0 trailing): Phase 157 PARTIAL — 157-01/02/03 shipped; 157-04/05 deferred pending Railway `staging`.
+Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 Plan 04 wiring live on prod; Plan 05 awaits next Railway deploy.
+Railway smoke test for Phase 147 feedback loop still OUTSTANDING (see 147-05-SUMMARY §Railway smoke test recommendation — required for real E2E confidence; plumbing spec only guards seams).
 Last activity: 2026-04-19
 
-Progress: [██████████] 100%
+Progress: [████████░░] 81%
 
 ## Performance Metrics
 
@@ -67,6 +68,11 @@ Progress: [██████████] 100%
 - [Phase 142]: CategoryChip in ThreadListItem indicators row and ExpandedMessage subject header for non-intrusive visibility
 - [Phase 0143]: Rule engine as typed array of SuggestionRule objects for declarative suggestion definitions
 - [Phase 0143]: Extracted SidebarSuggestionsSection to separate file to keep EntityContextSidebar under 500 lines
+- [Phase 147-05]: LANE_TO_ACTION placed in triage-override.service.ts next to ACTION_TO_LANE (both maps must stay inverse); forward-compat for Phase 148 lane_correction producers
+- [Phase 147-05]: RolesGuard applied at class level on triage-overrides.controller — safe because roles.guard.ts:40-42 treats missing @Roles as ALLOW; only the new @Roles('super-admin') endpoint is gated
+- [Phase 147-05]: Plumbing spec renamed .plumbing.spec.ts (W5 honesty) instead of .integration.spec.ts — every dep mocked, proves seam wiring NOT end-to-end behavior
+- [Phase 147-05]: Cache invalidation collects affected emailIds across all promoted patterns into a single invalidateCache call (fewer Prisma round-trips)
+- [Phase 147-05]: Plumbing spec reuses queue.config module-mock pattern from Plan 03 spec (not the plan's `(service as any).redis` stub — real service lazy-acquires via getRedis/getSharedRedisConnection)
 
 ### Roadmap Evolution
 
@@ -85,6 +91,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-04-16T18:25:20.723Z
-Stopped at: Phase 145 UI-SPEC approved
-Resume file: .planning/phases/145-smart-today-dashboard/145-UI-SPEC.md
+Last session: 2026-04-19T21:40:00.000Z
+Stopped at: Phase 147 Plan 05 complete (plumbing-verified; awaits verifier + Railway smoke)
+Resume file: .planning/phases/147-feedback-loop/147-05-SUMMARY.md
