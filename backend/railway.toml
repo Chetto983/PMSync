@@ -7,6 +7,7 @@ numReplicas = 2
 sleepApplication = false
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
-startCommand = "node dist/main"
+# startCommand intentionally omitted — Dockerfile.railway CMD runs `prisma migrate deploy && node dist/main`
+# so pending migrations are applied on every deploy (source of truth: single, the Dockerfile).
 healthcheckPath = "/health/live"
 healthcheckTimeout = 120
