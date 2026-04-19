@@ -4,14 +4,14 @@ milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: executing
 stopped_at: Phase 145 UI-SPEC approved
-last_updated: "2026-04-19T12:30:00.000Z"
+last_updated: "2026-04-19T14:05:00.000Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 21
-  completed_plans: 13
-  percent: 62
+  completed_plans: 14
+  percent: 67
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 157 — scale-to-1000-users (planned, ready to execute)
+**Current focus:** Phase 157 — scale-to-1000-users (Wave 1 complete, Wave 2 gated)
 
 ## Current Position
 
 Phase: 157
-Plan: Ready to execute (5 plans verified by gsd-plan-checker iteration 2)
-Status: Phase 146 live in production (2026-04-18); Phase 157 planned 2026-04-19
+Plan: Wave 1 complete (157-01 googleapis→scoped migration). Wave 2 gated pending user approval (157-02 attachment-metrics + 157-03 load-test rig).
+Status: Plan 157-01 merged to main 2026-04-19; backend tsc clean, googleapis removed, -192MB node_modules per replica.
 Last activity: 2026-04-19
 
 Progress: [██████████] 100%
