@@ -58,14 +58,27 @@ function ToolLoadingSkeleton() {
  * Inline error alert: renders when the message has error status.
  */
 function MessageErrorAlert() {
+  const t = useTranslations();
   const error = useMessageError();
   if (!error) return null;
 
-  const text = typeof error === 'string' ? error : 'An error occurred';
+  const rawText = typeof error === 'string'
+    ? error
+    : (error instanceof Error ? error.message : String(error));
+  const statusMatch = rawText.match(/\b(401|403|404|429|500|502|503|504)\b/);
+
   return (
-    <Alert severity="error" variant="outlined" sx={{ mt: 1, fontSize: '0.85rem' }}>
-      {text}
-    </Alert>
+    <div className="chat-system-card chat-system-card-error">
+      <div className="chat-system-card-header">
+        <span className="chat-system-card-title">{t.ai.overlay.errorGeneric}</span>
+        {statusMatch ? (
+          <span className="chat-system-card-badge">{statusMatch[1]}</span>
+        ) : null}
+      </div>
+      <Alert severity="error" variant="standard" sx={{ p: 0, fontSize: '0.84rem', bgcolor: 'transparent' }}>
+        {t.ai.overlay.errorConnection}
+      </Alert>
+    </div>
   );
 }
 

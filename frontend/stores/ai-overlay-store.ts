@@ -39,8 +39,20 @@ export const useAiOverlay = create<AiOverlayState>()(
       }),
       {
         name: 'pmsync:ai-overlay-width',
+        version: 2,
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({ width: state.width }),
+        migrate: (persistedState: unknown) => {
+          const state = persistedState as { width?: number } | undefined;
+          const nextWidth = state?.width ?? DEFAULT_WIDTH;
+
+          // Migrate legacy narrow widths from the old 420px default to the V2 workspace default.
+          if (nextWidth < 500) {
+            return { width: DEFAULT_WIDTH };
+          }
+
+          return { width: Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, nextWidth)) };
+        },
         // isOpen is NOT persisted -- always starts closed (per D-12)
       }
     ),

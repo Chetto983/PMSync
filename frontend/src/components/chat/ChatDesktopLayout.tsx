@@ -1,7 +1,9 @@
 'use client';
 
+import { ChatRailIntro } from './ChatRailIntro';
 import { ChatThreadList } from './ChatThreadList';
 import { ChatThread } from './ChatThread';
+import { ChatWorkspaceBanner } from './ChatWorkspaceBanner';
 
 /**
  * Desktop chat layout: conversation sidebar (300px) + thread (flex-1).
@@ -10,13 +12,19 @@ import { ChatThread } from './ChatThread';
 export function ChatDesktopLayout() {
   return (
     <div className="chat-desktop-layout h-full">
-      {/* Conversation sidebar */}
       <aside className="chat-desktop-sidebar">
-        <ChatThreadList />
+        <div className="chat-desktop-sidebar-shell">
+          <ChatRailIntro />
+          <ChatThreadList />
+        </div>
       </aside>
-      {/* Main thread area */}
       <section className="chat-desktop-thread">
-        <ChatThread />
+        <div className="chat-desktop-thread-shell">
+          <ChatWorkspaceBanner />
+          <div className="chat-desktop-thread-panel">
+            <ChatThread />
+          </div>
+        </div>
       </section>
     </div>
   );

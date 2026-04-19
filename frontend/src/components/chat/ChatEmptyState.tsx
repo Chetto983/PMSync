@@ -22,20 +22,19 @@ export function ChatEmptyState() {
 
   return (
     <div className="chat-empty-state">
-      {/* Icon */}
-      <div className="chat-empty-icon">
-        <Sparkles size={28} />
+      <div className="chat-empty-hero">
+        <div className="chat-empty-icon">
+          <Sparkles size={28} />
+        </div>
+        <span className="chat-empty-kicker">{t.ai.overlay.title}</span>
+        <h1 className="chat-empty-title">
+          {t.chat.emptyState.title}
+        </h1>
+        <p className="chat-empty-subtitle">
+          {t.chat.emptyState.subtitle}
+        </p>
       </div>
 
-      {/* Title */}
-      <h1 className="chat-empty-title">
-        {t.chat.emptyState.title}
-      </h1>
-      <p className="chat-empty-subtitle">
-        {t.chat.emptyState.subtitle}
-      </p>
-
-      {/* Clickable capability cards */}
       <div className="chat-capability-grid">
         <CapabilityCard
           icon={<Mail size={16} />}
@@ -55,6 +54,30 @@ export function ChatEmptyState() {
           label={t.chat.emptyState.capContacts ?? 'Find and manage contacts'}
           onClick={() => sendPrompt(t.chat.emptyState.capContactsPrompt ?? 'Who are my most recent contacts?')}
         />
+      </div>
+
+      <div className="chat-empty-prompt-strip">
+        <button
+          type="button"
+          className="chat-empty-prompt-pill"
+          onClick={() => sendPrompt(t.chat.suggestions.todaySchedulePrompt)}
+        >
+          {t.chat.suggestions.todayScheduleLabel}
+        </button>
+        <button
+          type="button"
+          className="chat-empty-prompt-pill"
+          onClick={() => sendPrompt(t.chat.suggestions.triagePrompt)}
+        >
+          {t.chat.suggestions.triageLabel}
+        </button>
+        <button
+          type="button"
+          className="chat-empty-prompt-pill"
+          onClick={() => sendPrompt(t.chat.suggestions.briefingPrompt)}
+        >
+          {t.chat.suggestions.briefingLabel}
+        </button>
       </div>
     </div>
   );

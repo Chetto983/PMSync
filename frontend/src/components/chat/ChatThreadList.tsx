@@ -254,9 +254,7 @@ export function ChatThreadList() {
   return (
     <SelectionContext.Provider value={ctxValue}>
       <ThreadListPrimitive.Root className="chat-sidebar-root">
-        {/* Header */}
         <div className="chat-sidebar-header">
-          {/* Select-all checkbox */}
           <span
             className="chat-sidebar-select-all"
             onClick={(e) => e.stopPropagation()}
@@ -324,8 +322,10 @@ export function ChatThreadList() {
           )}
         </div>
 
-        {/* Thread items */}
         <div className="chat-sidebar-scroll">
+          <div className="chat-sidebar-section-label">
+            {t.chat.threadList.title}
+          </div>
           <ThreadListPrimitive.Items
             components={{ ThreadListItem }}
           />
