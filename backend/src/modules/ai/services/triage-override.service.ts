@@ -34,12 +34,19 @@ const VALID_ACTIONS: OverrideAction[] = [
   'always-customer-vip',
 ];
 
-const ACTION_TO_LANE: Record<string, string | undefined> = {
+export const ACTION_TO_LANE: Record<string, string | undefined> = {
   'always-important': 'action-now',
   'always-review-later': 'review-later',
   'always-system-alert': 'system-alerts',
   'always-customer-vip': 'customer-vip',
 };
+
+// Phase 147 D-07: muting actions skip the LLM call entirely. never-follow-up
+// additionally suppresses the post-triage follow-up creation.
+export const MUTING_ACTIONS: ReadonlySet<string> = new Set([
+  'always-system-alert',
+  'never-follow-up',
+]);
 
 const MAX_OVERRIDES_PER_TENANT = 100;
 

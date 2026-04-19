@@ -18,6 +18,7 @@ import { LabelResolutionService, type TenantLabel } from './label-resolution.ser
 import { TriageScoreService } from './triage-score.service';
 import { LaneAssignmentService } from './lane-assignment.service';
 import { TriageCorrectionService, type FewShotExample } from './triage-correction.service';
+import { MUTING_ACTIONS, ACTION_TO_LANE } from './triage-override.service';
 
 type LocaleKey = 'en' | 'it';
 
@@ -31,8 +32,12 @@ export interface AnalyzeEmailUnifiedOptions {
   labelDefsOverride?: TenantLabel[];
   persist?: boolean;
   bypassCache?: boolean;
-  /** Phase 147 D-07: visible-override hint injected into system prompt (Wave 4 wires). */
+  /** Phase 147 D-07: visible-override hint injected into system prompt. */
   overrideHint?: string | null;
+  /** Phase 147 D-07/D-08: the matched visible-override action — used to force-set the
+   *  final lane after the LLM call and to tag triageSource='llm+rule' on persist.
+   *  Null when no override matched (pure-LLM path → triageSource='llm'). */
+  matchedOverrideAction?: string | null;
 }
 
 @Injectable()
@@ -207,6 +212,21 @@ export class EmailAnalysisService {
         locale: lang,
       });
 
+      // Phase 147 D-07/D-08: visible-override lane enforcement + triageSource tagging.
+      // Muting overrides short-circuit BEFORE this method is called (in EmailTriageService),
+      // so the only override case we see here is a VISIBLE one that ran the LLM.
+      let triageSource: 'llm' | 'rule' | 'llm+rule' = 'llm';
+      if (
+        options?.matchedOverrideAction &&
+        !MUTING_ACTIONS.has(options.matchedOverrideAction)
+      ) {
+        const forcedLane = ACTION_TO_LANE[options.matchedOverrideAction];
+        if (forcedLane) {
+          result.lane = forcedLane;
+          triageSource = 'llm+rule';
+        }
+      }
+
       const analysisData = {
         priority: this.mapPriorityToEnum(result.priority),
         category: this.mapIntentToCategory(result.intent),
@@ -215,6 +235,7 @@ export class EmailAnalysisService {
         hasDeadline: result.hasDeadline, deadlineDate: result.deadlineDate, needsFollowUp: result.needsFollowUp,
         followUpDate: result.followUpDate,
         lane: result.lane, intent: result.intent, actionability: result.actionability,
+        triageSource,
         suggestedActions: {
           locale: lang, smartReplies: result.smartReplies, intent: result.intent, urgency: result.urgency,
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,

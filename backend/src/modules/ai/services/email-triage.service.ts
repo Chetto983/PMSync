@@ -22,6 +22,7 @@ import { SubscriptionService } from '../../subscription/services/subscription.se
 import { TriageActionService } from './triage-action.service';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { CrmSuggestionTriggerService } from '../../crm/suggestion/services/crm-suggestion-trigger.service';
+import { TriageOverrideService, MUTING_ACTIONS, ACTION_TO_LANE } from './triage-override.service';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 20;
@@ -122,6 +123,7 @@ export class EmailTriageService implements OnModuleInit {
     private readonly redisConnection: RedisConnectionService,
     @Optional() private readonly triageActionService?: TriageActionService,
     @Optional() private readonly crmSuggestionTrigger?: CrmSuggestionTriggerService,
+    @Optional() private readonly triageOverrideService?: TriageOverrideService,
   ) {}
 
   onModuleInit() {
@@ -267,13 +269,92 @@ export class EmailTriageService implements OnModuleInit {
     const { tenantId, locale } = options;
 
     try {
+      // Phase 147 D-07: override application BEFORE the LLM call.
+      let overrideHint: string | null = null;
+      let matchedOverrideAction: string | null = null;
+      let suppressFollowUp = false;
+
+      if (this.triageOverrideService) {
+        const emailShape = await this.prisma.email.findFirst({
+          where: { id: emailId, tenantId },
+          select: { from: true, threadId: true, subject: true },
+        });
+
+        if (emailShape?.from) {
+          const or = await this.triageOverrideService.applyOverrides(tenantId, {
+            from: emailShape.from,
+            threadId: emailShape.threadId,
+          });
+
+          if (or.matched && or.override) {
+            matchedOverrideAction = or.override.action;
+            suppressFollowUp = Boolean(or.suppressFollowUp);
+
+            if (MUTING_ACTIONS.has(or.override.action)) {
+              // D-07 muting short-circuit: write straight to DB, skip LLM entirely.
+              const now = new Date();
+              const mutingLane = ACTION_TO_LANE[or.override.action] ?? 'system-alerts';
+              await this.prisma.email.updateMany({
+                where: { id: emailId, tenantId },
+                data: {
+                  aiLane: mutingLane,
+                  aiLabels: [],
+                  isAutoTriaged: true,
+                  autoTriagedAt: now,
+                },
+              });
+              // D-08: record triageSource='rule' on EmailAnalysis.
+              // Required-no-default fields (emailId, tenantId) + Phase 147 provenance;
+              // every other required column falls back to schema defaults.
+              await this.prisma.emailAnalysis.upsert({
+                where: { emailId_tenantId: { emailId, tenantId } },
+                update: {
+                  triageSource: 'rule',
+                  lane: mutingLane,
+                  processedAt: now,
+                  modelUsed: 'rule',
+                  summary: null,
+                  keyPoints: [],
+                  suggestedActions: [],
+                },
+                create: {
+                  emailId,
+                  tenantId,
+                  triageSource: 'rule',
+                  lane: mutingLane,
+                  processedAt: now,
+                  modelUsed: 'rule',
+                },
+              });
+              this.logger.log(
+                `Muting override short-circuit: ${or.override.pattern} -> ${or.override.action} (email=${emailId})`,
+              );
+              return {
+                emailId,
+                success: true,
+                aiPriority: undefined,
+                aiLabels: [],
+                lane: mutingLane,
+              };
+            }
+            // D-07 visible override: run LLM with hint, lane-forcing happens after parse
+            // inside EmailAnalysisService (via matchedOverrideAction passthrough).
+            overrideHint = `From ${or.override.pattern}: user has marked as ${or.override.action} — honor this`;
+          }
+        }
+      }
+
       // UNIFIED ANALYSIS: Single LLM call for all insights
       // analyzeEmailUnified() also saves to EmailAnalysis + Email tables
       const analysis = await this.emailInsights.analyzeEmailUnified(
         tenantId,
         emailId,
         locale,
-        { includeSmartReplies: false }, // Skip smart replies for triage
+        {
+          includeSmartReplies: false,
+          overrideHint,
+          matchedOverrideAction,
+        },
       );
 
       this.logger.debug(
@@ -281,7 +362,8 @@ export class EmailTriageService implements OnModuleInit {
       );
 
       // Post-triage hooks: fetch email metadata once for all hooks
-      const needsFollowUp = this.triageActionService && (
+      // Phase 147 D-07: suppress follow-up when never-follow-up override matched.
+      const needsFollowUp = !suppressFollowUp && this.triageActionService && (
         analysis.actionability === 'todo' || analysis.actionability === 'waiting' ||
         analysis.needsFollowUp || analysis.hasDeadline
       );
