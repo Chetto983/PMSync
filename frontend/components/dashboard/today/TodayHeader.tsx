@@ -17,6 +17,7 @@ import { Mail, Calendar, Briefcase, CheckSquare } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
 import type { TodayFeedCounts } from '@/lib/api/dashboard';
+import { pmSyncColors } from '@/theme/appTheme';
 import { TodayKpiChip } from './TodayKpiChip';
 
 interface Props {
@@ -69,6 +70,7 @@ export function TodayHeader({ counts, loading }: Props) {
           label={t.dashboard.today.kpi.inbox}
           href="/dashboard/email"
           loading={loading}
+          color={pmSyncColors.semantic.email}
         />
         <TodayKpiChip
           icon={Calendar}
@@ -76,6 +78,7 @@ export function TodayHeader({ counts, loading }: Props) {
           label={t.dashboard.today.kpi.calendar}
           href="/dashboard/calendar"
           loading={loading}
+          color={pmSyncColors.semantic.calendar}
         />
         <TodayKpiChip
           icon={Briefcase}
@@ -83,6 +86,7 @@ export function TodayHeader({ counts, loading }: Props) {
           label={t.dashboard.today.kpi.deals}
           href="/dashboard/crm/deals"
           loading={loading}
+          color={pmSyncColors.semantic.contacts}
         />
         <TodayKpiChip
           icon={CheckSquare}
@@ -90,6 +94,7 @@ export function TodayHeader({ counts, loading }: Props) {
           label={t.dashboard.today.kpi.tasks}
           href="/dashboard/tasks"
           loading={loading}
+          color={pmSyncColors.semantic.tasks}
         />
       </Stack>
     </Stack>
