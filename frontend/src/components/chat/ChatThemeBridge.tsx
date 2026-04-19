@@ -106,7 +106,16 @@ export function ChatThemeBridge({ children }: ChatThemeBridgeProps) {
   }, [theme, isDark]);
 
   return (
-    <div style={{ ...cssVars, height: '100%' }}>
+    <div
+      style={{
+        ...cssVars,
+        height: '100%',
+        display: 'flex',
+        flex: '1 1 0%',
+        minHeight: 0,
+        minWidth: 0,
+      }}
+    >
       {children}
     </div>
   );

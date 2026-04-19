@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuiState } from '@assistant-ui/store';
 import { ChatRailIntro } from './ChatRailIntro';
 import { ChatThreadList } from './ChatThreadList';
 import { ChatThread } from './ChatThread';
@@ -10,6 +11,8 @@ import { ChatWorkspaceBanner } from './ChatWorkspaceBanner';
  * Visible only at md breakpoint and above (hidden on mobile).
  */
 export function ChatDesktopLayout() {
+  const hasMessages = useAuiState((s) => s.thread.messages.length > 0);
+
   return (
     <div className="chat-desktop-layout h-full">
       <aside className="chat-desktop-sidebar">
@@ -20,7 +23,7 @@ export function ChatDesktopLayout() {
       </aside>
       <section className="chat-desktop-thread">
         <div className="chat-desktop-thread-shell">
-          <ChatWorkspaceBanner />
+          {!hasMessages ? <ChatWorkspaceBanner /> : null}
           <div className="chat-desktop-thread-panel">
             <ChatThread />
           </div>
