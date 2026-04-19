@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { google } from 'googleapis';
+import { gmail as gmailFactory } from '@googleapis/gmail';
+import { OAuth2Client } from 'google-auth-library';
 import type { EmailSyncOperation } from '../types/sync-back.types';
 
 /**
@@ -81,9 +82,9 @@ export class GmailSyncBackService {
    * Sync a single operation to Gmail
    */
   async syncToGmail(operation: EmailSyncOperation, accessToken: string): Promise<void> {
-    const auth = new google.auth.OAuth2();
+    const auth = new OAuth2Client();
     auth.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth });
+    const gmail = gmailFactory({ version: 'v1', auth });
 
     switch (operation.operation) {
       case 'delete': {
@@ -297,9 +298,9 @@ export class GmailSyncBackService {
   ): Promise<void> {
     if (!ops.length) return;
 
-    const auth = new google.auth.OAuth2();
+    const auth = new OAuth2Client();
     auth.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth });
+    const gmail = gmailFactory({ version: 'v1', auth });
 
     const hardDeleteIds: string[] = [];
     const markReadIds: string[] = [];

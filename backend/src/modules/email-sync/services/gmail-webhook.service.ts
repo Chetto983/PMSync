@@ -10,7 +10,7 @@ import {
   CreateWebhookOptions,
 } from '../interfaces/webhook.interface';
 import { SyncJobData } from '../interfaces/sync-job.interface';
-import { google, gmail_v1 } from 'googleapis';
+import { gmail as gmailFactory, gmail_v1 } from '@googleapis/gmail';
 import { OAuth2Client } from 'google-auth-library';
 import { ProviderTokenService } from './provider-token.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
@@ -325,7 +325,7 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
       );
 
       // Initialize Gmail API client with fresh token
-      const oauth2Client = new google.auth.OAuth2(
+      const oauth2Client = new OAuth2Client(
         this.configService.get<string>('GMAIL_CLIENT_ID'),
         this.configService.get<string>('GMAIL_CLIENT_SECRET'),
       );
@@ -334,7 +334,7 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
         access_token: accessToken,
       });
 
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
       const configuredLabels = this.configService.get<string>('GMAIL_WATCH_LABELS');
       const requestBody: gmail_v1.Schema$WatchRequest = {
@@ -520,7 +520,7 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
       const accessToken = await this.getFreshAccessToken(providerId);
 
       // Initialize Gmail API client with fresh token
-      const oauth2Client = new google.auth.OAuth2(
+      const oauth2Client = new OAuth2Client(
         this.configService.get<string>('GMAIL_CLIENT_ID'),
         this.configService.get<string>('GMAIL_CLIENT_SECRET'),
       );
@@ -529,7 +529,7 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
         access_token: accessToken,
       });
 
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
       // Call Gmail stop() API
       await gmail.users.stop({ userId: 'me' });
