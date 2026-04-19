@@ -302,13 +302,18 @@ Plans:
 **Depends on:** Phase 146 (provides `WORKERS_ENABLED` + module toggles required for replica split)
 **Plans:** TBD (planning pending)
 
-Scope outline (refine during `/gsd-plan-phase 157`):
+Scope outline (corrected 2026-04-19 post-research — original ROADMAP draft had 3 errors, see 157-RESEARCH.md):
 
-- Load test rig (k6 or artillery) with 100/500/1000 sim-user ramps; records per-user RAM slope + p95 latency
-- Bound leaky in-memory Maps: `attachment-metrics.service.ts` (4 Maps), `microsoft-message.service.ts` (2 caches); use `lru-cache` already in deps
-- Replace full `googleapis` (~195 MB) with scoped `@googleapis/gmail` + `@googleapis/calendar`; target −80–100 MB/replica
-- Railway topology: 2× HTTP-only replicas (`WORKERS_ENABLED=false`) + 1× worker-only replica (`WORKERS_ENABLED=true`); document in infra runbook
-- Acceptance gate: 1000-user load test sustains p95 < 500 ms on HTTP replicas with RAM stable below 3 GB each
+Execute in this risk-ordered sequence (NOT original ROADMAP order):
+
+1. **googleapis de-bundle** — replace full `googleapis` (199.6 MB unpacked, verified) with scoped `@googleapis/gmail` + `@googleapis/calendar` + `@googleapis/people`. Install `google-auth-library` directly for `OAuth2Client`. Target: **−197 MB per replica** (not −80–100 as originally estimated). ~15 call sites to migrate. CommonJS tsconfig = no tree-shaking, scoped packages are the only fix.
+2. **Bound attachment-metrics Maps** — `attachment-metrics.service.ts` has 4 unbounded `Map`s (counters, bytes, latencies, tenantCounters). Install `lru-cache@^11` as a NEW direct dep (it's only transitive today), OR reuse existing custom `TtlMap` from `microsoft.driver.ts:46-80`. Note: `microsoft-message.service.ts` caches are NOT leaky (owned by `Scope.TRANSIENT` driver with 5-min TtlMap) — original ROADMAP was wrong; that item is struck.
+3. **Artillery load-test rig + baseline** — install `artillery@^2` with native `socketio-v3` engine; HTTP + Socket.IO + BullMQ-triggered scenarios at 100/500/1000 VU ramps. Run baseline on CURRENT topology FIRST to establish real p95 and per-user RAM slope. (k6 rejected — cannot test Socket.IO at protocol level. Verified via Socket.IO docs + k6 issue #3097.)
+4. **Railway topology split — LAST** — Railway env vars apply uniformly to all replicas of a service, so this requires TWO services (`backend-http` with `WORKERS_ENABLED=false`, 2 replicas; `backend-worker` with `WORKERS_ENABLED=true`, 1 replica) — NOT two replicas of one service. Migration ownership: override `startCommand` in `railway.worker.toml` to run `prisma migrate deploy` exclusively on worker; `railway.http.toml` boots app only. Only commit to this after baseline load-test confirms the split is warranted.
+
+Acceptance gate (aspirational — no baseline exists yet): 1000-user Artillery scenario sustains p95 < 500 ms on HTTP replicas with RAM stable below 3 GB each. Baseline measurement in step 3 will validate or revise this target.
+
+Proposed requirement IDs: SCALE-01 (googleapis), SCALE-02 (LRU attachment-metrics), SCALE-04 (Artillery rig), SCALE-05 (baseline), SCALE-06 (topology split). SCALE-03 (microsoft caches) struck.
 
 ### v13.0 — Intelligent Triage & Memory Consolidation (Next)
 

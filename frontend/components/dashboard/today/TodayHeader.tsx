@@ -1,11 +1,8 @@
 /**
- * TodayHeader — Greeting + localized date + 4 KPI chip strip (145.1-03).
+ * TodayHeader — page framing + localized date + 4 KPI chip strip.
  *
- * H1 24px greeting (morning/afternoon/evening via hour bucket) + H2 14px date-fns
- * localized date + 4 KPI chips with hrefs to the pillar destinations.
- *
- * Greeting/date are inert Typography per UI-SPEC §Click targets (no handlers, no
- * anchor role). Only KPI chips are interactive.
+ * Keeps the time-based greeting as secondary context, but promotes the Today page
+ * title/subtitle so the view reads like a command surface instead of a greeting card.
  */
 
 'use client';
@@ -40,22 +37,46 @@ export function TodayHeader({ counts, loading }: Props) {
     locale: locale === 'it' ? itLocale : enUS,
   });
   return (
-    <Stack spacing={1.5} component="header">
+    <Stack spacing={2} component="header">
       <Box>
         <Typography
           sx={{
-            fontSize: 24,
-            fontWeight: 600,
-            lineHeight: 1.2,
-            color: 'text.primary',
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: pmSyncColors.brand.cyanVibrant,
           }}
         >
           {greeting}
         </Typography>
         <Typography
+          component="h1"
+          sx={{
+            mt: 0.75,
+            fontSize: { xs: 30, md: 34 },
+            fontWeight: 600,
+            lineHeight: 1.1,
+            color: 'text.primary',
+          }}
+        >
+          {t.dashboard.today.title}
+        </Typography>
+        <Typography
+          sx={{
+            mt: 0.75,
+            fontSize: 15,
+            fontWeight: 400,
+            lineHeight: 1.5,
+            color: 'text.secondary',
+          }}
+        >
+          {t.dashboard.today.subtitle}
+        </Typography>
+        <Typography
           sx={{
             fontSize: 14,
-            fontWeight: 400,
+            fontWeight: 500,
             lineHeight: 1.5,
             color: 'text.secondary',
           }}

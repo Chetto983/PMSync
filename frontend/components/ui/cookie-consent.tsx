@@ -76,23 +76,23 @@ export function CookieConsent() {
       sx={{
         position: 'fixed',
         bottom: 0,
-        left: 0,
+        left: { xs: 0, sm: 'auto' },
         right: 0,
         zIndex: 9999,
         p: { xs: 1, sm: 2 },
         display: 'flex',
-        justifyContent: 'center',
+        justifyContent: { xs: 'center', sm: 'flex-end' },
         pointerEvents: 'none',
       }}
     >
       <Paper
         elevation={8}
         sx={{
-          maxWidth: { xs: '100%', sm: 600 },
+          maxWidth: { xs: '100%', sm: 420 },
           width: '100%',
           p: { xs: 2, sm: 3 },
           pointerEvents: 'auto',
-          borderRadius: { xs: 0, sm: 2 },
+          borderRadius: { xs: 2, sm: 3 },
           border: 1,
           borderColor: 'divider',
         }}

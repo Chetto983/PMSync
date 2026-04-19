@@ -1,14 +1,8 @@
 /**
- * TodayKpiChip — outlined anchor-chip for the TodayHeader KPI strip (145.1-03).
+ * TodayKpiChip — readable anchor-chip for the TodayHeader KPI strip.
  *
- * Uses `component="a" href` so Cmd/Ctrl/middle-click opens in a new tab natively
- * (fixes WR-06 for chips). Hover transition collapses under prefers-reduced-motion
- * per UI-SPEC §Accessibility.
- *
- * Optional `color` prop (added in 145.1-06) accepts a theme-native semantic token
- * and drives icon color + outline + 8% tinted background (16% on hover). Omitting
- * `color` preserves the original neutral grayscale rendering so existing tests and
- * consumers remain unaffected.
+ * The chip keeps the icon affordance, but shows a visible text label so the strip
+ * can be scanned without relying on icon recall alone.
  */
 
 'use client';
@@ -31,12 +25,10 @@ interface Props {
 }
 
 export function TodayKpiChip({ icon: Icon, count, secondary, label, href, loading, color }: Props) {
-  if (loading) return <Skeleton variant="rounded" width={72} height={32} />;
-  // Tint alpha suffixes follow the MUI-idiomatic pattern used elsewhere in the
-  // codebase (e.g. crm-deals/KanbanBoard uses `stage.color + '14'`). 14 hex = ~8%
-  // alpha, 29 hex = ~16% alpha — subtle enough to stay legible on both themes.
+  if (loading) return <Skeleton variant="rounded" width={132} height={36} />;
   const tintedBg = color ? `${color}14` : undefined;
   const tintedBgHover = color ? `${color}29` : undefined;
+  const countBg = color ? `${color}20` : 'action.hover';
   return (
     <Chip
       component="a"
@@ -47,32 +39,63 @@ export function TodayKpiChip({ icon: Icon, count, secondary, label, href, loadin
       aria-label={label}
       icon={<Icon size={16} aria-hidden />}
       label={
-        <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5 }}>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
           <Typography
             component="span"
             sx={{
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 600,
               color: 'text.primary',
-              fontVariantNumeric: 'tabular-nums',
+              lineHeight: 1.2,
             }}
           >
-            {count}
+            {label}
           </Typography>
+          <Box
+            component="span"
+            sx={{
+              minWidth: 22,
+              px: 0.75,
+              py: 0.125,
+              borderRadius: '999px',
+              bgcolor: countBg,
+            }}
+          >
+            <Typography
+              component="span"
+              sx={{
+                display: 'block',
+                textAlign: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+                color: color ?? 'text.primary',
+                fontVariantNumeric: 'tabular-nums',
+                lineHeight: 1.35,
+              }}
+            >
+              {count}
+            </Typography>
+          </Box>
           {secondary && (
-            <Typography component="span" sx={{ fontSize: 12, color: 'primary.main' }}>
-              · {secondary}
+            <Typography
+              component="span"
+              sx={{
+                fontSize: 12,
+                color: 'primary.main',
+                lineHeight: 1.2,
+              }}
+            >
+              {secondary}
             </Typography>
           )}
         </Box>
       }
       sx={{
-        height: 32,
-        px: 0.5,
+        height: 36,
+        px: 0.75,
         bgcolor: tintedBg,
         borderColor: color ? color : undefined,
         transition: 'all 150ms ease-out',
-        // Reduced-motion fallback per UI-SPEC §Accessibility line 221.
         '@media (prefers-reduced-motion: reduce)': {
           transition: 'none',
         },
@@ -86,8 +109,6 @@ export function TodayKpiChip({ icon: Icon, count, secondary, label, href, loadin
           outlineColor: color ? color : 'primary.main',
           outlineOffset: 2,
         },
-        // Scope the icon wrapper so the semantic color wins over theme defaults.
-        // MuiChip-icon is MUI v7's public class for the Chip icon slot.
         '& .MuiChip-icon': color ? { color } : undefined,
       }}
     />

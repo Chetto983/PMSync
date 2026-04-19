@@ -1,9 +1,8 @@
 /**
- * TodayEmptyState RTL spec (145.1-05 v2 rewrite).
+ * TodayEmptyState RTL spec.
  *
- * Verifies the inbox-zero celebration card: translated title/body, decorative
- * emoji with aria-hidden, and no interactive controls. Replaces the Wave-0
- * `nextItem` preview variant which was removed in Plan 03's rewrite.
+ * Verifies the translated empty state copy, decorative icon wrapper, and the
+ * quick links that keep the page useful even when the feed is empty.
  */
 
 import React from 'react';
@@ -13,6 +12,11 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 jest.mock('@/lib/hooks/use-translations', () => ({
   useTranslations: () => ({
     dashboard: { today: { empty: { title: 'Inbox zero.', body: 'Take the afternoon off.' } } },
+    nav: {
+      mail: 'Mail',
+      calendar: 'Calendar',
+      tasks: 'Tasks',
+    },
   }),
 }));
 
@@ -29,14 +33,15 @@ describe('TodayEmptyState', () => {
     expect(screen.getByText('Take the afternoon off.')).toBeInTheDocument();
   });
 
-  it('contains the decorative emoji with aria-hidden', () => {
+  it('contains the decorative icon container with aria-hidden', () => {
     renderWithTheme(<TodayEmptyState />);
-    expect(screen.getByText('✨')).toHaveAttribute('aria-hidden');
+    expect(screen.getByTestId('today-empty-icon')).toHaveAttribute('aria-hidden');
   });
 
-  it('renders no call-to-action buttons or links', () => {
+  it('renders quick links into the main work pillars', () => {
     renderWithTheme(<TodayEmptyState />);
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mail' })).toHaveAttribute('href', '/dashboard/email');
+    expect(screen.getByRole('link', { name: 'Calendar' })).toHaveAttribute('href', '/dashboard/calendar');
+    expect(screen.getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '/dashboard/tasks');
   });
 });

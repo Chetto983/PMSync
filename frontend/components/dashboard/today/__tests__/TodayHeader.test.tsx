@@ -14,6 +14,8 @@ jest.mock('@/lib/hooks/use-translations', () => ({
   useTranslations: () => ({
     dashboard: {
       today: {
+        title: 'Today',
+        subtitle: 'What needs your attention',
         greeting: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
         kpi: { inbox: 'Inbox', calendar: 'Calendar', deals: 'Deals', tasks: 'Tasks' },
       },
@@ -42,12 +44,16 @@ const kpiCounts: TodayFeedCounts = {
 describe('TodayHeader', () => {
   it('renders 4 KPI chips with correct aria-labels and hrefs', () => {
     wrap(<TodayHeader counts={kpiCounts} loading={false} />);
+    expect(screen.getByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
+    expect(screen.getByText('What needs your attention')).toBeInTheDocument();
     const inbox = screen.getByLabelText('Inbox');
     expect(inbox.tagName).toBe('A');
     expect(inbox).toHaveAttribute('href', '/dashboard/email');
     expect(screen.getByLabelText('Calendar')).toHaveAttribute('href', '/dashboard/calendar');
     expect(screen.getByLabelText('Deals')).toHaveAttribute('href', '/dashboard/crm/deals');
     expect(screen.getByLabelText('Tasks')).toHaveAttribute('href', '/dashboard/tasks');
+    expect(screen.getByText('Inbox')).toBeInTheDocument();
+    expect(screen.getByText('47')).toBeInTheDocument();
   });
 
   it('picks morning greeting when hour < 12', () => {

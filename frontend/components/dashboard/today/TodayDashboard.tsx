@@ -1,16 +1,8 @@
 /**
- * TodayDashboard — Top-level container for the Smart Today Dashboard (145.1-04).
+ * TodayDashboard — top-level container for the Smart Today Dashboard.
  *
- * Composes TodayHeader + 4 × TodayStream inside a direct Stack shell; the
- * header owns the page heading via TodayHeader's greeting (no wrapper chrome).
- *
- * Critical guarantees (grep-verified):
- *   - Exactly one dismiss-id filter pass on items, via useMemo (WR-04 fix —
- *     no downstream re-filter in TodayStream).
- *   - Streams rendered in STREAM_ORDER with pre-filtered itemsByStream[name].
- *   - Stack shell uses maxWidth={880}, mx="auto", px={{ xs: 2, md: 3 }},
- *     py={3}, spacing={2}.
- *   - Empty-all (no visible items after dismissed filter) renders TodayEmptyState.
+ * The shell is intentionally wider than the first pass so sparse states do not
+ * collapse into a thin column with excess dead space on desktop.
  */
 
 'use client';
@@ -71,7 +63,7 @@ export function TodayDashboard() {
   return (
     <Stack
       component="main"
-      maxWidth={880}
+      maxWidth={1040}
       mx="auto"
       px={{ xs: 2, md: 3 }}
       py={3}
