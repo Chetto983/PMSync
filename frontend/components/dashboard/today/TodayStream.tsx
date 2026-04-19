@@ -74,7 +74,15 @@ export function TodayStream({ name, items, defaultExpanded, loading }: Props) {
   };
 
   return (
-    <Box>
+    <Box
+      sx={{
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 3,
+        overflow: 'hidden',
+        bgcolor: 'background.paper',
+      }}
+    >
       {/* Sticky header — clickable and keyboard-activatable */}
       <Stack
         role="button"
@@ -90,8 +98,8 @@ export function TodayStream({ name, items, defaultExpanded, loading }: Props) {
           position: 'sticky',
           top: 0,
           zIndex: 1,
-          bgcolor: 'background.paper',
-          py: 1,
+          bgcolor: 'action.hover',
+          py: 1.25,
           px: 2,
           cursor: 'pointer',
           userSelect: 'none',
@@ -120,6 +128,26 @@ export function TodayStream({ name, items, defaultExpanded, loading }: Props) {
         <Box
           component="span"
           sx={{
+            minWidth: 24,
+            height: 24,
+            px: 0.75,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: '999px',
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            color: 'text.secondary',
+            fontSize: 12,
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {loading ? '—' : items.length}
+        </Box>
+        <Box
+          component="span"
+          sx={{
             display: 'inline-flex',
             alignItems: 'center',
             transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
@@ -141,9 +169,9 @@ export function TodayStream({ name, items, defaultExpanded, loading }: Props) {
         <Box id={`stream-${name}-body`} role="list">
           {loading ? (
             <>
-              <Skeleton variant="rectangular" height={40} sx={{ my: 0.5 }} />
-              <Skeleton variant="rectangular" height={40} sx={{ my: 0.5 }} />
-              <Skeleton variant="rectangular" height={40} sx={{ my: 0.5 }} />
+              <Skeleton variant="rectangular" height={56} sx={{ my: 0.5 }} />
+              <Skeleton variant="rectangular" height={56} sx={{ my: 0.5 }} />
+              <Skeleton variant="rectangular" height={56} sx={{ my: 0.5 }} />
             </>
           ) : (
             <AnimatePresence initial={false} mode={reducedMotion ? 'wait' : 'popLayout'}>

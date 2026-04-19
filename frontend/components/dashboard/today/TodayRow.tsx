@@ -1,21 +1,9 @@
 /**
- * TodayRow — 40px compact row for the Today Dashboard v2 (145.1-04).
+ * TodayRow — compact two-line row for the Today Dashboard.
  *
- * Replaces TodayFeedItem.tsx. Anatomy per UI-SPEC §<TodayRow>:
- *   [16px type icon] [Link title component="a" href=routeUrl (flex 1)] [tabular-nums meta] [TodayActions]
- *
- * Critical guarantees (grep-verified):
- *   - Exact 40px height (`height: 40, minHeight: 40` — defeats MUI flex default)
- *   - Title is a native <Link component="a" href={item.routeUrl}> — Cmd/Ctrl/
- *     middle-click open in a new tab natively (fixes WR-06 for rows). No
- *     Next router, no programmatic navigation.
- *   - role="listitem" on the OUTER Box (not on any wrapping motion.div — the
- *     motion.div lives in TodayStream, one level up).
- *   - className="feed-row" enables TodayActions's `.feed-row:hover &` scope.
- *   - data-today-row={item.id} is the handle for keyboard-nav tests (Plan 05).
- *   - A single `@media (prefers-reduced-motion: reduce)` block disables BOTH
- *     the hover background-color transition AND the pending-state opacity
- *     transition (UI-SPEC §Accessibility line 221).
+ * The row keeps native-link behavior and action density, but surfaces one extra
+ * line of context (`rationale` first, then `subtitle`) so populated feeds scan
+ * better than title-only rows.
  *
  * Interactions:
  *   - Complete: optimistic (Plan 02 useCompleteFeedItem with rollback) + success
@@ -106,6 +94,7 @@ export function TodayRow({ item }: Props) {
 
   const Icon = TYPE_ICON[item.type];
   const isPending = completeMutation.isPending || snoozeMutation.isPending;
+  const previewText = item.rationale ?? item.subtitle ?? '';
 
   const handleComplete = async () => {
     try {
@@ -160,13 +149,12 @@ export function TodayRow({ item }: Props) {
       className="feed-row"
       data-today-row={item.id}
       sx={{
-        height: 40,
-        minHeight: 40,
+        minHeight: 56,
         px: 2,
-        py: 1,
+        py: 1.25,
         display: 'flex',
         alignItems: 'center',
-        gap: 2,
+        gap: 1.5,
         borderBottom: '1px solid',
         borderColor: 'divider',
         opacity: isPending ? 0.5 : 1,
@@ -189,32 +177,60 @@ export function TodayRow({ item }: Props) {
       ) : (
         <Icon size={16} color={typeColor(item.type)} aria-hidden />
       )}
-      <Link
-        component="a"
-        href={item.routeUrl}
-        underline="none"
-        onClick={stopBubble}
+      <Box
         sx={{
-          fontSize: 14,
-          fontWeight: 500,
-          color: 'text.primary',
           flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          '&:focus-visible': {
-            outline: '2px solid',
-            outlineColor: 'primary.main',
-            outlineOffset: 2,
-          },
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.25,
         }}
       >
-        {item.title}
-      </Link>
+        <Link
+          component="a"
+          href={item.routeUrl}
+          underline="none"
+          onClick={stopBubble}
+          sx={{
+            fontSize: 14,
+            fontWeight: 600,
+            lineHeight: 1.3,
+            color: 'text.primary',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            '&:focus-visible': {
+              outline: '2px solid',
+              outlineColor: 'primary.main',
+              outlineOffset: 2,
+            },
+          }}
+        >
+          {item.title}
+        </Link>
+        {previewText ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {previewText}
+          </Typography>
+        ) : null}
+      </Box>
       <Typography
         variant="caption"
         color="text.secondary"
-        sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
+        sx={{
+          fontVariantNumeric: 'tabular-nums',
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+        }}
       >
         {formatSmartTime(item)}
       </Typography>

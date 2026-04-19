@@ -3,6 +3,7 @@ import {
   AppBar,
   Toolbar,
   Box,
+  Button,
   IconButton,
   Badge,
   Avatar,
@@ -121,20 +122,44 @@ export function Header({ onOpenSidebar }: PmSyncHeaderProps) {
         {/* Right Side Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {/* AI Assistant entry point. HITL approvals are handled inline in chat. */}
-          <Tooltip title={`${t.ai?.title || 'AI Assistant'} (${t.ai?.overlay?.shortcutHint || 'Ctrl+J'})`}>
-            <IconButton
-              onClick={() => useAiOverlay.getState().toggleOpen()}
-              sx={{
-                position: 'relative',
-                color: 'inherit',
-                '&:hover': {
-                  background: (theme) => alpha(theme.palette.primary.main, 0.1),
-                },
-              }}
-            >
-              <Sparkles size={20} />
-            </IconButton>
-          </Tooltip>
+          {!isTablet && !isMobile ? (
+            <Tooltip title={`${t.ai?.title || 'AI Assistant'} (${t.ai?.overlay?.shortcutHint || 'Ctrl+J'})`}>
+              <Button
+                onClick={() => useAiOverlay.getState().open()}
+                size="small"
+                variant="outlined"
+                startIcon={<Sparkles size={16} />}
+                sx={{
+                  minWidth: 'auto',
+                  px: 1.25,
+                  borderColor: (theme) => alpha(theme.palette.primary.main, 0.22),
+                  backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.06),
+                  color: 'text.primary',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                  },
+                }}
+              >
+                {t.ai?.title || 'AI Assistant'}
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip title={`${t.ai?.title || 'AI Assistant'} (${t.ai?.overlay?.shortcutHint || 'Ctrl+J'})`}>
+              <IconButton
+                onClick={() => useAiOverlay.getState().toggleOpen()}
+                sx={{
+                  position: 'relative',
+                  color: 'inherit',
+                  '&:hover': {
+                    background: (theme) => alpha(theme.palette.primary.main, 0.1),
+                  },
+                }}
+              >
+                <Sparkles size={20} />
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* Language Selector */}
           {!isTablet && !isMobile && (

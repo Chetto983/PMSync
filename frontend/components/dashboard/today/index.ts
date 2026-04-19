@@ -7,6 +7,7 @@
  */
 
 export { TodayDashboard } from './TodayDashboard';
+export { TodayActionBar } from './TodayActionBar';
 export { TodayHeader } from './TodayHeader';
 export { TodayKpiChip } from './TodayKpiChip';
 export { TodayStream } from './TodayStream';

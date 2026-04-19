@@ -13,8 +13,10 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
 import { useTodayFeed } from '@/hooks/queries/use-today';
 import { useTodayFeedStore } from '@/stores/today-feed-store';
+import { useAiOverlay } from '@/stores/ai-overlay-store';
 import type { TodayFeedItem, TodayStream } from '@/lib/api/dashboard';
 import { TodayHeader } from './TodayHeader';
+import { TodayActionBar } from './TodayActionBar';
 import { TodayStream as TodayStreamComponent } from './TodayStream';
 import { TodayEmptyState } from './TodayEmptyState';
 
@@ -48,7 +50,7 @@ function groupByStream(items: TodayFeedItem[]): Record<TodayStream, TodayFeedIte
 export function TodayDashboard() {
   const t = useTranslations();
   const tz = useUserTimezone();
-  const { data, isLoading, error } = useTodayFeed({ tz });
+  const { data, isLoading, isRefetching, error, refetch } = useTodayFeed({ tz });
   const dismissedIds = useTodayFeedStore((s) => s.dismissedIds);
 
   // WR-04 fix: filter ONCE here in the parent, pass pre-filtered arrays down.
@@ -71,6 +73,11 @@ export function TodayDashboard() {
       sx={{ width: '100%' }}
     >
       <TodayHeader counts={data?.counts} loading={isLoading} />
+      <TodayActionBar
+        onAskAi={() => useAiOverlay.getState().open()}
+        onRefresh={() => void refetch()}
+        refreshing={isRefetching}
+      />
       {error && (
         <Alert severity="error">{t.dashboard.today.error}</Alert>
       )}

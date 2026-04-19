@@ -138,6 +138,19 @@ describe('TodayRow', () => {
     expect(document.querySelector('[data-today-row="x42"]')).toBeInTheDocument();
   });
 
+  it('prefers rationale text over subtitle for the secondary line', () => {
+    wrap(
+      <TodayRow
+        item={mkItem({
+          subtitle: 'Fallback subtitle',
+          rationale: 'Waiting for pricing confirmation',
+        })}
+      />,
+    );
+    expect(screen.getByText('Waiting for pricing confirmation')).toBeInTheDocument();
+    expect(screen.queryByText('Fallback subtitle')).not.toBeInTheDocument();
+  });
+
   it('renders 3-button action trio when canSnooze=true', () => {
     wrap(<TodayRow item={mkItem({ canSnooze: true })} />);
     expect(screen.getByLabelText('Mark done')).toBeInTheDocument();

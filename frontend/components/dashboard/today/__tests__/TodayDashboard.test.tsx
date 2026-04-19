@@ -20,8 +20,22 @@ import type { TodayFeedItem, TodayFeedResponse, TodayStream } from '@/lib/api/da
 
 jest.mock('@/lib/hooks/use-translations', () => ({
   useTranslations: () => ({
+    nav: {
+      mail: 'Mail',
+      calendar: 'Calendar',
+      tasks: 'Tasks',
+    },
+    ai: {
+      title: 'AI Assistant',
+    },
+    common: {
+      refresh: 'Refresh',
+      refreshing: 'Refreshing...',
+    },
     dashboard: {
       today: {
+        title: 'Today',
+        subtitle: 'What needs your attention',
         error: 'Failed to load today view',
         greeting: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
         kpi: { inbox: 'Inbox', calendar: 'Calendar', deals: 'Deals', tasks: 'Tasks' },
@@ -72,19 +86,29 @@ jest.mock('@/lib/context/toast-context', () => ({
 const mockFeedState: {
   data: TodayFeedResponse | undefined;
   isLoading: boolean;
+  isRefetching: boolean;
   error: Error | null;
-} = { data: undefined, isLoading: false, error: null };
+} = { data: undefined, isLoading: false, isRefetching: false, error: null };
+const mockRefetch = jest.fn();
 
 jest.mock('@/hooks/queries/use-today', () => ({
   useTodayFeed: () => ({
     data: mockFeedState.data,
     isLoading: mockFeedState.isLoading,
+    isRefetching: mockFeedState.isRefetching,
     error: mockFeedState.error,
-    refetch: jest.fn(),
+    refetch: mockRefetch,
   }),
   useCompleteFeedItem: () => ({ mutateAsync: jest.fn(), mutate: jest.fn(), isPending: false }),
   useUncompleteFeedItem: () => ({ mutate: jest.fn() }),
   useSnoozeFeedItem: () => ({ mutateAsync: jest.fn(), isPending: false }),
+}));
+
+const mockAiOpen = jest.fn();
+jest.mock('@/stores/ai-overlay-store', () => ({
+  useAiOverlay: {
+    getState: () => ({ open: mockAiOpen }),
+  },
 }));
 
 // WR-04 guard: the Proxy wraps a STABLE Set reference (never reassigned) so
@@ -163,8 +187,11 @@ beforeEach(() => {
   mockDismissedIdsSet.clear();
   mockFeedState.data = undefined;
   mockFeedState.isLoading = false;
+  mockFeedState.isRefetching = false;
   mockFeedState.error = null;
   mockFilterSpy.mockReset();
+  mockRefetch.mockReset();
+  mockAiOpen.mockReset();
 });
 
 describe('TodayDashboard', () => {
@@ -172,6 +199,22 @@ describe('TodayDashboard', () => {
     mockFeedState.data = mkResponse([]);
     wrap();
     expect(screen.getByText('Inbox zero.')).toBeInTheDocument();
+  });
+
+  it('renders command actions for AI, Mail, Calendar, Tasks, and Refresh', () => {
+    mockFeedState.data = mkResponse([]);
+    wrap();
+    expect(screen.getByRole('button', { name: 'AI Assistant' })).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('link', { name: 'Mail' }).some((el) => el.getAttribute('href') === '/dashboard/email'),
+    ).toBe(true);
+    expect(
+      screen.getAllByRole('link', { name: 'Calendar' }).some((el) => el.getAttribute('href') === '/dashboard/calendar'),
+    ).toBe(true);
+    expect(
+      screen.getAllByRole('link', { name: 'Tasks' }).some((el) => el.getAttribute('href') === '/dashboard/tasks'),
+    ).toBe(true);
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();
   });
 
   it('shows error Alert on error', () => {

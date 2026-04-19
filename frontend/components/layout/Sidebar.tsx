@@ -12,7 +12,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -47,7 +46,7 @@ import { PILLAR_ITEMS, getActiveSidebarHref, type PillarItem } from './sidebar-n
 import { PinnedViewsPopover } from '../dashboard/tasks/PinnedViewsPopover';
 import { useSmartViews } from '@/hooks/queries/use-tasks';
 
-const RAIL_WIDTH = 64;
+const SIDEBAR_WIDTH = 216;
 
 export interface PmSyncSidebarProps {
   mobileOpen?: boolean;
@@ -210,11 +209,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: PmSyncSidebarProp
     <Drawer
       variant="permanent"
       sx={{
-        width: RAIL_WIDTH,
+        width: SIDEBAR_WIDTH,
         flexShrink: 0,
         display: { xs: 'none', md: 'block' },
         '& .MuiDrawer-paper': {
-          width: RAIL_WIDTH,
+          width: SIDEBAR_WIDTH,
           boxSizing: 'border-box',
           position: 'relative',
           background: isDark
@@ -251,38 +250,48 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: PmSyncSidebarProp
         <Box
           sx={{
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            gap: 1.1,
+            gap: 1.25,
             pt: 1,
             pb: 2.25,
             flexShrink: 0,
+            px: 0.75,
           }}
         >
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '14px',
-              display: 'grid',
-              placeItems: 'center',
-              background: isDark
-                ? `linear-gradient(180deg, ${alpha('#152433', 0.92)} 0%, ${alpha('#0b1219', 0.98)} 100%)`
-                : `linear-gradient(180deg, ${alpha('#ffffff', 0.98)} 0%, ${alpha('#eef6fb', 0.98)} 100%)`,
-              border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.16 : 0.1)}`,
-              boxShadow: isDark
-                ? `0 16px 28px ${alpha('#02050a', 0.34)}, inset 0 1px 0 ${alpha('#8fe5ff', 0.14)}`
-                : `0 16px 28px ${alpha('#c9dbe7', 0.32)}, inset 0 1px 0 ${alpha('#ffffff', 0.88)}`,
-            }}
-          >
-            <Image
-              src="/Logo PMSync.svg"
-              alt={t.app.name}
-              width={24}
-              height={24}
-              priority
-              style={{ objectFit: 'contain' }}
-            />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%' }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: '14px',
+                display: 'grid',
+                placeItems: 'center',
+                background: isDark
+                  ? `linear-gradient(180deg, ${alpha('#152433', 0.92)} 0%, ${alpha('#0b1219', 0.98)} 100%)`
+                  : `linear-gradient(180deg, ${alpha('#ffffff', 0.98)} 0%, ${alpha('#eef6fb', 0.98)} 100%)`,
+                border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.16 : 0.1)}`,
+                boxShadow: isDark
+                  ? `0 16px 28px ${alpha('#02050a', 0.34)}, inset 0 1px 0 ${alpha('#8fe5ff', 0.14)}`
+                  : `0 16px 28px ${alpha('#c9dbe7', 0.32)}, inset 0 1px 0 ${alpha('#ffffff', 0.88)}`,
+              }}
+            >
+              <Image
+                src="/Logo PMSync.svg"
+                alt={t.app.name}
+                width={24}
+                height={24}
+                priority
+                style={{ objectFit: 'contain' }}
+              />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }} noWrap>
+                {t.app.name}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {t.dashboard.title}
+              </Typography>
+            </Box>
           </Box>
         </Box>
 
@@ -493,21 +502,17 @@ function SortableItem({
           },
         }}
       >
-        <Tooltip title={label} placement="right" arrow>
-          <Box>
-            <IconLink
-              href={pillar.href}
-              active={active}
-              label={label}
-              icon={<Icon size={20} strokeWidth={1.9} />}
-              activeBg={activeBg}
-              activeGlow={activeGlow}
-              activeBorder={activeBorder}
-              isDark={isDark}
-              theme={theme}
-            />
-          </Box>
-        </Tooltip>
+        <IconLink
+          href={pillar.href}
+          active={active}
+          label={label}
+          icon={<Icon size={20} strokeWidth={1.9} />}
+          activeBg={activeBg}
+          activeGlow={activeGlow}
+          activeBorder={activeBorder}
+          isDark={isDark}
+          theme={theme}
+        />
 
         <Box
           ref={setActivatorNodeRef}
@@ -519,8 +524,8 @@ function SortableItem({
           tabIndex={0}
           sx={{
             position: 'absolute',
-            top: 2,
-            right: -4,
+            top: '50%',
+            right: 8,
             width: 18,
             height: 18,
             borderRadius: '999px',
@@ -537,9 +542,10 @@ function SortableItem({
               ? `0 8px 18px ${alpha(theme.palette.common.black, 0.18)}`
               : `0 6px 16px ${alpha('#cad6df', 0.16)}`,
             opacity: isDragging ? 1 : 0,
+            transform: 'translateY(-50%)',
             transition: 'opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease',
             '&:hover': {
-              transform: 'scale(1.04)',
+              transform: 'translateY(-50%) scale(1.04)',
               backgroundColor: active
                 ? alpha(theme.palette.primary.main, isDark ? 0.18 : 0.12)
                 : alpha(theme.palette.text.primary, isDark ? 0.08 : 0.04),
@@ -632,21 +638,17 @@ function SettingsItem({
   theme,
 }: SettingsItemProps) {
   return (
-    <Tooltip title={label} placement="right" arrow>
-      <Box>
-        <IconLink
-          href="/dashboard/settings"
-          active={active}
-          label={label}
-          icon={<Settings size={20} strokeWidth={1.9} />}
-          activeBg={activeBg}
-          activeGlow={activeGlow}
-          activeBorder={activeBorder}
-          isDark={isDark}
-          theme={theme}
-        />
-      </Box>
-    </Tooltip>
+    <IconLink
+      href="/dashboard/settings"
+      active={active}
+      label={label}
+      icon={<Settings size={20} strokeWidth={1.9} />}
+      activeBg={activeBg}
+      activeGlow={activeGlow}
+      activeBorder={activeBorder}
+      isDark={isDark}
+      theme={theme}
+    />
   );
 }
 
@@ -681,13 +683,15 @@ function IconLink({
       aria-label={label}
       aria-current={active ? 'page' : undefined}
       sx={{
-        display: 'grid',
-        placeItems: 'center',
-        width: 44,
-        height: 44,
-        mx: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.25,
+        width: '100%',
+        minHeight: 48,
+        px: 1.5,
+        pr: 4,
         position: 'relative',
-        borderRadius: '12px',
+        borderRadius: '14px',
         textDecoration: 'none',
         color: 'inherit',
         overflow: 'hidden',
@@ -716,8 +720,8 @@ function IconLink({
           sx={{
             position: 'absolute',
             left: 0,
-            top: 8,
-            bottom: 8,
+            top: 10,
+            bottom: 10,
             width: 3,
             borderRadius: '0 999px 999px 0',
             background: 'linear-gradient(180deg, #55cae5 0%, #7650ce 100%)',
@@ -727,14 +731,29 @@ function IconLink({
 
       <Box
         sx={{
+          width: 20,
+          height: 20,
           color: active ? 'primary.main' : 'text.secondary',
           transition: 'color 0.2s ease',
           display: 'grid',
           placeItems: 'center',
+          flexShrink: 0,
         }}
       >
         {icon}
       </Box>
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: active ? 700 : 600,
+          color: active ? 'text.primary' : 'text.secondary',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {label}
+      </Typography>
     </Box>
   );
 }
