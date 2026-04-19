@@ -117,7 +117,13 @@ function resolveSuggestionCopy(
 /**
  * Individual suggestion chip: subtle bordered pill.
  */
-function SuggestionItem({ suggestion }: { suggestion: ChatSuggestionState }) {
+function SuggestionItem({
+  suggestion,
+  forceDisabled = false,
+}: {
+  suggestion: ChatSuggestionState;
+  forceDisabled?: boolean;
+}) {
   const t = useTranslations();
   const copy = resolveSuggestionCopy(suggestion, t);
   const { trigger, disabled } = useSuggestionTrigger({
@@ -129,7 +135,7 @@ function SuggestionItem({ suggestion }: { suggestion: ChatSuggestionState }) {
       type="button"
       className="chat-suggestion-chip"
       onClick={trigger}
-      disabled={disabled}
+      disabled={disabled || forceDisabled}
       aria-label={copy.title}
     >
       {copy.title}
@@ -140,7 +146,7 @@ function SuggestionItem({ suggestion }: { suggestion: ChatSuggestionState }) {
 /**
  * Suggested questions row above the composer.
  */
-export function ChatSuggestions() {
+export function ChatSuggestions({ disabled = false }: { disabled?: boolean }) {
   const t = useTranslations();
   const runtimeSuggestionCount = useAuiState((s) => s.suggestions.suggestions.length);
   const fallbackSuggestions = buildFallbackSuggestions(t);
@@ -149,13 +155,19 @@ export function ChatSuggestions() {
     <div className="chat-suggestions-row" aria-label={t.chat.suggestions.label}>
       {runtimeSuggestionCount > 0 ? (
         <ThreadPrimitive.Suggestions>
-          {({ suggestion }) => <SuggestionItem suggestion={suggestion as ChatSuggestionState} />}
+          {({ suggestion }) => (
+            <SuggestionItem
+              suggestion={suggestion as ChatSuggestionState}
+              forceDisabled={disabled}
+            />
+          )}
         </ThreadPrimitive.Suggestions>
       ) : (
         fallbackSuggestions.map((suggestion) => (
           <SuggestionItem
             key={suggestion.title}
             suggestion={suggestion}
+            forceDisabled={disabled}
           />
         ))
       )}

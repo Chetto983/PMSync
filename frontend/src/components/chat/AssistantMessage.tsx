@@ -10,6 +10,7 @@ import Alert from '@mui/material/Alert';
 import { useMessageError } from '@assistant-ui/core/react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ChatActionBar } from './ChatActionBar';
+import { ChatAccessGateActions, useChatAccessState } from './ChatAccessGate';
 import { ChatBranchPicker } from './ChatBranchPicker';
 import { ChatReasoningGroup } from './ChatReasoningGroup';
 import { TOOL_RENDERERS, FallbackToolRenderer } from './tool-uis';
@@ -60,24 +61,29 @@ function ToolLoadingSkeleton() {
 function MessageErrorAlert() {
   const t = useTranslations();
   const error = useMessageError();
+  const access = useChatAccessState();
   if (!error) return null;
 
   const rawText = typeof error === 'string'
     ? error
     : (error instanceof Error ? error.message : String(error));
   const statusMatch = rawText.match(/\b(401|403|404|429|500|502|503|504)\b/);
+  const isAccessBlocked403 = statusMatch?.[1] === '403' && access.isBlocked;
 
   return (
     <div className="chat-system-card chat-system-card-error">
       <div className="chat-system-card-header">
-        <span className="chat-system-card-title">{t.ai.overlay.errorGeneric}</span>
+        <span className="chat-system-card-title">
+          {isAccessBlocked403 ? access.title : t.ai.overlay.errorGeneric}
+        </span>
         {statusMatch ? (
           <span className="chat-system-card-badge">{statusMatch[1]}</span>
         ) : null}
       </div>
       <Alert severity="error" variant="standard" sx={{ p: 0, fontSize: '0.84rem', bgcolor: 'transparent' }}>
-        {t.ai.overlay.errorConnection}
+        {isAccessBlocked403 ? access.body : t.ai.overlay.errorConnection}
       </Alert>
+      {isAccessBlocked403 ? <ChatAccessGateActions state={access} compact /> : null}
     </div>
   );
 }

@@ -9,19 +9,26 @@ import { ChatSuggestions } from './ChatSuggestions';
 import { AssistantMessage } from './AssistantMessage';
 import { UserMessage } from './UserMessage';
 import { UserEditComposer } from './UserEditComposer';
+import { ChatAccessGateCard, useChatAccessState } from './ChatAccessGate';
 
 /**
  * Main chat thread: scrollable message area + sticky composer footer.
  * Messages constrained to max-w-3xl for readability.
  */
 export function ChatThread() {
+  const access = useChatAccessState();
+
   return (
     <ThreadPrimitive.Root className="chat-thread-root">
       {/* Scrollable message viewport */}
       <ThreadPrimitive.Viewport className="chat-thread-viewport aui-thread-viewport">
         <div className="chat-thread-inner">
           <ThreadPrimitive.Empty>
-            <ChatEmptyState />
+            {access.isBlocked ? (
+              <ChatAccessGateCard />
+            ) : (
+              <ChatEmptyState disabled={access.isChecking} />
+            )}
           </ThreadPrimitive.Empty>
           <div className="chat-thread-messages">
             <ThreadPrimitive.Messages
@@ -32,15 +39,17 @@ export function ChatThread() {
       </ThreadPrimitive.Viewport>
 
       {/* Sticky footer: scroll-to-bottom + suggestions + composer */}
-      <ThreadPrimitive.ViewportFooter className="chat-thread-footer">
-        <div className="chat-thread-footer-inner">
-          <ThreadPrimitive.ScrollToBottom className="chat-scroll-bottom-btn">
-            <Box component={ArrowDown} sx={{ width: 16, height: 16 }} />
-          </ThreadPrimitive.ScrollToBottom>
-          <ChatSuggestions />
-          <ChatComposer />
-        </div>
-      </ThreadPrimitive.ViewportFooter>
+      {!access.isBlocked ? (
+        <ThreadPrimitive.ViewportFooter className="chat-thread-footer">
+          <div className="chat-thread-footer-inner">
+            <ThreadPrimitive.ScrollToBottom className="chat-scroll-bottom-btn">
+              <Box component={ArrowDown} sx={{ width: 16, height: 16 }} />
+            </ThreadPrimitive.ScrollToBottom>
+            <ChatSuggestions disabled={access.isChecking} />
+            <ChatComposer disabled={access.isChecking} />
+          </div>
+        </ThreadPrimitive.ViewportFooter>
+      ) : null}
     </ThreadPrimitive.Root>
   );
 }

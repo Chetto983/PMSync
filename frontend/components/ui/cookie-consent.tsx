@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { X, Cookie, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useAiOverlay } from '@/stores/ai-overlay-store';
 
 const COOKIE_CONSENT_KEY = 'pmsync:cookie-consent';
 
@@ -25,6 +26,8 @@ interface CookiePreferences {
 export function CookieConsent() {
   const translations = useTranslations();
   const cookieCopy = translations.cookies;
+  const aiOverlayOpen = useAiOverlay((state) => state.isOpen);
+  const aiOverlayWidth = useAiOverlay((state) => state.width);
   const [visible, setVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] = useState<CookiePreferences>({
@@ -77,7 +80,7 @@ export function CookieConsent() {
         position: 'fixed',
         bottom: 0,
         left: { xs: 0, sm: 'auto' },
-        right: 0,
+        right: { xs: 0, sm: aiOverlayOpen ? `${aiOverlayWidth + 16}px` : 0 },
         zIndex: 9999,
         p: { xs: 1, sm: 2 },
         display: 'flex',
@@ -88,7 +91,7 @@ export function CookieConsent() {
       <Paper
         elevation={8}
         sx={{
-          maxWidth: { xs: '100%', sm: 420 },
+          maxWidth: { xs: '100%', sm: 380 },
           width: '100%',
           p: { xs: 2, sm: 3 },
           pointerEvents: 'auto',

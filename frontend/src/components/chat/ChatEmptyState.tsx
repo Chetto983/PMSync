@@ -9,15 +9,16 @@ import { useTranslations } from '@/lib/hooks/use-translations';
  * Empty state with greeting and clickable capability cards.
  * Cards send a preset prompt to the assistant on click.
  */
-export function ChatEmptyState() {
+export function ChatEmptyState({ disabled = false }: { disabled?: boolean }) {
   const t = useTranslations();
   const runtime = useThreadRuntime();
 
   const sendPrompt = useCallback(
     (text: string) => {
+      if (disabled) return;
       runtime.append({ role: 'user', content: [{ type: 'text', text }] });
     },
-    [runtime],
+    [disabled, runtime],
   );
 
   return (
@@ -40,18 +41,21 @@ export function ChatEmptyState() {
           icon={<Mail size={16} />}
           color="email"
           label={t.chat.emptyState.capEmail ?? 'Search and manage emails'}
+          disabled={disabled}
           onClick={() => sendPrompt(t.chat.emptyState.capEmailPrompt ?? 'Show my unread emails from today')}
         />
         <CapabilityCard
           icon={<Calendar size={16} />}
           color="calendar"
           label={t.chat.emptyState.capCalendar ?? 'Check calendar and schedule'}
+          disabled={disabled}
           onClick={() => sendPrompt(t.chat.emptyState.capCalendarPrompt ?? 'What meetings do I have today?')}
         />
         <CapabilityCard
           icon={<Users size={16} />}
           color="contacts"
           label={t.chat.emptyState.capContacts ?? 'Find and manage contacts'}
+          disabled={disabled}
           onClick={() => sendPrompt(t.chat.emptyState.capContactsPrompt ?? 'Who are my most recent contacts?')}
         />
       </div>
@@ -60,6 +64,7 @@ export function ChatEmptyState() {
         <button
           type="button"
           className="chat-empty-prompt-pill"
+          disabled={disabled}
           onClick={() => sendPrompt(t.chat.suggestions.todaySchedulePrompt)}
         >
           {t.chat.suggestions.todayScheduleLabel}
@@ -67,6 +72,7 @@ export function ChatEmptyState() {
         <button
           type="button"
           className="chat-empty-prompt-pill"
+          disabled={disabled}
           onClick={() => sendPrompt(t.chat.suggestions.triagePrompt)}
         >
           {t.chat.suggestions.triageLabel}
@@ -74,6 +80,7 @@ export function ChatEmptyState() {
         <button
           type="button"
           className="chat-empty-prompt-pill"
+          disabled={disabled}
           onClick={() => sendPrompt(t.chat.suggestions.briefingPrompt)}
         >
           {t.chat.suggestions.briefingLabel}
@@ -87,11 +94,13 @@ function CapabilityCard({
   icon,
   color,
   label,
+  disabled = false,
   onClick,
 }: {
   icon: React.ReactNode;
   color: 'email' | 'calendar' | 'contacts';
   label: string;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   const iconClass = {
@@ -101,7 +110,7 @@ function CapabilityCard({
   };
 
   return (
-    <button type="button" className="chat-capability-card" onClick={onClick}>
+    <button type="button" className="chat-capability-card" onClick={onClick} disabled={disabled}>
       <div className={iconClass[color]}>
         {icon}
       </div>

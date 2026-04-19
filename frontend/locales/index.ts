@@ -3811,6 +3811,24 @@ export interface AppTranslations {
       newConversation: string;
       emptyTitle: string;
       emptyBody: string;
+      accessConsentTitle: string;
+      accessConsentBody: string;
+      accessConsentAction: string;
+      accessConsentSecondary: string;
+      accessLegalTitle: string;
+      accessLegalBody: string;
+      accessLegalAction: string;
+      accessLegalSecondary: string;
+      accessBillingTitle: string;
+      accessBillingBody: string;
+      accessBillingAction: string;
+      accessBillingSecondary: string;
+      accessQuotaTitle: string;
+      accessQuotaBody: string;
+      accessQuotaSecondary: string;
+      accessCostTitle: string;
+      accessCostBody: string;
+      accessCostSecondary: string;
       errorConnection: string;
       errorGeneric: string;
       context: {

@@ -39,6 +39,14 @@ jest.mock('./AssistantMessage', () => ({
   AssistantMessage: () => <div>Initial response</div>,
 }));
 
+jest.mock('./ChatAccessGate', () => ({
+  ChatAccessGateCard: () => <div>Access gate</div>,
+  useChatAccessState: () => ({
+    isChecking: false,
+    isBlocked: false,
+  }),
+}));
+
 jest.mock('@assistant-ui/react', () => {
   const ReactModule: typeof import('react') = jest.requireActual('react');
 
