@@ -73,6 +73,10 @@ Progress: [██████████] 100%
 - v13.0 milestone created: Intelligent Triage & Memory Consolidation (Phases 147-156, 23 requirements)
   - Research basis: OpenClaw Dreaming (3-phase consolidation), Graphiti/Zep (temporal KG), SSGM (safety governance), RLM (batch reclass), Mem0 (importance scoring)
   - Key architecture: graph-based triage memory on existing EntityGraphService, BullMQ dreaming crons, confidence gating to reduce LLM calls
+- Phase 157 added (2026-04-19): Scale to 1000 Users — Load Test, Quick Wins & Horizontal Split
+  - Trailing infra phase after v12.0's Phase 146; depends on 146's WORKERS_ENABLED flag + module toggles
+  - User chose bundled scope over 3-phase split (load-test, quick-wins, replica-split) despite recommendation to sequence them; flagged as higher-risk
+  - Scope: k6/artillery load test, bound leaky Maps, scope googleapis imports, 2× HTTP-only + 1× worker-only replica topology
 
 ### Blockers/Concerns
 

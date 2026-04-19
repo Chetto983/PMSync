@@ -296,6 +296,20 @@ Plans:
 - [ ] 146-05-PLAN.md — QueueHealthService rework: direct Redis pipeline commands
 - [ ] 146-06-PLAN.md — Startup maxmemory-policy check + base-worker and queue-health tests
 
+### Phase 157: Scale to 1000 Users — Load Test, Quick Wins & Horizontal Split
+
+**Goal:** Validate and enable horizontal scale to 1000 concurrent users on Railway — establish per-user RAM/CPU baseline via load test, apply RAM quick wins (bound unbounded Maps, scope `googleapis` imports), split backend into HTTP-only + worker-only replica topology using the `WORKERS_ENABLED` flag delivered in Phase 146.
+**Depends on:** Phase 146 (provides `WORKERS_ENABLED` + module toggles required for replica split)
+**Plans:** TBD (planning pending)
+
+Scope outline (refine during `/gsd-plan-phase 157`):
+
+- Load test rig (k6 or artillery) with 100/500/1000 sim-user ramps; records per-user RAM slope + p95 latency
+- Bound leaky in-memory Maps: `attachment-metrics.service.ts` (4 Maps), `microsoft-message.service.ts` (2 caches); use `lru-cache` already in deps
+- Replace full `googleapis` (~195 MB) with scoped `@googleapis/gmail` + `@googleapis/calendar`; target −80–100 MB/replica
+- Railway topology: 2× HTTP-only replicas (`WORKERS_ENABLED=false`) + 1× worker-only replica (`WORKERS_ENABLED=true`); document in infra runbook
+- Acceptance gate: 1000-user load test sustains p95 < 500 ms on HTTP replicas with RAM stable below 3 GB each
+
 ### v13.0 — Intelligent Triage & Memory Consolidation (Next)
 
 **Milestone Goal:** Transform email triage from a stateless LLM classifier into a learning system with graph-based memory consolidation, per-label accuracy tracking, and OpenClaw-inspired dreaming phases — hardening label creation with safety governance.
