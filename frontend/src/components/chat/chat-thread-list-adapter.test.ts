@@ -72,17 +72,21 @@ jest.mock('@/lib/api-client', () => ({
 }));
 
 describe('createPmSyncThreadListAdapter', () => {
+  const threadState = {
+    threadListItem: {
+      id: 'thread-1',
+      remoteId: 'conv-1' as string | undefined,
+    },
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     runtimeAdapterProviderMock.mockClear();
     (useAuiState as jest.Mock).mockImplementation((selector) =>
-      selector({
-        threadListItem: {
-          id: 'thread-1',
-          remoteId: 'conv-1',
-        },
-      }),
+      selector(threadState),
     );
+    threadState.threadListItem.id = 'thread-1';
+    threadState.threadListItem.remoteId = 'conv-1';
   });
 
   it('streams the backend-generated title instead of throwing', async () => {
@@ -404,6 +408,90 @@ describe('createPmSyncThreadListAdapter', () => {
     expect(repo.messages.at(-1)).toMatchObject({
       message: {
         id: 'message-60',
+      },
+    });
+  });
+
+  it('keeps the same history adapter when a new thread receives its remoteId mid-stream', async () => {
+    threadState.threadListItem.id = 'thread-new';
+    threadState.threadListItem.remoteId = undefined;
+
+    const adapter = createPmSyncThreadListAdapter();
+    const Provider = adapter.unstable_Provider;
+    const { rerender } = render(
+      createElement(
+        Provider,
+        null,
+        createElement('div', null, 'child'),
+      ),
+    );
+
+    const firstHistory = (
+      runtimeAdapterProviderMock.mock.calls.at(-1)?.[0] as
+        | { adapters?: { history?: { withFormat: (format: {
+              format: string;
+              encode: (value: unknown) => unknown;
+              decode: (value: unknown) => unknown;
+              getId: (message: { id: string }) => string;
+            }) => { load: () => Promise<{ messages: Array<unknown> }> } } } }
+        | undefined
+    )?.adapters?.history;
+    expect(firstHistory).toBeDefined();
+
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        conversation: {
+          id: 'conv-new',
+          messages: [
+            {
+              id: 'user-1',
+              role: 'user',
+              content: { type: 'text', text: 'Quali riunioni ho oggi?' },
+              createdAt: '2026-03-19T10:00:00.000Z',
+            },
+          ],
+        },
+      },
+    });
+
+    threadState.threadListItem.remoteId = 'conv-new';
+    rerender(
+      createElement(
+        Provider,
+        null,
+        createElement('div', null, 'child'),
+      ),
+    );
+
+    const secondHistory = (
+      runtimeAdapterProviderMock.mock.calls.at(-1)?.[0] as
+        | { adapters?: { history?: { withFormat: (format: {
+              format: string;
+              encode: (value: unknown) => unknown;
+              decode: (value: unknown) => unknown;
+              getId: (message: { id: string }) => string;
+            }) => { load: () => Promise<{ messages: Array<{
+              parentId: string | null;
+              message: { id: string; role: string };
+            }> }> } } } }
+        | undefined
+    )?.adapters?.history;
+    expect(secondHistory).toBe(firstHistory);
+
+    const repo = await secondHistory!.withFormat({
+      format: 'ai-sdk/v6',
+      encode: (value: unknown) => value,
+      decode: (value: unknown) => value,
+      getId: (message: { id: string }) => message.id,
+    }).load();
+
+    expect(apiClient.get).toHaveBeenCalledWith('/ai/chat/conversations/conv-new');
+    expect(repo.messages).toHaveLength(1);
+    expect(repo.messages[0]).toMatchObject({
+      parentId: null,
+      message: {
+        id: 'user-1',
+        role: 'user',
       },
     });
   });

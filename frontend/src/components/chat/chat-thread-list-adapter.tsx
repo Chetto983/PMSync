@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo, useRef } from 'react';
 import { RuntimeAdapterProvider } from '@assistant-ui/core/react';
 import { ExportedMessageRepository } from '@assistant-ui/core';
 import type {
@@ -256,14 +256,18 @@ function convertDbMessagesToThreadMessageLike(
 function ThreadHistoryProvider({ children }: { children: ReactNode }) {
   const remoteId = useAuiState((s) => s.threadListItem.remoteId);
   const threadId = useAuiState((s) => s.threadListItem.id);
+  const remoteIdRef = useRef(remoteId);
+
+  remoteIdRef.current = remoteId;
 
   const history = useMemo<ThreadHistoryAdapter>(
     () => ({
       async load() {
-        if (!remoteId) return { messages: [] };
+        const currentRemoteId = remoteIdRef.current;
+        if (!currentRemoteId) return { messages: [] };
         try {
           const { data } = await apiClient.get(
-            `/ai/chat/conversations/${remoteId}`,
+            `/ai/chat/conversations/${currentRemoteId}`,
           );
           const conv = data?.conversation ?? data?.data?.conversation;
           const dbMessages = (conv?.messages ?? []).slice(
@@ -281,11 +285,12 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
       ): GenericThreadHistoryAdapter<TMessage> {
         return {
           async load() {
-            if (!remoteId) return { messages: [] };
+            const currentRemoteId = remoteIdRef.current;
+            if (!currentRemoteId) return { messages: [] };
 
             try {
               const { data } = await apiClient.get(
-                `/ai/chat/conversations/${remoteId}`,
+                `/ai/chat/conversations/${currentRemoteId}`,
               );
               const conv = data?.conversation ?? data?.data?.conversation;
               const dbMessages = (conv?.messages ?? []).slice(
@@ -307,7 +312,7 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
         /* no-op - backend persists during SSE streaming */
       },
     }),
-    [remoteId],
+    [threadId],
   );
 
   return (
