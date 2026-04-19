@@ -487,6 +487,19 @@ export const emailsApi = {
     await apiClient.delete(`/emails/${emailId}`);
   },
 
+  /**
+   * Phase 147 D-01 explicit path — record a label correction the user made
+   * on an AI-suggested label. Backend fires signal='correction' feedback +
+   * a debounced promotion run.
+   */
+  async correctTriage(
+    emailId: string,
+    body: { type: 'label_correction'; oldValue?: string; newValue: string },
+  ): Promise<{ ok: true }> {
+    const response = await apiClient.post(`/emails/${emailId}/correct-triage`, body);
+    return response.data;
+  },
+
   // -------------------------------------------------------------------------
   // Bulk Operations
   // -------------------------------------------------------------------------

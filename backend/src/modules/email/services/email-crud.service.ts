@@ -334,6 +334,46 @@ export class EmailCrudService {
   }
 
   /**
+   * Phase 147 D-01 explicit path.
+   * Records an explicit `signal='correction'` feedback row for a single AI-label
+   * swap, then enqueues a debounced promotion run. Awaited so the API response
+   * is only returned after the row is persisted; enqueue is fast, 5min BullMQ
+   * dedup still collapses bursts.
+   */
+  async correctTriage(
+    id: string,
+    tenantId: string,
+    dto: { type: 'label_correction'; oldValue?: string; newValue: string },
+  ): Promise<{ ok: true }> {
+    // Defense-in-depth tenant check on top of TenantGuard.
+    const email = await this.prisma.email.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!email) throw new NotFoundException(`Email ${id} not found`);
+
+    if (!this.triageFeedbackService) {
+      this.logger.warn(`triageFeedbackService unavailable for correctTriage(${id})`);
+      return { ok: true };
+    }
+
+    await this.triageFeedbackService.recordFeedback({
+      tenantId,
+      emailId: id,
+      type: dto.type,
+      signal: 'correction',
+      oldValue: dto.oldValue ?? null,
+      newValue: dto.newValue,
+    });
+
+    if (this.triagePromotionQueue) {
+      await this.triagePromotionQueue.enqueueDebounced(tenantId);
+    }
+
+    return { ok: true };
+  }
+
+  /**
    * Delete email - Sync to provider, provider handles folder move
    * FIX (RC-NEW-3): Uses FOR UPDATE lock to prevent TOCTOU race condition
    */

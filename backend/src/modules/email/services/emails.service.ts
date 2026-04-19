@@ -41,9 +41,17 @@ export class EmailsService {
   updateEmail(
     id: string,
     tenantId: string,
-    data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string },
+    data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string; aiLabels?: string[] },
   ) {
     return this.crud.updateEmail(id, tenantId, data);
+  }
+
+  correctTriage(
+    id: string,
+    tenantId: string,
+    dto: { type: 'label_correction'; oldValue?: string; newValue: string },
+  ) {
+    return this.crud.correctTriage(id, tenantId, dto);
   }
 
   deleteEmail(id: string, tenantId: string) {

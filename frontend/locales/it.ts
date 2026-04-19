@@ -1226,6 +1226,10 @@ export const it: AppTranslations = {
       title: 'Etichette',
       manageLabels: 'Gestisci etichette',
       addLabel: 'Aggiungi etichetta',
+      // Phase 147 D-01 — affordance di correzione esplicita
+      correctTo: 'Dovrebbe essere…',
+      correctTriagePopoverTitle: 'Sostituisci l\'etichetta AI con:',
+      correctTriageSuccess: 'Correzione registrata',
       createLabel: 'Crea etichetta',
       editLabel: 'Modifica etichetta',
       labelName: 'Nome etichetta',

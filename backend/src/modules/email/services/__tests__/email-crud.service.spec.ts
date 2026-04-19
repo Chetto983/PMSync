@@ -131,4 +131,43 @@ describe('EmailCrudService.updateEmail — Phase 147 D-01 triage feedback captur
     await flush();
     expect(queueMock.enqueueDebounced).not.toHaveBeenCalled();
   });
+
+  describe('correctTriage — D-01 explicit path', () => {
+    beforeEach(() => {
+      prismaMock.email = {
+        findFirst: jest.fn().mockResolvedValue({ id: 'e1' }),
+      };
+      (feedbackMock as any).recordFeedback = jest.fn().mockResolvedValue({});
+    });
+
+    it('records signal=correction and awaits enqueue', async () => {
+      const result = await service.correctTriage('e1', 't1', {
+        type: 'label_correction',
+        oldValue: 'Newsletter',
+        newValue: 'Work',
+      });
+      expect(result).toEqual({ ok: true });
+      expect((feedbackMock as any).recordFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 't1',
+          emailId: 'e1',
+          signal: 'correction',
+          type: 'label_correction',
+          oldValue: 'Newsletter',
+          newValue: 'Work',
+        }),
+      );
+      expect(queueMock.enqueueDebounced).toHaveBeenCalledWith('t1');
+    });
+
+    it('throws NotFoundException when email missing', async () => {
+      prismaMock.email.findFirst.mockResolvedValueOnce(null);
+      await expect(
+        service.correctTriage('e-missing', 't1', {
+          type: 'label_correction',
+          newValue: 'Work',
+        }),
+      ).rejects.toThrow(/not found/i);
+    });
+  });
 });

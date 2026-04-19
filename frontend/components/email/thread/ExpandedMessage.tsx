@@ -38,8 +38,10 @@ import {
   X,
   Sparkles,
   Check,
+  Pencil,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useCorrectTriageMutation, useLabels } from '@/hooks/queries';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
@@ -214,6 +216,13 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   // Move menu state
   const [moveMenuAnchor, setMoveMenuAnchor] = useState<HTMLElement | null>(null);
   const moveMenuOpen = Boolean(moveMenuAnchor);
+
+  // Phase 147 D-01 — explicit correction picker state (one AI label at a time).
+  const [correctMenuAnchor, setCorrectMenuAnchor] = useState<HTMLElement | null>(null);
+  const [correctingAiLabel, setCorrectingAiLabel] = useState<string | null>(null);
+  const correctMenuOpen = Boolean(correctMenuAnchor);
+  const correctTriageMutation = useCorrectTriageMutation();
+  const { data: userLabels } = useLabels();
 
   // AI Features State (Phase 8) - Summary only
   const [showSummary, setShowSummary] = useState(false);
@@ -687,39 +696,102 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             {t.email?.labels?.aiSuggestedLabel || 'AI'}
           </Typography>
           {message.aiLabels.map((aiLabel) => (
-            <Chip
-              key={aiLabel}
-              label={localizeAiLabel(aiLabel, locale)}
-              size="small"
-              variant="outlined"
-              deleteIcon={
-                onDismissAiLabel ? (
-                  <Tooltip title={t.email?.labels?.dismissAiLabel || 'Dismiss'}>
-                    <X size={12} />
-                  </Tooltip>
-                ) : undefined
-              }
-              onDelete={onDismissAiLabel ? () => onDismissAiLabel(message.id, aiLabel) : undefined}
-              onClick={onAcceptAiLabel ? () => onAcceptAiLabel(message.id, aiLabel) : undefined}
-              icon={onAcceptAiLabel ? <Check size={12} /> : undefined}
-              sx={{
-                height: 22,
-                fontSize: '0.75rem',
-                borderColor: 'text.disabled',
-                color: 'text.secondary',
-                cursor: onAcceptAiLabel ? 'pointer' : 'default',
-                '& .MuiChip-label': { px: 0.75 },
-                '& .MuiChip-icon': { color: 'success.main', ml: 0.5 },
-                '& .MuiChip-deleteIcon': {
-                  color: 'text.disabled',
-                  fontSize: 12,
-                  '&:hover': { color: 'error.main' },
-                },
-              }}
-            />
+            <Box key={aiLabel} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+              <Chip
+                label={localizeAiLabel(aiLabel, locale)}
+                size="small"
+                variant="outlined"
+                deleteIcon={
+                  onDismissAiLabel ? (
+                    <Tooltip title={t.email?.labels?.dismissAiLabel || 'Dismiss'}>
+                      <X size={12} />
+                    </Tooltip>
+                  ) : undefined
+                }
+                onDelete={onDismissAiLabel ? () => onDismissAiLabel(message.id, aiLabel) : undefined}
+                onClick={onAcceptAiLabel ? () => onAcceptAiLabel(message.id, aiLabel) : undefined}
+                icon={onAcceptAiLabel ? <Check size={12} /> : undefined}
+                sx={{
+                  height: 22,
+                  fontSize: '0.75rem',
+                  borderColor: 'text.disabled',
+                  color: 'text.secondary',
+                  cursor: onAcceptAiLabel ? 'pointer' : 'default',
+                  '& .MuiChip-label': { px: 0.75 },
+                  '& .MuiChip-icon': { color: 'success.main', ml: 0.5 },
+                  '& .MuiChip-deleteIcon': {
+                    color: 'text.disabled',
+                    fontSize: 12,
+                    '&:hover': { color: 'error.main' },
+                  },
+                }}
+              />
+              {/* Phase 147 D-01 — "Should be…" explicit correction affordance (AI-labels only). */}
+              <Tooltip title={t.email?.labels?.correctTo || 'Should be…'}>
+                <IconButton
+                  size="small"
+                  aria-label={t.email?.labels?.correctTo || 'Should be…'}
+                  disabled={correctTriageMutation.isPending}
+                  onClick={(e) => {
+                    setCorrectMenuAnchor(e.currentTarget);
+                    setCorrectingAiLabel(aiLabel);
+                  }}
+                  sx={{ p: 0.25, color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                >
+                  <Pencil size={11} />
+                </IconButton>
+              </Tooltip>
+            </Box>
           ))}
         </Box>
       )}
+      {/* Phase 147 D-01 — label picker popover for "Should be…" corrections. */}
+      <Menu
+        anchorEl={correctMenuAnchor}
+        open={correctMenuOpen}
+        onClose={() => {
+          setCorrectMenuAnchor(null);
+          setCorrectingAiLabel(null);
+        }}
+        slotProps={{ paper: { sx: { maxHeight: 320, minWidth: 200 } } }}
+      >
+        <MenuItem disabled sx={{ opacity: 1, cursor: 'default' }}>
+          <Typography variant="caption" color="text.secondary">
+            {t.email?.labels?.correctTriagePopoverTitle || 'Replace AI label with:'}
+          </Typography>
+        </MenuItem>
+        <Divider />
+        {(userLabels ?? []).length === 0 ? (
+          <MenuItem disabled>
+            <ListItemText primary={t.email?.labels?.noLabelsAvailable || 'No labels available'} />
+          </MenuItem>
+        ) : (
+          (userLabels ?? []).map((label) => (
+            <MenuItem
+              key={label.id}
+              onClick={async () => {
+                if (!correctingAiLabel) return;
+                const oldValue = correctingAiLabel;
+                const newValue = label.name;
+                setCorrectMenuAnchor(null);
+                setCorrectingAiLabel(null);
+                try {
+                  await correctTriageMutation.mutateAsync({
+                    id: message.id,
+                    body: { type: 'label_correction', oldValue, newValue },
+                  });
+                  onDismissAiLabel?.(message.id, oldValue);
+                } catch {
+                  // Error already surfaced by TanStack Query devtools / network tab.
+                  // Keeping the chip visible so the user can retry.
+                }
+              }}
+            >
+              <ListItemText primary={label.name} />
+            </MenuItem>
+          ))
+        )}
+      </Menu>
 
       {/* Body — max-width for comfortable line length */}
       <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: 2, pl: { xs: 1.5, sm: 7.5 }, maxWidth: { xs: '100%', sm: 720 } }}>

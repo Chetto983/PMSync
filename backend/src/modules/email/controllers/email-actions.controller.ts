@@ -3,7 +3,8 @@
  * Extracted from EmailsController (Phase 43 god-file split).
  */
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiCookieAuth } from '@nestjs/swagger';
+import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { Response } from 'express';
 import { Readable } from 'stream';
@@ -37,6 +38,21 @@ import {
 } from '../dto/bulk-operations.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
+
+// Phase 147 D-01 explicit path DTO
+export class CorrectTriageDto {
+  @IsIn(['label_correction'])
+  type!: 'label_correction';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  oldValue?: string;
+
+  @IsString()
+  @MaxLength(200)
+  newValue!: string;
+}
 
 // FIX (BUG-005): Validate attachment fields before processing
 interface DecodedAttachment {
@@ -237,6 +253,25 @@ export class EmailActionsController {
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.updateEmail(id, tenantId, data);
+  }
+
+  /**
+   * POST /emails/:id/correct-triage — Phase 147 D-01 explicit path.
+   * Records a clean-signal correction (signal='correction') and enqueues a
+   * debounced promotion run. Feeds the few-shot learning loop.
+   */
+  @Post(':id/correct-triage')
+  @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Explicit triage correction (feeds few-shot learning).' })
+  async correctTriage(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: CorrectTriageDto,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.emailsService.correctTriage(id, tenantId, dto);
   }
 
   /**

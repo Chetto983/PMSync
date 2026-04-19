@@ -1236,6 +1236,10 @@ export const en: AppTranslations = {
       title: 'Labels',
       manageLabels: 'Manage Labels',
       addLabel: 'Add Label',
+      // Phase 147 D-01 explicit-correction affordance
+      correctTo: 'Should be…',
+      correctTriagePopoverTitle: 'Replace AI label with:',
+      correctTriageSuccess: 'Correction recorded',
       createLabel: 'Create Label',
       editLabel: 'Edit Label',
       labelName: 'Label Name',
