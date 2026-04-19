@@ -11,7 +11,7 @@
  */
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
-import { gmail_v1, google } from 'googleapis';
+import { gmail as gmailFactory, gmail_v1 } from '@googleapis/gmail';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 
 interface CachedClient {
@@ -85,7 +85,7 @@ export class GmailClientManagerService implements OnModuleDestroy {
       refresh_token: refreshToken,
     });
 
-    const client = google.gmail({ version: 'v1', auth: auth as any });
+    const client = gmailFactory({ version: 'v1', auth });
 
     // Cache the client
     this.clients.set(cacheKey, {
