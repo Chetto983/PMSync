@@ -4,6 +4,7 @@ import { TriageRuleService } from '../triage-rule.service';
 import { LabelResolutionService } from '../label-resolution.service';
 import { TriageScoreService } from '../triage-score.service';
 import { LaneAssignmentService } from '../lane-assignment.service';
+import type { FewShotExample } from '../triage-correction.service';
 
 describe('triage prompt budgets', () => {
   let prisma: any;
@@ -120,5 +121,118 @@ describe('triage prompt budgets', () => {
     expect(promptArgs.systemPrompt.length).toBeLessThanOrEqual(4600);
     expect(triageRulesSection).not.toContain('Use this label for complex customer and system situations');
     expect(labelMetadataSection).not.toContain('Use this label for complex customer and system situations');
+  });
+
+  it('injects CORRECTIONS block when few-shot examples are provided (D-10)', async () => {
+    const mistral = {
+      completePrompt: vi.fn().mockResolvedValue(JSON.stringify({
+        summary: 'x', sentiment: 'neutral', tone: 'neutral', priority: 3, urgency: 'medium',
+        labels: [], keyTopics: [], intent: 'fyi', actionability: 'none', escalationRisk: false,
+        hasDeadline: false, deadlineDate: null, needsFollowUp: false, followUpDate: null,
+        followUpReason: null, smartReplies: [], confidence: 0.8, reasoning: '',
+      })),
+    };
+    const utils = {
+      truncate: vi.fn((v: string) => v),
+      linkEmailToUserLabels: vi.fn().mockResolvedValue(undefined),
+      getErrorMessage: vi.fn((e: unknown) => String(e)),
+      mapAiErrorToHttpException: vi.fn((e: unknown) => e),
+    };
+    const canned: FewShotExample[] = [
+      { pattern: 'boss@acme.com', oldValue: 'Newsletter', newValue: 'Work', count: 5 },
+      { pattern: 'boss@acme.com', oldValue: 'Sales', newValue: 'Important', count: 3 },
+      { pattern: 'boss@acme.com', oldValue: 'Promo', newValue: 'Review', count: 2 },
+    ];
+    const triageCorrection = {
+      getFewShotExamples: vi.fn().mockResolvedValue(canned),
+    };
+    const service = new EmailAnalysisService(
+      prisma,
+      mistral as any,
+      utils as any,
+      new TriageRuleService(prisma),
+      new LabelResolutionService(),
+      new TriageScoreService(),
+      new LaneAssignmentService(),
+      undefined as any,
+      triageCorrection as any,
+    );
+
+    await service.analyzeEmailUnified('tenant-1', 'email-1', 'en');
+
+    const promptArgs = mistral.completePrompt.mock.calls[0]?.[0];
+    const systemPrompt = String(promptArgs.systemPrompt);
+    expect(systemPrompt).toContain('<CORRECTIONS>');
+    expect(systemPrompt).toContain('</CORRECTIONS>');
+    expect(systemPrompt.length).toBeLessThanOrEqual(4600);
+  });
+
+  it('CORRECTIONS block stays under 20% of optional budget (D-10 cap)', async () => {
+    const mistral = {
+      completePrompt: vi.fn().mockResolvedValue(JSON.stringify({
+        summary: 'x', sentiment: 'neutral', tone: 'neutral', priority: 3, urgency: 'medium',
+        labels: [], keyTopics: [], intent: 'fyi', actionability: 'none', escalationRisk: false,
+        hasDeadline: false, deadlineDate: null, needsFollowUp: false, followUpDate: null,
+        followUpReason: null, smartReplies: [], confidence: 0.8, reasoning: '',
+      })),
+    };
+    const utils = {
+      truncate: vi.fn((v: string) => v),
+      linkEmailToUserLabels: vi.fn().mockResolvedValue(undefined),
+      getErrorMessage: vi.fn((e: unknown) => String(e)),
+      mapAiErrorToHttpException: vi.fn((e: unknown) => e),
+    };
+    // Intentionally over-long old/new values — each line will be capped at 80 chars by sanitize.
+    const canned: FewShotExample[] = [
+      { pattern: 'verylongsendername@some-company-domain.example.com', oldValue: 'LongLabelName_ABCDEFGHIJ', newValue: 'AnotherLongLabelName_XYZ', count: 42 },
+      { pattern: 'verylongsendername@some-company-domain.example.com', oldValue: 'Marketing-Newsletter-Old', newValue: 'WorkImportantEscalation', count: 7 },
+      { pattern: 'verylongsendername@some-company-domain.example.com', oldValue: 'Promotional-Old-Label-XY', newValue: 'ReviewLater-TestingCap', count: 2 },
+    ];
+    const triageCorrection = { getFewShotExamples: vi.fn().mockResolvedValue(canned) };
+    const service = new EmailAnalysisService(
+      prisma, mistral as any, utils as any, new TriageRuleService(prisma),
+      new LabelResolutionService(), new TriageScoreService(), new LaneAssignmentService(),
+      undefined as any, triageCorrection as any,
+    );
+
+    await service.analyzeEmailUnified('tenant-1', 'email-1', 'en');
+    const promptArgs = mistral.completePrompt.mock.calls[0]?.[0];
+    const systemPrompt = String(promptArgs.systemPrompt);
+    const correctionsSection = systemPrompt.split('<CORRECTIONS>')[1]?.split('</CORRECTIONS>')[0] ?? '';
+    // Each line ≤ 80 chars, max 3 lines — much tighter than 20% of ~4000-char budget.
+    expect(correctionsSection.length).toBeLessThanOrEqual(300);
+    expect(systemPrompt.length).toBeLessThanOrEqual(4600);
+  });
+
+  it('total prompt length remains <= 4600 chars WITH labels + corrections slices active (invariant)', async () => {
+    const mistral = {
+      completePrompt: vi.fn().mockResolvedValue(JSON.stringify({
+        summary: 'x', sentiment: 'neutral', tone: 'neutral', priority: 3, urgency: 'medium',
+        labels: [], keyTopics: [], intent: 'fyi', actionability: 'none', escalationRisk: false,
+        hasDeadline: false, deadlineDate: null, needsFollowUp: false, followUpDate: null,
+        followUpReason: null, smartReplies: [], confidence: 0.8, reasoning: '',
+      })),
+    };
+    const utils = {
+      truncate: vi.fn((v: string) => v),
+      linkEmailToUserLabels: vi.fn().mockResolvedValue(undefined),
+      getErrorMessage: vi.fn((e: unknown) => String(e)),
+      mapAiErrorToHttpException: vi.fn((e: unknown) => e),
+    };
+    const canned: FewShotExample[] = [
+      { pattern: 'user@acme.com', oldValue: 'A', newValue: 'B', count: 5 },
+      { pattern: 'user@acme.com', oldValue: 'C', newValue: 'D', count: 4 },
+      { pattern: 'user@acme.com', oldValue: 'E', newValue: 'F', count: 3 },
+    ];
+    const triageCorrection = { getFewShotExamples: vi.fn().mockResolvedValue(canned) };
+    const service = new EmailAnalysisService(
+      prisma, mistral as any, utils as any, new TriageRuleService(prisma),
+      new LabelResolutionService(), new TriageScoreService(), new LaneAssignmentService(),
+      undefined as any, triageCorrection as any,
+    );
+
+    await service.analyzeEmailUnified('tenant-1', 'email-1', 'en');
+    const promptArgs = mistral.completePrompt.mock.calls[0]?.[0];
+    expect(String(promptArgs.systemPrompt).length).toBeLessThanOrEqual(4600);
   });
 });

@@ -17,6 +17,7 @@ import { TriageRuleService } from './triage-rule.service';
 import { LabelResolutionService, type TenantLabel } from './label-resolution.service';
 import { TriageScoreService } from './triage-score.service';
 import { LaneAssignmentService } from './lane-assignment.service';
+import { TriageCorrectionService, type FewShotExample } from './triage-correction.service';
 
 type LocaleKey = 'en' | 'it';
 
@@ -30,6 +31,8 @@ export interface AnalyzeEmailUnifiedOptions {
   labelDefsOverride?: TenantLabel[];
   persist?: boolean;
   bypassCache?: boolean;
+  /** Phase 147 D-07: visible-override hint injected into system prompt (Wave 4 wires). */
+  overrideHint?: string | null;
 }
 
 @Injectable()
@@ -37,10 +40,13 @@ export class EmailAnalysisService {
   private readonly logger = new Logger(EmailAnalysisService.name);
   private readonly analysisVersion = 'unified-email-v2';
   private static readonly MAX_ANALYZE_SYSTEM_PROMPT_LENGTH = 4600;
-  private static readonly LABEL_RULES_BUDGET_RATIO = 0.6;
+  private static readonly LABEL_RULES_BUDGET_RATIO = 0.55;       // Phase 147 D-10: was 0.6
+  private static readonly CORRECTIONS_BUDGET_RATIO = 0.20;       // Phase 147 D-10: new slice
+  private static readonly TRIAGE_CONTEXT_BUDGET_RATIO = 0.25;    // Phase 147 D-10: explicit residual
   private static readonly TRIAGE_CONTEXT_MAX_RULES = 20;
   private static readonly PROMPT_LINE_MAX_LENGTH = 220;
   private static readonly LABEL_PROMPT_MAX_LENGTH = 180;
+  private static readonly CORRECTION_LINE_MAX_LENGTH = 80;       // Phase 147 D-09c hard cap
 
   constructor(
     private readonly prisma: PrismaService,
@@ -51,6 +57,7 @@ export class EmailAnalysisService {
     private readonly triageScore: TriageScoreService,
     private readonly laneAssignment: LaneAssignmentService,
     @Optional() @Inject(PiiDetectionService) private readonly piiDetection?: PiiDetectionService,
+    @Optional() private readonly triageCorrection?: TriageCorrectionService,
   ) {}
 
   async analyzeEmailUnified(
@@ -104,7 +111,16 @@ export class EmailAnalysisService {
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
     const allowedLabels = labelDefs.map((l) => l.name);
-    const systemPrompt = await this.buildAnalyzeSystemPrompt(t, tenantId, labelDefs, allowedLabels, options);
+    // Phase 147 D-09: fetch few-shot correction examples for this sender (sender-first, domain-fallback).
+    const corrections = this.triageCorrection
+      ? await this.triageCorrection.getFewShotExamples(tenantId, email.from).catch((err) => {
+          this.logger.warn(`Failed to fetch few-shot corrections: ${this.utils.getErrorMessage(err)}`);
+          return [];
+        })
+      : [];
+    const systemPrompt = await this.buildAnalyzeSystemPrompt(
+      t, tenantId, labelDefs, allowedLabels, options, corrections, options?.overrideHint ?? null,
+    );
     const userPrompt = this.buildEmailPrompt(email, lang);
 
     try {
@@ -277,18 +293,33 @@ export class EmailAnalysisService {
     labelDefs: TenantLabel[],
     allowedLabels: string[],
     options?: AnalyzeEmailUnifiedOptions,
+    corrections: FewShotExample[] = [],
+    overrideHint: string | null = null,
   ): Promise<string> {
     const allowedLabelsText = allowedLabels.join(', ');
-    const basePrompt = t.insights.analyzeUnified.systemPrompt(allowedLabelsText, '', '');
+    // Phase 147 D-10: base prompt now uses the 5-arg signature — passing '' for the
+    // two new slices keeps prefix-cache invariant when consumers don't use them.
+    const basePrompt = t.insights.analyzeUnified.systemPrompt(allowedLabelsText, '', '', '', '');
     const optionalBudget = Math.max(
       0,
       EmailAnalysisService.MAX_ANALYZE_SYSTEM_PROMPT_LENGTH - basePrompt.length,
     );
+
     const hasLabelPrompts = labelDefs.some((label) => Boolean(label.aiPrompt?.trim()));
+    const hasCorrections = corrections.length > 0;
+
     const labelPromptBudget = hasLabelPrompts
       ? Math.floor(optionalBudget * EmailAnalysisService.LABEL_RULES_BUDGET_RATIO)
       : 0;
-    const triageContextBudget = Math.max(0, optionalBudget - labelPromptBudget);
+    const correctionsBudget = hasCorrections
+      ? Math.floor(optionalBudget * EmailAnalysisService.CORRECTIONS_BUDGET_RATIO)
+      : 0;
+    // Residual — guarantees LABEL_RULES + CORRECTIONS + triage_context + base <= MAX.
+    const triageContextBudget = Math.max(
+      0,
+      optionalBudget - labelPromptBudget - correctionsBudget,
+    );
+
     const labelPromptBlock = this.buildLabelPromptBlock(labelDefs, labelPromptBudget);
     const triageContext = await this.triageRuleService.buildTriageContext(tenantId, {
       includeLabelPrompts: false,
@@ -298,10 +329,40 @@ export class EmailAnalysisService {
       maxLineLength: EmailAnalysisService.PROMPT_LINE_MAX_LENGTH,
       maxLabelPromptLength: EmailAnalysisService.LABEL_PROMPT_MAX_LENGTH,
     });
+
+    // Phase 147 D-09c + D-11: CORRECTIONS slice — PII-redacted, sanitized, 80-char capped, max 3.
+    let correctionsBlock = '';
+    if (hasCorrections && correctionsBudget > 0) {
+      const correctionLines = corrections
+        .slice(0, 3)
+        .map((c) => {
+          const raw = `- From ${c.pattern}: AI suggested "${c.oldValue}" -> user corrected to "${c.newValue}" (x${Math.round(c.count)})`;
+          const piiRedacted = this.redactPii(raw);
+          return sanitizeForLLM(piiRedacted, {
+            maxLength: EmailAnalysisService.CORRECTION_LINE_MAX_LENGTH,
+            stripCodeBlocks: true,
+          });
+        })
+        .filter((line) => line.length > 0);
+      correctionsBlock = buildTaggedPromptSection(
+        'CORRECTIONS',
+        correctionLines,
+        correctionsBudget,
+        'Recent user corrections for this sender/domain:',
+      );
+    }
+
+    // Phase 147 D-07: USER_OVERRIDE hint — last, exploits RoPE recency bias. Wave 4 passes.
+    const overrideBlock = overrideHint
+      ? buildTaggedPromptSection('USER_OVERRIDE', [overrideHint], 200)
+      : '';
+
     const systemPrompt = t.insights.analyzeUnified.systemPrompt(
       allowedLabelsText,
       labelPromptBlock,
       triageContext,
+      correctionsBlock,
+      overrideBlock,
     );
 
     if (systemPrompt.length > EmailAnalysisService.MAX_ANALYZE_SYSTEM_PROMPT_LENGTH) {
