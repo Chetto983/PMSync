@@ -155,8 +155,8 @@
 .chat-thread-item {
   position: relative;
   display: flex;
-  align-items: center;
-  min-height: 48px;
+  align-items: stretch;
+  min-height: 62px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--chat-border) 88%, white 12%);
   background: color-mix(in srgb, var(--chat-surface) 94%, white 6%);
@@ -211,9 +211,9 @@
   width: 100%;
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  padding: 10px 12px 10px 8px;
+  padding: 11px 12px 11px 8px;
   text-align: left;
   border: 0;
   background: transparent;
@@ -239,15 +239,44 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: hsl(var(--foreground));
+}
+
+.chat-thread-item-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 1px;
+}
+
+.chat-thread-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chat-thread-item-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chat-surface) 90%, var(--chat-muted-bg) 10%);
+  border: 1px solid color-mix(in srgb, var(--chat-border) 86%, white 14%);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
 }
 
 .chat-thread-item-delete {
   width: 32px;
   height: 32px;
-  margin-right: 4px;
+  margin: 12px 4px 0 0;
   border-radius: 9px;
   border: 0;
   background: transparent;

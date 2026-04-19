@@ -2,7 +2,10 @@ import { createElement } from 'react';
 import { render } from '@testing-library/react';
 import { apiClient } from '@/lib/api-client';
 import { useAuiState } from '@assistant-ui/store';
-import { createPmSyncThreadListAdapter } from './chat-thread-list-adapter';
+import {
+  createPmSyncThreadListAdapter,
+  getThreadListMetadata,
+} from './chat-thread-list-adapter';
 
 const runtimeAdapterProviderMock = jest.fn(
   ({ children }: { children: unknown; adapters: unknown }) => children,
@@ -119,6 +122,31 @@ describe('createPmSyncThreadListAdapter', () => {
         }),
       ]),
     );
+  });
+
+  it('caches lastActiveAt and messageCount from the conversation list', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        conversations: [
+          {
+            id: 'conv-1',
+            title: 'Riunioni di oggi',
+            lastActiveAt: '2026-04-19T18:10:00.000Z',
+            messageCount: 4,
+          },
+        ],
+      },
+    });
+
+    const adapter = createPmSyncThreadListAdapter();
+    const result = await adapter.list();
+
+    expect(result.threads).toHaveLength(1);
+    expect(getThreadListMetadata('conv-1')).toEqual({
+      title: 'Riunioni di oggi',
+      lastActiveAt: '2026-04-19T18:10:00.000Z',
+      messageCount: 4,
+    });
   });
 
   it('loads persisted backend messages through withFormat for existing threads', async () => {

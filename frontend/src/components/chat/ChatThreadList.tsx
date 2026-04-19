@@ -14,7 +14,7 @@ import {
 } from '@assistant-ui/react';
 import { useThreadListItemRuntime } from '@assistant-ui/react';
 import type { ThreadListItemRuntime } from '@assistant-ui/react';
-import { Plus, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, Clock3 } from 'lucide-react';
 import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
@@ -25,6 +25,7 @@ import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { aiChatApi } from '@/lib/api/ai';
+import { getThreadListMetadata } from './chat-thread-list-adapter';
 import { markManualNewThreadRequested } from './thread-restore-guard';
 
 /* ------------------------------------------------------------------ */
@@ -57,13 +58,49 @@ const SelectionContext = createContext<SelectionCtx>({
 /*  Thread list item — checkbox + title + single-delete               */
 /* ------------------------------------------------------------------ */
 
+function formatRelativeThreadTime(value: string | undefined) {
+  if (!value) return null;
+
+  const target = new Date(value).getTime();
+  if (Number.isNaN(target)) return null;
+
+  const diffMs = target - Date.now();
+  const absMs = Math.abs(diffMs);
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+
+  let unit: Intl.RelativeTimeFormatUnit = 'minute';
+  let amount = Math.round(diffMs / minute);
+
+  if (absMs >= week) {
+    unit = 'week';
+    amount = Math.round(diffMs / week);
+  } else if (absMs >= day) {
+    unit = 'day';
+    amount = Math.round(diffMs / day);
+  } else if (absMs >= hour) {
+    unit = 'hour';
+    amount = Math.round(diffMs / hour);
+  }
+
+  return new Intl.RelativeTimeFormat(undefined, {
+    numeric: 'auto',
+  }).format(amount, unit);
+}
+
 function ThreadListItem() {
   const t = useTranslations();
   const runtime = useThreadListItemRuntime();
   const ctx = useContext(SelectionContext);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const itemId = runtime.getState().remoteId ?? runtime.getState().id;
+  const state = runtime.getState();
+  const itemId = state.remoteId ?? state.id;
+  const metadata = getThreadListMetadata(state.remoteId);
+  const relativeTime = formatRelativeThreadTime(metadata?.lastActiveAt);
+  const messageCount = metadata?.messageCount;
 
   useEffect(() => {
     ctx.register(itemId, runtime);
@@ -116,14 +153,32 @@ function ThreadListItem() {
               style={{ flexShrink: 0, color: 'var(--mui-palette-text-secondary)' }}
             />
           </span>
-          <span className="chat-thread-item-title">
-            <ThreadListItemPrimitive.Title
-              fallback={
-                <Typography component="span" variant="body2" color="text.secondary">
-                  {t.chat.threadList.newChat}
-                </Typography>
-              }
-            />
+          <span className="chat-thread-item-copy">
+            <span className="chat-thread-item-title">
+              <ThreadListItemPrimitive.Title
+                fallback={
+                  <Typography component="span" variant="body2" color="text.secondary">
+                    {t.chat.threadList.newChat}
+                  </Typography>
+                }
+              />
+            </span>
+            {messageCount != null || relativeTime ? (
+              <span className="chat-thread-item-meta" aria-hidden="true">
+                {messageCount != null ? (
+                  <span className="chat-thread-item-meta-chip">
+                    <MessageSquare size={11} />
+                    <span>{messageCount}</span>
+                  </span>
+                ) : null}
+                {relativeTime ? (
+                  <span className="chat-thread-item-meta-chip">
+                    <Clock3 size={11} />
+                    <span>{relativeTime}</span>
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </span>
         </ThreadListItemPrimitive.Trigger>
         <button

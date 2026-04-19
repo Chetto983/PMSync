@@ -1,6 +1,5 @@
 'use client';
 
-import { ThreadPrimitive } from '@assistant-ui/react';
 import { useSuggestionTrigger } from '@assistant-ui/core/react';
 import { useAuiState } from '@assistant-ui/store';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -148,29 +147,21 @@ function SuggestionItem({
  */
 export function ChatSuggestions({ disabled = false }: { disabled?: boolean }) {
   const t = useTranslations();
-  const runtimeSuggestionCount = useAuiState((s) => s.suggestions.suggestions.length);
+  const runtimeSuggestions = useAuiState((s) => s.suggestions.suggestions);
   const fallbackSuggestions = buildFallbackSuggestions(t);
+  const visibleSuggestions = runtimeSuggestions.length > 0
+    ? runtimeSuggestions.slice(0, 4)
+    : fallbackSuggestions.slice(0, 4);
 
   return (
     <div className="chat-suggestions-row" aria-label={t.chat.suggestions.label}>
-      {runtimeSuggestionCount > 0 ? (
-        <ThreadPrimitive.Suggestions>
-          {({ suggestion }) => (
-            <SuggestionItem
-              suggestion={suggestion as ChatSuggestionState}
-              forceDisabled={disabled}
-            />
-          )}
-        </ThreadPrimitive.Suggestions>
-      ) : (
-        fallbackSuggestions.map((suggestion) => (
-          <SuggestionItem
-            key={suggestion.title}
-            suggestion={suggestion}
-            forceDisabled={disabled}
-          />
-        ))
-      )}
+      {visibleSuggestions.map((suggestion) => (
+        <SuggestionItem
+          key={suggestion.title}
+          suggestion={suggestion as ChatSuggestionState}
+          forceDisabled={disabled}
+        />
+      ))}
     </div>
   );
 }

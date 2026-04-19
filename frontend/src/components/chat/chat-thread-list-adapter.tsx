@@ -25,6 +25,8 @@ interface RemoteThreadMetadata {
   readonly remoteId: string;
   readonly externalId?: string | undefined;
   readonly title?: string | undefined;
+  readonly lastActiveAt?: string | undefined;
+  readonly messageCount?: number | undefined;
 }
 
 interface RemoteThreadListResponse {
@@ -42,6 +44,27 @@ interface DbConversationMessage {
   content: unknown;
   createdAt: string;
   toolCallId?: string | null;
+}
+
+export interface CachedThreadListMetadata {
+  title?: string;
+  lastActiveAt?: string;
+  messageCount?: number;
+}
+
+const threadListMetadataCache = new Map<string, CachedThreadListMetadata>();
+
+function cacheThreadMetadata(
+  remoteId: string | undefined,
+  metadata: CachedThreadListMetadata,
+) {
+  if (!remoteId) return;
+  threadListMetadataCache.set(remoteId, metadata);
+}
+
+export function getThreadListMetadata(remoteId: string | undefined) {
+  if (!remoteId) return undefined;
+  return threadListMetadataCache.get(remoteId);
 }
 
 const TITLE_FETCH_RETRIES = 8;
@@ -360,20 +383,29 @@ export function createPmSyncThreadListAdapter() {
     return deleteQueue;
   }
 
-  async function fetchThreadMetadata(
-    threadId: string,
-  ): Promise<RemoteThreadMetadata> {
-    try {
-      const { data } = await apiClient.get(`/ai/chat/conversations/${threadId}`);
-      const conv = data?.conversation ?? data?.data?.conversation;
-      return {
-        status: 'regular' as const,
-        remoteId: conv?.id ?? threadId,
-        title: conv?.title ?? undefined,
-      };
-    } catch {
-      return {
-        status: 'regular' as const,
+async function fetchThreadMetadata(
+  threadId: string,
+): Promise<RemoteThreadMetadata> {
+  try {
+    const { data } = await apiClient.get(`/ai/chat/conversations/${threadId}`);
+    const conv = data?.conversation ?? data?.data?.conversation;
+    cacheThreadMetadata(conv?.id ?? threadId, {
+      title: conv?.title ?? undefined,
+      lastActiveAt: conv?.lastActiveAt ?? undefined,
+      messageCount:
+        typeof conv?.messageCount === 'number' ? conv.messageCount : undefined,
+    });
+    return {
+      status: 'regular' as const,
+      remoteId: conv?.id ?? threadId,
+      title: conv?.title ?? undefined,
+      lastActiveAt: conv?.lastActiveAt ?? undefined,
+      messageCount:
+        typeof conv?.messageCount === 'number' ? conv.messageCount : undefined,
+    };
+  } catch {
+    return {
+      status: 'regular' as const,
         remoteId: threadId,
         title: undefined,
       };
@@ -416,11 +448,33 @@ export function createPmSyncThreadListAdapter() {
           data?.conversations ?? data?.data?.conversations ?? [];
         return {
           threads: conversations.map(
-            (c: { id: string; title?: string }) => ({
-              status: 'regular' as const,
-              remoteId: c.id,
-              title: c.title ?? undefined,
-            }),
+            (
+              c: {
+                id: string;
+                title?: string;
+                lastActiveAt?: string;
+                messageCount?: number;
+              },
+            ) => {
+              cacheThreadMetadata(c.id, {
+                title: c.title ?? undefined,
+                lastActiveAt: c.lastActiveAt ?? undefined,
+                messageCount:
+                  typeof c.messageCount === 'number'
+                    ? c.messageCount
+                    : undefined,
+              });
+              return {
+                status: 'regular' as const,
+                remoteId: c.id,
+                title: c.title ?? undefined,
+                lastActiveAt: c.lastActiveAt ?? undefined,
+                messageCount:
+                  typeof c.messageCount === 'number'
+                    ? c.messageCount
+                    : undefined,
+              };
+            },
           ),
         };
       } catch {
