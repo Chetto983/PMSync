@@ -85,6 +85,9 @@ export enum ScheduledJobType {
 
   // Reminder alert check (Sprint 01 — T-0102)
   REMINDER_ALERT_CHECK = 'reminder-alert-check',
+
+  // Phase 147 D-06 safety-net: fan-out promotion for tenants with recent feedback
+  TRIAGE_PROMOTION_SAFETY_NET = 'triage-promotion-safety-net',
 }
 
 /**
@@ -123,6 +126,9 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.CONTACT_PURGE]: '0 4 * * *',                      // Daily 4 AM
   // Reminder alert check (Sprint 01 — T-0102)
   [ScheduledJobType.REMINDER_ALERT_CHECK]: '*/5 * * * *',             // Every 5 minutes
+
+  // Phase 147 D-06: deliberately off the '0 3 * * *' cluster (thundering-herd avoidance per PATTERNS.md)
+  [ScheduledJobType.TRIAGE_PROMOTION_SAFETY_NET]: '17 4 * * *',       // Daily at 04:17
 };
 
 export interface ScheduledJobData {

@@ -79,6 +79,8 @@ import { LaneAssignmentService } from './services/lane-assignment.service';
 import { TriageOverrideService } from './services/triage-override.service';
 import { TriageFeedbackService } from './services/triage-feedback.service';
 import { TriageCorrectionService } from './services/triage-correction.service';
+import { TriagePromotionService } from './services/triage-promotion.service';
+import { TriagePromotionQueueService } from './services/triage-promotion.queue';
 import { TriageOverridesController } from './controllers/triage-overrides.controller';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
@@ -161,6 +163,8 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageOverrideService,
     TriageFeedbackService,
     TriageCorrectionService,
+    TriagePromotionService,
+    TriagePromotionQueueService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController, TriageOverridesController],
   exports: [
@@ -194,6 +198,8 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageOverrideService,
     TriageFeedbackService,
     TriageCorrectionService,
+    TriagePromotionService,
+    TriagePromotionQueueService,
   ],
 })
 export class AiModule implements OnModuleInit {

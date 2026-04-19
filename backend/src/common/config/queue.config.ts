@@ -423,4 +423,7 @@ export const QUEUE_NAMES = {
 
   // Reminder notification (delayed jobs — fires at exact scadenzaDatetime)
   REMINDER_NOTIFY: 'reminder-notify',
+
+  // Phase 147 D-06: debounced triage override promotion (5min dedup per tenant)
+  TRIAGE_PROMOTE_OVERRIDES: 'triage-promote-overrides',
 } as const;
