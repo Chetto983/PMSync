@@ -300,7 +300,14 @@ Plans:
 
 **Goal:** Validate and enable horizontal scale to 1000 concurrent users on Railway — establish per-user RAM/CPU baseline via load test, apply RAM quick wins (bound unbounded Maps, scope `googleapis` imports), split backend into HTTP-only + worker-only replica topology using the `WORKERS_ENABLED` flag delivered in Phase 146.
 **Depends on:** Phase 146 (provides `WORKERS_ENABLED` + module toggles required for replica split)
-**Plans:** TBD (planning pending)
+**Status:** PARTIAL (2026-04-19) — 3 of 5 plans shipped. Plans 04+05 deferred (pending Railway `staging` env + `backend-staging` service; none exist as of 2026-04-19).
+**Plans:**
+
+- [x] 157-01-PLAN.md — `googleapis` → scoped `@googleapis/{gmail,calendar,people}` + `google-auth-library` migration (16 call sites; −192 MB per replica) — shipped 2026-04-19
+- [x] 157-02-PLAN.md — `AttachmentMetricsService.tenantCounters` dead-field deletion + compat shim + 7-case Jest spec — shipped 2026-04-19
+- [x] 157-03-PLAN.md — Artillery v2 load-test rig (configs, scenarios, auth processor, seed/cleanup scripts, runbook, devDep) — shipped 2026-04-19
+- [ ] 157-04-PLAN.md — Baseline load-test execution — **DEFERRED**: requires Railway `staging` env + `backend-staging` + `-staging` Postgres. Plan file retained for future reuse.
+- [ ] 157-05-PLAN.md — Railway HTTP/worker service split — **DEFERRED**: requires baseline from 157-04. Plan file retained for future reuse.
 
 Scope outline (corrected 2026-04-19 post-research — original ROADMAP draft had 3 errors, see 157-RESEARCH.md):
 

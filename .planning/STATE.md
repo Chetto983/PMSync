@@ -4,7 +4,7 @@ milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: executing
 stopped_at: Phase 145 UI-SPEC approved
-last_updated: "2026-04-19T14:35:00.000Z"
+last_updated: "2026-04-19T14:50:00.000Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 7
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 157 — scale-to-1000-users (Waves 1+2 complete, Wave 3 gated on user)
+**Current focus:** Phase 157 closed PARTIAL (3 of 5 plans shipped). Plans 04+05 deferred pending Railway `staging` env.
 
 ## Current Position
 
-Phase: 157
-Plan: Waves 1+2 complete (157-01 googleapis→scoped, 157-02 tenantCounters cleanup, 157-03 Artillery load-test rig). Wave 3 gated: 157-04 baseline load-test execution requires Railway staging env setup by user. Wave 4 gated: 157-05 HTTP/worker service split requires Railway dashboard work.
-Status: All tsc green (backend + frontend). 7/7 attachment-metrics Jest tests pass. Artillery v2 devDep installed. -192MB node_modules per replica from Wave 1.
+Phase: 157 — PARTIAL complete
+Shipped: 157-01 (googleapis→scoped, −192 MB/replica), 157-02 (tenantCounters cleanup + 7-case Jest spec), 157-03 (Artillery v2 load-test rig)
+Deferred: 157-04 (baseline load-test execution — needs Railway `staging` + `backend-staging` + `-staging` Postgres; none exist as of 2026-04-19). 157-05 (HTTP/worker split — needs baseline from 157-04 + Railway dashboard work).
+Production health: backend deployment fe363ef5 is SUCCESS. Triage running clean, WebSocket auth succeeding, `/api/v1/ai/health` 200, zero googleapis-related runtime errors in live logs.
 Last activity: 2026-04-19
 
 Progress: [██████████] 100%
