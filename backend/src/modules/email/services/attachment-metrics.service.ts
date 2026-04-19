@@ -83,7 +83,6 @@ export class AttachmentMetricsService {
   private counters: Map<AttachmentOperation, number> = new Map();
   private bytesCounters: Map<string, number> = new Map();
   private latencies: Map<AttachmentOperation, number[]> = new Map();
-  private tenantCounters: Map<string, Map<AttachmentOperation, number>> = new Map();
 
   constructor() {
     // Initialize all counters to 0
@@ -131,16 +130,6 @@ export class AttachmentMetricsService {
     // Increment global counter
     const current = this.counters.get(operation) || 0;
     this.counters.set(operation, current + 1);
-
-    // Increment tenant-specific counter
-    if (context.tenantId) {
-      if (!this.tenantCounters.has(context.tenantId)) {
-        this.tenantCounters.set(context.tenantId, new Map());
-      }
-      const tenantMap = this.tenantCounters.get(context.tenantId)!;
-      const tenantCount = tenantMap.get(operation) || 0;
-      tenantMap.set(operation, tenantCount + 1);
-    }
 
     // Record latency if provided
     if (durationMs !== undefined) {
@@ -276,12 +265,10 @@ export class AttachmentMetricsService {
    * @returns Current metrics snapshot
    */
   getMetrics(tenantId?: string): AttachmentMetrics {
-    const getCount = (op: AttachmentOperation): number => {
-      if (tenantId && this.tenantCounters.has(tenantId)) {
-        return this.tenantCounters.get(tenantId)!.get(op) || 0;
-      }
-      return this.counters.get(op) || 0;
-    };
+    // SCALE-02: tenantCounters removed (no consumer per 157-RESEARCH.md Open Q#2 RESOLVED 2026-04-19).
+    // tenantId arg retained for API compatibility — getMetrics returns global metrics regardless.
+    void tenantId;
+    const getCount = (op: AttachmentOperation): number => this.counters.get(op) || 0;
 
     const getAvgLatency = (op: AttachmentOperation): number => {
       const latencyArray = this.latencies.get(op) || [];
@@ -319,7 +306,6 @@ export class AttachmentMetricsService {
    */
   resetMetrics(): void {
     this.initializeCounters();
-    this.tenantCounters.clear();
   }
 
   /**
