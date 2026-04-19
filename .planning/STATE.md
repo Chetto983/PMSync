@@ -4,14 +4,14 @@ milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: executing
 stopped_at: Phase 145 UI-SPEC approved
-last_updated: "2026-04-19T14:05:00.000Z"
+last_updated: "2026-04-19T14:35:00.000Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 21
-  completed_plans: 14
-  percent: 67
+  completed_plans: 16
+  percent: 76
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 157 — scale-to-1000-users (Wave 1 complete, Wave 2 gated)
+**Current focus:** Phase 157 — scale-to-1000-users (Waves 1+2 complete, Wave 3 gated on user)
 
 ## Current Position
 
 Phase: 157
-Plan: Wave 1 complete (157-01 googleapis→scoped migration). Wave 2 gated pending user approval (157-02 attachment-metrics + 157-03 load-test rig).
-Status: Plan 157-01 merged to main 2026-04-19; backend tsc clean, googleapis removed, -192MB node_modules per replica.
+Plan: Waves 1+2 complete (157-01 googleapis→scoped, 157-02 tenantCounters cleanup, 157-03 Artillery load-test rig). Wave 3 gated: 157-04 baseline load-test execution requires Railway staging env setup by user. Wave 4 gated: 157-05 HTTP/worker service split requires Railway dashboard work.
+Status: All tsc green (backend + frontend). 7/7 attachment-metrics Jest tests pass. Artillery v2 devDep installed. -192MB node_modules per replica from Wave 1.
 Last activity: 2026-04-19
 
 Progress: [██████████] 100%
