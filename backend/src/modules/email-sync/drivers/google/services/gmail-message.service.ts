@@ -1,5 +1,5 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
-import { gmail_v1 } from 'googleapis';
+import { gmail_v1 } from '@googleapis/gmail';
 import {
   ListMessagesOptions,
   ListMessagesResult,
