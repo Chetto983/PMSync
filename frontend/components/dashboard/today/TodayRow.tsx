@@ -42,6 +42,7 @@ import {
 } from '@/hooks/queries/use-today';
 import { useTodayFeedStore } from '@/stores/today-feed-store';
 import type { TodayFeedItem, TodayItemType } from '@/lib/api/dashboard';
+import { pmSyncColors } from '@/theme/appTheme';
 import { TodayActions } from './TodayActions';
 import { SnoozeMenu } from './SnoozeMenu';
 
@@ -52,9 +53,25 @@ const TYPE_ICON: Record<TodayItemType, LucideIcon> = {
   event: CalendarIcon,
 };
 
-function typeColor(_type: TodayItemType): string {
-  // Grayscale-first per D-05; use currentColor so text.secondary tint applies.
-  return 'currentColor';
+function typeColor(type: TodayItemType): string {
+  // Semantic color per item type — D-05 ("color is garnish") evolved on
+  // 2026-04-19 to allow icon-level color differentiation at the row level so
+  // rows scan faster without inventing new tokens. See plan 145.1-06.
+  //   email → cyan, task → green, deal → purple, event → orange.
+  // 'currentColor' stays as the fallback for any future item type that has no
+  // semantic token assigned yet.
+  switch (type) {
+    case 'email':
+      return pmSyncColors.semantic.email;
+    case 'task':
+      return pmSyncColors.semantic.tasks;
+    case 'deal':
+      return pmSyncColors.semantic.contacts;
+    case 'event':
+      return pmSyncColors.semantic.calendar;
+    default:
+      return 'currentColor';
+  }
 }
 
 function formatSmartTime(item: TodayFeedItem): string {
