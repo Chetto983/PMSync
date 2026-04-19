@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { google, people_v1 } from 'googleapis';
+import { people as peopleFactory, people_v1 } from '@googleapis/people';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -317,10 +318,10 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
    * Create Google People API client
    */
   private createPeopleClient(accessToken: string): people_v1.People {
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
 
-    return google.people({ version: 'v1', auth: oauth2Client });
+    return peopleFactory({ version: 'v1', auth: oauth2Client });
   }
 
   /**
