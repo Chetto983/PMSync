@@ -102,11 +102,11 @@ export function AssistantMessage() {
 
   return (
     <MessagePrimitive.Root className="chat-message-row chat-message-assistant group">
-      <div className="chat-message-avatar">
-        <Bot size={16} />
-      </div>
       <div className="chat-message-main">
         <div className="chat-assistant-meta">
+          <div className="chat-message-avatar">
+            <Bot size={15} />
+          </div>
           <span className="chat-assistant-name">{t.ai.overlay.title}</span>
         </div>
         <div className="chat-assistant-bubble">

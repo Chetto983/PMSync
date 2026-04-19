@@ -12,9 +12,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px 12px 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--chat-border) 84%, white 16%);
-  background: color-mix(in srgb, var(--chat-surface) 92%, white 8%);
+  background: color-mix(in srgb, var(--chat-surface) 94%, white 6%);
 }
 
 /* Push right-side elements (new-btn / bulk actions) to the end */
@@ -31,23 +31,23 @@
 }
 
 .chat-sidebar-title {
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: hsl(var(--muted-foreground));
 }
 
 .chat-sidebar-new-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
-  box-shadow: 0 10px 22px hsl(var(--primary) / 0.16);
+  box-shadow: 0 8px 18px hsl(var(--primary) / 0.14);
   transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
@@ -60,12 +60,12 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding: 10px 10px 14px;
+  padding: 8px 8px 12px;
 }
 
 .chat-sidebar-section-label {
-  padding: 0 8px 8px;
-  font-size: 0.66rem;
+  padding: 2px 8px 8px;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -156,15 +156,15 @@
   position: relative;
   display: flex;
   align-items: stretch;
-  min-height: 62px;
-  border-radius: 12px;
+  min-height: 58px;
+  border-radius: 11px;
   border: 1px solid color-mix(in srgb, var(--chat-border) 88%, white 12%);
   background: color-mix(in srgb, var(--chat-surface) 94%, white 6%);
   transition:
     border-color 0.15s ease,
     background-color 0.15s ease,
     box-shadow 0.15s ease;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .chat-thread-item--selected {
@@ -174,18 +174,14 @@
 
 .chat-thread-item:hover {
   border-color: var(--chat-border-strong);
-  background: color-mix(in srgb, var(--chat-surface) 90%, var(--chat-muted-bg) 10%);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  background: color-mix(in srgb, var(--chat-surface) 92%, var(--chat-muted-bg) 8%);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
 }
 
 .chat-thread-item[data-active='true'] {
-  border-color: hsl(var(--primary) / 0.34);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, hsl(var(--primary)) 8%, white 92%) 0%,
-    color-mix(in srgb, hsl(var(--primary)) 4%, white 96%) 100%
-  );
-  box-shadow: inset 3px 0 0 hsl(var(--primary) / 0.7);
+  border-color: color-mix(in srgb, hsl(var(--primary)) 22%, var(--chat-border) 78%);
+  background: color-mix(in srgb, hsl(var(--primary)) 6%, white 94%);
+  box-shadow: inset 2px 0 0 hsl(var(--primary) / 0.8);
 }
 
 /* Checkbox — visible on hover/selected (desktop), always visible (mobile) */
@@ -212,8 +208,8 @@
   min-width: 0;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 11px 12px 11px 8px;
+  gap: 9px;
+  padding: 10px 10px 10px 6px;
   text-align: left;
   border: 0;
   background: transparent;
@@ -223,9 +219,9 @@
 }
 
 .chat-thread-item-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--chat-border) 86%, white 14%);
   background: color-mix(in srgb, var(--chat-surface) 98%, white 2%);
   display: inline-flex;
@@ -239,7 +235,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: hsl(var(--foreground));
 }
@@ -249,39 +245,32 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding-top: 1px;
+  gap: 4px;
 }
 
 .chat-thread-item-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chat-thread-item-meta-chip {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 20px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--chat-surface) 90%, var(--chat-muted-bg) 10%);
-  border: 1px solid color-mix(in srgb, var(--chat-border) 86%, white 14%);
+  gap: 5px;
+  min-height: 16px;
   font-size: 0.68rem;
   font-weight: 600;
   color: hsl(var(--muted-foreground));
 }
 
+.chat-thread-item-meta-separator {
+  opacity: 0.55;
+}
+
 .chat-thread-item-delete {
   width: 32px;
   height: 32px;
-  margin: 12px 4px 0 0;
+  margin: 10px 4px 0 0;
   border-radius: 9px;
   border: 0;
   background: transparent;
   color: hsl(var(--muted-foreground));
-  opacity: 0.32;
+  opacity: 0.22;
   display: inline-flex;
   align-items: center;
   justify-content: center;

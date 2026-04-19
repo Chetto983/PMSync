@@ -14,7 +14,7 @@ import {
 } from '@assistant-ui/react';
 import { useThreadListItemRuntime } from '@assistant-ui/react';
 import type { ThreadListItemRuntime } from '@assistant-ui/react';
-import { Plus, Trash2, MessageSquare, Clock3 } from 'lucide-react';
+import { Plus, Trash2, MessageSquare } from 'lucide-react';
 import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
@@ -90,6 +90,12 @@ function formatRelativeThreadTime(value: string | undefined) {
   }).format(amount, unit);
 }
 
+function formatMessageCount(count: number | undefined) {
+  if (count == null) return null;
+  if (count === 1) return '1 message';
+  return `${count} messages`;
+}
+
 function ThreadListItem() {
   const t = useTranslations();
   const runtime = useThreadListItemRuntime();
@@ -101,6 +107,7 @@ function ThreadListItem() {
   const metadata = getThreadListMetadata(state.remoteId);
   const relativeTime = formatRelativeThreadTime(metadata?.lastActiveAt);
   const messageCount = metadata?.messageCount;
+  const messageCountLabel = formatMessageCount(messageCount);
 
   useEffect(() => {
     ctx.register(itemId, runtime);
@@ -165,18 +172,11 @@ function ThreadListItem() {
             </span>
             {messageCount != null || relativeTime ? (
               <span className="chat-thread-item-meta" aria-hidden="true">
-                {messageCount != null ? (
-                  <span className="chat-thread-item-meta-chip">
-                    <MessageSquare size={11} />
-                    <span>{messageCount}</span>
-                  </span>
+                {messageCountLabel ? <span>{messageCountLabel}</span> : null}
+                {messageCountLabel && relativeTime ? (
+                  <span className="chat-thread-item-meta-separator">•</span>
                 ) : null}
-                {relativeTime ? (
-                  <span className="chat-thread-item-meta-chip">
-                    <Clock3 size={11} />
-                    <span>{relativeTime}</span>
-                  </span>
-                ) : null}
+                {relativeTime ? <span>{relativeTime}</span> : null}
               </span>
             ) : null}
           </span>
