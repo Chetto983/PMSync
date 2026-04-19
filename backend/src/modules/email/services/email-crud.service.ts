@@ -9,7 +9,7 @@
  * - Delete single email (soft/hard)
  * - Draft operations (save, get, delete)
  */
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma, ProviderConfig } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -18,6 +18,8 @@ import { validatePagination, buildPaginationMeta, emailListSelect, emailLabelsIn
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
+import { TriageFeedbackService } from '../../ai/services/triage-feedback.service';
+import { TriagePromotionQueueService } from '../../ai/services/triage-promotion.queue';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { StorageService } from './storage.service';
 import { EmailFolderService, EmailListFilters } from './email-folder.service';
@@ -50,6 +52,8 @@ export class EmailCrudService {
     private providerTokenService: ProviderTokenService,
     private driverFactory: EmailDriverFactory,
     private crypto: CryptoService,
+    @Optional() private readonly triageFeedbackService?: TriageFeedbackService,
+    @Optional() private readonly triagePromotionQueue?: TriagePromotionQueueService,
   ) {}
 
   /**
@@ -205,12 +209,14 @@ export class EmailCrudService {
     data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string; aiLabels?: string[] },
   ) {
     // Use transaction with row-level lock to prevent TOCTOU race condition
-    const { updated, originalFolder } = await this.prisma.$transaction(async (tx) => {
-      // Lock the row with FOR UPDATE to prevent concurrent modifications
+    const { updated, originalFolder, oldAiLabels } = await this.prisma.$transaction(async (tx) => {
+      // Lock the row with FOR UPDATE to prevent concurrent modifications.
+      // Phase 147 D-01: include `aiLabels` so we can snapshot the pre-update value
+      // for the auto-diff feedback capture that fires after the transaction commits.
       const emails = await tx.$queryRaw<
-        Array<{ id: string; providerId: string; folder: string; externalId: string; labels: string[] }>
+        Array<{ id: string; providerId: string; folder: string; externalId: string; labels: string[]; aiLabels: string[] }>
       >`
-        SELECT id, "providerId", folder, "externalId", labels
+        SELECT id, "providerId", folder, "externalId", labels, "aiLabels"
         FROM "emails"
         WHERE id = ${id} AND "tenantId" = ${tenantId}
         FOR UPDATE
@@ -251,7 +257,11 @@ export class EmailCrudService {
         },
       });
 
-      return { updated: updatedEmail, originalFolder: email.folder };
+      return {
+        updated: updatedEmail,
+        originalFolder: email.folder,
+        oldAiLabels: email.aiLabels ? [...email.aiLabels] : [],
+      };
     });
 
     const targetFolder = data.folder ?? originalFolder;
@@ -295,6 +305,30 @@ export class EmailCrudService {
     this.syncChangesToProvider(updated, data).catch((error) => {
       this.logger.error(`Failed to sync email update to provider: ${error.message}`);
     });
+
+    // Phase 147 D-01: auto-diff triage feedback capture.
+    // Fire-and-forget — NEVER await, NEVER block the API response, NEVER place
+    // inside the transaction (a feedback DB failure must not roll back the email update).
+    if (data.aiLabels !== undefined && this.triageFeedbackService) {
+      this.triageFeedbackService
+        .captureLabelDiff(tenantId, id, oldAiLabels, data.aiLabels ?? [])
+        .catch((err) =>
+          this.logger.warn(
+            `Triage feedback capture failed for ${id}: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+
+      // Phase 147 D-06 trigger 1: debounced promotion enqueue.
+      if (this.triagePromotionQueue) {
+        this.triagePromotionQueue
+          .enqueueDebounced(tenantId)
+          .catch((err) =>
+            this.logger.warn(
+              `Triage promotion enqueue failed for tenant=${tenantId}: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+          );
+      }
+    }
 
     return updated;
   }
