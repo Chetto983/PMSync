@@ -7,7 +7,8 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { calendar_v3, google } from 'googleapis';
+import { calendar as calendarFactory, calendar_v3 } from '@googleapis/calendar';
+import { OAuth2Client } from 'google-auth-library';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { GoogleRateLimitError } from '../../providers/errors';
@@ -258,10 +259,10 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
    * Create Google Calendar client
    */
   private createCalendarClient(accessToken: string): calendar_v3.Calendar {
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
 
-    return google.calendar({ version: 'v3', auth: oauth2Client });
+    return calendarFactory({ version: 'v3', auth: oauth2Client });
   }
 
   /** Max retries for 429 responses */
