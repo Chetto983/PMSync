@@ -1,10 +1,17 @@
 /**
  * TodayActions — 24x24 IconButton trio for the Today row (145.1-03).
  *
- * Replaces TodayQuickActions. Idle opacity 0.5 on desktop; parent `.feed-row:hover`
- * or `.feed-row:focus-within` lifts to 1.0. Tooltip delay 800ms. Snooze button is
- * conditionally rendered (NOT greyed) when `item.canSnooze` is false. Opacity
- * transition collapses under prefers-reduced-motion per UI-SPEC §Accessibility.
+ * Replaces TodayQuickActions. Icons are ALWAYS visible (a11y: the user should
+ * always know what actions are available); on desktop they are dimmed to
+ * text.disabled until the parent `.feed-row:hover` or `.feed-row:focus-within`
+ * lifts them to text.primary. On mobile (xs) they are always text.primary.
+ * Tooltip delay 800ms. Snooze button is conditionally rendered (NOT greyed)
+ * when `item.canSnooze` is false. Color transition collapses under
+ * prefers-reduced-motion per UI-SPEC §Accessibility.
+ *
+ * (145.1-06: swapped the opacity 0.5 → 1.0 fade for a color fade because the
+ * old half-opacity state made the icons hard to perceive — cleaner color
+ * signal, same at-a-glance affordance.)
  */
 
 'use client';
@@ -44,15 +51,20 @@ export function TodayActions({ item, onComplete, onSnooze, onDismiss }: Props) {
         display: 'flex',
         alignItems: 'center',
         gap: 0.25,
-        opacity: { xs: 1, sm: 0.5 },
-        transition: 'opacity 120ms ease-out',
+        // Color-based reveal instead of opacity fade: icons stay visible on
+        // desktop (better a11y — user always knows what actions exist) but
+        // dim to text.disabled until the parent row gains hover/focus-within,
+        // then brighten to text.primary. IconButton children inherit via
+        // currentColor on their lucide icons.
+        color: { xs: 'text.primary', sm: 'text.disabled' },
+        transition: 'color 120ms ease-out',
         // Reduced-motion fallback per UI-SPEC §Accessibility line 221:
-        // opacity 0.5 → 1.0 reveal must be instant under prefers-reduced-motion.
+        // color change must be instant under prefers-reduced-motion.
         '@media (prefers-reduced-motion: reduce)': {
           transition: 'none',
         },
-        '.feed-row:hover &': { opacity: 1 },
-        '.feed-row:focus-within &': { opacity: 1 },
+        '.feed-row:hover &': { color: 'text.primary' },
+        '.feed-row:focus-within &': { color: 'text.primary' },
       }}
     >
       {item.canComplete && (
