@@ -5,16 +5,16 @@
  * - Open/close state (ephemeral, NOT persisted)
  * - Panel width (persisted to localStorage)
  *
- * Width constraints: min 320px, default 420px, max 600px (per D-10).
+ * Width constraints: min 360px, default 560px, max 760px.
  * isOpen always starts as false on page load (per D-12).
  */
 
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 
-export const DEFAULT_WIDTH = 420;
-export const MIN_WIDTH = 320;
-export const MAX_WIDTH = 600;
+export const DEFAULT_WIDTH = 560;
+export const MIN_WIDTH = 360;
+export const MAX_WIDTH = 760;
 
 interface AiOverlayState {
   isOpen: boolean;

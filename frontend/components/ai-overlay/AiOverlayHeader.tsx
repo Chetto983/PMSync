@@ -18,41 +18,91 @@ export function AiOverlayHeader() {
     <Box
       sx={{
         px: 2,
-        py: 1.5,
+        py: 1.75,
         borderBottom: 1,
         borderColor: 'divider',
         display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        minHeight: 48,
+        alignItems: 'flex-start',
+        gap: 1.5,
+        minHeight: 72,
         flexShrink: 0,
+        background:
+          'linear-gradient(180deg, color-mix(in srgb, var(--mui-palette-background-paper) 90%, var(--mui-palette-primary-light) 10%) 0%, var(--mui-palette-background-paper) 100%)',
       }}
     >
-      {/* Title group */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box
-          component={Sparkles}
-          sx={{ width: 20, height: 20, color: 'primary.main' }}
-        />
-        <Typography variant="subtitle2">{t.ai.overlay.title}</Typography>
+      <Box
+        sx={{
+          width: 38,
+          height: 38,
+          borderRadius: '12px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          backgroundColor: 'rgba(14, 165, 233, 0.10)',
+          color: 'primary.main',
+          border: 1,
+          borderColor: 'rgba(14, 165, 233, 0.18)',
+          boxShadow: '0 10px 24px rgba(14, 165, 233, 0.12)',
+        }}
+      >
+        <Box component={Sparkles} sx={{ width: 18, height: 18 }} />
       </Box>
 
-      {/* Context chip */}
-      <ContextIndicator />
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+            {t.ai.overlay.title}
+          </Typography>
+          <Chip
+            size="small"
+            label="Beta"
+            sx={{
+              height: 22,
+              borderRadius: '999px',
+              backgroundColor: 'rgba(14, 165, 233, 0.10)',
+              color: 'primary.main',
+              fontSize: '0.68rem',
+              fontWeight: 700,
+            }}
+          />
+        </Box>
+        <Box
+          sx={{
+            mt: 0.9,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            flexWrap: 'wrap',
+          }}
+        >
+          <ContextIndicator />
+          <Chip
+            size="small"
+            label={t.ai.overlay.shortcutHint}
+            variant="outlined"
+            sx={{
+              height: 24,
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              bgcolor: 'background.paper',
+            }}
+          />
+        </Box>
+      </Box>
 
-      {/* Right group: shortcut hint + close */}
       <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Chip
-          size="small"
-          label={t.ai.overlay.shortcutHint}
-          variant="outlined"
-          sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600 }}
-        />
         <Tooltip title={t.ai.overlay.close}>
           <IconButton
             onClick={close}
             size="small"
             aria-label={t.ai.overlay.close}
+            sx={{
+              mt: 0.25,
+              border: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+            }}
           >
             <X size={18} />
           </IconButton>

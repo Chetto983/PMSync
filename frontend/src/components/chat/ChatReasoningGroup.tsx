@@ -33,7 +33,7 @@ export function ChatReasoningGroup({ children }: PropsWithChildren<{ startIndex:
             transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
           }}
         />
-        {t.chat.reasoning.label}
+        <span className="chat-cot-label">{t.chat.reasoning.label}</span>
       </button>
       {!collapsed && (
         <div className="chat-cot-content">

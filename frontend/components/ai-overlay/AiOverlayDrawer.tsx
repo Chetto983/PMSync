@@ -13,7 +13,7 @@ import { ChatDesktopLayout } from '@/src/components/chat/ChatDesktopLayout';
 import { ChatThread } from '@/src/components/chat/ChatThread';
 import { ChatThreadList } from '@/src/components/chat/ChatThreadList';
 
-const WIDE_THRESHOLD = 480;
+const WIDE_THRESHOLD = 560;
 
 /**
  * Root AI overlay component.
@@ -72,6 +72,11 @@ export function AiOverlayDrawer() {
           display: 'flex',
           flexDirection: 'row',
           overflow: 'hidden',
+          borderLeft: 1,
+          borderColor: 'divider',
+          background:
+            'linear-gradient(180deg, color-mix(in srgb, var(--mui-palette-background-paper) 96%, white 4%) 0%, var(--mui-palette-background-paper) 100%)',
+          boxShadow: '-18px 0 44px rgba(15, 23, 42, 0.14)',
         },
       }}
     >
@@ -106,11 +111,12 @@ export function AiOverlayDrawer() {
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      px: 1,
-                      py: 0.5,
+                      px: 1.5,
+                      py: 1,
                       borderBottom: 1,
                       borderColor: 'divider',
                       flexShrink: 0,
+                      backgroundColor: 'background.paper',
                     }}
                   >
                     <Tooltip
@@ -132,7 +138,15 @@ export function AiOverlayDrawer() {
                 )}
 
                 {/* Chat content area */}
-                <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
+                <Box
+                  sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    backgroundColor: 'background.paper',
+                  }}
+                >
                   {isWide ? (
                     <ChatDesktopLayout />
                   ) : showThreadList ? (
