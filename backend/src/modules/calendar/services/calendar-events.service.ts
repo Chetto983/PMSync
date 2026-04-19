@@ -12,7 +12,8 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { calendar_v3, google } from 'googleapis';
+import { calendar as calendarFactory, calendar_v3 } from '@googleapis/calendar';
+import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
@@ -500,9 +501,9 @@ export class CalendarEventsService {
 
     try {
       if (provider.providerType === 'google') {
-        const oauth2Client = new google.auth.OAuth2();
+        const oauth2Client = new OAuth2Client();
         oauth2Client.setCredentials({ access_token: accessToken });
-        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+        const calendar = calendarFactory({ version: 'v3', auth: oauth2Client });
         await calendar.events.patch({
           calendarId: event.calendarId || 'primary',
           eventId: event.externalId,
@@ -612,9 +613,9 @@ export class CalendarEventsService {
     accessToken: string,
     data: CreateEventDto,
   ): Promise<{ id: string; iCalUID: string | null }> {
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const calendar = calendarFactory({ version: 'v3', auth: oauth2Client });
 
     const event: calendar_v3.Schema$Event = {
       summary: data.title,
@@ -673,9 +674,9 @@ export class CalendarEventsService {
     calendarId: string,
     data: UpdateEventDto,
   ): Promise<void> {
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const calendar = calendarFactory({ version: 'v3', auth: oauth2Client });
 
     const event: calendar_v3.Schema$Event = {};
 
@@ -717,9 +718,9 @@ export class CalendarEventsService {
     eventId: string,
     calendarId: string,
   ): Promise<void> {
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const calendar = calendarFactory({ version: 'v3', auth: oauth2Client });
 
     await calendar.events.delete({
       calendarId,

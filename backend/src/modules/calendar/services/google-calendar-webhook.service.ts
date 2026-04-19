@@ -7,7 +7,8 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { calendar_v3, google } from 'googleapis';
+import { calendar as calendarFactory, calendar_v3 } from '@googleapis/calendar';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
@@ -97,9 +98,9 @@ export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService
         provider.tokenEncryptionIv,
       );
 
-      const oauth2Client = new google.auth.OAuth2();
+      const oauth2Client = new OAuth2Client();
       oauth2Client.setCredentials({ access_token: accessToken });
-      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+      const calendar = calendarFactory({ version: 'v3', auth: oauth2Client });
 
       // Get list of calendars to watch
       const calendarList = await calendar.calendarList.list();
@@ -218,9 +219,9 @@ export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService
         provider.tokenEncryptionIv,
       );
 
-      const oauth2Client = new google.auth.OAuth2();
+      const oauth2Client = new OAuth2Client();
       oauth2Client.setCredentials({ access_token: accessToken });
-      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+      const calendar = calendarFactory({ version: 'v3', auth: oauth2Client });
 
       for (const subscription of subscriptions) {
         const metadata = subscription.metadata as any;

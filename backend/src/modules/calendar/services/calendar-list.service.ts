@@ -8,7 +8,8 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ProviderConfig } from '@prisma/client';
 import axios from 'axios';
-import { calendar_v3, google } from 'googleapis';
+import { calendar as calendarFactory, calendar_v3 } from '@googleapis/calendar';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -760,9 +761,9 @@ export class CalendarListService {
   }
 
   private createGoogleCalendarClient(accessToken: string): calendar_v3.Calendar {
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
-    return google.calendar({ version: 'v3', auth: oauth2Client });
+    return calendarFactory({ version: 'v3', auth: oauth2Client });
   }
 
   private getGraphHeaders(accessToken: string): Record<string, string> {

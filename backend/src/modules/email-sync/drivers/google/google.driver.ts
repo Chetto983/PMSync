@@ -1,5 +1,6 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
-import { google, gmail_v1 } from 'googleapis';
+import { gmail as gmailFactory, gmail_v1 } from '@googleapis/gmail';
+import { OAuth2Client } from 'google-auth-library';
 import {
   BaseEmailDriver,
   DriverCredentials,
@@ -54,7 +55,7 @@ export class GoogleDriver extends BaseEmailDriver {
   private gmail: gmail_v1.Gmail | null = null;
   private userEmail: string | null = null;
   /** G-C1 FIX: Store oauth2Client for credential updates on token refresh */
-  private oauth2Client: InstanceType<typeof google.auth.OAuth2> | null = null;
+  private oauth2Client: OAuth2Client | null = null;
   /** G-C1 FIX: Callback to refresh OAuth token — set by sync services */
   private tokenRefresher: TokenRefresherFn | null = null;
   /** G-C1 FIX: Counter for monitoring token refreshes */
@@ -103,14 +104,14 @@ export class GoogleDriver extends BaseEmailDriver {
       throw new Error('Access token is required for Google authentication');
     }
 
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({
       access_token: credentials.accessToken,
       refresh_token: credentials.refreshToken,
     });
 
     this.oauth2Client = oauth2Client;
-    this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    this.gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
     this.credentials = credentials;
     this.connected = true;
 

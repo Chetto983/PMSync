@@ -1,5 +1,5 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
-import { gmail_v1 } from 'googleapis';
+import { gmail_v1 } from '@googleapis/gmail';
 import { ChangesResult } from '../../interfaces/email-driver.interface';
 import { ProviderChange } from '../../interfaces/canonical.types';
 import { withRetry, RetryOptions } from '../../../../../common/utils';

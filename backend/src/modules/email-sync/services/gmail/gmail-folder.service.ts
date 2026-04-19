@@ -1,5 +1,6 @@
 import { Injectable, Logger, ConflictException } from '@nestjs/common';
-import { gmail_v1, google } from 'googleapis';
+import { gmail as gmailFactory, gmail_v1 } from '@googleapis/gmail';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
 import { ProviderTokenService } from '../provider-token.service';
@@ -386,10 +387,10 @@ export class GmailFolderService {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId, tenantId);
 
     // Create OAuth2 client with access token
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
 
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
     return this.syncGmailFolders(gmail, tenantId, providerId);
   }
@@ -515,9 +516,9 @@ export class GmailFolderService {
 
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
     try {
       const response = await gmail.users.labels.create({
@@ -552,9 +553,9 @@ export class GmailFolderService {
   ): Promise<void> {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
     await gmail.users.labels.update({
       userId: 'me',
@@ -571,9 +572,9 @@ export class GmailFolderService {
   async deleteGmailFolder(providerId: string, labelId: string): Promise<void> {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
     await gmail.users.labels.delete({
       userId: 'me',

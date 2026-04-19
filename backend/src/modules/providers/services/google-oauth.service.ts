@@ -1,6 +1,8 @@
 import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
-import { google } from 'googleapis';
+import { gmail as gmailFactory } from '@googleapis/gmail';
+import { calendar as calendarFactory } from '@googleapis/calendar';
+import { people as peopleFactory } from '@googleapis/people';
 import { randomBytes } from 'crypto';
 import { getConfiguration } from '../../../config/configuration';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -420,7 +422,7 @@ export class GoogleOAuthService {
       const auth = new OAuth2Client();
       auth.setCredentials({ access_token: accessToken });
 
-      const gmail = google.gmail({ version: 'v1', auth: auth as any });
+      const gmail = gmailFactory({ version: 'v1', auth });
       const response = await gmail.users.labels.list({ userId: 'me' });
 
       this.logger.log(`Retrieved ${response.data.labels?.length || 0} Gmail labels`);
@@ -448,7 +450,7 @@ export class GoogleOAuthService {
       const auth = new OAuth2Client();
       auth.setCredentials({ access_token: accessToken });
 
-      const gmail = google.gmail({ version: 'v1', auth: auth as any });
+      const gmail = gmailFactory({ version: 'v1', auth });
       const response = await gmail.users.settings.sendAs.list({ userId: 'me' });
       const sendAs = response.data.sendAs || [];
 
@@ -484,7 +486,7 @@ export class GoogleOAuthService {
       const auth = new OAuth2Client();
       auth.setCredentials({ access_token: accessToken });
 
-      const gmail = google.gmail({ version: 'v1', auth: auth as any });
+      const gmail = gmailFactory({ version: 'v1', auth });
       const response = await gmail.users.messages.list({
         userId: 'me',
         maxResults: 10,
@@ -538,7 +540,7 @@ export class GoogleOAuthService {
       const auth = new OAuth2Client();
       auth.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: auth as any });
+      const calendar = calendarFactory({ version: 'v3', auth });
       const response = await calendar.calendarList.list();
 
       this.logger.log(`Retrieved ${response.data.items?.length || 0} calendars`);
@@ -570,7 +572,7 @@ export class GoogleOAuthService {
       const auth = new OAuth2Client();
       auth.setCredentials({ access_token: accessToken });
 
-      const calendar = google.calendar({ version: 'v3', auth: auth as any });
+      const calendar = calendarFactory({ version: 'v3', auth });
       const response = await calendar.events.list({
         calendarId: 'primary',
         timeMin: new Date().toISOString(),
@@ -609,7 +611,7 @@ export class GoogleOAuthService {
       const auth = new OAuth2Client();
       auth.setCredentials({ access_token: accessToken });
 
-      const people = google.people({ version: 'v1', auth: auth as any });
+      const people = peopleFactory({ version: 'v1', auth });
       const response = await people.people.connections.list({
         resourceName: 'people/me',
         pageSize: 10,

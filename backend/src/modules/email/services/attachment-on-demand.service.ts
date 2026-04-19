@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, NotFoundException, Optional, PayloadTooLargeException } from '@nestjs/common';
-import { google } from 'googleapis';
+import { gmail as gmailFactory } from '@googleapis/gmail';
+import { OAuth2Client } from 'google-auth-library';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -500,9 +501,9 @@ export class AttachmentOnDemandService {
       }
 
       // Create OAuth2 client and Gmail API client
-      const oauth2Client = new google.auth.OAuth2();
+      const oauth2Client = new OAuth2Client();
       oauth2Client.setCredentials({ access_token: accessToken });
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
       // Call Gmail API directly to get attachment
       const response = await gmail.users.messages.attachments.get({

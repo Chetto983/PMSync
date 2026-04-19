@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { google, gmail_v1 } from 'googleapis';
+import { gmail as gmailFactory, gmail_v1 } from '@googleapis/gmail';
+import { OAuth2Client } from 'google-auth-library';
 import { Client as GraphClient } from '@microsoft/microsoft-graph-client';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { parseImapExternalId } from '../../../common/utils/imap-utils';
@@ -133,10 +134,10 @@ export class EmailFetchService {
       throw new Error(`Provider ${provider.id} is not a Gmail provider`);
     }
 
-    const oauth2Client = new google.auth.OAuth2();
+    const oauth2Client = new OAuth2Client();
     oauth2Client.setCredentials({ access_token: accessToken });
 
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const gmail = gmailFactory({ version: 'v1', auth: oauth2Client });
 
     const messageResponse = await gmail.users.messages.get({
       userId: 'me',
