@@ -41,6 +41,17 @@ export const ACTION_TO_LANE: Record<string, string | undefined> = {
   'always-customer-vip': 'customer-vip',
 };
 
+// Phase 147 Plan 05 D-06: inverse of ACTION_TO_LANE. Used by TriagePromotionService
+// to translate a lane_correction suggestion's `target` (lane name) back into the
+// override `action` that TriageOverride.addOverride accepts. Both maps must stay
+// inverse — if you add a lane here, add it to ACTION_TO_LANE too.
+export const LANE_TO_ACTION: Record<string, string | undefined> = {
+  'action-now': 'always-important',
+  'review-later': 'always-review-later',
+  'system-alerts': 'always-system-alert',
+  'customer-vip': 'always-customer-vip',
+};
+
 // Phase 147 D-07: muting actions skip the LLM call entirely. never-follow-up
 // additionally suppresses the post-triage follow-up creation.
 export const MUTING_ACTIONS: ReadonlySet<string> = new Set([

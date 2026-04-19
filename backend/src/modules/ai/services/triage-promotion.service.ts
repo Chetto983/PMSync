@@ -23,7 +23,7 @@ import {
 import type { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { TriageFeedbackService } from './triage-feedback.service';
-import { TriageOverrideService } from './triage-override.service';
+import { TriageOverrideService, LANE_TO_ACTION } from './triage-override.service';
 import { EmailAnalysisService } from './email-analysis.service';
 import {
   ScheduledJobsQueueService,
@@ -109,19 +109,58 @@ export class TriagePromotionService implements OnModuleDestroy {
 
     const suggestions = await this.feedbackService.getSuggestions(tenantId);
     let promoted = 0;
+    const patternsPromoted: Array<{ scope: 'sender' | 'domain'; pattern: string }> = [];
 
-    // D-05a: Phase 147 skips label_correction suggestions — TriageOverride.action is
-    // lane-shaped. Lane_correction paths (not wired until Wave 4+) would land here.
-    for (const _s of suggestions) {
-      // Forward-compat placeholder. When lane_correction capture ships, map here:
-      //   this.overrideService.addOverride(...) + collect affected emailIds.
-      continue;
+    // Phase 147 Plan 05:
+    // - D-05a: label_correction suggestions are NOT promoted to TriageOverride
+    //   (action enum is lane-shaped; label corrections feed the few-shot path).
+    // - Lane_correction suggestions WHOSE `target` matches a known lane get promoted
+    //   via LANE_TO_ACTION. Phase 147 has no lane_correction producers (D-02 defers
+    //   capture), so this loop is effectively a no-op this phase. Wave 4+ lights up
+    //   automatically with zero code changes.
+    for (const s of suggestions) {
+      const action = LANE_TO_ACTION[s.target];
+      if (!action) continue; // target isn't a lane — skip (label_correction case)
+
+      await this.overrideService.addOverride(tenantId, s.scope, s.pattern, action);
+      patternsPromoted.push({ scope: s.scope, pattern: s.pattern });
+      promoted += 1;
+      this.logger.log(
+        `Promoted ${s.scope} override: ${s.pattern} → ${action} (tenant=${tenantId})`,
+      );
     }
 
-    // Cache-invalidation stub — wires up fully when lane_correction promotion starts
-    // creating overrides. Using analysisService now keeps the DI edge present so the
-    // unused-import guard doesn't drop it; Wave 4/5 calls invalidateCache(tenantId, ids).
-    void this.analysisService;
+    // Phase 147 Plan 05: cache invalidation for newly-minted overrides so the next
+    // triage for any matching email picks up the new rule instead of a stale cached
+    // EmailAnalysis row (24h TTL window). No-op when no overrides were created.
+    if (patternsPromoted.length > 0) {
+      const affectedEmailIds: string[] = [];
+      for (const p of patternsPromoted) {
+        const rows =
+          p.scope === 'sender'
+            ? await this.prisma.email.findMany({
+                where: { tenantId, from: { equals: p.pattern, mode: 'insensitive' } },
+                select: { id: true },
+              })
+            : await this.prisma.email.findMany({
+                where: {
+                  tenantId,
+                  from: { contains: `@${p.pattern}`, mode: 'insensitive' },
+                },
+                select: { id: true },
+              });
+        for (const r of rows) affectedEmailIds.push(r.id);
+      }
+      if (affectedEmailIds.length > 0) {
+        const invalidated = await this.analysisService.invalidateCache(
+          tenantId,
+          affectedEmailIds,
+        );
+        this.logger.log(
+          `Invalidated ${invalidated} cached analyses for newly-promoted overrides (tenant=${tenantId})`,
+        );
+      }
+    }
 
     if (redis) {
       try {
