@@ -5,16 +5,16 @@
  * - Open/close state (ephemeral, NOT persisted)
  * - Panel width (persisted to localStorage)
  *
- * Width constraints: min 360px, default 560px, max 760px.
+ * Width constraints: min 420px, default 980px, max 1280px.
  * isOpen always starts as false on page load (per D-12).
  */
 
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 
-export const DEFAULT_WIDTH = 560;
-export const MIN_WIDTH = 360;
-export const MAX_WIDTH = 760;
+export const DEFAULT_WIDTH = 980;
+export const MIN_WIDTH = 420;
+export const MAX_WIDTH = 1280;
 
 interface AiOverlayState {
   isOpen: boolean;
@@ -39,7 +39,7 @@ export const useAiOverlay = create<AiOverlayState>()(
       }),
       {
         name: 'pmsync:ai-overlay-width',
-        version: 2,
+        version: 3,
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({ width: state.width }),
         migrate: (persistedState: unknown) => {
@@ -47,7 +47,7 @@ export const useAiOverlay = create<AiOverlayState>()(
           const nextWidth = state?.width ?? DEFAULT_WIDTH;
 
           // Migrate legacy narrow widths from the old 420px default to the V2 workspace default.
-          if (nextWidth < 500) {
+          if (nextWidth < 860) {
             return { width: DEFAULT_WIDTH };
           }
 

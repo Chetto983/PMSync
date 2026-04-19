@@ -13,7 +13,7 @@ import { ChatDesktopLayout } from '@/src/components/chat/ChatDesktopLayout';
 import { ChatThread } from '@/src/components/chat/ChatThread';
 import { ChatThreadList } from '@/src/components/chat/ChatThreadList';
 
-const WIDE_THRESHOLD = 560;
+const WIDE_THRESHOLD = 860;
 
 /**
  * Root AI overlay component.
