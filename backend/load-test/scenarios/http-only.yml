@@ -1,0 +1,34 @@
+# Standalone HTTP-only config — use for "HTTP p95 in isolation" diagnostic runs
+config:
+  target: "{{ $processEnvironment.LOADTEST_TARGET }}"
+  phases:
+    - duration: 60
+      arrivalRate: 100
+      name: "HTTP-only hold 100"
+  http:
+    timeout: 10
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+  ensure:
+    p95: 500
+    maxErrorRate: 1
+  processor: "../processors/auth.js"
+
+scenarios:
+  - name: "HTTP user session"
+    flow:
+      - post:
+          url: "/api/auth/sign-in/email"
+          json:
+            email: "loadtest+{{ $randomNumber(1, 1000) }}@pmsync.local"
+            password: "{{ $processEnvironment.LOADTEST_PASSWORD }}"
+          capture:
+            - header: "set-cookie"
+              as: "sessionCookie"
+      - get:
+          url: "/emails?folder=INBOX&limit=50"
+          headers:
+            cookie: "{{ sessionCookie }}"
+          afterResponse: "redactCookie"
+      - think: 2

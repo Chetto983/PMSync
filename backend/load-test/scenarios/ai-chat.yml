@@ -1,0 +1,35 @@
+# Standalone AI chat scenario
+# NOTE: Artillery's HTTP engine does not consume SSE streams beyond `http.timeout`.
+# This measures time-to-first-byte and total response size. For true SSE
+# throughput, see the Node harness in 157-RESEARCH.md Example 5.
+config:
+  target: "{{ $processEnvironment.LOADTEST_TARGET }}"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "AI chat hold 5"
+  http:
+    timeout: 30
+  plugins:
+    expect: {}
+  processor: "../processors/auth.js"
+
+scenarios:
+  - name: "AI chat single-turn"
+    flow:
+      - post:
+          url: "/api/auth/sign-in/email"
+          json:
+            email: "loadtest+{{ $randomNumber(1, 100) }}@pmsync.local"
+            password: "{{ $processEnvironment.LOADTEST_PASSWORD }}"
+          capture:
+            - header: "set-cookie"
+              as: "sessionCookie"
+      - post:
+          url: "/ai/chat"
+          headers:
+            cookie: "{{ sessionCookie }}"
+          json:
+            message: "Summarize my inbox"
+          afterResponse: "redactCookie"
+      - think: 10
