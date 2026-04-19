@@ -1365,6 +1365,7 @@ model EmailAnalysis {
   modelUsed        String        @default("gpt-4o-mini")
   tokensUsed       Int           @default(0)
   latencyMs        Int           @default(0)
+  triageSource     String? // 'llm' | 'rule' | 'llm+rule' — Phase 147 D-08 provenance
   email            Email         @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
   tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -2559,6 +2560,7 @@ model EmailTriageFeedback {
   tenantId  String
   emailId   String
   type      String   // 'label_correction' | 'lane_correction' | 'followup_dismiss' | 'urgency_correction'
+  signal    String   @default("edit") // 'edit' (auto-diff) | 'correction' (explicit) — D-01 discriminator
   oldValue  String?
   newValue  String?
   createdAt DateTime @default(now())
@@ -2567,5 +2569,6 @@ model EmailTriageFeedback {
 
   @@index([tenantId, type])
   @@index([tenantId, createdAt])
+  @@index([tenantId, signal, createdAt])
   @@map("email_triage_feedback")
 }

@@ -197,7 +197,13 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
        */
       analyzeUnified: {
         description: 'Complete email analysis in a single LLM call: summary, sentiment, priority, labels, topics, escalation risk',
-        systemPrompt: (allowedLabels: string, labelRules?: string, triageRules?: string) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
+        systemPrompt: (
+          allowedLabels: string,
+          labelRules?: string,
+          triageRules?: string,
+          correctionsBlock?: string,
+          overrideHint?: string,
+        ) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
 
 <INSTRUCTIONS>
 1. Read the email carefully.
@@ -220,6 +226,8 @@ ${allowedLabels}
 </ALLOWED_LABELS>
 ${labelRules || ''}
 ${triageRules || ''}
+${correctionsBlock || ''}
+${overrideHint || ''}
 
 <OUTPUT_FORMAT>
 Reply ONLY with valid JSON (no markdown, no explanation):

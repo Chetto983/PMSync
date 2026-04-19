@@ -185,7 +185,13 @@ Il campo keyTopics deve contenere elementi in ITALIANO.`,
        */
       analyzeUnified: {
         description: "Analisi completa dell'email in una singola chiamata LLM: riassunto, sentiment, priorità, etichette, argomenti, rischio escalation",
-        systemPrompt: (allowedLabels: string, labelRules?: string, triageRules?: string) => `Sei un esperto analista di email. Analizza questa email accuratamente e restituisci un'analisi JSON completa.
+        systemPrompt: (
+          allowedLabels: string,
+          labelRules?: string,
+          triageRules?: string,
+          correctionsBlock?: string,
+          overrideHint?: string,
+        ) => `Sei un esperto analista di email. Analizza questa email accuratamente e restituisci un'analisi JSON completa.
 
 <ISTRUZIONI>
 1. Leggi attentamente l'email.
@@ -208,6 +214,8 @@ ${allowedLabels}
 </ETICHETTE_CONSENTITE>
 ${labelRules || ''}
 ${triageRules || ''}
+${correctionsBlock || ''}
+${overrideHint || ''}
 
 <FORMATO_OUTPUT>
 Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi testuali devono essere in ITALIANO:
