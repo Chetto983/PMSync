@@ -1,0 +1,11 @@
+# Phase 157 SCALE-04 — load test artifacts and secrets
+.env.loadtest
+load-test/report-*.json
+load-test/report.html
+load-test/.run-start.txt
+load-test/smoke-run.log
+load-test/run-1000.log
+load-test/smoke-post-split.log
+load-test/run-1000-post-split.log
+load-test/ram-timeline.log
+load-test/baseline-ram-idle.txt
