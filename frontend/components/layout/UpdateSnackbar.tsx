@@ -2,16 +2,31 @@ import { Snackbar, Alert, Button, IconButton } from '@mui/material';
 import { RefreshCw, X } from 'lucide-react';
 import { useSwUpdate } from '@/hooks/use-sw-update';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useAiOverlay } from '@/stores/ai-overlay-store';
 
 export function UpdateSnackbar() {
   const { updateAvailable, activateUpdate, dismissUpdate } = useSwUpdate();
   const t = useTranslations();
+  const aiOverlayOpen = useAiOverlay((state) => state.isOpen);
+  const aiOverlayWidth = useAiOverlay((state) => state.width);
 
   return (
     <Snackbar
       open={updateAvailable}
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      sx={{ zIndex: 1500 }}
+      anchorOrigin={{
+        vertical: 'bottom',
+        horizontal: aiOverlayOpen ? 'left' : 'center',
+      }}
+      sx={{
+        zIndex: 1500,
+        ...(aiOverlayOpen
+          ? {
+              left: { xs: 16, sm: 24 },
+              right: { xs: 16, sm: `${aiOverlayWidth + 24}px` },
+              bottom: { xs: 16, sm: 24 },
+            }
+          : {}),
+      }}
     >
       <Alert
         severity="info"
