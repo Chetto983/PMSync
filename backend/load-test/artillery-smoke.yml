@@ -1,0 +1,45 @@
+# SCALE-04 smoke variant — 10 VU / 30s, zero-error gate
+config:
+  target: "{{ $processEnvironment.LOADTEST_TARGET }}"
+  phases:
+    - duration: 30
+      arrivalRate: 10
+      name: "Smoke — 10 VUs"
+  engines:
+    socketio-v3:
+      query: "transport=websocket"
+  http:
+    timeout: 10
+  plugins:
+    expect: {}
+  ensure:
+    maxErrorRate: 0
+  processor: "./processors/auth.js"
+
+scenarios:
+  - name: "HTTP smoke"
+    weight: 80
+    flow:
+      - post:
+          url: "/api/auth/sign-in/email"
+          json:
+            email: "loadtest+{{ $randomNumber(1, 10) }}@pmsync.local"
+            password: "{{ $processEnvironment.LOADTEST_PASSWORD }}"
+          capture:
+            - header: "set-cookie"
+              as: "sessionCookie"
+      - get:
+          url: "/emails?folder=INBOX&limit=10"
+          headers:
+            cookie: "{{ sessionCookie }}"
+          afterResponse: "redactCookie"
+      - think: 1
+  - name: "Socket.IO smoke"
+    weight: 20
+    engine: socketio-v3
+    flow:
+      - emit:
+          channel: "authenticate"
+          data:
+            token: "{{ $processEnvironment.LOADTEST_TOKEN }}"
+      - think: 5

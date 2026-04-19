@@ -1,0 +1,89 @@
+# Source: artillery.io/docs — standard config (VERIFIED in 157-RESEARCH.md §Pattern 1)
+# SCALE-04 rig — HTTP + Socket.IO + AI chat at 100/500/1000 VU ramp
+config:
+  target: "{{ $processEnvironment.LOADTEST_TARGET }}"
+  phases:
+    - duration: 30
+      arrivalRate: 0
+      rampTo: 100
+      name: "Ramp to 100"
+    - duration: 120
+      arrivalRate: 100
+      name: "Hold 100"
+    - duration: 60
+      rampTo: 500
+      name: "Ramp to 500"
+    - duration: 180
+      arrivalRate: 500
+      name: "Hold 500"
+    - duration: 60
+      rampTo: 1000
+      name: "Ramp to 1000"
+    - duration: 900
+      arrivalRate: 1000
+      name: "Hold 1000 — acceptance gate window"
+  engines:
+    socketio-v3:
+      query: "transport=websocket"
+  http:
+    timeout: 10
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+  ensure:
+    p95: 500
+    maxErrorRate: 1
+  processor: "./processors/auth.js"
+
+scenarios:
+  - name: "HTTP user session"
+    weight: 80
+    flow:
+      - post:
+          url: "/api/auth/sign-in/email"
+          json:
+            email: "loadtest+{{ $randomNumber(1, 1000) }}@pmsync.local"
+            password: "{{ $processEnvironment.LOADTEST_PASSWORD }}"
+          capture:
+            - header: "set-cookie"
+              as: "sessionCookie"
+      - get:
+          url: "/emails?folder=INBOX&limit=50"
+          headers:
+            cookie: "{{ sessionCookie }}"
+          afterResponse: "redactCookie"
+      - think: 2
+      - get:
+          url: "/emails/{{ $randomNumber(1, 100) }}"
+          headers:
+            cookie: "{{ sessionCookie }}"
+          afterResponse: "redactCookie"
+      - think: 5
+  - name: "Socket.IO heartbeat"
+    weight: 20
+    engine: socketio-v3
+    flow:
+      - emit:
+          channel: "authenticate"
+          data:
+            token: "{{ $processEnvironment.LOADTEST_TOKEN }}"
+      - think: 60
+  - name: "AI chat single-turn"
+    weight: 5
+    flow:
+      - post:
+          url: "/api/auth/sign-in/email"
+          json:
+            email: "loadtest+{{ $randomNumber(1, 100) }}@pmsync.local"
+            password: "{{ $processEnvironment.LOADTEST_PASSWORD }}"
+          capture:
+            - header: "set-cookie"
+              as: "sessionCookie"
+      - post:
+          url: "/ai/chat"
+          headers:
+            cookie: "{{ sessionCookie }}"
+          json:
+            message: "Summarize my inbox"
+          afterResponse: "redactCookie"
+      - think: 10

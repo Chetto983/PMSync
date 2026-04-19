@@ -1,0 +1,22 @@
+# Standalone Socket.IO-only config
+config:
+  target: "{{ $processEnvironment.LOADTEST_TARGET }}"
+  phases:
+    - duration: 60
+      arrivalRate: 50
+      name: "Socket.IO hold 50"
+  engines:
+    socketio-v3:
+      query: "transport=websocket"
+  plugins:
+    expect: {}
+
+scenarios:
+  - name: "Socket.IO heartbeat"
+    engine: socketio-v3
+    flow:
+      - emit:
+          channel: "authenticate"
+          data:
+            token: "{{ $processEnvironment.LOADTEST_TOKEN }}"
+      - think: 30
