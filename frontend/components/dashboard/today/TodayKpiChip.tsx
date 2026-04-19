@@ -4,6 +4,11 @@
  * Uses `component="a" href` so Cmd/Ctrl/middle-click opens in a new tab natively
  * (fixes WR-06 for chips). Hover transition collapses under prefers-reduced-motion
  * per UI-SPEC §Accessibility.
+ *
+ * Optional `color` prop (added in 145.1-06) accepts a theme-native semantic token
+ * and drives icon color + outline + 8% tinted background (16% on hover). Omitting
+ * `color` preserves the original neutral grayscale rendering so existing tests and
+ * consumers remain unaffected.
  */
 
 'use client';
@@ -18,10 +23,20 @@ interface Props {
   label: string;
   href: string;
   loading?: boolean;
+  /**
+   * Theme-native semantic color (e.g. `pmSyncColors.semantic.email`) for icon +
+   * outline + tinted bg. Optional — chip stays neutral when omitted.
+   */
+  color?: string;
 }
 
-export function TodayKpiChip({ icon: Icon, count, secondary, label, href, loading }: Props) {
+export function TodayKpiChip({ icon: Icon, count, secondary, label, href, loading, color }: Props) {
   if (loading) return <Skeleton variant="rounded" width={72} height={32} />;
+  // Tint alpha suffixes follow the MUI-idiomatic pattern used elsewhere in the
+  // codebase (e.g. crm-deals/KanbanBoard uses `stage.color + '14'`). 14 hex = ~8%
+  // alpha, 29 hex = ~16% alpha — subtle enough to stay legible on both themes.
+  const tintedBg = color ? `${color}14` : undefined;
+  const tintedBgHover = color ? `${color}29` : undefined;
   return (
     <Chip
       component="a"
@@ -54,17 +69,26 @@ export function TodayKpiChip({ icon: Icon, count, secondary, label, href, loadin
       sx={{
         height: 32,
         px: 0.5,
+        bgcolor: tintedBg,
+        borderColor: color ? color : undefined,
         transition: 'all 150ms ease-out',
         // Reduced-motion fallback per UI-SPEC §Accessibility line 221.
         '@media (prefers-reduced-motion: reduce)': {
           transition: 'none',
         },
-        '&:hover': { boxShadow: 1, borderColor: 'grey.300' },
+        '&:hover': {
+          boxShadow: 1,
+          borderColor: color ? color : 'grey.300',
+          bgcolor: tintedBgHover,
+        },
         '&:focus-visible': {
           outline: '2px solid',
-          outlineColor: 'primary.main',
+          outlineColor: color ? color : 'primary.main',
           outlineOffset: 2,
         },
+        // Scope the icon wrapper so the semantic color wins over theme defaults.
+        // MuiChip-icon is MUI v7's public class for the Chip icon slot.
+        '& .MuiChip-icon': color ? { color } : undefined,
       }}
     />
   );
