@@ -82,6 +82,10 @@ import { TriageCorrectionService } from './services/triage-correction.service';
 import { TriagePromotionService } from './services/triage-promotion.service';
 import { TriagePromotionQueueService } from './services/triage-promotion.queue';
 import { TriageOverridesController } from './controllers/triage-overrides.controller';
+// Phase 148 Plan 03: label accuracy counter engine + queue + listener
+import { LabelAccuracyService } from './services/label-accuracy.service';
+import { LabelAccuracyQueueService } from './services/label-accuracy.queue';
+import { LabelAccuracyListener } from './listeners/label-accuracy.listener';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
@@ -165,6 +169,10 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageCorrectionService,
     TriagePromotionService,
     TriagePromotionQueueService,
+    // Phase 148 Plan 03: label accuracy counter engine + queue + listener
+    LabelAccuracyService,
+    LabelAccuracyQueueService,
+    LabelAccuracyListener,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController, TriageOverridesController],
   exports: [
@@ -200,6 +208,8 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageCorrectionService,
     TriagePromotionService,
     TriagePromotionQueueService,
+    // Phase 148 Plan 03: exported so Plan 05 controller can inject it
+    LabelAccuracyService,
   ],
 })
 export class AiModule implements OnModuleInit {
