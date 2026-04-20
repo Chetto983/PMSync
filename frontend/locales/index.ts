@@ -1209,6 +1209,24 @@ export interface AppTranslations {
       aiPromptLabel: string;
       aiPromptPlaceholder: string;
       aiPromptHelperText: string;
+      // Phase 148 D-12: label accuracy badge
+      accuracy: {
+        pill: {
+          ready: string;
+          learning: string;
+        };
+        tooltip: {
+          precision: string;
+          recall: string;
+          sampleSize: string;
+          learning: string;
+        };
+        source: {
+          llm: string;
+          rule: string;
+          llmRule: string;
+        };
+      };
       errors: {
         nameRequired: string;
         nameTooShort: string;

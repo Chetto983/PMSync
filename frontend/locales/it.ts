@@ -1296,6 +1296,24 @@ export const it: AppTranslations = {
       bulkDeleted: '{count} etichetta/e eliminate',
       selectAll: 'Seleziona tutto',
       deselectAll: 'Deseleziona tutto',
+      // Phase 148 D-12: badge precisione etichetta
+      accuracy: {
+        pill: {
+          ready: '{percent}%',
+          learning: 'Imparo…',
+        },
+        tooltip: {
+          precision: 'Precisione: {value}%  (±{ci}% al 95% CI)',
+          recall: 'Recall: {value}%  (±{ci}% al 95% CI)',
+          sampleSize: 'Basato su {count} correzioni degli ultimi {days} giorni',
+          learning: 'Non abbiamo ancora abbastanza correzioni ({current}/{threshold}). Il tracciamento della precisione parte dopo {threshold} feedback.',
+        },
+        source: {
+          llm: 'Modello AI',
+          rule: 'Regola',
+          llmRule: 'AI + Regola',
+        },
+      },
       errors: {
         nameRequired: 'Il nome è obbligatorio',
         nameTooShort: 'Il nome deve essere almeno 2 caratteri',

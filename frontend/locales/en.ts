@@ -1306,6 +1306,24 @@ export const en: AppTranslations = {
       bulkDeleted: '{count} label(s) deleted',
       selectAll: 'Select all',
       deselectAll: 'Deselect all',
+      // Phase 148 D-12: label accuracy badge
+      accuracy: {
+        pill: {
+          ready: '{percent}%',
+          learning: 'Learning…',
+        },
+        tooltip: {
+          precision: 'Precision: {value}%  (±{ci}% at 95% CI)',
+          recall: 'Recall: {value}%  (±{ci}% at 95% CI)',
+          sampleSize: 'Based on {count} corrections over the last {days} days',
+          learning: 'Not enough corrections yet ({current}/{threshold}). Accuracy tracking starts after {threshold} feedback events.',
+        },
+        source: {
+          llm: 'AI model',
+          rule: 'Rule',
+          llmRule: 'AI + Rule',
+        },
+      },
       errors: {
         nameRequired: 'Name is required',
         nameTooShort: 'Name must be at least 2 characters',
