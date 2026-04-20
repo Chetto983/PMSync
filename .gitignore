@@ -217,4 +217,3 @@ backups/*
 frontend/public/sw.js
 .agents/skills/*
 .cdp-wpt/*
-frontend/audit-*

@@ -1,0 +1,22 @@
+{
+  "deployedUrl": "https://mail-agent-indol.vercel.app",
+  "firstChatRequest": {
+    "url": "https://mail-agent-indol.vercel.app/api/v1/ai/chat",
+    "id": "cmo6rzv66000t01kwjy2rq8oq",
+    "conversationId": null,
+    "messageCount": 1,
+    "trigger": "submit-message",
+    "at": 1776664204365
+  },
+  "secondChatRequest": {
+    "url": "https://mail-agent-indol.vercel.app/api/v1/ai/chat",
+    "id": "cmo6rzv66000t01kwjy2rq8oq",
+    "conversationId": null,
+    "messageCount": 5,
+    "trigger": "submit-message",
+    "at": 1776664228569
+  },
+  "threadItems": 8,
+  "bubbles": 8,
+  "pass": true
+}
