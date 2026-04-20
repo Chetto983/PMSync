@@ -60,7 +60,12 @@ describe('TriagePromotionService', () => {
 
     scheduledJobsMock = { registerHandler: jest.fn() };
     feedbackMock = { getSuggestions: jest.fn().mockResolvedValue([]) };
-    queueMock = { enqueueDebounced: jest.fn().mockResolvedValue(undefined) };
+    // WR-02: TriagePromotionService now registers its worker handler on the
+    // queue at construction time. Mock must accept registerHandler.
+    queueMock = {
+      enqueueDebounced: jest.fn().mockResolvedValue(undefined),
+      registerHandler: jest.fn(),
+    } as unknown as { enqueueDebounced: jest.Mock };
     prismaMock = {
       emailTriageFeedback: { findMany: jest.fn().mockResolvedValue([]) },
     };
