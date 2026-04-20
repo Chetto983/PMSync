@@ -20,7 +20,26 @@ Be critical, sincere, and cynical. Don't please me.
 - NEVER GUESS PARAMETERS. If a parameter depends on a previous call's output, execute sequentially.
 - DON'T RE-READ CONTEXT. Before using Read, check if contents were already provided. Don't waste tokens.
 - SCOPE CONTROL. Do exactly what was asked. Never add unrequested features, refactors, or improvements.
-- **NEVER RUN `prisma db push` OR ANY DESTRUCTIVE DB COMMAND.** On 2026-04-01 this wiped the entire production database. For schema changes: create a Prisma migration with `npx prisma migrate dev --name <name>`, commit the migration file, and let Railway's deploy pipeline apply it. NEVER use `prisma db push` — it can drop columns/tables with data loss. If a migration would be destructive (drop column, drop table), STOP and ASK before proceeding.
+- **NEVER RUN `prisma db push` OR ANY DESTRUCTIVE DB COMMAND.** Production was wiped by this exact class of mistake TWICE: **2026-04-01** and **2026-04-20**. Both wipes cost real user data (tenants, emails, tasks, chat history, labels, feedback). For schema changes: create a Prisma migration with `npx prisma migrate dev --name <name>`, commit the migration file, and let Railway's deploy pipeline apply it. NEVER use `prisma db push`, `prisma migrate reset`, `prisma migrate dev` (against prod), `prisma db seed` (against prod), or any direct `TRUNCATE`/`DELETE FROM`. If a migration would be destructive (drop column, drop table), STOP and ASK before proceeding.
+
+**DB Safety (HARD RULES — two wipes already: 2026-04-01 + 2026-04-20):**
+
+The loaded gun: `backend/.env` DATABASE_URL points at Railway **production** (`ballast.proxy.rlwy.net:39634/railway`). Any `npx prisma *` run from this directory hits prod unless the env is overridden. Muscle-memory commands have now cost real user data twice.
+
+Before running ANY `npx prisma` command (even "safe" ones like `generate`, `validate`, `format`), the working agent MUST:
+
+1. Print the target host: `node -e "require('dotenv').config(); console.log(new URL(process.env.DATABASE_URL).host)"` (from `backend/`).
+2. If the host contains `ballast.proxy.rlwy.net`, `railway.app`, `rlwy.net`, or any other production identifier — **STOP and ASK** before running the command, even for read-only operations.
+3. For migrations: only `npx prisma migrate dev --name <name>` is allowed, and only against a LOCAL dev DB. Commit the migration file. Railway's build pipeline applies it via `prisma migrate deploy` on push (non-destructive).
+4. `backend/entrypoint.sh` contains an `else` branch that runs `prisma db push --skip-generate` + `prisma db seed` — both destructive. It is not the Docker entrypoint (Dockerfile.railway CMD is the entrypoint), but the file is a loaded gun for anyone invoking it manually or via CI. Treat entrypoint.sh as if it is broken until explicitly fixed.
+5. Seeds: `prisma db seed` is NEVER run against prod. The seed script's Default Tenant + 3 seed users are for local dev only. If you see `Default Tenant` appearing on prod, a destructive command ran.
+
+**Git push discipline (added 2026-04-20 after auto-push surprised the user):**
+
+- NEVER run `git push`, `git push --force`, or any remote-mutating git command unless the user explicitly requested it in the current turn. A previous approval does not carry over.
+- If commits need to ship, tell the user and let them push.
+- Before a GSD workflow (planner, executor, researcher) spawns subagents that might push: surface the push behavior to the user and get explicit confirmation.
+- Each push to `origin/main` triggers a Railway deploy, which restarts the backend (drops WebSockets, cancels in-flight work). 18 pushes in a session = 18 prod redeploys. Don't.
 
 **Post-Edit Validation (MANDATORY):**
 After EVERY file edit, run the appropriate validation. No exceptions:
@@ -144,6 +163,7 @@ Key caveats (current as of 2026-04):
 - AI HITL: hardened in the 2026-04-01 AI Features Audit (closed at 9.3/10). DLQ admin endpoints + 7d retention are live. Treat HITL as the contract; if you see a mutating tool without explicit approval wiring, that's a regression — stop and ask.
 - Authorization is coarse RBAC, not enterprise ABAC. Expect gaps on per-resource policies.
 - `docs/AUDIT.md` is dated 2026-03-09 and pre-dates several closed audits (AI, Calendar/Contacts, CRM Phase 3). Trust memory entries + live code over that doc for current-state questions.
+- **Production DB wipe — 2026-04-20 09:06:10 UTC.** Second wipe in 20 days. Root cause: `backend/.env` DATABASE_URL points at Railway prod, and some command (likely `prisma db seed` or `prisma db push`) ran against it from a local/agent shell. Tenant `cmngk6g1j000001pbf8xh2b3h` + user `N2yTFNmu3YAOJOYdY2wSs4guBtbHCr3l` destroyed along with tasks, chat history, user labels, feedback, triage overrides. Current state: 274 emails resynced from Gmail/Outlook, 540 contacts, 810 graph edges rebuilt post-wipe. 233 ai_run_ledger rows relinked from old tenant → new tenant `cmo765ze3000001o7dyqtk1e9`. Treat the DB Safety section as non-negotiable until `backend/.env` is separated from prod.
 
 ## Final Reminders
 
