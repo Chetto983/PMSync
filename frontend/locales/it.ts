@@ -1230,6 +1230,7 @@ export const it: AppTranslations = {
       correctTo: 'Dovrebbe essere…',
       correctTriagePopoverTitle: 'Sostituisci l\'etichetta AI con:',
       correctTriageSuccess: 'Correzione registrata',
+      correctTriageError: 'Impossibile salvare la correzione. Riprova.',
       createLabel: 'Crea etichetta',
       editLabel: 'Modifica etichetta',
       labelName: 'Nome etichetta',

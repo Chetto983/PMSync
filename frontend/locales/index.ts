@@ -1156,6 +1156,7 @@ export interface AppTranslations {
       correctTo: string;
       correctTriagePopoverTitle: string;
       correctTriageSuccess: string;
+      correctTriageError: string;
       createLabel: string;
       editLabel: string;
       labelName: string;

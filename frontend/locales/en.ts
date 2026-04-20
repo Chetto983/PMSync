@@ -1240,6 +1240,7 @@ export const en: AppTranslations = {
       correctTo: 'Should be…',
       correctTriagePopoverTitle: 'Replace AI label with:',
       correctTriageSuccess: 'Correction recorded',
+      correctTriageError: 'Could not save correction. Please try again.',
       createLabel: 'Create Label',
       editLabel: 'Edit Label',
       labelName: 'Label Name',

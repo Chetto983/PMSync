@@ -776,14 +776,18 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                 setCorrectMenuAnchor(null);
                 setCorrectingAiLabel(null);
                 try {
+                  // WR-03: success + error feedback is surfaced via a global
+                  // toast in useCorrectTriageMutation's onSuccess/onError.
+                  // We still catch here to keep the AI-label chip visible
+                  // (don't optimistically dismiss) when the server rejects.
                   await correctTriageMutation.mutateAsync({
                     id: message.id,
                     body: { type: 'label_correction', oldValue, newValue },
                   });
                   onDismissAiLabel?.(message.id, oldValue);
                 } catch {
-                  // Error already surfaced by TanStack Query devtools / network tab.
-                  // Keeping the chip visible so the user can retry.
+                  // Error toast already shown by the mutation hook. Keeping
+                  // the chip visible so the user can retry.
                 }
               }}
             >
