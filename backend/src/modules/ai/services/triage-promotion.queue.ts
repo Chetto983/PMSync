@@ -12,8 +12,6 @@
  * fan-out logic that calls back into this queue's enqueueDebounced.
  */
 import {
-  forwardRef,
-  Inject,
   Injectable,
   Logger,
   OnApplicationBootstrap,
@@ -31,7 +29,6 @@ import {
   releaseSharedRedisConnection,
   releaseSharedWorkerConnection,
 } from '../../../common/config/queue.config';
-import { TriagePromotionService } from './triage-promotion.service';
 
 interface TriagePromoteJobData {
   tenantId: string;
@@ -42,6 +39,17 @@ export interface EnqueueDebouncedOptions {
   /** Override the default 5-minute delay (e.g., safety-net jitter). */
   delayOverride?: number;
 }
+
+/**
+ * WR-02: the promotion handler is registered from TriagePromotionService
+ * at construction time (see its constructor). Registering a function
+ * instead of injecting the service breaks the NestJS DI cycle that
+ * previously required forwardRef() on both sides — the feedback_no_circular_deps
+ * project rule forbids those pairs.
+ */
+export type PromotionHandler = (
+  tenantId: string,
+) => Promise<{ promoted: number; skipped: boolean }>;
 
 const DEFAULT_DEBOUNCE_MS = 5 * 60 * 1000; // 5 minutes
 const DEDUPLICATION_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -55,11 +63,19 @@ export class TriagePromotionQueueService
   private workerConnection: Redis | null = null;
   private queue!: Queue<TriagePromoteJobData>;
   private worker?: Worker<TriagePromoteJobData>;
+  private handler: PromotionHandler | null = null;
 
-  constructor(
-    @Inject(forwardRef(() => TriagePromotionService))
-    private readonly promotionService: TriagePromotionService,
-  ) {}
+  // No constructor-injected dependencies — the cycle with
+  // TriagePromotionService is broken by registerHandler() below.
+
+  /**
+   * WR-02: invoked once by TriagePromotionService at construction time.
+   * Idempotent on repeat calls (last registration wins); logs if the job
+   * fires before a handler is installed.
+   */
+  registerHandler(handler: PromotionHandler): void {
+    this.handler = handler;
+  }
 
   async onModuleInit() {
     this.redisConnection = getSharedRedisConnection();
@@ -174,7 +190,16 @@ export class TriagePromotionQueueService
     job: Job<TriagePromoteJobData>,
   ): Promise<void> {
     const { tenantId } = job.data;
-    const result = await this.promotionService.promoteOverrides(tenantId);
+    if (!this.handler) {
+      // Should never happen in production: TriagePromotionService registers its
+      // handler in its constructor (synchronous) and both services are in the
+      // same AiModule. Guard exists for partial-boot / test scenarios.
+      this.logger.error(
+        `Promotion job ${job.id} fired but no handler registered — skipping (tenant=${tenantId})`,
+      );
+      return;
+    }
+    const result = await this.handler(tenantId);
     this.logger.log(
       `Promotion job ${job.id} done: tenant=${tenantId}, promoted=${result.promoted}, skipped=${result.skipped}`,
     );

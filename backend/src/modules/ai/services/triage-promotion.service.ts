@@ -14,8 +14,6 @@
  * when Wave 4 ships the capture path; this method is forward-compatible for that day.
  */
 import {
-  forwardRef,
-  Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
@@ -57,7 +55,6 @@ export class TriagePromotionService implements OnModuleDestroy {
     private readonly overrideService: TriageOverrideService,
     private readonly analysisService: EmailAnalysisService,
     private readonly scheduledJobs: ScheduledJobsQueueService,
-    @Inject(forwardRef(() => TriagePromotionQueueService))
     private readonly promotionQueue: TriagePromotionQueueService,
   ) {
     // W6: register the cron handler SYNCHRONOUSLY in the constructor. Moving this
@@ -66,6 +63,17 @@ export class TriagePromotionService implements OnModuleDestroy {
     this.scheduledJobs.registerHandler(
       ScheduledJobType.TRIAGE_PROMOTION_SAFETY_NET,
       () => this.runSafetyNet(),
+    );
+
+    // WR-02: register the BullMQ worker handler on the queue via a one-way
+    // function registration (see TriagePromotionQueueService.registerHandler).
+    // Previously both services used forwardRef() to reference each other in
+    // the DI graph, which violates the feedback_no_circular_deps project rule
+    // and would be flagged by `madge --circular`. The queue no longer needs
+    // to hold a reference to this service at all — it calls the registered
+    // function when a job fires.
+    this.promotionQueue.registerHandler((tenantId) =>
+      this.promoteOverrides(tenantId),
     );
   }
 

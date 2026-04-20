@@ -87,7 +87,13 @@ describe('Triage feedback-loop plumbing verification (Phase 147 — plumbing, no
     feedbackMock = { getSuggestions: jest.fn() };
     overrideMock = { addOverride: jest.fn().mockResolvedValue({ id: 'override-1' }) };
     analysisMock = { invalidateCache: jest.fn().mockResolvedValue(3) };
-    queueMock = { enqueueDebounced: jest.fn().mockResolvedValue(undefined) };
+    // WR-02: TriagePromotionService now registers its worker handler on the
+    // queue at construction time via registerHandler (one-way, breaks the
+    // previous forwardRef cycle). Mock accepts the registration call.
+    queueMock = {
+      enqueueDebounced: jest.fn().mockResolvedValue(undefined),
+      registerHandler: jest.fn(),
+    } as unknown as { enqueueDebounced: jest.Mock };
     scheduledMock = { registerHandler: jest.fn() };
 
     const mod = await Test.createTestingModule({
