@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { weightCorrection } from '../utils/triage-correction-weight';
+import {
+  ACCURACY_APPLIED_TOPIC,
+  type LabelAccuracyEvent,
+} from './label-accuracy.events';
 
 export type FeedbackType =
   | 'label_correction'
@@ -57,7 +62,10 @@ const ROLE_ACCOUNT_LOCAL_PARTS = new Set([
 export class TriageFeedbackService {
   private readonly logger = new Logger(TriageFeedbackService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2, // W-3: appended as LAST argument
+  ) {}
 
   /**
    * Records a single feedback row. Phase 147 D-01: `signal` is required — caller
@@ -79,6 +87,29 @@ export class TriageFeedbackService {
     const entry = await this.prisma.emailTriageFeedback.create({
       data: { tenantId, emailId, type, signal, oldValue, newValue },
     });
+
+    // Phase 148 D-05: fire-and-forget upstream emit for LabelAccuracyListener.
+    // NEVER wrapped in a transaction (Phase 147 D-01 discipline). emit AFTER the
+    // Prisma create returns. Try/catch prevents a poisoned handler from
+    // corrupting the feedback write.
+    try {
+      const event: LabelAccuracyEvent = {
+        tenantId,
+        feedbackId: entry.id,
+        emailId,
+        signal,
+        oldLabelName: oldValue ?? null,
+        newLabelName: newValue ?? null,
+        at: new Date().toISOString(),
+      };
+      this.eventEmitter.emit(ACCURACY_APPLIED_TOPIC, event);
+    } catch (err) {
+      this.logger.warn(
+        `Accuracy event emit failed (feedbackId=${entry.id}): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
 
     this.logger.log(
       `Feedback recorded: ${type} [${signal}] for email=${emailId} (${oldValue} → ${newValue})`,

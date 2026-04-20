@@ -1,9 +1,12 @@
 import { Test } from '@nestjs/testing';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TriageFeedbackService } from '../triage-feedback.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { ACCURACY_APPLIED_TOPIC } from '../label-accuracy.events';
 
 describe('TriageFeedbackService', () => {
   let service: TriageFeedbackService;
+  let mod: Awaited<ReturnType<ReturnType<typeof Test.createTestingModule>['compile']>>;
   const prismaMock = {
     emailTriageFeedback: {
       create: jest.fn(),
@@ -21,10 +24,11 @@ describe('TriageFeedbackService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     prismaMock.emailTriageFeedback.count.mockResolvedValue(0);
-    const mod = await Test.createTestingModule({
+    mod = await Test.createTestingModule({
       providers: [
         TriageFeedbackService,
         { provide: PrismaService, useValue: prismaMock },
+        EventEmitter2, // real instance; we spy its emit method per test
       ],
     }).compile();
     service = mod.get(TriageFeedbackService);
@@ -118,6 +122,140 @@ describe('TriageFeedbackService', () => {
       });
       prismaMock.email.count.mockResolvedValue(0);
       await service.captureLabelDiff('t1', 'e1', [], ['MyCustomTag']);
+      expect(prismaMock.emailTriageFeedback.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recordFeedback — Phase 148 accuracy event emission', () => {
+    it('emits ACCURACY_APPLIED_TOPIC exactly once per recordFeedback', async () => {
+      const emitter = mod.get(EventEmitter2);
+      const spy = jest.spyOn(emitter, 'emit');
+      prismaMock.emailTriageFeedback.create.mockResolvedValue({
+        id: 'fb-1',
+        tenantId: 't1',
+        emailId: 'e1',
+        type: 'label_correction',
+        signal: 'correction',
+        oldValue: 'Old',
+        newValue: 'New',
+        createdAt: new Date(),
+      });
+      await service.recordFeedback({
+        tenantId: 't1',
+        emailId: 'e1',
+        type: 'label_correction',
+        signal: 'correction',
+        oldValue: 'Old',
+        newValue: 'New',
+      });
+      const accuracyEmits = spy.mock.calls.filter(
+        (c) => c[0] === ACCURACY_APPLIED_TOPIC,
+      );
+      expect(accuracyEmits).toHaveLength(1);
+    });
+
+    it('emits payload with entry.id as feedbackId and preserves tenant/email identifiers', async () => {
+      const emitter = mod.get(EventEmitter2);
+      const spy = jest.spyOn(emitter, 'emit');
+      prismaMock.emailTriageFeedback.create.mockResolvedValue({
+        id: 'fb-7',
+        tenantId: 't42',
+        emailId: 'e42',
+        type: 'label_correction',
+        signal: 'edit',
+        oldValue: 'Work',
+        newValue: null,
+        createdAt: new Date(),
+      });
+      await service.recordFeedback({
+        tenantId: 't42',
+        emailId: 'e42',
+        type: 'label_correction',
+        signal: 'edit',
+        oldValue: 'Work',
+        newValue: null,
+      });
+      const accuracyEmits = spy.mock.calls.filter(
+        (c) => c[0] === ACCURACY_APPLIED_TOPIC,
+      );
+      expect(accuracyEmits).toHaveLength(1);
+      const payload = accuracyEmits[0][1] as {
+        tenantId: string;
+        feedbackId: string;
+        emailId: string;
+        signal: string;
+        oldLabelName: string | null;
+        newLabelName: string | null;
+        at: string;
+      };
+      expect(payload.feedbackId).toBe('fb-7');
+      expect(payload.tenantId).toBe('t42');
+      expect(payload.emailId).toBe('e42');
+      expect(payload.signal).toBe('edit');
+      expect(payload.oldLabelName).toBe('Work');
+      expect(payload.newLabelName).toBeNull();
+      expect(typeof payload.at).toBe('string');
+    });
+
+    it('is fire-and-forget — emit failure does not throw', async () => {
+      const emitter = mod.get(EventEmitter2);
+      jest.spyOn(emitter, 'emit').mockImplementation(() => {
+        throw new Error('simulated emit failure');
+      });
+      prismaMock.emailTriageFeedback.create.mockResolvedValue({
+        id: 'fb-2',
+        tenantId: 't1',
+        emailId: 'e1',
+        type: 'label_correction',
+        signal: 'edit',
+        oldValue: null,
+        newValue: 'X',
+        createdAt: new Date(),
+      });
+      await expect(
+        service.recordFeedback({
+          tenantId: 't1',
+          emailId: 'e1',
+          type: 'label_correction',
+          signal: 'edit',
+          oldValue: null,
+          newValue: 'X',
+        }),
+      ).resolves.toMatchObject({ id: 'fb-2' });
+    });
+  });
+
+  describe('captureLabelDiff D-04 exclusion', () => {
+    it('does NOT emit ACCURACY_APPLIED_TOPIC for added_personal_label', async () => {
+      // Arrange: user adds a label AI never suggested for this user/sender.
+      // oldLabels = ['Work'], newLabels = ['Work', 'Personal'] — 'Personal' is
+      // NEW and was never AI-suggested. Phase 147 classifies this as
+      // 'added_personal_label' — a silent no-op that does NOT call recordFeedback
+      // and therefore emits no ACCURACY_APPLIED_TOPIC event.
+      const emitter = mod.get(EventEmitter2);
+      const spy = jest.spyOn(emitter, 'emit');
+
+      // Email lookup: sender known, aiLabels does NOT include 'Personal'.
+      prismaMock.email.findFirst.mockResolvedValue({
+        from: 'alice@example.com',
+        aiLabels: ['Work'],
+      });
+      // Domain-wide sibling lookup: no prior email from this sender has
+      // 'Personal' in aiLabels either.
+      prismaMock.email.count.mockResolvedValue(0);
+
+      await service.captureLabelDiff(
+        't1',
+        'e1',
+        ['Work'],
+        ['Work', 'Personal'],
+      );
+
+      const accuracyEmits = spy.mock.calls.filter(
+        (c) => c[0] === ACCURACY_APPLIED_TOPIC,
+      );
+      expect(accuracyEmits).toHaveLength(0);
+      // Confirm recordFeedback never ran on this path.
       expect(prismaMock.emailTriageFeedback.create).not.toHaveBeenCalled();
     });
   });
