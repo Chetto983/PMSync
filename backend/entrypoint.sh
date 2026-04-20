@@ -23,12 +23,12 @@ if [ "${NODE_ENV}" = "production" ] || [ "${RAILWAY_ENVIRONMENT}" = "production"
   npx prisma migrate deploy
   echo "Skipping seed in production."
 else
-  echo "Setting up database schema for non-production..."
-  npx prisma db push --skip-generate
-
-  echo "Seeding database for non-production..."
-  # Try to seed, but don't fail if seed script doesn't exist
-  npx prisma db seed || echo "Warning: Database seeding failed or not configured. Application will start anyway."
+  # Destructive branch removed 2026-04-20 after 2nd prod wipe.
+  # Caused the wipe: prisma db push --skip-generate + prisma db seed ran against prod.
+  # For local dev, run migrations/seed manually and ONLY with a local DATABASE_URL.
+  echo "FATAL: non-production branch disabled. Do NOT run entrypoint.sh directly for dev."
+  echo "For local dev use: npx prisma migrate dev && npx prisma db seed (local DB only)."
+  exit 1
 fi
 
 echo "Starting application..."
