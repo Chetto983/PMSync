@@ -2092,6 +2092,8 @@ export const en: AppTranslations = {
       savedViewsHint: 'Keep your best triage slices pinned here.',
       commandTitle: 'Command bar',
       commandDescription: 'Search the current result set, jump to common slices, and keep filters compact.',
+      filtersButton: 'Filters',
+      filtersButtonActive: 'Filters ({count})',
       clearSearch: 'Clear search',
       searchResultsLabel: '{count} tasks in view',
       queueTitle: 'Focus queue',

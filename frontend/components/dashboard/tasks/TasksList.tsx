@@ -27,6 +27,7 @@ import {
   Handshake,
   Kanban,
   List,
+  ListFilter,
   Plus,
   Search,
   Ticket,
@@ -174,16 +175,16 @@ function MetricCard({ label, value, tone, helper }: MetricCardProps) {
         border: 1,
         borderColor: toneMap.border,
         bgcolor: toneMap.bg,
-        minHeight: 118,
+        minHeight: 104,
       }}
     >
       <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </Typography>
-      <Typography variant="h4" sx={{ mt: 1, fontWeight: 800, color: toneMap.fg }}>
+      <Typography variant="h4" sx={{ mt: 0.8, fontWeight: 800, color: toneMap.fg }}>
         {value}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
         {helper}
       </Typography>
     </Paper>
@@ -388,6 +389,7 @@ export function TasksList() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [activeViewId, setActiveViewId] = useState<string | null>(() => (typeof q.view === 'string' ? q.view : null));
   const [deleteTarget, setDeleteTarget] = useState<UnifiedTask | null>(null);
   const [selectedTask, setSelectedTask] = useState<UnifiedTask | null>(null);
@@ -545,6 +547,13 @@ export function TasksList() {
 
   const hasFilters = !!(filterSourceType || filterStatus || filterPriority || filterDueBefore || filterDueAfter || filterContactId);
   const hasSearch = !!deferredSearch;
+  const activeFilterCount = [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId].filter(Boolean).length;
+
+  useEffect(() => {
+    if (hasFilters) {
+      setShowAdvancedFilters(true);
+    }
+  }, [hasFilters]);
 
   const clearFilters = useCallback(() => {
     setFilterSourceType('');
@@ -555,6 +564,7 @@ export function TasksList() {
     setFilterContactId('');
     setActiveViewId(null);
     setPage(0);
+    setShowAdvancedFilters(false);
   }, []);
 
   const applyQuickView = useCallback((quickView: QuickView) => {
@@ -637,8 +647,8 @@ export function TasksList() {
       <Paper
         elevation={0}
         sx={{
-          p: { xs: 2.25, md: 3 },
-          borderRadius: 5,
+          p: { xs: 2, md: 2.5 },
+          borderRadius: 4,
           border: 1,
           borderColor: alpha(theme.palette.primary.main, 0.14),
           background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.18)} 0%, ${alpha(theme.palette.background.paper, 0.98)} 46%, ${alpha(theme.palette.info.light, 0.08)} 100%)`,
@@ -656,13 +666,16 @@ export function TasksList() {
             <Typography variant="overline" sx={{ color: 'primary.dark', fontWeight: 800, letterSpacing: '0.14em' }}>
               {t.tasks.workspaceView.eyebrow}
             </Typography>
-            <Typography variant="h3" sx={{ mt: 0.5, fontWeight: 800, letterSpacing: '-0.03em' }}>
+            <Typography
+              variant="h3"
+              sx={{ mt: 0.35, fontWeight: 800, letterSpacing: '-0.03em', fontSize: { xs: '2.15rem', md: '2.7rem' } }}
+            >
               {t.tasks.title}
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75, maxWidth: 720 }}>
               {t.tasks.description}
             </Typography>
-            <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
+            <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
               {t.tasks.workspaceView.summaryTemplate.replace('{count}', String(activeTaskCount))}
             </Typography>
           </Box>
@@ -729,12 +742,12 @@ export function TasksList() {
         currentFilters={currentFilters}
       />
 
-      <Paper elevation={0} sx={{ mt: 2, p: { xs: 2, md: 2.25 }, borderRadius: 4, border: 1, borderColor: 'divider' }}>
+      <Paper elevation={0} sx={{ mt: 2, p: { xs: 1.75, md: 2 }, borderRadius: 4, border: 1, borderColor: 'divider' }}>
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.3fr) auto' },
-            gap: 2,
+            gap: 1.5,
             alignItems: 'start',
           }}
         >
@@ -752,7 +765,7 @@ export function TasksList() {
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={t.tasks.searchPlaceholder}
             size="small"
-            sx={{ minWidth: { lg: 300 } }}
+            sx={{ minWidth: { lg: 280 } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -782,17 +795,50 @@ export function TasksList() {
               {t.tasks.workspaceView.quickViews[quickView]}
             </Button>
           ))}
+          <Button
+            size="small"
+            variant={showAdvancedFilters ? 'contained' : 'outlined'}
+            color={showAdvancedFilters ? 'primary' : 'inherit'}
+            startIcon={<ListFilter size={14} />}
+            onClick={() => setShowAdvancedFilters((current) => !current)}
+            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+          >
+            {activeFilterCount > 0
+              ? t.tasks.workspaceView.filtersButtonActive.replace('{count}', String(activeFilterCount))
+              : t.tasks.workspaceView.filtersButton}
+          </Button>
         </Stack>
 
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr)) auto' },
-            gap: 1.5,
-            mt: 2,
-            alignItems: 'center',
-          }}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mt: 1.5, flexWrap: 'wrap' }}>
+          <Chip
+            label={t.tasks.workspaceView.searchResultsLabel.replace('{count}', String(hasSearch ? visibleRows.length : total))}
+            color="primary"
+            variant="outlined"
+          />
+          {(hasFilters || hasSearch) && (
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => {
+                clearFilters();
+                setSearchQuery('');
+              }}
+            >
+              {t.tasks.filters.clearAll}
+            </Button>
+          )}
+        </Box>
+
+        {showAdvancedFilters && (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr))' },
+              gap: 1.25,
+              mt: 1.5,
+              alignItems: 'center',
+            }}
+          >
           <TextField
             label={t.tasks.filters.sourceType}
             value={filterSourceType}
@@ -875,23 +921,8 @@ export function TasksList() {
             size="small"
             InputLabelProps={{ shrink: true }}
           />
-
-          <Stack direction={{ xs: 'row', sm: 'row', xl: 'column' }} spacing={1} sx={{ justifySelf: { xl: 'end' } }}>
-            <Chip
-              label={t.tasks.workspaceView.searchResultsLabel.replace('{count}', String(hasSearch ? visibleRows.length : total))}
-              color="primary"
-              variant="outlined"
-            />
-            {(hasFilters || hasSearch) && (
-              <Button variant="text" size="small" onClick={() => {
-                clearFilters();
-                setSearchQuery('');
-              }}>
-                {t.tasks.filters.clearAll}
-              </Button>
-            )}
-          </Stack>
-        </Box>
+          </Box>
+        )}
 
         {filterContactId && (
           <Chip

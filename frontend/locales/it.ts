@@ -2080,6 +2080,8 @@ export const it: AppTranslations = {
       savedViewsHint: 'Tieni qui le viste migliori per il triage rapido.',
       commandTitle: 'Barra di comando',
       commandDescription: 'Cerca nel risultato corrente, salta alle viste rapide e mantieni i filtri compatti.',
+      filtersButton: 'Filtri',
+      filtersButtonActive: 'Filtri ({count})',
       clearSearch: 'Cancella ricerca',
       searchResultsLabel: '{count} attivita nella vista',
       queueTitle: 'Coda prioritaria',

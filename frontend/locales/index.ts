@@ -1944,6 +1944,8 @@ export interface AppTranslations {
       savedViewsHint: string;
       commandTitle: string;
       commandDescription: string;
+      filtersButton: string;
+      filtersButtonActive: string;
       clearSearch: string;
       searchResultsLabel: string;
       queueTitle: string;
