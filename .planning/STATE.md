@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Intelligent Triage & Memory Consolidation
 status: in_progress
-stopped_at: Phase 148 Plan 03 complete — LabelAccuracyService + AccuracyDelta event contract + queue + listener + sweeper shipped (Wave 3 done, 3 plans remain)
-last_updated: "2026-04-20T09:54:53Z"
+stopped_at: Phase 148 Plan 04 complete — TriageFeedbackService emits ACCURACY_APPLIED_TOPIC + Prometheus 3 gauges + 1 counter wired in MetricsModule + runSweep gauge-refresh block + 30d idempotent backfill script shipped (Wave 4 done, 2 plans remain)
+last_updated: "2026-04-20T10:20:00Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 32
-  completed_plans: 29
-  percent: 91
+  completed_plans: 30
+  percent: 94
 ---
 
 # Project State
@@ -25,16 +25,16 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 ## Current Position
 
-Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plans 01+02+03 of 6 complete, Waves 1+2+3 done)
-Just completed: Phase 148 Plan 03 — LabelAccuracyService (applyDelta / sweepTps / rolloverWindows / read / runSweep) with constructor-sync W6 TRIAGE_ACCURACY_SWEEP handler + AccuracyDelta event contract (D-15 public topics + interfaces) + LabelAccuracyQueueService (BullMQ accuracy-update queue, 5min dedup) + LabelAccuracyListener (@OnEvent ACCURACY_APPLIED_TOPIC, B-7 per-branch separator guards) + AiModule wiring; 13 service spec tests green, tsc --noEmit green; Rule 1 deviation: plan's `Email.processedAt` swapped to `Email.autoTriagedAt` (plan-bug, processedAt lives on EmailAnalysis not Email — semantics identical per schema comment); B-4 Prometheus DI seam in place with 4 @Optional() tokens as null for Plan 04 enrichment (2026-04-20)
-Previously shipped (Phase 148, this session): 148-01 — schema additions + wilsonInterval + TP_IMPLICIT_WINDOW_DAYS; 148-02 — Prisma migration generated offline (2026-04-20)
+Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plans 01+02+03+04 of 6 complete, Waves 1+2+3+4 done)
+Just completed: Phase 148 Plan 04 — TriageFeedbackService.recordFeedback emits ACCURACY_APPLIED_TOPIC fire-and-forget (Task 1, 4 new spec tests including B-2 added_personal_label exclusion) + MetricsModule registers 3 Gauges (triage_accuracy_precision/recall/f1 with TRIAGE_METRICS_PER_TENANT env-gated tenant_id label) + 1 Counter (triage_accuracy_corrections_total with signal/triage_source/kind labels, no tenant_id per D-13 cardinality cap) + LabelAccuracyService.runSweep gains real refreshGauges() micro-average block (replaces Plan 03's 3 no-op safeSet stubs) + applyDelta maps kind='tp_credited' when signal=system+kind=tp + W-7 JSDoc on ApplyDeltaInput.signal + Plan 03 spec enriched (4 null providers → mock Counter/Gauge, all 13 tests still green — test enrichment per CLAUDE.md) + new label-accuracy.metrics.spec.ts (6 tests) + backend/scripts/148-backfill-label-accuracy.ts one-time 30d idempotent backfill (Redis dedup sets with 7d TTL for both feedback + TP passes, pre/post row-count integrity check, --tenant + --dry-run CLI only, B-5 invariant pre-write grep confirmed); service 782 → 848 LF (under 900 cap); tsc --noEmit green; 37/37 tests green (Task 1 committed in previous session as 40c4aaa0 before connection drop) (2026-04-20)
+Previously shipped (Phase 148, this session set): 148-01 — schema + wilsonInterval + TP_IMPLICIT_WINDOW_DAYS; 148-02 — Prisma migration generated offline; 148-03 — LabelAccuracyService counter engine + AccuracyDelta contract + queue + listener (2026-04-20)
 Previously shipped (Phase 147, v13.0): 147-01/02/03/04/05 — all 5 plans done, 7/7 UAT PASS @ 10/10 on Railway prod
 Previous (v12.0 trailing): Phase 157 PARTIAL — 157-01/02/03 shipped; 157-04/05 deferred pending Railway `staging`.
-Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plans 01+02+03 are pure additions (no emit site yet; Plan 04 wires TriageFeedbackService emitter + MetricsModule providers + backfill) — no runtime behavior change.
-Next: Plan 04 (Wave 4 — TriageFeedbackService emits ACCURACY_APPLIED_TOPIC + Prometheus providers replace Plan 03 null tokens + runSweep gauge-refresh block + 30-day idempotent backfill script)
+Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plans 01+02+03 pure additions; Plan 04 activates the feedback→event→queue→counter chain end-to-end and exposes gauges/counter on /metrics. No frontend-visible behavior change until Plan 05+06 ship the API + badge.
+Next: Plan 05 (Wave 5 — GET /api/ai/triage/label-accuracy controller with TenantGuard + D-09 response shape + plumbing spec)
 Last activity: 2026-04-20
 
-Progress: [█████████░] 91% (v13.0 Phase 147 done + 148-01/02/03 done, 3 plans remain in Phase 148, 9 phases remain in milestone)
+Progress: [█████████░] 94% (v13.0 Phase 147 done + 148-01/02/03/04 done, 2 plans remain in Phase 148, 9 phases remain in milestone)
 
 ## Performance Metrics
 
@@ -85,6 +85,15 @@ Progress: [█████████░] 91% (v13.0 Phase 147 done + 148-01/02
 - [Phase 148-03]: B-4 `@Optional() @Inject(getToken(...))` seam with private `safeInc`/`safeSet` null-guarded helpers — Plan 03 spec passes `null` for all 4 Prometheus tokens; Plan 04 will enrich with mock Counter/Gauge without touching service constructor signature.
 - [Phase 148-03]: W-2 post-transaction emit invariant enforced at both mutation sites (applyDelta + decrementSingleWindow); grep-verified no `eventEmitter.emit` appears inside a `$transaction` callback block.
 - [Phase 148-03]: Redis mock for service spec reuses Phase 147 `triage-promotion.service.spec.ts` pattern — Map-backed stub via `jest.mock('../../../../common/config/queue.config', …)` so rolloverWindows tests hit `sismember`/`sadd` without opening a real ioredis socket.
+- [Phase 148-04]: TriageFeedbackService `EventEmitter2` appended as the LAST constructor argument per W-3. Emit happens AFTER the Prisma create and is wrapped in try/catch so a handler exception cannot corrupt the feedback write. B-2 spec asserts zero `ACCURACY_APPLIED_TOPIC` emits for the Phase 147 `added_personal_label` branch (D-04 invariant).
+- [Phase 148-04]: MetricsModule gauge labelNames env-gated at module-load time (`process.env.TRIAGE_METRICS_PER_TENANT === 'true'` → `['tenant_id','window']`, else `['window']`). Flipping the env at runtime requires a process restart — documented in the provider JSDoc. Default OFF keeps under 2026 Prometheus ~100-values-per-label cardinality budget.
+- [Phase 148-04]: `triage_accuracy_corrections_total` counter has NO `tenant_id` label (D-13 cardinality cap). Bounded 3×4×4 = 48 series max across `signal` × `triage_source` × `kind`.
+- [Phase 148-04]: `kind='tp_credited'` label emitted when `kind==='tp' && signal==='system'` — distinguishes sweeper/backfill TP credits from live user-event TPs on Grafana. Raw `'tp'` kept for future live-path TPs (none today but the discriminator is cheap).
+- [Phase 148-04]: `refreshGauges()` extracted as private LabelAccuracyService method rather than inlined at end of `runSweep` — keeps the Plan 03 stub-to-real replacement grep-auditable as a single block and makes future decay (Phase 149) hooks obvious. Service file grew 782 → 848 LF (under the 900 hard cap; 500 target carried over from Plan 03's known plan-content-vs-target inconsistency).
+- [Phase 148-04]: Backfill script calls `LabelAccuracyService.applyDelta` DIRECTLY (not via `ACCURACY_APPLIED_TOPIC` emit) — simpler control flow for a one-shot script, avoids BullMQ round-trip per feedback row, and keeps side-effects observable synchronously (critical for pre/post integrity check).
+- [Phase 148-04]: B-5 invariant pre-write gate: `grep -B2 -A8 "added_personal_label" backend/src/modules/ai/services/triage-feedback.service.ts` confirmed the `// else: added_personal_label — silent no-op` at line 192 with NO adjacent `recordFeedback` call. Backfill counter math is correct because the Phase 147 D-04 invariant holds.
+- [Phase 148-04]: Backfill script Redis dedup sets — `triage:accuracy-backfill:feedback-seen:${tenantId}` (feedback.id members) + `triage:accuracy-backfill:credited:${tenantId}` (`${emailId}:${labelId}` members) with 7d TTL. Script is idempotent on re-run; CLI only exposes `--tenant=<id>` + `--dry-run` (no counter values accepted per T-148-04-04).
+- [Phase 148-04]: All 14-day / 44-day offsets in backfill are DERIVED from `TP_IMPLICIT_WINDOW_DAYS` import (B-1 single source of truth). Only local window constant is `BACKFILL_LOOKBACK_DAYS = 30`. `grep -cE "(= |: )(14|44)(;|\s*//)"` returns 0 in the script.
 
 ### Roadmap Evolution
 
@@ -103,6 +112,6 @@ Progress: [█████████░] 91% (v13.0 Phase 147 done + 148-01/02
 
 ## Session Continuity
 
-Last session: 2026-04-20T09:54:53Z
-Stopped at: Phase 148 Plan 03 complete — LabelAccuracyService + AccuracyDelta contract + accuracy-update queue + listener + sweeper handler shipped; 13/13 service spec tests green; ready for Plan 04 (Wave 4)
-Resume file: .planning/phases/148-label-accuracy/148-04-PLAN.md
+Last session: 2026-04-20T10:20:00Z
+Stopped at: Phase 148 Plan 04 complete — TriageFeedbackService emits ACCURACY_APPLIED_TOPIC fire-and-forget + MetricsModule wires 3 Gauges + 1 Counter (triage_accuracy_*) + LabelAccuracyService.runSweep refreshes real gauges + applyDelta kind='tp_credited' mapping + 30d idempotent backfill script; 37/37 tests green; ready for Plan 05 (Wave 5)
+Resume file: .planning/phases/148-label-accuracy/148-05-PLAN.md
