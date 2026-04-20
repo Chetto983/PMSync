@@ -426,4 +426,8 @@ export const QUEUE_NAMES = {
 
   // Phase 147 D-06: debounced triage override promotion (5min dedup per tenant)
   TRIAGE_PROMOTE_OVERRIDES: 'triage-promote-overrides',
+
+  // Phase 148 D-05: debounced accuracy counter updates (dedup key
+  // `accuracy:${tenantId}:${feedbackId}:${labelId}:${kind}` in the listener)
+  TRIAGE_ACCURACY_UPDATE: 'accuracy-update',
 } as const;

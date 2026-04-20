@@ -88,6 +88,9 @@ export enum ScheduledJobType {
 
   // Phase 147 D-06 safety-net: fan-out promotion for tenants with recent feedback
   TRIAGE_PROMOTION_SAFETY_NET = 'triage-promotion-safety-net',
+
+  // Phase 148 D-06: nightly per-tenant TP sweeper + window rollover
+  TRIAGE_ACCURACY_SWEEP = 'triage-accuracy-sweep',
 }
 
 /**
@@ -129,6 +132,10 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
 
   // Phase 147 D-06: deliberately off the '0 3 * * *' cluster (thundering-herd avoidance per PATTERNS.md)
   [ScheduledJobType.TRIAGE_PROMOTION_SAFETY_NET]: '17 4 * * *',       // Daily at 04:17
+
+  // Phase 148 D-06: 20 min off Phase 147 TRIAGE_PROMOTION_SAFETY_NET at '17 4'
+  // and off the '0 3' / '0 4' clusters. Anti-thundering-herd rule.
+  [ScheduledJobType.TRIAGE_ACCURACY_SWEEP]: '37 4 * * *',             // Daily at 04:37
 };
 
 export interface ScheduledJobData {
