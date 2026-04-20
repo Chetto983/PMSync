@@ -87,22 +87,35 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
     const result = await service.triageEmail('e1', { tenantId: 't1', userId: 'u1' });
 
     expect(insightsMock.analyzeEmailUnified).not.toHaveBeenCalled();
+    // CR-01: muting override sets the lane + nulls stale triage signals but
+    // does NOT wipe aiLabels (the rule is lane-shaped, not label-shaped).
     expect(prismaMock.email.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'e1', tenantId: 't1' },
         data: expect.objectContaining({
           aiLane: 'system-alerts',
-          aiLabels: [],
+          aiPriority: null,
+          aiPriorityReason: null,
+          aiSentiment: null,
+          aiCategory: null,
           isAutoTriaged: true,
         }),
       }),
     );
+    // aiLabels must NOT appear in the update payload — preserve prior user/LLM labels.
+    const updatePayload = prismaMock.email.updateMany.mock.calls[0][0].data;
+    expect(Object.prototype.hasOwnProperty.call(updatePayload, 'aiLabels')).toBe(false);
+    // CR-01: upsert-update branch must NOT clobber summary/keyPoints/suggestedActions.
     expect(prismaMock.emailAnalysis.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({ triageSource: 'rule' }),
         create: expect.objectContaining({ triageSource: 'rule' }),
       }),
     );
+    const upsertArg = prismaMock.emailAnalysis.upsert.mock.calls[0][0];
+    expect(Object.prototype.hasOwnProperty.call(upsertArg.update, 'summary')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(upsertArg.update, 'keyPoints')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(upsertArg.update, 'suggestedActions')).toBe(false);
     expect(result.success).toBe(true);
     expect(result.lane).toBe('system-alerts');
   });

@@ -292,20 +292,36 @@ export class EmailTriageService implements OnModuleInit {
 
             if (MUTING_ACTIONS.has(or.override.action)) {
               // D-07 muting short-circuit: write straight to DB, skip LLM entirely.
+              //
+              // Phase 147 CR-01 fix: a muting rule decides LANE, NOT labels or content.
+              //   - Preserve aiLabels: the user may have corrected them via D-01 or
+              //     the LLM pre-override; wiping them re-creates the very noise the
+              //     feedback loop is trying to eliminate.
+              //   - Null stale triage signals (aiPriority / aiPriorityReason /
+              //     aiSentiment / aiCategory) so the row isn't internally inconsistent
+              //     (e.g., aiLane='system-alerts' + aiPriority=1).
+              //   - Preserve existing EmailAnalysis summary/keyPoints/suggestedActions
+              //     on the upsert-update branch; the rule does not know anything
+              //     about content, so it has no business clobbering prior analysis.
               const now = new Date();
               const mutingLane = ACTION_TO_LANE[or.override.action] ?? 'system-alerts';
               await this.prisma.email.updateMany({
                 where: { id: emailId, tenantId },
                 data: {
                   aiLane: mutingLane,
-                  aiLabels: [],
+                  aiPriority: null,
+                  aiPriorityReason: null,
+                  aiSentiment: null,
+                  aiCategory: null,
                   isAutoTriaged: true,
                   autoTriagedAt: now,
                 },
               });
               // D-08: record triageSource='rule' on EmailAnalysis.
               // Required-no-default fields (emailId, tenantId) + Phase 147 provenance;
-              // every other required column falls back to schema defaults.
+              // every other required column falls back to schema defaults on create.
+              // On update we only touch lane/source/processedAt/modelUsed —
+              // summary/keyPoints/suggestedActions stay as the LLM left them.
               await this.prisma.emailAnalysis.upsert({
                 where: { emailId_tenantId: { emailId, tenantId } },
                 update: {
@@ -313,9 +329,6 @@ export class EmailTriageService implements OnModuleInit {
                   lane: mutingLane,
                   processedAt: now,
                   modelUsed: 'rule',
-                  summary: null,
-                  keyPoints: [],
-                  suggestedActions: [],
                 },
                 create: {
                   emailId,
