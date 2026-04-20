@@ -33,6 +33,7 @@ Before running ANY `npx prisma` command (even "safe" ones like `generate`, `vali
 3. For migrations: only `npx prisma migrate dev --name <name>` is allowed, and only against a LOCAL dev DB. Commit the migration file. Railway's build pipeline applies it via `prisma migrate deploy` on push (non-destructive).
 4. `backend/entrypoint.sh` contains an `else` branch that runs `prisma db push --skip-generate` + `prisma db seed` — both destructive. It is not the Docker entrypoint (Dockerfile.railway CMD is the entrypoint), but the file is a loaded gun for anyone invoking it manually or via CI. Treat entrypoint.sh as if it is broken until explicitly fixed.
 5. Seeds: `prisma db seed` is NEVER run against prod. The seed script's Default Tenant + 3 seed users are for local dev only. If you see `Default Tenant` appearing on prod, a destructive command ran.
+6. **BACKUP BEFORE TOUCH (added 2026-04-20 after 2nd wipe + user recovery):** Before ANY mutating operation against prod — row-level updates, single inserts, small Prisma upserts, however small — take a Railway Postgres backup first (Railway dashboard → Postgres service → Backups → "Backup now", or `pg_dump` via Railway CLI) and confirm the backup timestamp with the user before proceeding. Read-only SELECTs do not require a backup; the rule is mutations only. If no backup mechanism is available, STOP and ask the user to accept the risk explicitly.
 
 **Git push discipline (added 2026-04-20 after auto-push surprised the user):**
 
