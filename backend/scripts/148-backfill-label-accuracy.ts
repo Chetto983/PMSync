@@ -16,13 +16,15 @@
  * B-1 single source of truth: day offsets derived from TP_IMPLICIT_WINDOW_DAYS.
  * The only local window-bound constant is BACKFILL_LOOKBACK_DAYS = 30.
  *
- * B-5 invariant gate: verified pre-write via grep on triage-feedback.service.ts
- * that `captureLabelDiff`'s `added_personal_label` branch does NOT call
- * `recordFeedback`. Enforced at service-level (line: "// else:
- * added_personal_label — silent no-op"). If this invariant is violated in a
- * future refactor, the backfill will leak counters — re-run the grep before
- * each invocation.
+ * B-5 invariant gate: `verifyAddedPersonalLabelInvariant()` reads
+ * `triage-feedback.service.ts` at runtime on every invocation and throws
+ * BEFORE any Nest / Prisma / Redis bootstrap if `captureLabelDiff`'s
+ * `added_personal_label` branch now calls `recordFeedback`. Future refactors
+ * that regress the silent-no-op invariant trip this gate and keep counter
+ * math safe.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -32,6 +34,61 @@ import {
   releaseSharedRedisConnection,
 } from '../src/common/config/queue.config';
 import { TP_IMPLICIT_WINDOW_DAYS } from '../src/modules/ai/utils/triage-correction-weight';
+
+/**
+ * B-5 runtime invariant gate. The 30-day TP pass assumes Phase 147's
+ * `captureLabelDiff()` treats `added_personal_label` as a silent no-op — it
+ * must NOT call `recordFeedback`, otherwise TP credit leaks into FP/FN counts.
+ * Plan 04 spec test asserts zero emits on that branch; this gate catches
+ * regressions introduced AFTER commit time but BEFORE the backfill runs.
+ * Throws pre-write if the invariant is violated so no counters are polluted.
+ */
+function verifyAddedPersonalLabelInvariant(): void {
+  const servicePath = resolve(
+    __dirname,
+    '../src/modules/ai/services/triage-feedback.service.ts',
+  );
+  const source = readFileSync(servicePath, 'utf8');
+
+  // Locate the `added` loop inside captureLabelDiff. That loop is where
+  // added_personal_label branches off added_back_correction. The invariant:
+  // every `recordFeedback` call inside the loop MUST be nested inside the
+  // `if (wasEverAiSuggested) { ... }` guard. The silent-no-op `else` path
+  // carries added_personal_label and must not reach the feedback recorder.
+  const loopMatch = source.match(
+    /for\s*\(\s*const\s+label\s+of\s+added\s*\)\s*\{([\s\S]*?)\n\s{0,4}\}/,
+  );
+  if (!loopMatch) {
+    throw new Error(
+      'B-5 gate: could not locate `for (const label of added)` in captureLabelDiff — source shape changed. Refusing to run.',
+    );
+  }
+  const loopBody = loopMatch[1];
+
+  // Pull the `if (wasEverAiSuggested) { ... }` block. Any recordFeedback call
+  // outside that guard inside the loop is an invariant break.
+  const guarded = loopBody.match(
+    /if\s*\(\s*wasEverAiSuggested\s*\)\s*\{([\s\S]*?)\n\s{0,8}\}/,
+  );
+  if (!guarded) {
+    throw new Error(
+      'B-5 gate: could not locate `if (wasEverAiSuggested) { ... }` guard — Phase 147 contract may have been rewritten. Refusing to run.',
+    );
+  }
+  const outsideGuard = loopBody.replace(guarded[0], '');
+  if (/this\.recordFeedback\s*\(/.test(outsideGuard)) {
+    throw new Error(
+      'B-5 gate VIOLATED: captureLabelDiff `added` loop calls recordFeedback OUTSIDE the wasEverAiSuggested guard — added_personal_label is no longer silent. Counter math would leak. Investigate before re-running backfill.',
+    );
+  }
+
+  // Defensive sanity: the explanatory comment should still mark the silent path.
+  if (!/added_personal_label/.test(loopBody)) {
+    throw new Error(
+      'B-5 gate: the `added_personal_label` comment is missing from the captureLabelDiff loop. The invariant may hold but the contract signpost is gone. Restore the comment before re-running backfill.',
+    );
+  }
+}
 
 interface BackfillOptions {
   tenantId?: string;
@@ -68,6 +125,10 @@ const DAY_MS = 24 * 3600 * 1000;
 export async function runBackfill(
   options: BackfillOptions = {},
 ): Promise<BackfillStats> {
+  // B-5 runtime gate: validate Phase 147's silent no-op invariant BEFORE
+  // bootstrapping Nest / Prisma / Redis. Throwing here prevents any writes.
+  verifyAddedPersonalLabelInvariant();
+
   const app = await NestFactory.createApplicationContext(AppModule, {
     bufferLogs: false,
   });
