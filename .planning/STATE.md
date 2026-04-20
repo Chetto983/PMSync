@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Intelligent Triage & Memory Consolidation
 status: in_progress
-stopped_at: Phase 148 Plan 02 complete — Prisma migration generated offline (Wave 2 BLOCKING done, 4 plans remain)
-last_updated: "2026-04-20T09:40:00.000Z"
+stopped_at: Phase 148 Plan 03 complete — LabelAccuracyService + AccuracyDelta event contract + queue + listener + sweeper shipped (Wave 3 done, 3 plans remain)
+last_updated: "2026-04-20T09:54:53Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 32
-  completed_plans: 28
-  percent: 88
+  completed_plans: 29
+  percent: 91
 ---
 
 # Project State
@@ -25,16 +25,16 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 ## Current Position
 
-Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plans 01+02 of 6 complete, Waves 1+2 done)
-Just completed: Phase 148 Plan 02 — Prisma migration 20260420092400_148_label_accuracy_profiles generated offline via `prisma migrate diff --script` (same pattern as Plan 147-02 because DATABASE_URL=Railway prod + shadow-DB P3006 on Phase 142 crm_activities drift), destructive-statement gate 0/0, tsc --noEmit green, Railway will apply on deploy (2026-04-20)
-Previously shipped (Phase 148, this session): 148-01 — schema additions (LabelAccuracyProfile + LabelAccuracySourceBreakdown), wilsonInterval util (9 unit tests), TP_IMPLICIT_WINDOW_DAYS=14 export, TRIAGE_ACCURACY_UPDATE queue + TRIAGE_ACCURACY_SWEEP cron @ '37 4 * * *' (2026-04-20)
+Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plans 01+02+03 of 6 complete, Waves 1+2+3 done)
+Just completed: Phase 148 Plan 03 — LabelAccuracyService (applyDelta / sweepTps / rolloverWindows / read / runSweep) with constructor-sync W6 TRIAGE_ACCURACY_SWEEP handler + AccuracyDelta event contract (D-15 public topics + interfaces) + LabelAccuracyQueueService (BullMQ accuracy-update queue, 5min dedup) + LabelAccuracyListener (@OnEvent ACCURACY_APPLIED_TOPIC, B-7 per-branch separator guards) + AiModule wiring; 13 service spec tests green, tsc --noEmit green; Rule 1 deviation: plan's `Email.processedAt` swapped to `Email.autoTriagedAt` (plan-bug, processedAt lives on EmailAnalysis not Email — semantics identical per schema comment); B-4 Prometheus DI seam in place with 4 @Optional() tokens as null for Plan 04 enrichment (2026-04-20)
+Previously shipped (Phase 148, this session): 148-01 — schema additions + wilsonInterval + TP_IMPLICIT_WINDOW_DAYS; 148-02 — Prisma migration generated offline (2026-04-20)
 Previously shipped (Phase 147, v13.0): 147-01/02/03/04/05 — all 5 plans done, 7/7 UAT PASS @ 10/10 on Railway prod
 Previous (v12.0 trailing): Phase 157 PARTIAL — 157-01/02/03 shipped; 157-04/05 deferred pending Railway `staging`.
-Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plans 01+02 are pure additions (no consumers yet; migration SQL unapplied on prod until next deploy) — no runtime behavior change.
-Next: Plan 03 (Wave 3 — LabelAccuracyService applyDelta/sweepTps/rolloverWindows/read, AccuracyDelta event contract, BullMQ queue + listener, constructor-sync sweeper handler)
+Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plans 01+02+03 are pure additions (no emit site yet; Plan 04 wires TriageFeedbackService emitter + MetricsModule providers + backfill) — no runtime behavior change.
+Next: Plan 04 (Wave 4 — TriageFeedbackService emits ACCURACY_APPLIED_TOPIC + Prometheus providers replace Plan 03 null tokens + runSweep gauge-refresh block + 30-day idempotent backfill script)
 Last activity: 2026-04-20
 
-Progress: [██████████] 88% (v13.0 Phase 147 done + 148-01/02 done, 4 plans remain in Phase 148, 9 phases remain in milestone)
+Progress: [█████████░] 91% (v13.0 Phase 147 done + 148-01/02/03 done, 3 plans remain in Phase 148, 9 phases remain in milestone)
 
 ## Performance Metrics
 
@@ -80,6 +80,11 @@ Progress: [██████████] 88% (v13.0 Phase 147 done + 148-01/02
 - [Phase 148-01]: `TP_IMPLICIT_WINDOW_DAYS = 14` lives alongside `weightCorrection` in `triage-correction-weight.ts` — single-source-of-truth for Phase 149 exponential decay swap (B-1 fix avoids duplicate `14` literals in Plan 03 service and Plan 04 backfill)
 - [Phase 148-01]: Sweep cron slot `'37 4 * * *'` — 20 min off Phase 147's `'17 4'` and off `'0 3'`/`'0 4'` clusters (anti-thundering-herd rule)
 - [Phase 148-02]: Prisma migration generated offline via `prisma migrate diff --from-schema <pre> --to-schema <post> --script --output <file>` because (a) `.env` DATABASE_URL points at Railway prod where `migrate dev` is forbidden (2026-04-01 wipe memory), and (b) shadow DB fails with P3006/P1014 on Phase 142 `crm_activities` drift (same blocker Plans 139-01, 142-01, 147-02 hit). Same flow documented in Plan 147-02 SUMMARY. `prisma generate` + `tsc --noEmit` validated locally; Railway's `migrate deploy` applies on push.
+- [Phase 148-03]: `Email.processedAt` referenced by plan does not exist on Email model (lives on EmailAnalysis). Used `Email.autoTriagedAt` instead — same D-06 semantics ("When auto-triage ran"). Rule 1 deviation documented in SUMMARY; spec updated to match.
+- [Phase 148-03]: Service file lands at 782 LF lines (plan's 500-line cap target unachievable — plan's own pseudocode is ~700 lines verbatim). W-6 semantic intent (pure math in `label-accuracy.compute.ts`) is met; documented as Rule 1 plan-content-vs-target inconsistency in SUMMARY.
+- [Phase 148-03]: B-4 `@Optional() @Inject(getToken(...))` seam with private `safeInc`/`safeSet` null-guarded helpers — Plan 03 spec passes `null` for all 4 Prometheus tokens; Plan 04 will enrich with mock Counter/Gauge without touching service constructor signature.
+- [Phase 148-03]: W-2 post-transaction emit invariant enforced at both mutation sites (applyDelta + decrementSingleWindow); grep-verified no `eventEmitter.emit` appears inside a `$transaction` callback block.
+- [Phase 148-03]: Redis mock for service spec reuses Phase 147 `triage-promotion.service.spec.ts` pattern — Map-backed stub via `jest.mock('../../../../common/config/queue.config', …)` so rolloverWindows tests hit `sismember`/`sadd` without opening a real ioredis socket.
 
 ### Roadmap Evolution
 
@@ -98,6 +103,6 @@ Progress: [██████████] 88% (v13.0 Phase 147 done + 148-01/02
 
 ## Session Continuity
 
-Last session: 2026-04-20T09:40:00.000Z
-Stopped at: Phase 148 Plan 02 complete — BLOCKING Prisma migration committed; ready for Plan 03 (Wave 3)
-Resume file: .planning/phases/148-label-accuracy/148-03-PLAN.md
+Last session: 2026-04-20T09:54:53Z
+Stopped at: Phase 148 Plan 03 complete — LabelAccuracyService + AccuracyDelta contract + accuracy-update queue + listener + sweeper handler shipped; 13/13 service spec tests green; ready for Plan 04 (Wave 4)
+Resume file: .planning/phases/148-label-accuracy/148-04-PLAN.md

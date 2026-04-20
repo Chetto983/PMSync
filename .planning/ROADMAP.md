@@ -332,11 +332,11 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
 **Plans:** TBD (estimated ~30)
 
 - [x] **Phase 147: Close the Feedback Loop** - Wire triage corrections back into future classifications (shipped 2026-04-20, 5/5 plans, UAT 7/7 PASS @ 10/10)
-- [ ] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time (6 plans, 5 waves, 2/6 complete)
+- [ ] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time (6 plans, 5 waves, 3/6 complete)
   Plans:
   - [x] 148-01-PLAN.md — Prisma models (LabelAccuracyProfile + LabelAccuracySourceBreakdown), Wilson utility, queue + cron registration (shipped 2026-04-20)
   - [x] 148-02-PLAN.md — [BLOCKING] Prisma migration for the two new models (shipped 2026-04-20)
-  - [ ] 148-03-PLAN.md — LabelAccuracyService (applyDelta / sweepTps / rolloverWindows / read) + AccuracyDelta event contract + BullMQ queue + listener + constructor-sync sweeper handler
+  - [x] 148-03-PLAN.md — LabelAccuracyService (applyDelta / sweepTps / rolloverWindows / read) + AccuracyDelta event contract + BullMQ queue + listener + constructor-sync sweeper handler (shipped 2026-04-20)
   - [ ] 148-04-PLAN.md — TriageFeedbackService event emission + Prometheus 3 gauges + 1 counter + 30-day idempotent backfill script
   - [ ] 148-05-PLAN.md — GET /api/ai/triage/label-accuracy controller with TenantGuard + D-09 response shape + plumbing spec
   - [ ] 148-06-PLAN.md — Frontend translations + API module + TanStack hook + LabelAccuracyBadge + LabelTreeItem wiring
