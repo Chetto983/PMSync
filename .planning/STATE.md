@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.0
-milestone_name: Intelligent Triage & Memory Consolidation
+milestone: v12.0
+milestone_name: UX Unification — 4-Pillar Simplification
 status: in_progress
-stopped_at: Phase 148 COMPLETE — Plan 06 ships the frontend badge pill end-to-end (translations + API module + TanStack hook + extracted LabelAccuracyBadge + LabelTreeItem wiring + 6 RTL tests). All 32/32 plans done across the project. End-to-end accuracy chain live: user feedback → event → BullMQ → counter → HTTP API → MUI Chip pill on every label.
-last_updated: "2026-04-20T10:53:29Z"
+stopped_at: Phase 149 context gathered
+last_updated: "2026-04-20T14:10:58.762Z"
 last_activity: 2026-04-20
 progress:
-  total_phases: 7
+  total_phases: 9
   completed_phases: 6
   total_plans: 32
-  completed_plans: 32
-  percent: 100
+  completed_plans: 28
+  percent: 88
 ---
 
 # Project State
@@ -125,6 +125,6 @@ Progress: [██████████] 100% Phase 148 (32/32 plans across pr
 
 ## Session Continuity
 
-Last session: 2026-04-20T10:53:29Z
-Stopped at: Phase 148 COMPLETE — Plan 06 frontend ships end-to-end. All 32/32 plans done. End-to-end accuracy chain live: feedback → event → BullMQ → counter+Wilson CI → HTTP API → MUI Chip pill. Day-1 ops note: run `cd backend && npx ts-node scripts/148-backfill-label-accuracy.ts` once after deploy so users see real badges instead of "Learning…" on every label for 30 days.
-Resume file: ready to plan Phase 149 (exponential decay swap on the 14-day TP_IMPLICIT_WINDOW_DAYS primitive — single-source-of-truth at `backend/src/modules/ai/utils/triage-correction-weight.ts`).
+Last session: 2026-04-20T14:10:58.754Z
+Stopped at: Phase 149 context gathered
+Resume file: .planning/phases/149-temporal-decay/149-CONTEXT.md
