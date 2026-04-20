@@ -163,7 +163,15 @@ export class TriagePromotionService implements OnModuleDestroy {
                 select: { id: true },
                 take: CACHE_INVALIDATION_LIMIT,
               })
-            : await this.prisma.email.findMany({
+            : // WR-07 known-acceptable: `contains: '@<domain>'` will over-match
+              // addresses like `attacker@acme.com.evil.example` when the promoted
+              // domain is `acme.com`. This is NOT a security issue — the
+              // applyOverrides matcher uses exact-tail domain comparison
+              // (senderDomain === override.pattern), so bleed only wastes a few
+              // cache-invalidation writes. Self-healing on the next email write.
+              // If this ever shows up in a perf trace, switch to a raw SQL
+              // regex matcher anchored at end-of-string.
+              await this.prisma.email.findMany({
                 where: {
                   tenantId,
                   from: { contains: `@${p.pattern}`, mode: 'insensitive' },
