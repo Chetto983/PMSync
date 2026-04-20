@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
   Drawer,
   IconButton,
   Stack,
@@ -102,21 +101,43 @@ export function TaskDetailDrawer({
     { label: 'Contact ID', value: task.contactId },
   ].filter((row) => row.value);
 
+  const primarySummary = task.contactName
+    ? t.tasks.workspaceView.contactContextTemplate.replace('{contact}', task.contactName)
+    : task.description || t.tasks.workspaceView.noDescription;
+
   return (
     <Drawer
       anchor={isMobile ? 'bottom' : 'right'}
       open={open}
       onClose={onClose}
+      hideBackdrop={!isMobile}
+      ModalProps={{
+        keepMounted: true,
+        slotProps: {
+          backdrop: {
+            sx: {
+              bgcolor: alpha(theme.palette.common.black, 0.22),
+              backdropFilter: 'blur(10px)',
+            },
+          },
+        },
+      }}
       PaperProps={{
         sx: {
-          width: isMobile ? '100%' : 420,
-          maxWidth: '100%',
-          height: isMobile ? '82vh' : '100%',
-          borderTopLeftRadius: isMobile ? 28 : 0,
-          borderTopRightRadius: isMobile ? 28 : 0,
-          borderBottomLeftRadius: isMobile ? 0 : 28,
-          bgcolor: alpha(theme.palette.background.paper, 0.98),
+          width: isMobile ? '100%' : 480,
+          maxWidth: isMobile ? '100%' : 'calc(100vw - 32px)',
+          height: isMobile ? '82vh' : 'calc(100% - 104px)',
+          top: isMobile ? 'auto' : 88,
+          right: isMobile ? 0 : 16,
+          borderRadius: isMobile ? '28px 28px 0 0' : 6,
+          border: 1,
+          borderColor: alpha(theme.palette.common.black, 0.08),
+          boxShadow: isMobile
+            ? `0 -12px 36px ${alpha(theme.palette.common.black, 0.18)}`
+            : `0 28px 64px ${alpha(theme.palette.common.black, 0.16)}`,
+          bgcolor: theme.palette.background.paper,
           backgroundImage: 'none',
+          overflow: 'hidden',
         },
       }}
     >
@@ -124,25 +145,25 @@ export function TaskDetailDrawer({
         <Box
           sx={{
             px: 3,
-            pt: 2.5,
-            pb: 2,
+            pt: 2.25,
+            pb: 1.75,
             borderBottom: 1,
             borderColor: 'divider',
-            background: `linear-gradient(180deg, ${alpha(theme.palette.primary.light, 0.18)} 0%, transparent 100%)`,
+            bgcolor: alpha(theme.palette.background.default, 0.72),
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
             <Box>
               <Typography
-                variant="overline"
-                sx={{ color: 'primary.dark', fontWeight: 800, letterSpacing: '0.12em' }}
+                variant="caption"
+                sx={{ color: 'text.secondary', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}
               >
                 {t.tasks.workspaceView.detailEyebrow}
               </Typography>
-              <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 700 }}>
+              <Typography variant="h6" sx={{ mt: 0.75, fontWeight: 800, lineHeight: 1.25 }}>
                 {task.title}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.9, maxWidth: 420 }}>
                 {task.description || t.tasks.workspaceView.noDescription}
               </Typography>
             </Box>
@@ -162,114 +183,121 @@ export function TaskDetailDrawer({
           </Stack>
         </Box>
 
-        <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-            {t.tasks.workspaceView.contextTitle}
-          </Typography>
-          <Stack spacing={1.25}>
-            {contextRows.map((row) => (
-              <Box
-                key={row.label}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'auto 1fr',
-                  gap: 1.5,
-                  alignItems: 'start',
-                  p: 1.5,
-                  borderRadius: 2,
-                  border: 1,
-                  borderColor: 'divider',
-                  bgcolor: alpha(theme.palette.background.default, 0.72),
-                }}
-              >
-                <Box sx={{ color: 'text.secondary', mt: 0.25 }}>{row.icon}</Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {row.label}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.25 }}>
-                    {row.value}
-                  </Typography>
-                </Box>
-              </Box>
-            ))}
-          </Stack>
+        <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.25 }}>
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 3,
+              border: 1,
+              borderColor: alpha(theme.palette.primary.main, 0.16),
+              bgcolor: alpha(theme.palette.primary.light, 0.07),
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.9 }}>
+              <Mail size={16} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                {t.tasks.workspaceView.nextActionTitle}
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
+              {primarySummary}
+            </Typography>
+          </Box>
 
-          <Divider sx={{ my: 2.5 }} />
-
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-            {t.tasks.workspaceView.relatedTitle}
-          </Typography>
-          {relatedRows.length > 0 ? (
-            <Stack spacing={1}>
-              {relatedRows.map((row) => (
+          <Box sx={{ mt: 2.25 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25 }}>
+              {t.tasks.workspaceView.contextTitle}
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+                gap: 1,
+              }}
+            >
+              {contextRows.map((row) => (
                 <Box
                   key={row.label}
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 2,
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: alpha(theme.palette.primary.light, 0.08),
+                    p: 1.4,
+                    borderRadius: 2.5,
+                    border: 1,
+                    borderColor: alpha(theme.palette.divider, 0.9),
+                    bgcolor: alpha(theme.palette.background.default, 0.46),
                   }}
                 >
-                  <Typography variant="body2" color="text.secondary">
-                    {row.label}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                    {row.icon}
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                      {row.label}
+                    </Typography>
+                  </Box>
+                  <Typography
+                    variant="body2"
+                    sx={{ mt: 0.8, fontWeight: 700, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}
+                  >
                     {row.value}
                   </Typography>
                 </Box>
               ))}
-            </Stack>
-          ) : (
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: 2,
-                border: 1,
-                borderStyle: 'dashed',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                {t.tasks.workspaceView.noRelatedContext}
-              </Typography>
             </Box>
-          )}
+          </Box>
 
-          {task.contactName && (
-            <>
-              <Divider sx={{ my: 2.5 }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                {t.tasks.workspaceView.nextActionTitle}
-              </Typography>
+          <Box sx={{ mt: 2.5, pt: 2.25, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25 }}>
+              {t.tasks.workspaceView.relatedTitle}
+            </Typography>
+            {relatedRows.length > 0 ? (
+              <Stack spacing={0}>
+                {relatedRows.map((row, index) => (
+                  <Box
+                    key={row.label}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      py: 1.35,
+                      borderTop: index === 0 ? 1 : 0,
+                      borderBottom: 1,
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      {row.label}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 700,
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        textAlign: 'right',
+                      }}
+                    >
+                      {row.value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
               <Box
                 sx={{
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: alpha(theme.palette.info.light, 0.1),
+                  p: 1.6,
+                  borderRadius: 2.5,
                   border: 1,
-                  borderColor: alpha(theme.palette.info.main, 0.16),
+                  borderStyle: 'dashed',
+                  borderColor: 'divider',
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Mail size={16} />
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                    {t.tasks.workspaceView.contactContextTitle}
-                  </Typography>
-                </Box>
                 <Typography variant="body2" color="text.secondary">
-                  {t.tasks.workspaceView.contactContextTemplate.replace('{contact}', task.contactName)}
+                  {t.tasks.workspaceView.noRelatedContext}
                 </Typography>
               </Box>
-            </>
-          )}
+            )}
+          </Box>
         </Box>
 
-        <Box sx={{ p: 2.5, borderTop: 1, borderColor: 'divider' }}>
+        <Box sx={{ p: 2.25, borderTop: 1, borderColor: 'divider', bgcolor: alpha(theme.palette.background.default, 0.7) }}>
           <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.25}>
             {task.sourceType === 'manual' && (
               <Button
@@ -284,10 +312,11 @@ export function TaskDetailDrawer({
             {task.status !== 'completed' && (
               <Button
                 variant="contained"
+                size="large"
                 startIcon={<CheckSquare size={16} />}
                 onClick={() => onComplete(task)}
                 disabled={isCompleting}
-                sx={{ ml: 'auto' }}
+                sx={{ ml: 'auto', minWidth: { sm: 180 } }}
               >
                 {t.tasks.completeTask}
               </Button>
