@@ -64,6 +64,44 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
       labelNames: ['model', 'run_type', 'status'],
     }),
 
+    // Phase 148 D-13: per-window micro-averaged triage accuracy.
+    // `tenant_id` label gated by TRIAGE_METRICS_PER_TENANT=true (default off) to
+    // stay under 2026 Prometheus cardinality budget (1000 tenants × 20 labels ×
+    // 3 windows × 3 sources = 180k series, capped to 100 values per label name).
+    // Evaluated at module-load time; flipping the env at runtime requires a
+    // process restart to take effect.
+    makeGaugeProvider({
+      name: 'triage_accuracy_precision',
+      help: 'Micro-averaged triage precision per window (sum(tp)/sum(tp+fp))',
+      labelNames:
+        process.env.TRIAGE_METRICS_PER_TENANT === 'true'
+          ? ['tenant_id', 'window']
+          : ['window'],
+    }),
+    makeGaugeProvider({
+      name: 'triage_accuracy_recall',
+      help: 'Micro-averaged triage recall per window (sum(tp)/sum(tp+fn))',
+      labelNames:
+        process.env.TRIAGE_METRICS_PER_TENANT === 'true'
+          ? ['tenant_id', 'window']
+          : ['window'],
+    }),
+    makeGaugeProvider({
+      name: 'triage_accuracy_f1',
+      help: 'Micro-averaged triage F1 per window (2*p*r/(p+r))',
+      labelNames:
+        process.env.TRIAGE_METRICS_PER_TENANT === 'true'
+          ? ['tenant_id', 'window']
+          : ['window'],
+    }),
+    // Per-kind correction counter — bounded cardinality 2/3 × 4 × 4 = 48 series
+    // max (signal × triage_source × kind). NO tenant_id (D-13 cardinality cap).
+    makeCounterProvider({
+      name: 'triage_accuracy_corrections_total',
+      help: 'Total triage accuracy mutations by signal × triage_source × kind',
+      labelNames: ['signal', 'triage_source', 'kind'],
+    }),
+
     // Phase 46-02: Scheduled queue depth collector
     QueueMetricsCollector,
   ],
@@ -76,6 +114,11 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
     getToken('ai_tokens_total'),
     getToken('ai_cost_usd_total'),
     getToken('ai_requests_total'),
+    // Phase 148 D-13 triage accuracy metrics
+    getToken('triage_accuracy_precision'),
+    getToken('triage_accuracy_recall'),
+    getToken('triage_accuracy_f1'),
+    getToken('triage_accuracy_corrections_total'),
   ],
 })
 export class MetricsModule {}
