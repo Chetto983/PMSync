@@ -1,13 +1,18 @@
 /**
- * Plan 04 Task 2 B-4 — Phase 148 D-13 Prometheus side-effect coverage for
- * LabelAccuracyService. Exercises the @Optional metric DI seam installed in
- * Plan 03 with mock Counter/Gauge providers, asserting:
+ * Plan 04 Task 2 B-4 — Phase 148 D-13 Prometheus side-effect coverage.
+ * Exercises the @Optional metric DI seam with mock Counter/Gauge providers,
+ * asserting:
  *   - applyDelta increments the corrections counter exactly once per call
  *     (NOT once per windowKey — that's a transaction shape detail, not a metric)
  *   - sweeper/backfill TP credits surface as kind='tp_credited' (not raw 'tp')
  *   - negative-delta (rollover decrement) path does NOT increment the counter
  *   - runSweep refreshes all 3 gauges with micro-averaged values across all
  *     tenants (default: TRIAGE_METRICS_PER_TENANT=false → no tenant_id label)
+ *
+ * Post-split note: the corrections counter is owned by LabelAccuracyService
+ * (applyDelta path); the gauges are owned by LabelAccuracySweeperService
+ * (refreshGauges, called at the tail of runSweep). Both services are wired
+ * into the same TestingModule so tests assert against the correct owner.
  */
 
 // Mock the shared Redis connection factory so runSweep's getRedis() path
@@ -60,11 +65,13 @@ import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { LabelAccuracyService } from '../label-accuracy.service';
+import { LabelAccuracySweeperService } from '../label-accuracy.sweeper.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { ScheduledJobsQueueService } from '../../../../common/services/scheduled-jobs.queue';
 
 describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', () => {
-  let service: LabelAccuracyService;
+  let accuracyService: LabelAccuracyService;
+  let sweeperService: LabelAccuracySweeperService;
   let counterInc: jest.Mock;
   let precisionSet: jest.Mock;
   let recallSet: jest.Mock;
@@ -141,6 +148,7 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
     const mod = await Test.createTestingModule({
       providers: [
         LabelAccuracyService,
+        LabelAccuracySweeperService,
         { provide: PrismaService, useValue: prismaMock },
         {
           provide: ScheduledJobsQueueService,
@@ -165,7 +173,8 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
         },
       ],
     }).compile();
-    service = mod.get(LabelAccuracyService);
+    accuracyService = mod.get(LabelAccuracyService);
+    sweeperService = mod.get(LabelAccuracySweeperService);
   });
 
   afterAll(() => {
@@ -177,7 +186,7 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
   });
 
   it('applyDelta: increments counter exactly once per call (not per windowKey)', async () => {
-    await service.applyDelta({
+    await accuracyService.applyDelta({
       tenantId: 't1',
       labelId: 'l1',
       kind: 'fp',
@@ -195,7 +204,7 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
   });
 
   it('applyDelta: kind label is "tp_credited" when signal=system + kind=tp', async () => {
-    await service.applyDelta({
+    await accuracyService.applyDelta({
       tenantId: 't1',
       labelId: 'l1',
       kind: 'tp',
@@ -216,7 +225,7 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
   });
 
   it('applyDelta: raw "tp" kind label when signal != system (live event path)', async () => {
-    await service.applyDelta({
+    await accuracyService.applyDelta({
       tenantId: 't1',
       labelId: 'l1',
       kind: 'tp',
@@ -242,7 +251,7 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
       lastUpdatedAt: new Date(),
     });
 
-    await service.applyDelta({
+    await accuracyService.applyDelta({
       tenantId: 't1',
       labelId: 'l1',
       kind: 'fp',
@@ -254,7 +263,7 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
   });
 
   it('runSweep: refreshes gauges with micro-averaged values (default: aggregated over all tenants)', async () => {
-    await service.runSweep();
+    await sweeperService.runSweep();
 
     // One set() per gauge per windowKey (3 windows → 3 calls each).
     expect(precisionSet).toHaveBeenCalledTimes(3);
@@ -291,6 +300,7 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
     const mod = await Test.createTestingModule({
       providers: [
         LabelAccuracyService,
+        LabelAccuracySweeperService,
         { provide: PrismaService, useValue: prismaMock },
         {
           provide: ScheduledJobsQueueService,
@@ -315,9 +325,9 @@ describe('LabelAccuracyService — Phase 148 D-13 Prometheus instrumentation', (
         },
       ],
     }).compile();
-    service = mod.get(LabelAccuracyService);
+    sweeperService = mod.get(LabelAccuracySweeperService);
 
-    await service.runSweep();
+    await sweeperService.runSweep();
 
     // 2 tenants × 3 windows = 6 set() calls per gauge.
     expect(precisionSet).toHaveBeenCalledTimes(6);

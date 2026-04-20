@@ -1,5 +1,7 @@
-// Mock the shared Redis connection factory so the service's getRedis() returns
-// a Map-backed in-memory stub instead of attempting a real connection.
+// Mock the shared Redis connection factory so nothing in the DI graph opens a
+// real connection. The main LabelAccuracyService does NOT use Redis (that
+// moved to LabelAccuracySweeperService) but the mock is kept as a safety net
+// in case a provider in the test graph indirectly imports the module.
 jest.mock('../../../../common/config/queue.config', () => {
   const store = new Map<string, Set<string>>();
   const scalars = new Map<string, string>();
@@ -49,16 +51,11 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { LabelAccuracyService } from '../label-accuracy.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import {
-  ScheduledJobsQueueService,
-  ScheduledJobType,
-} from '../../../../common/services/scheduled-jobs.queue';
 import { ACCURACY_CHANGED_TOPIC } from '../label-accuracy.events';
 
 describe('LabelAccuracyService', () => {
   let service: LabelAccuracyService;
   let emitter: EventEmitter2;
-  let scheduledJobsRegisterHandler: jest.Mock;
 
   const prismaMock: {
     $transaction: jest.Mock;
@@ -107,15 +104,10 @@ describe('LabelAccuracyService', () => {
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
     );
-    scheduledJobsRegisterHandler = jest.fn();
     const mod = await Test.createTestingModule({
       providers: [
         LabelAccuracyService,
         { provide: PrismaService, useValue: prismaMock },
-        {
-          provide: ScheduledJobsQueueService,
-          useValue: { registerHandler: scheduledJobsRegisterHandler },
-        },
         EventEmitter2,
         // B-4 Plan 04 enrichment: replace Plan 03's `useValue: null` with mock
         // Counter/Gauge objects so safeInc/safeSet reach real jest.fn spies.
@@ -127,30 +119,10 @@ describe('LabelAccuracyService', () => {
           provide: getToken('triage_accuracy_corrections_total'),
           useValue: { inc: jest.fn() },
         },
-        {
-          provide: getToken('triage_accuracy_precision'),
-          useValue: { set: jest.fn() },
-        },
-        {
-          provide: getToken('triage_accuracy_recall'),
-          useValue: { set: jest.fn() },
-        },
-        {
-          provide: getToken('triage_accuracy_f1'),
-          useValue: { set: jest.fn() },
-        },
       ],
     }).compile();
     service = mod.get(LabelAccuracyService);
     emitter = mod.get(EventEmitter2);
-  });
-
-  it('registers cron handler for TRIAGE_ACCURACY_SWEEP synchronously in constructor (W6)', () => {
-    expect(scheduledJobsRegisterHandler).toHaveBeenCalledTimes(1);
-    expect(scheduledJobsRegisterHandler).toHaveBeenCalledWith(
-      ScheduledJobType.TRIAGE_ACCURACY_SWEEP,
-      expect.any(Function),
-    );
   });
 
   it('applyDelta: always filters by tenantId in upsert where-clause', async () => {
@@ -247,120 +219,6 @@ describe('LabelAccuracyService', () => {
     expect(
       prismaMock.labelAccuracySourceBreakdown.upsert,
     ).toHaveBeenCalledTimes(3);
-  });
-
-  it('sweepTps: skips email+label pairs that have correction feedback', async () => {
-    prismaMock.email.findMany.mockResolvedValue([
-      {
-        id: 'e1',
-        autoTriagedAt: new Date(Date.now() - 14.5 * 24 * 3600 * 1000),
-        aiLabels: ['work'],
-      },
-    ]);
-    prismaMock.userLabel.findMany.mockResolvedValue([
-      { id: 'work-id', slug: 'work', name: 'Work' },
-    ]);
-    prismaMock.emailTriageFeedback.count.mockResolvedValue(1);
-    prismaMock.labelAccuracyProfile.findUnique.mockResolvedValue(null);
-
-    const result = await service.sweepTps('t1');
-    expect(result.credited).toBe(0);
-    expect(prismaMock.labelAccuracyProfile.upsert).not.toHaveBeenCalled();
-  });
-
-  it('sweepTps: credits TP when no correction feedback exists', async () => {
-    prismaMock.email.findMany.mockResolvedValue([
-      {
-        id: 'e1',
-        autoTriagedAt: new Date(Date.now() - 14.5 * 24 * 3600 * 1000),
-        aiLabels: ['work'],
-      },
-    ]);
-    prismaMock.userLabel.findMany.mockResolvedValue([
-      { id: 'work-id', slug: 'work', name: 'Work' },
-    ]);
-    prismaMock.emailTriageFeedback.count.mockResolvedValue(0);
-    prismaMock.labelAccuracyProfile.findUnique.mockResolvedValue(null);
-    prismaMock.labelAccuracyProfile.upsert.mockResolvedValue({});
-
-    const result = await service.sweepTps('t1');
-    expect(result.credited).toBe(1);
-    expect(prismaMock.labelAccuracyProfile.upsert).toHaveBeenCalledTimes(3);
-  });
-
-  it('sweepTps: always filters by tenantId', async () => {
-    prismaMock.email.findMany.mockResolvedValue([]);
-    await service.sweepTps('t1');
-    expect(prismaMock.email.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ tenantId: 't1' }),
-      }),
-    );
-  });
-
-  it('rolloverWindows: decrements ONLY 7d and 30d, never all', async () => {
-    prismaMock.emailTriageFeedback.findMany.mockResolvedValue([
-      { id: 'fb1', oldValue: 'work', newValue: null },
-    ]);
-    prismaMock.userLabel.findMany.mockResolvedValue([
-      { id: 'work-id', slug: 'work', name: 'Work' },
-    ]);
-    prismaMock.email.findMany.mockResolvedValue([]); // no TP-aging candidates
-    prismaMock.labelAccuracyProfile.findUnique.mockResolvedValue({
-      tp: 0,
-      fp: 5,
-      fn: 0,
-      sampleSize: 5,
-      precision: 0,
-      recall: 0,
-      f1: 0,
-      lastUpdatedAt: new Date(),
-    });
-    prismaMock.labelAccuracyProfile.update.mockResolvedValue({});
-
-    await service.rolloverWindows('t1');
-
-    for (const call of prismaMock.labelAccuracyProfile.update.mock.calls) {
-      const wk = call[0].where.tenantId_labelId_windowKey.windowKey;
-      expect(['7d', '30d']).toContain(wk);
-      expect(wk).not.toBe('all');
-    }
-  });
-
-  it('rolloverWindows: tp ages out — decrementTpAging credits TP-1 when autoTriagedAt + 14d falls outside window (B-6)', async () => {
-    // No FP/FN rows in pass 1; pass 2 (TP-aging) finds a TP-credited pair.
-    prismaMock.emailTriageFeedback.findMany.mockResolvedValue([]);
-    prismaMock.email.findMany.mockResolvedValue([
-      {
-        id: 'e1',
-        // For windowKey='7d': emit when autoTriagedAt ≈ now - (7 + 14) d = ~21d.
-        autoTriagedAt: new Date(Date.now() - 21.5 * 24 * 3600 * 1000),
-        aiLabels: ['work'],
-      },
-    ]);
-    prismaMock.userLabel.findMany.mockResolvedValue([
-      { id: 'work-id', slug: 'work', name: 'Work' },
-    ]);
-    prismaMock.emailTriageFeedback.count.mockResolvedValue(0); // TP-credited (clean)
-    prismaMock.labelAccuracyProfile.findUnique.mockResolvedValue({
-      tp: 5,
-      fp: 0,
-      fn: 0,
-      sampleSize: 5,
-      precision: 1,
-      recall: 1,
-      f1: 1,
-      lastUpdatedAt: new Date(),
-    });
-    prismaMock.labelAccuracyProfile.update.mockResolvedValue({});
-
-    const result = await service.rolloverWindows('t1');
-
-    expect(result.decremented).toBeGreaterThan(0);
-    const tpDecrements = prismaMock.labelAccuracyProfile.update.mock.calls.filter(
-      (c) => c[0].data.tp < 5,
-    );
-    expect(tpDecrements.length).toBeGreaterThan(0);
   });
 
   it('read: sets state="learning" when sampleSize < 20 (D-11)', async () => {
