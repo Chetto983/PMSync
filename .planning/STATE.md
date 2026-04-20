@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Intelligent Triage & Memory Consolidation
-status: ready_to_execute
-stopped_at: Phase 148 planned (6 plans, 5 waves, verification PASSED after 1 revision iteration)
-last_updated: "2026-04-20T12:00:00.000Z"
+status: in_progress
+stopped_at: Phase 148 Plan 01 complete — schema + utility + queue/cron primitives landed (Wave 1 done, 5 plans remain)
+last_updated: "2026-04-20T09:24:00.000Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 32
-  completed_plans: 26
-  percent: 81
+  completed_plans: 27
+  percent: 84
 ---
 
 # Project State
@@ -25,14 +25,15 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 ## Current Position
 
-Phase: 148 — Per-Label Accuracy Profiles (planned, ready to execute — 6 plans, 5 waves)
-Just completed: Phase 147 — Close the Feedback Loop (5/5 plans, 7/7 UAT PASS @ 10/10, security verified threats_open=0, runtime-verified against Railway prod 2026-04-20)
-Shipped (Phase 147, v13.0): 147-01 (schema + helpers + corrections service), 147-02 (Prisma migration), 147-03 (promotion math + prompt rebalance + BullMQ queue), 147-04 (capture + override application + triageSource), 147-05 (admin endpoint + lane-correction forward-compat + plumbing spec)
+Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plan 01 of 6 complete, Wave 1 done)
+Just completed: Phase 148 Plan 01 — schema additions (LabelAccuracyProfile + LabelAccuracySourceBreakdown), wilsonInterval util (9 unit tests), TP_IMPLICIT_WINDOW_DAYS=14 export, TRIAGE_ACCURACY_UPDATE queue + TRIAGE_ACCURACY_SWEEP cron @ '37 4 * * *' (2026-04-20)
+Previously shipped (Phase 147, v13.0): 147-01/02/03/04/05 — all 5 plans done, 7/7 UAT PASS @ 10/10 on Railway prod
 Previous (v12.0 trailing): Phase 157 PARTIAL — 157-01/02/03 shipped; 157-04/05 deferred pending Railway `staging`.
-Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod; Railway smoke confirmed all 7 UAT scenarios PASS.
+Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plan 01 is pure additions (no consumers yet) — no runtime behavior change.
+Next: Plan 02 (BLOCKING migration — `npx prisma migrate dev --name 148_label_accuracy_profiles`, commit migration SQL, Railway applies on deploy)
 Last activity: 2026-04-20
 
-Progress: [██████████] 100% (v13.0 Phase 147 done, 9 phases remain in milestone)
+Progress: [██████████] 84% (v13.0 Phase 147 done + 148-01 done, 5 plans remain in Phase 148, 9 phases remain in milestone)
 
 ## Performance Metrics
 
@@ -73,6 +74,10 @@ Progress: [██████████] 100% (v13.0 Phase 147 done, 9 phases 
 - [Phase 147-05]: Plumbing spec renamed .plumbing.spec.ts (W5 honesty) instead of .integration.spec.ts — every dep mocked, proves seam wiring NOT end-to-end behavior
 - [Phase 147-05]: Cache invalidation collects affected emailIds across all promoted patterns into a single invalidateCache call (fewer Prisma round-trips)
 - [Phase 147-05]: Plumbing spec reuses queue.config module-mock pattern from Plan 03 spec (not the plan's `(service as any).redis` stub — real service lazy-acquires via getRedis/getSharedRedisConnection)
+- [Phase 148-01]: `LabelAccuracyProfile` uses compound `@@id([tenantId, labelId, windowKey])` (no surrogate id) — divergence from Phase 147 `TriageOverride` justified because Phase 148 never exposes rows by id in any API
+- [Phase 148-01]: `labelId` stored as plain String (no FK to UserLabel) — intentional so historical accuracy survives label rename/delete without cascade destruction
+- [Phase 148-01]: `TP_IMPLICIT_WINDOW_DAYS = 14` lives alongside `weightCorrection` in `triage-correction-weight.ts` — single-source-of-truth for Phase 149 exponential decay swap (B-1 fix avoids duplicate `14` literals in Plan 03 service and Plan 04 backfill)
+- [Phase 148-01]: Sweep cron slot `'37 4 * * *'` — 20 min off Phase 147's `'17 4'` and off `'0 3'`/`'0 4'` clusters (anti-thundering-herd rule)
 
 ### Roadmap Evolution
 
@@ -91,6 +96,6 @@ Progress: [██████████] 100% (v13.0 Phase 147 done, 9 phases 
 
 ## Session Continuity
 
-Last session: 2026-04-20T07:30:00.000Z
-Stopped at: Phase 147 complete, ready to plan Phase 148
-Resume file: None
+Last session: 2026-04-20T09:24:00.000Z
+Stopped at: Phase 148 Plan 01 complete — ready for Plan 02 (BLOCKING migration)
+Resume file: .planning/phases/148-label-accuracy/148-02-PLAN.md
