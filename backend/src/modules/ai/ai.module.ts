@@ -86,6 +86,8 @@ import { TriageOverridesController } from './controllers/triage-overrides.contro
 import { LabelAccuracyService } from './services/label-accuracy.service';
 import { LabelAccuracyQueueService } from './services/label-accuracy.queue';
 import { LabelAccuracyListener } from './listeners/label-accuracy.listener';
+// Phase 148 Plan 05: D-09 read API for per-label accuracy
+import { TriageAccuracyController } from './controllers/triage-accuracy.controller';
 // Phase 4 (CRM): Auto-population — suggestion trigger after email triage
 import { SuggestionModule } from '../crm/suggestion/suggestion.module';
 
@@ -174,7 +176,16 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     LabelAccuracyQueueService,
     LabelAccuracyListener,
   ],
-  controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController, TriageRulesController, TriageOverridesController],
+  controllers: [
+    AiController,
+    AiHealthController,
+    KnowledgeBaseController,
+    AiObservabilityController,
+    TriageRulesController,
+    TriageOverridesController,
+    // Phase 148 Plan 05: GET /api/v1/ai/triage/label-accuracy (D-09)
+    TriageAccuracyController,
+  ],
   exports: [
     // Core AI services
     MistralService,
