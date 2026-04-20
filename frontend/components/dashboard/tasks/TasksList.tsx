@@ -457,6 +457,10 @@ export function TasksList() {
     if (viewMode !== 'list') params.viewMode = viewMode;
     if (activeViewId) params.view = activeViewId;
     void router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
+    // `router` intentionally omitted: Next.js mutates its identity on every
+    // replace, so including it here causes an infinite replace loop that
+    // cancels user-initiated navigation (confirmed 55 nav events / 5s).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeViewId,
     filterContactId,
@@ -466,7 +470,6 @@ export function TasksList() {
     filterSourceType,
     filterStatus,
     page,
-    router,
     viewMode,
   ]);
 
