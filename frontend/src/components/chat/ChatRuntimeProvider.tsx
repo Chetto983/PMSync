@@ -13,6 +13,8 @@ import { API_BASE_URL, getCsrfToken } from '@/lib/api-client';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { createPmSyncThreadListAdapter } from './chat-thread-list-adapter';
 import {
+  getLastActiveThreadId,
+  rememberLastActiveThreadId,
   resetManualNewThreadRequested,
   shouldSkipInitialThreadRestore,
 } from './thread-restore-guard';
@@ -78,6 +80,7 @@ const transport = new AssistantChatTransport({
  */
 function useThreadRuntime() {
   const id = useAuiState((s) => s.threadListItem.id);
+  const remoteId = useAuiState((s) => s.threadListItem.remoteId);
 
   const chat = useChat({
     id,
@@ -101,6 +104,12 @@ function useThreadRuntime() {
       _addToolApprovalResponse = chat.addToolApprovalResponse;
     }
   }, [chat.messages, chat.addToolApprovalResponse]);
+
+  useEffect(() => {
+    if (remoteId) {
+      rememberLastActiveThreadId(remoteId);
+    }
+  }, [remoteId]);
 
   return useAISDKRuntime(chat);
 }
@@ -156,10 +165,18 @@ export function ChatRuntimeProvider({
         return;
       }
 
+      const preferredThreadId = (() => {
+        const lastActiveThreadId = getLastActiveThreadId();
+        if (lastActiveThreadId && state.threadIds.includes(lastActiveThreadId)) {
+          return lastActiveThreadId;
+        }
+        return state.threadIds[0] ?? null;
+      })();
+
       restoredInitialThreadRef.current = true;
 
-      if (state.newThreadId && state.mainThreadId === state.newThreadId) {
-        void runtime.threads.switchToThread(state.threadIds[0]!);
+      if (preferredThreadId && state.mainThreadId !== preferredThreadId) {
+        void runtime.threads.switchToThread(preferredThreadId);
       }
     };
 
