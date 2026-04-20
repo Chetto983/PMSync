@@ -269,7 +269,8 @@ Plans:
   3. User can click any item to navigate directly to the relevant email, task, deal, or calendar event
 **UI hint**: yes
 
-- [x] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page (completed 2026-04-17)
+- [x] **Phase 145: Smart Today Dashboard** - AI-curated daily view as home page
+ (completed 2026-04-17)
 - [ ] **Phase 146: RAM Harden** - Redis connection consolidation & memory optimization
 
 ### Phase 145.1: today-dashboard-v2 (INSERTED)
@@ -331,7 +332,14 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
 **Plans:** TBD (estimated ~30)
 
 - [x] **Phase 147: Close the Feedback Loop** - Wire triage corrections back into future classifications (shipped 2026-04-20, 5/5 plans, UAT 7/7 PASS @ 10/10)
-- [ ] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time
+- [ ] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time (6 plans, 5 waves)
+  Plans:
+  - [ ] 148-01-PLAN.md — Prisma models (LabelAccuracyProfile + LabelAccuracySourceBreakdown), Wilson utility, queue + cron registration
+  - [ ] 148-02-PLAN.md — [BLOCKING] Prisma migration for the two new models
+  - [ ] 148-03-PLAN.md — LabelAccuracyService (applyDelta / sweepTps / rolloverWindows / read) + AccuracyDelta event contract + BullMQ queue + listener + constructor-sync sweeper handler
+  - [ ] 148-04-PLAN.md — TriageFeedbackService event emission + Prometheus 3 gauges + 1 counter + 30-day idempotent backfill script
+  - [ ] 148-05-PLAN.md — GET /api/ai/triage/label-accuracy controller with TenantGuard + D-09 response shape + plumbing spec
+  - [ ] 148-06-PLAN.md — Frontend translations + API module + TanStack hook + LabelAccuracyBadge + LabelTreeItem wiring
 - [ ] **Phase 149: Temporal Memory Decay** - Replace flat 30-day TTL with exponential decay (14-day half-life)
 - [ ] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating
 - [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
