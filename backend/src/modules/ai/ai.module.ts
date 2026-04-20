@@ -84,6 +84,7 @@ import { TriagePromotionQueueService } from './services/triage-promotion.queue';
 import { TriageOverridesController } from './controllers/triage-overrides.controller';
 // Phase 148 Plan 03: label accuracy counter engine + queue + listener
 import { LabelAccuracyService } from './services/label-accuracy.service';
+import { LabelAccuracySweeperService } from './services/label-accuracy.sweeper.service';
 import { LabelAccuracyQueueService } from './services/label-accuracy.queue';
 import { LabelAccuracyListener } from './listeners/label-accuracy.listener';
 // Phase 148 Plan 05: D-09 read API for per-label accuracy
@@ -173,6 +174,7 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriagePromotionQueueService,
     // Phase 148 Plan 03: label accuracy counter engine + queue + listener
     LabelAccuracyService,
+    LabelAccuracySweeperService,
     LabelAccuracyQueueService,
     LabelAccuracyListener,
   ],
