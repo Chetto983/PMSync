@@ -66,6 +66,12 @@ export class TriageOverridesController {
   }
 
   @Post()
+  // WR-04: triage overrides are tenant-wide policy. One user's never-follow-up
+  // override silences reminders for every user in the tenant. Rank-and-file
+  // users should not be able to create/delete them, and especially not delete
+  // an override an admin created. Gate to admin/manager/super-admin — same
+  // pattern used by EmailActionsController mutations.
+  @Roles('admin', 'manager', 'super-admin')
   @ApiOperation({ summary: 'Create or update a triage override' })
   @ApiResponse({ status: 201, description: 'Override created' })
   @HttpCode(HttpStatus.CREATED)
@@ -80,6 +86,7 @@ export class TriageOverridesController {
   }
 
   @Delete(':id')
+  @Roles('admin', 'manager', 'super-admin')
   @ApiOperation({ summary: 'Delete a triage override' })
   @ApiResponse({ status: 204, description: 'Override deleted' })
   @HttpCode(HttpStatus.NO_CONTENT)
