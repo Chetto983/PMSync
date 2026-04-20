@@ -330,7 +330,7 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
 
 **Plans:** TBD (estimated ~30)
 
-- [ ] **Phase 147: Close the Feedback Loop** - Wire triage corrections back into future classifications
+- [x] **Phase 147: Close the Feedback Loop** - Wire triage corrections back into future classifications (shipped 2026-04-20, 5/5 plans, UAT 7/7 PASS @ 10/10)
 - [ ] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time
 - [ ] **Phase 149: Temporal Memory Decay** - Replace flat 30-day TTL with exponential decay (14-day half-life)
 - [ ] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating
