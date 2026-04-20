@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Intelligent Triage & Memory Consolidation
 status: in_progress
-stopped_at: Phase 148 Plan 01 complete — schema + utility + queue/cron primitives landed (Wave 1 done, 5 plans remain)
-last_updated: "2026-04-20T09:24:00.000Z"
+stopped_at: Phase 148 Plan 02 complete — Prisma migration generated offline (Wave 2 BLOCKING done, 4 plans remain)
+last_updated: "2026-04-20T09:40:00.000Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 32
-  completed_plans: 27
-  percent: 84
+  completed_plans: 28
+  percent: 88
 ---
 
 # Project State
@@ -25,15 +25,16 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 ## Current Position
 
-Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plan 01 of 6 complete, Wave 1 done)
-Just completed: Phase 148 Plan 01 — schema additions (LabelAccuracyProfile + LabelAccuracySourceBreakdown), wilsonInterval util (9 unit tests), TP_IMPLICIT_WINDOW_DAYS=14 export, TRIAGE_ACCURACY_UPDATE queue + TRIAGE_ACCURACY_SWEEP cron @ '37 4 * * *' (2026-04-20)
+Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plans 01+02 of 6 complete, Waves 1+2 done)
+Just completed: Phase 148 Plan 02 — Prisma migration 20260420092400_148_label_accuracy_profiles generated offline via `prisma migrate diff --script` (same pattern as Plan 147-02 because DATABASE_URL=Railway prod + shadow-DB P3006 on Phase 142 crm_activities drift), destructive-statement gate 0/0, tsc --noEmit green, Railway will apply on deploy (2026-04-20)
+Previously shipped (Phase 148, this session): 148-01 — schema additions (LabelAccuracyProfile + LabelAccuracySourceBreakdown), wilsonInterval util (9 unit tests), TP_IMPLICIT_WINDOW_DAYS=14 export, TRIAGE_ACCURACY_UPDATE queue + TRIAGE_ACCURACY_SWEEP cron @ '37 4 * * *' (2026-04-20)
 Previously shipped (Phase 147, v13.0): 147-01/02/03/04/05 — all 5 plans done, 7/7 UAT PASS @ 10/10 on Railway prod
 Previous (v12.0 trailing): Phase 157 PARTIAL — 157-01/02/03 shipped; 157-04/05 deferred pending Railway `staging`.
-Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plan 01 is pure additions (no consumers yet) — no runtime behavior change.
-Next: Plan 02 (BLOCKING migration — `npx prisma migrate dev --name 148_label_accuracy_profiles`, commit migration SQL, Railway applies on deploy)
+Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plans 01+02 are pure additions (no consumers yet; migration SQL unapplied on prod until next deploy) — no runtime behavior change.
+Next: Plan 03 (Wave 3 — LabelAccuracyService applyDelta/sweepTps/rolloverWindows/read, AccuracyDelta event contract, BullMQ queue + listener, constructor-sync sweeper handler)
 Last activity: 2026-04-20
 
-Progress: [██████████] 84% (v13.0 Phase 147 done + 148-01 done, 5 plans remain in Phase 148, 9 phases remain in milestone)
+Progress: [██████████] 88% (v13.0 Phase 147 done + 148-01/02 done, 4 plans remain in Phase 148, 9 phases remain in milestone)
 
 ## Performance Metrics
 
@@ -78,6 +79,7 @@ Progress: [██████████] 84% (v13.0 Phase 147 done + 148-01 do
 - [Phase 148-01]: `labelId` stored as plain String (no FK to UserLabel) — intentional so historical accuracy survives label rename/delete without cascade destruction
 - [Phase 148-01]: `TP_IMPLICIT_WINDOW_DAYS = 14` lives alongside `weightCorrection` in `triage-correction-weight.ts` — single-source-of-truth for Phase 149 exponential decay swap (B-1 fix avoids duplicate `14` literals in Plan 03 service and Plan 04 backfill)
 - [Phase 148-01]: Sweep cron slot `'37 4 * * *'` — 20 min off Phase 147's `'17 4'` and off `'0 3'`/`'0 4'` clusters (anti-thundering-herd rule)
+- [Phase 148-02]: Prisma migration generated offline via `prisma migrate diff --from-schema <pre> --to-schema <post> --script --output <file>` because (a) `.env` DATABASE_URL points at Railway prod where `migrate dev` is forbidden (2026-04-01 wipe memory), and (b) shadow DB fails with P3006/P1014 on Phase 142 `crm_activities` drift (same blocker Plans 139-01, 142-01, 147-02 hit). Same flow documented in Plan 147-02 SUMMARY. `prisma generate` + `tsc --noEmit` validated locally; Railway's `migrate deploy` applies on push.
 
 ### Roadmap Evolution
 
@@ -96,6 +98,6 @@ Progress: [██████████] 84% (v13.0 Phase 147 done + 148-01 do
 
 ## Session Continuity
 
-Last session: 2026-04-20T09:24:00.000Z
-Stopped at: Phase 148 Plan 01 complete — ready for Plan 02 (BLOCKING migration)
-Resume file: .planning/phases/148-label-accuracy/148-02-PLAN.md
+Last session: 2026-04-20T09:40:00.000Z
+Stopped at: Phase 148 Plan 02 complete — BLOCKING Prisma migration committed; ready for Plan 03 (Wave 3)
+Resume file: .planning/phases/148-label-accuracy/148-03-PLAN.md
