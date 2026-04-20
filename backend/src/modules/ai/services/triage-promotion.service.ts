@@ -40,6 +40,10 @@ const IDEMPOTENCY_TTL_SECONDS = 3600; // 1h
 const MIN_INTERVAL_MS = 5 * 60 * 1000; // skip if last run was < 5min ago
 const SAFETY_NET_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const SAFETY_NET_JITTER_MS = 60_000;
+// WR-01: cap per-pattern cache-invalidation lookup to bound memory per promotion run.
+// Promotions fire every ~5min per active tenant; a high-volume sender/domain could
+// otherwise load 100k+ email IDs into memory each time.
+const CACHE_INVALIDATION_LIMIT = 5000;
 
 @Injectable()
 export class TriagePromotionService implements OnModuleDestroy {
@@ -133,6 +137,14 @@ export class TriagePromotionService implements OnModuleDestroy {
     // Phase 147 Plan 05: cache invalidation for newly-minted overrides so the next
     // triage for any matching email picks up the new rule instead of a stale cached
     // EmailAnalysis row (24h TTL window). No-op when no overrides were created.
+    //
+    // WR-01: cap per-pattern lookup at CACHE_INVALIDATION_LIMIT to bound memory on
+    // high-volume senders/domains. On a tenant with 100k emails from one domain, the
+    // unbounded findMany would load 100k IDs into memory per promotion run (which
+    // fires every ~5min per active tenant). Cache invalidation is best-effort —
+    // overrun emails keep a stale EmailAnalysis row until the 24h TTL expires or
+    // they next receive feedback, which is acceptable. 5000 covers the top ~99.9%
+    // of senders/domains in practice.
     if (patternsPromoted.length > 0) {
       const affectedEmailIds: string[] = [];
       for (const p of patternsPromoted) {
@@ -141,6 +153,7 @@ export class TriagePromotionService implements OnModuleDestroy {
             ? await this.prisma.email.findMany({
                 where: { tenantId, from: { equals: p.pattern, mode: 'insensitive' } },
                 select: { id: true },
+                take: CACHE_INVALIDATION_LIMIT,
               })
             : await this.prisma.email.findMany({
                 where: {
@@ -148,6 +161,7 @@ export class TriagePromotionService implements OnModuleDestroy {
                   from: { contains: `@${p.pattern}`, mode: 'insensitive' },
                 },
                 select: { id: true },
+                take: CACHE_INVALIDATION_LIMIT,
               });
         for (const r of rows) affectedEmailIds.push(r.id);
       }
