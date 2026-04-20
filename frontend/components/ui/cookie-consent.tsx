@@ -39,6 +39,7 @@ export function CookieConsent() {
   });
   const isTasksWorkspace = router.pathname === '/dashboard/tasks';
   const compactWorkspaceMode = aiOverlayOpen || isTasksWorkspace;
+  const compactCollapsed = compactWorkspaceMode && !showDetails;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -121,12 +122,12 @@ export function CookieConsent() {
               variant="body2"
               color="text.secondary"
               sx={{
-                mb: 1.5,
+                mb: compactCollapsed ? 1 : 1.5,
                 fontSize: { xs: '0.8125rem', sm: compactWorkspaceMode ? '0.83rem' : '0.875rem' },
                 display: '-webkit-box',
                 overflow: 'hidden',
                 WebkitBoxOrient: 'vertical',
-                WebkitLineClamp: showDetails ? 'unset' : compactWorkspaceMode ? 4 : 6,
+                WebkitLineClamp: showDetails ? 'unset' : compactWorkspaceMode ? 3 : 6,
               }}
             >
               {cookieCopy.description}{' '}
@@ -135,22 +136,24 @@ export function CookieConsent() {
               </Link>
             </Typography>
 
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                mb: showDetails ? 1.5 : 0,
-                cursor: 'pointer',
-                minHeight: 44, // Touch target
-              }}
-              onClick={() => setShowDetails(!showDetails)}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', fontSize: { xs: '0.8125rem', sm: '0.875rem' } }}>
-                {showDetails ? cookieCopy.hideDetails : cookieCopy.customize}
-              </Typography>
-              {showDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </Box>
+            {!compactCollapsed && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: showDetails ? 1.5 : 0,
+                  cursor: 'pointer',
+                  minHeight: 44, // Touch target
+                }}
+                onClick={() => setShowDetails(!showDetails)}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', fontSize: { xs: '0.8125rem', sm: '0.875rem' } }}>
+                  {showDetails ? cookieCopy.hideDetails : cookieCopy.customize}
+                </Typography>
+                {showDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </Box>
+            )}
 
             <Collapse in={showDetails}>
               <Stack spacing={1.5} sx={{ my: 2, pl: { xs: 0, sm: 1 } }}>
@@ -216,7 +219,7 @@ export function CookieConsent() {
               </Stack>
             </Collapse>
 
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: compactCollapsed ? 0.25 : 1.5, alignItems: 'center' }}>
               {showDetails ? (
                 <>
                   <Button variant="outlined" onClick={handleRejectAll} size="small" sx={{ minHeight: 36 }}>
@@ -226,6 +229,21 @@ export function CookieConsent() {
                     {cookieCopy.savePreferences}
                   </Button>
                   <Button variant="contained" onClick={handleAcceptAll} size="small" sx={{ minHeight: 36 }}>
+                    {cookieCopy.acceptAll}
+                  </Button>
+                </>
+              ) : compactCollapsed ? (
+                <>
+                  <Button
+                    variant="text"
+                    onClick={() => setShowDetails(true)}
+                    size="small"
+                    endIcon={<ChevronDown size={15} />}
+                    sx={{ minHeight: 36, px: 0, fontWeight: 700 }}
+                  >
+                    {cookieCopy.customize}
+                  </Button>
+                  <Button variant="contained" onClick={handleAcceptAll} size="small" sx={{ minHeight: 36, ml: 'auto' }}>
                     {cookieCopy.acceptAll}
                   </Button>
                 </>
