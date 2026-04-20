@@ -66,6 +66,11 @@ export interface ApplyDeltaInput {
   kind: LabelAccuracyKind;
   delta: number;
   triageSource?: AccuracyTriageSource;
+  /**
+   * Phase 148 D-13 counter label.
+   * 'edit' | 'correction' from user feedback; 'system' reserved for sweeper-internal
+   * TP credit and backfill — never exposed via AccuracyDeltaEvent.
+   */
   signal?: 'edit' | 'correction' | 'system';
 }
 
@@ -269,11 +274,15 @@ export class LabelAccuracyService implements OnModuleDestroy {
     }
 
     // B-4: null-safe counter increment. Plan 04 wires real provider.
+    // D-13: 'tp_credited' label signals a delayed TP credit (sweeper or
+    // backfill) — distinguishes from live user-event TPs in dashboards.
     if (delta > 0) {
+      const kindLabel =
+        kind === 'tp' && signal === 'system' ? 'tp_credited' : kind;
       this.safeInc(this.correctionsCounter, {
         signal: signal ?? 'unknown',
         triage_source: triageSource ?? 'unknown',
-        kind,
+        kind: kindLabel,
       });
     }
   }
@@ -774,9 +783,66 @@ export class LabelAccuracyService implements OnModuleDestroy {
         );
       }
     }
-    // Plan 04 appends the real gauge-refresh block here; Plan 03 safeSet is a no-op.
-    this.safeSet(this.precisionGauge, { tenant: 'all' }, 0);
-    this.safeSet(this.recallGauge, { tenant: 'all' }, 0);
-    this.safeSet(this.f1Gauge, { tenant: 'all' }, 0);
+    // D-13 gauge refresh: micro-average across all profiles per window after
+    // rollover settles. Per-tenant labels when TRIAGE_METRICS_PER_TENANT=true,
+    // global aggregate otherwise (default OFF per Prometheus cardinality cap).
+    await this.refreshGauges();
+  }
+
+  private async refreshGauges(): Promise<void> {
+    const perTenant = process.env.TRIAGE_METRICS_PER_TENANT === 'true';
+    for (const windowKey of ['7d', '30d', 'all'] as const) {
+      if (perTenant) {
+        const rows = await this.prisma.labelAccuracyProfile.findMany({
+          where: { windowKey },
+          select: { tenantId: true, tp: true, fp: true, fn: true },
+        });
+        const byTenant = new Map<
+          string,
+          { tp: number; fp: number; fn: number }
+        >();
+        for (const row of rows) {
+          const acc = byTenant.get(row.tenantId) ?? { tp: 0, fp: 0, fn: 0 };
+          acc.tp += row.tp;
+          acc.fp += row.fp;
+          acc.fn += row.fn;
+          byTenant.set(row.tenantId, acc);
+        }
+        for (const [tenantId, c] of byTenant.entries()) {
+          const p = c.tp + c.fp > 0 ? c.tp / (c.tp + c.fp) : 0;
+          const r = c.tp + c.fn > 0 ? c.tp / (c.tp + c.fn) : 0;
+          const f = p + r > 0 ? (2 * p * r) / (p + r) : 0;
+          this.safeSet(
+            this.precisionGauge,
+            { tenant_id: tenantId, window: windowKey },
+            p,
+          );
+          this.safeSet(
+            this.recallGauge,
+            { tenant_id: tenantId, window: windowKey },
+            r,
+          );
+          this.safeSet(
+            this.f1Gauge,
+            { tenant_id: tenantId, window: windowKey },
+            f,
+          );
+        }
+      } else {
+        const agg = await this.prisma.labelAccuracyProfile.aggregate({
+          where: { windowKey },
+          _sum: { tp: true, fp: true, fn: true },
+        });
+        const tp = agg._sum.tp ?? 0;
+        const fp = agg._sum.fp ?? 0;
+        const fn = agg._sum.fn ?? 0;
+        const p = tp + fp > 0 ? tp / (tp + fp) : 0;
+        const r = tp + fn > 0 ? tp / (tp + fn) : 0;
+        const f = p + r > 0 ? (2 * p * r) / (p + r) : 0;
+        this.safeSet(this.precisionGauge, { window: windowKey }, p);
+        this.safeSet(this.recallGauge, { window: windowKey }, r);
+        this.safeSet(this.f1Gauge, { window: windowKey }, f);
+      }
+    }
   }
 }

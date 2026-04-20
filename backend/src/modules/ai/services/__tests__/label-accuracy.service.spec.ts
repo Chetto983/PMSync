@@ -117,15 +117,28 @@ describe('LabelAccuracyService', () => {
           useValue: { registerHandler: scheduledJobsRegisterHandler },
         },
         EventEmitter2,
-        // B-4: Plan 03 spec passes null for all 4 metric tokens. Plan 04 enriches
-        // with mock Counter/Gauge objects (test enrichment, not modification).
+        // B-4 Plan 04 enrichment: replace Plan 03's `useValue: null` with mock
+        // Counter/Gauge objects so safeInc/safeSet reach real jest.fn spies.
+        // Per CLAUDE.md "never modify tests to pass": the Plan 03 null-provider
+        // shape still compiled (null is a valid `Counter<string> | null`); this
+        // is test enrichment that adds side-effect assertions, not a change
+        // forced by newly-failing tests.
         {
           provide: getToken('triage_accuracy_corrections_total'),
-          useValue: null,
+          useValue: { inc: jest.fn() },
         },
-        { provide: getToken('triage_accuracy_precision'), useValue: null },
-        { provide: getToken('triage_accuracy_recall'), useValue: null },
-        { provide: getToken('triage_accuracy_f1'), useValue: null },
+        {
+          provide: getToken('triage_accuracy_precision'),
+          useValue: { set: jest.fn() },
+        },
+        {
+          provide: getToken('triage_accuracy_recall'),
+          useValue: { set: jest.fn() },
+        },
+        {
+          provide: getToken('triage_accuracy_f1'),
+          useValue: { set: jest.fn() },
+        },
       ],
     }).compile();
     service = mod.get(LabelAccuracyService);
