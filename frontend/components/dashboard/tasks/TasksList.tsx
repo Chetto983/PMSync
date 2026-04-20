@@ -146,23 +146,27 @@ function MetricCard({ label, value, tone, helper }: MetricCardProps) {
   const toneMap = {
     danger: {
       fg: theme.palette.error.dark,
-      bg: alpha(theme.palette.error.light, 0.14),
-      border: alpha(theme.palette.error.main, 0.2),
+      bg: alpha(theme.palette.error.light, 0.06),
+      border: alpha(theme.palette.error.main, 0.18),
+      accent: theme.palette.error.main,
     },
     warning: {
       fg: theme.palette.warning.dark,
-      bg: alpha(theme.palette.warning.light, 0.16),
+      bg: alpha(theme.palette.warning.light, 0.07),
       border: alpha(theme.palette.warning.main, 0.18),
+      accent: theme.palette.warning.main,
     },
     info: {
       fg: theme.palette.info.dark,
-      bg: alpha(theme.palette.info.light, 0.16),
+      bg: alpha(theme.palette.info.light, 0.08),
       border: alpha(theme.palette.info.main, 0.18),
+      accent: theme.palette.info.main,
     },
     neutral: {
       fg: theme.palette.text.primary,
-      bg: alpha(theme.palette.primary.light, 0.08),
+      bg: alpha(theme.palette.background.paper, 0.96),
       border: alpha(theme.palette.divider, 0.9),
+      accent: theme.palette.text.secondary,
     },
   }[tone];
 
@@ -170,21 +174,33 @@ function MetricCard({ label, value, tone, helper }: MetricCardProps) {
     <Paper
       elevation={0}
       sx={{
-        p: 2,
-        borderRadius: 3,
+        p: 1.75,
+        borderRadius: 3.25,
         border: 1,
         borderColor: toneMap.border,
         bgcolor: toneMap.bg,
-        minHeight: 104,
+        minHeight: 92,
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <Box
+        sx={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 4,
+          bgcolor: toneMap.accent,
+        }}
+      />
+      <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', pl: 0.5 }}>
         {label}
       </Typography>
-      <Typography variant="h4" sx={{ mt: 0.8, fontWeight: 800, color: toneMap.fg }}>
+      <Typography variant="h4" sx={{ mt: 0.55, fontWeight: 800, color: toneMap.fg, pl: 0.5, fontSize: { xs: '1.9rem', md: '2rem' } }}>
         {value}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35, pl: 0.5, fontSize: '0.82rem' }}>
         {helper}
       </Typography>
     </Paper>
@@ -223,16 +239,16 @@ function TaskQueueItem({
       elevation={0}
       onClick={() => onOpen(task)}
       sx={{
-        p: { xs: 1.75, md: 2 },
-        borderRadius: 3,
+        p: { xs: 1.4, md: 1.65 },
+        borderRadius: 3.25,
         border: 1,
-        borderColor: selected ? 'primary.main' : alpha(theme.palette.divider, 0.92),
-        bgcolor: selected ? alpha(theme.palette.primary.light, 0.1) : alpha(theme.palette.background.paper, 0.92),
+        borderColor: selected ? alpha(theme.palette.primary.main, 0.7) : alpha(theme.palette.divider, 0.96),
+        bgcolor: selected ? alpha(theme.palette.primary.light, 0.07) : theme.palette.background.paper,
         cursor: 'pointer',
         transition: 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
         '&:hover': {
-          borderColor: 'primary.light',
-          boxShadow: `0 14px 28px ${alpha(theme.palette.common.black, 0.08)}`,
+          borderColor: alpha(theme.palette.primary.main, 0.35),
+          boxShadow: `0 10px 22px ${alpha(theme.palette.common.black, 0.06)}`,
           transform: 'translateY(-1px)',
         },
       }}
@@ -240,87 +256,91 @@ function TaskQueueItem({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.8fr) minmax(280px, 0.95fr) auto' },
-          gap: 2,
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.9fr) minmax(240px, 0.95fr) auto' },
+          gap: 1.5,
           alignItems: 'center',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.1, minWidth: 0 }}>
           <Box
             sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 2.5,
+              width: 34,
+              height: 34,
+              borderRadius: 2,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: alpha(theme.palette.primary.light, 0.14),
-              color: 'primary.main',
+              bgcolor: alpha(theme.palette.primary.light, 0.1),
+              color: 'text.secondary',
               flexShrink: 0,
             }}
           >
-            <SourceIcon size={18} />
+            <SourceIcon size={16} />
           </Box>
 
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.3 }}>
               {task.title}
             </Typography>
             <Typography
               variant="body2"
               color="text.secondary"
               sx={{
-                mt: 0.4,
+                mt: 0.25,
                 display: '-webkit-box',
                 overflow: 'hidden',
                 WebkitLineClamp: isMobile ? 2 : 1,
                 WebkitBoxOrient: 'vertical',
+                fontSize: '0.84rem',
               }}
             >
               {task.description || t.tasks.workspaceView.noDescription}
             </Typography>
 
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1.1 }}>
-              <Chip size="small" variant="outlined" label={t.tasks.sourceTypes[task.sourceType]} />
-              <Chip size="small" color={statusChipColor(task.status)} label={t.tasks.statuses[task.status]} />
+            <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.85 }}>
+              <Chip size="small" variant="outlined" label={t.tasks.sourceTypes[task.sourceType]} sx={{ height: 22, '& .MuiChip-label': { px: 1, fontWeight: 700 } }} />
+              <Chip size="small" color={statusChipColor(task.status)} label={t.tasks.statuses[task.status]} sx={{ height: 22, '& .MuiChip-label': { px: 1, fontWeight: 700 } }} />
               <Chip
                 size="small"
                 color={priorityChipColor(task.priority)}
                 variant={task.priority === 'low' ? 'outlined' : 'filled'}
                 label={t.tasks.priorities[task.priority]}
+                sx={{ height: 22, '& .MuiChip-label': { px: 1, fontWeight: 700 } }}
               />
             </Stack>
           </Box>
         </Box>
 
-        <Stack spacing={1.1}>
+        <Stack spacing={0.7}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CalendarDays size={15} />
+            <CalendarDays size={14} />
             <Typography
-              variant="body2"
+              variant="caption"
               sx={{
                 color: overdue ? 'error.main' : dueToday ? 'warning.main' : 'text.primary',
                 fontWeight: overdue || dueToday ? 700 : 500,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
               }}
             >
               {formatDate(task.dueDate)}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <UserRound size={15} />
-            <Typography variant="body2" color="text.secondary">
+            <UserRound size={14} />
+            <Typography variant="caption" color="text.secondary">
               {task.contactName ?? '\u2014'}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Clock3 size={15} />
-            <Typography variant="body2" color="text.secondary">
+            <Clock3 size={14} />
+            <Typography variant="caption" color="text.secondary">
               {formatDate(task.updatedAt ?? task.createdAt)}
             </Typography>
           </Box>
         </Stack>
 
-        <Stack direction={{ xs: 'row', md: 'column' }} spacing={1} sx={{ justifySelf: { md: 'end' } }}>
+        <Stack direction={{ xs: 'row', md: 'column' }} spacing={0.75} sx={{ justifySelf: { md: 'end' } }}>
           {task.status !== 'completed' && (
             <Button
               variant="contained"
@@ -331,6 +351,7 @@ function TaskQueueItem({
                 onComplete(task);
               }}
               disabled={isCompleting}
+              sx={{ minWidth: { md: 112 }, fontWeight: 700 }}
             >
               {t.tasks.completeTask}
             </Button>
@@ -345,6 +366,7 @@ function TaskQueueItem({
                 event.stopPropagation();
                 onDelete(task);
               }}
+              sx={{ fontWeight: 700 }}
             >
               {t.common.delete}
             </Button>
@@ -647,40 +669,50 @@ export function TasksList() {
       <Paper
         elevation={0}
         sx={{
-          p: { xs: 2, md: 2.5 },
-          borderRadius: 4,
+          p: { xs: 1.5, md: 2 },
+          borderRadius: 4.5,
           border: 1,
-          borderColor: alpha(theme.palette.primary.main, 0.14),
-          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.18)} 0%, ${alpha(theme.palette.background.paper, 0.98)} 46%, ${alpha(theme.palette.info.light, 0.08)} 100%)`,
+          borderColor: alpha(theme.palette.primary.main, 0.12),
+          bgcolor: alpha(theme.palette.background.paper, 0.98),
+          boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, 0.04)}`,
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: '0 0 auto 0',
+            height: 3,
+            background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${alpha(theme.palette.info.main, 0.6)} 100%)`,
+          },
         }}
       >
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.4fr) auto' },
-            gap: 2,
+            gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.45fr) auto' },
+            gap: 1.5,
             alignItems: 'start',
           }}
         >
           <Box>
-            <Typography variant="overline" sx={{ color: 'primary.dark', fontWeight: 800, letterSpacing: '0.14em' }}>
+            <Typography variant="overline" sx={{ color: 'primary.dark', fontWeight: 800, letterSpacing: '0.14em', fontSize: '0.7rem' }}>
               {t.tasks.workspaceView.eyebrow}
             </Typography>
             <Typography
               variant="h3"
-              sx={{ mt: 0.35, fontWeight: 800, letterSpacing: '-0.03em', fontSize: { xs: '2.15rem', md: '2.7rem' } }}
+              sx={{ mt: 0.15, fontWeight: 800, letterSpacing: '-0.04em', fontSize: { xs: '1.95rem', md: '2.45rem' } }}
             >
               {t.tasks.title}
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75, maxWidth: 720 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 0.55, maxWidth: 700, fontSize: { xs: '0.98rem', md: '1rem' } }}>
               {t.tasks.description}
             </Typography>
-            <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+            <Typography variant="body2" sx={{ mt: 0.75, color: 'text.secondary', fontWeight: 600 }}>
               {t.tasks.workspaceView.summaryTemplate.replace('{count}', String(activeTaskCount))}
             </Typography>
           </Box>
 
-          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.25}>
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
             <ToggleButtonGroup
               value={viewMode}
               exclusive
@@ -691,10 +723,11 @@ export function TasksList() {
               }}
               size="small"
               sx={{
-                bgcolor: alpha(theme.palette.background.paper, 0.82),
+                bgcolor: alpha(theme.palette.background.default, 0.8),
                 borderRadius: 999,
                 '& .MuiToggleButton-root': {
-                  px: 1.6,
+                  px: 1.35,
+                  py: 0.55,
                   border: 0,
                   borderRadius: '999px !important',
                   textTransform: 'none',
@@ -713,7 +746,7 @@ export function TasksList() {
               </ToggleButton>
             </ToggleButtonGroup>
 
-            <Button variant="contained" size="large" startIcon={<Plus size={18} />} onClick={() => setCreateOpen(true)}>
+            <Button variant="contained" size="large" startIcon={<Plus size={18} />} onClick={() => setCreateOpen(true)} sx={{ minWidth: { xs: '100%', sm: 164 }, fontWeight: 700 }}>
               {t.tasks.createTask}
             </Button>
           </Stack>
@@ -724,8 +757,8 @@ export function TasksList() {
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' },
-          gap: 1.5,
-          mt: 2,
+          gap: 1.1,
+          mt: 1.25,
         }}
       >
         <MetricCard label={overdueLabel} value={metrics.overdue} tone="danger" helper={t.tasks.workspaceView.metricHelpers.overdue} />
@@ -742,20 +775,20 @@ export function TasksList() {
         currentFilters={currentFilters}
       />
 
-      <Paper elevation={0} sx={{ mt: 2, p: { xs: 1.75, md: 2 }, borderRadius: 4, border: 1, borderColor: 'divider' }}>
+      <Paper elevation={0} sx={{ mt: 1.5, p: { xs: 1.4, md: 1.6 }, borderRadius: 4, border: 1, borderColor: alpha(theme.palette.divider, 0.95), boxShadow: `0 8px 24px ${alpha(theme.palette.common.black, 0.03)}` }}>
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.3fr) auto' },
-            gap: 1.5,
+            gap: 1.1,
             alignItems: 'start',
           }}
         >
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
               {t.tasks.workspaceView.commandTitle}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.84rem' }}>
               {t.tasks.workspaceView.commandDescription}
             </Typography>
           </Box>
@@ -765,7 +798,7 @@ export function TasksList() {
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={t.tasks.searchPlaceholder}
             size="small"
-            sx={{ minWidth: { lg: 280 } }}
+            sx={{ minWidth: { lg: 260 }, '& .MuiOutlinedInput-root': { bgcolor: alpha(theme.palette.background.default, 0.7) } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -783,14 +816,14 @@ export function TasksList() {
           />
         </Box>
 
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}>
+        <Stack direction="row" spacing={0.8} useFlexGap flexWrap="wrap" sx={{ mt: 1.35 }}>
           {(['open', 'today', 'overdue', 'manual', 'ticket', 'completed'] as QuickView[]).map((quickView) => (
             <Button
               key={quickView}
               size="small"
               variant="outlined"
               onClick={() => applyQuickView(quickView)}
-              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700, minHeight: 30, px: 1.3, borderColor: alpha(theme.palette.primary.main, 0.28) }}
             >
               {t.tasks.workspaceView.quickViews[quickView]}
             </Button>
@@ -801,7 +834,7 @@ export function TasksList() {
             color={showAdvancedFilters ? 'primary' : 'inherit'}
             startIcon={<ListFilter size={14} />}
             onClick={() => setShowAdvancedFilters((current) => !current)}
-            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700, minHeight: 30, px: 1.3 }}
           >
             {activeFilterCount > 0
               ? t.tasks.workspaceView.filtersButtonActive.replace('{count}', String(activeFilterCount))
@@ -809,11 +842,12 @@ export function TasksList() {
           </Button>
         </Stack>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mt: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.2, mt: 1.1, flexWrap: 'wrap' }}>
           <Chip
             label={t.tasks.workspaceView.searchResultsLabel.replace('{count}', String(hasSearch ? visibleRows.length : total))}
             color="primary"
             variant="outlined"
+            sx={{ height: 26, '& .MuiChip-label': { px: 1, fontWeight: 700 } }}
           />
           {(hasFilters || hasSearch) && (
             <Button
@@ -834,8 +868,8 @@ export function TasksList() {
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr))' },
-              gap: 1.25,
-              mt: 1.5,
+              gap: 1,
+              mt: 1.1,
               alignItems: 'center',
             }}
           >
@@ -939,11 +973,11 @@ export function TasksList() {
         </Box>
       ) : (
         <Paper elevation={0} sx={{ mt: 2, borderRadius: 4, border: 1, borderColor: 'divider', overflow: 'hidden' }}>
-          <Box sx={{ px: { xs: 2, md: 2.5 }, py: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+          <Box sx={{ px: { xs: 1.75, md: 2 }, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: alpha(theme.palette.background.default, 0.52) }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
               {t.tasks.workspaceView.queueTitle}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.84rem' }}>
               {t.tasks.workspaceView.queueDescription}
             </Typography>
           </Box>
@@ -976,7 +1010,7 @@ export function TasksList() {
               />
             </Box>
           ) : (
-            <Stack spacing={1.25} sx={{ p: { xs: 1.5, md: 2 } }}>
+            <Stack spacing={1} sx={{ p: { xs: 1.25, md: 1.5 } }}>
               {visibleRows.map((task) => (
                 <TaskQueueItem
                   key={task.id}

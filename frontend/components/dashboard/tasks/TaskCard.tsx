@@ -76,16 +76,16 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         }
       }}
       sx={{
-        p: 1.75,
+        p: 1.35,
         mb: 1,
-        bgcolor: alpha(theme.palette.background.paper, 0.94),
-        borderRadius: 2.5,
+        bgcolor: theme.palette.background.paper,
+        borderRadius: 3,
         border: 1,
-        borderColor: isDragging ? 'primary.main' : alpha(theme.palette.divider, 0.84),
+        borderColor: isDragging ? 'primary.main' : alpha(theme.palette.divider, 0.96),
         cursor: isDragging ? 'grabbing' : onClick ? 'pointer' : 'grab',
         '&:hover, &:focus-visible': {
-          borderColor: 'primary.light',
-          boxShadow: `0 12px 28px ${alpha(theme.palette.common.black, 0.08)}`,
+          borderColor: alpha(theme.palette.primary.main, 0.32),
+          boxShadow: `0 10px 22px ${alpha(theme.palette.common.black, 0.06)}`,
           outline: 'none',
           transform: 'translateY(-1px)',
         },
@@ -94,12 +94,12 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         transition: 'transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.8 }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.35 }}>
+          <Typography variant="body2" fontWeight={800} sx={{ lineHeight: 1.32 }}>
             {task.title}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.35 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {t.tasks.sourceTypes[task.sourceType]}
           </Typography>
         </Box>
@@ -108,7 +108,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
             label={t.tasks.priorities[task.priority]}
             size="small"
             color={task.priority === 'urgent' ? 'error' : 'warning'}
-            sx={{ height: 22, fontWeight: 700 }}
+            sx={{ height: 20, fontWeight: 700, '& .MuiChip-label': { px: 0.9, fontSize: '0.72rem' } }}
           />
         )}
       </Box>
@@ -119,11 +119,12 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           color="text.secondary"
           sx={{
             display: '-webkit-box',
-            mb: 1.25,
+            mb: 0.95,
             overflow: 'hidden',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             lineHeight: 1.45,
+            fontSize: '0.76rem',
           }}
         >
           {task.description}
@@ -133,14 +134,14 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
         <Box
           sx={{
-            width: 24,
-            height: 24,
+            width: 22,
+            height: 22,
             borderRadius: '999px',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: alpha(theme.palette.primary.light, 0.12),
-            color: 'primary.main',
+            bgcolor: alpha(theme.palette.primary.light, 0.09),
+            color: 'text.secondary',
           }}
         >
           <SourceIcon size={13} />

@@ -69,35 +69,36 @@ export function SavedViewsBar({
     <>
       <Box
         sx={{
-          mb: 2,
-          p: 1.5,
-          borderRadius: 3,
+          mb: 1.5,
+          p: 1.15,
+          borderRadius: 3.5,
           border: 1,
-          borderColor: 'divider',
-          bgcolor: alpha(theme.palette.background.paper, 0.82),
+          borderColor: alpha(theme.palette.divider, 0.96),
+          bgcolor: alpha(theme.palette.background.paper, 0.96),
+          boxShadow: `0 8px 24px ${alpha(theme.palette.common.black, 0.03)}`,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 1.25 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25, mb: 0.9 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box
               sx={{
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 borderRadius: 2,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: alpha(theme.palette.primary.light, 0.16),
+                bgcolor: alpha(theme.palette.primary.light, 0.1),
                 color: 'primary.main',
               }}
             >
-              <Bookmark size={16} />
+              <Bookmark size={14} />
             </Box>
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
                 {tv.title}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.74rem' }}>
                 {t.tasks.workspaceView.savedViewsHint}
               </Typography>
             </Box>
@@ -114,14 +115,14 @@ export function SavedViewsBar({
           </Tooltip>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
           <Button
             size="small"
             variant={!activeViewId ? 'contained' : 'outlined'}
             color={!activeViewId ? 'primary' : 'inherit'}
             onClick={onClearView}
             startIcon={<Sparkles size={14} />}
-            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700, minHeight: 30, px: 1.2 }}
           >
             {t.tasks.workspaceView.defaultViewLabel}
           </Button>
@@ -134,14 +135,14 @@ export function SavedViewsBar({
                 sx={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 0.75,
-                  pl: 1.25,
-                  pr: 0.5,
-                  py: 0.5,
+                  gap: 0.55,
+                  pl: 1,
+                  pr: 0.35,
+                  py: 0.3,
                   borderRadius: 999,
                   border: 1,
-                  borderColor: isActive ? 'primary.main' : 'divider',
-                  bgcolor: isActive ? alpha(theme.palette.primary.light, 0.14) : 'transparent',
+                  borderColor: isActive ? alpha(theme.palette.primary.main, 0.52) : alpha(theme.palette.divider, 0.96),
+                  bgcolor: isActive ? alpha(theme.palette.primary.light, 0.08) : 'transparent',
                 }}
               >
                 {view.isPinned && <Pin size={12} />}
@@ -157,6 +158,7 @@ export function SavedViewsBar({
                     textTransform: 'none',
                     fontWeight: isActive ? 800 : 600,
                     color: 'text.primary',
+                    fontSize: '0.82rem',
                   }}
                 >
                   {view.name}
