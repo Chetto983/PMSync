@@ -13,3 +13,5 @@ export { LabelDeleteDialog } from './LabelDeleteDialog';
 
 // Hooks
 export { useLabelManagement, type LabelManagementState } from './useLabelManagement';
+
+export * from './LabelAccuracyBadge';

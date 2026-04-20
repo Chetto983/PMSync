@@ -23,6 +23,7 @@ import { ChevronRight, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { localizeAiLabel } from '@/lib/email-triage/ai-display';
 import type { TreeItem } from '@/lib/label-tree-utils';
+import { LabelAccuracyBadge } from './LabelAccuracyBadge';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -209,6 +210,9 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
               {aggregateCount}
             </Typography>
           )}
+
+          {/* Phase 148 D-10: accuracy pill (30d window) */}
+          <LabelAccuracyBadge labelId={label.id} />
 
           {/* Three-dot menu button (visible on hover) */}
           <IconButton
