@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v13.0
 milestone_name: Intelligent Triage & Memory Consolidation
 status: in_progress
-stopped_at: Phase 148 Plan 04 complete — TriageFeedbackService emits ACCURACY_APPLIED_TOPIC + Prometheus 3 gauges + 1 counter wired in MetricsModule + runSweep gauge-refresh block + 30d idempotent backfill script shipped (Wave 4 done, 2 plans remain)
-last_updated: "2026-04-20T10:20:00Z"
+stopped_at: Phase 148 Plan 05 complete — TriageAccuracyController wired at GET /api/v1/ai/triage/label-accuracy with TenantGuard + class-validator DTO + plumbing spec (6 cases); Wave 4 fully done, only Plan 06 (frontend badge) remains in Phase 148
+last_updated: "2026-04-20T12:40:00Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 32
-  completed_plans: 30
-  percent: 94
+  completed_plans: 31
+  percent: 97
 ---
 
 # Project State
@@ -25,16 +25,16 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 ## Current Position
 
-Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plans 01+02+03+04 of 6 complete, Waves 1+2+3+4 done)
-Just completed: Phase 148 Plan 04 — TriageFeedbackService.recordFeedback emits ACCURACY_APPLIED_TOPIC fire-and-forget (Task 1, 4 new spec tests including B-2 added_personal_label exclusion) + MetricsModule registers 3 Gauges (triage_accuracy_precision/recall/f1 with TRIAGE_METRICS_PER_TENANT env-gated tenant_id label) + 1 Counter (triage_accuracy_corrections_total with signal/triage_source/kind labels, no tenant_id per D-13 cardinality cap) + LabelAccuracyService.runSweep gains real refreshGauges() micro-average block (replaces Plan 03's 3 no-op safeSet stubs) + applyDelta maps kind='tp_credited' when signal=system+kind=tp + W-7 JSDoc on ApplyDeltaInput.signal + Plan 03 spec enriched (4 null providers → mock Counter/Gauge, all 13 tests still green — test enrichment per CLAUDE.md) + new label-accuracy.metrics.spec.ts (6 tests) + backend/scripts/148-backfill-label-accuracy.ts one-time 30d idempotent backfill (Redis dedup sets with 7d TTL for both feedback + TP passes, pre/post row-count integrity check, --tenant + --dry-run CLI only, B-5 invariant pre-write grep confirmed); service 782 → 848 LF (under 900 cap); tsc --noEmit green; 37/37 tests green (Task 1 committed in previous session as 40c4aaa0 before connection drop) (2026-04-20)
-Previously shipped (Phase 148, this session set): 148-01 — schema + wilsonInterval + TP_IMPLICIT_WINDOW_DAYS; 148-02 — Prisma migration generated offline; 148-03 — LabelAccuracyService counter engine + AccuracyDelta contract + queue + listener (2026-04-20)
+Phase: 148 — Per-Label Accuracy Profiles (IN PROGRESS — Plans 01+02+03+04+05 of 6 complete; only Plan 06 frontend remains)
+Just completed: Phase 148 Plan 05 — TriageAccuracyController at /api/v1/ai/triage/label-accuracy (@Controller('ai/triage') + @Get('label-accuracy') + @UseGuards(TenantGuard) class-level, NOT admin-only per D-09; tenantId sourced exclusively from req.user.tenantId, never query/body) + GetLabelAccuracyQueryDto (class-validator @Matches closed-enum regex on 'windows' + 'includeBreakdown' plus class-transformer @Transform string→boolean) + ai.module.ts controllers-array registration + plumbing spec with 6 it( blocks (cold-start / populated / tenant-isolation rogue-query-tenantId assertion / windows parser "7d,all" / windows default triple / includeBreakdown passthrough; TenantGuard overrideGuard'd, LabelAccuracyService {read: readMock} useValue); B-3 confirmed (setGlobalPrefix('api/v1') in main.ts:616) so no double-prefix; controller=125 LF, spec=180 LF; tsc --noEmit green; 6/6 tests green (2026-04-20)
+Previously shipped (Phase 148, this session set): 148-01 — schema + wilsonInterval + TP_IMPLICIT_WINDOW_DAYS; 148-02 — Prisma migration generated offline; 148-03 — LabelAccuracyService counter engine + AccuracyDelta contract + queue + listener; 148-04 — TriageFeedbackService emit + MetricsModule 3 gauges + 1 counter + runSweep refreshGauges + 30d backfill script (2026-04-20)
 Previously shipped (Phase 147, v13.0): 147-01/02/03/04/05 — all 5 plans done, 7/7 UAT PASS @ 10/10 on Railway prod
 Previous (v12.0 trailing): Phase 157 PARTIAL — 157-01/02/03 shipped; 157-04/05 deferred pending Railway `staging`.
-Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plans 01+02+03 pure additions; Plan 04 activates the feedback→event→queue→counter chain end-to-end and exposes gauges/counter on /metrics. No frontend-visible behavior change until Plan 05+06 ship the API + badge.
-Next: Plan 05 (Wave 5 — GET /api/ai/triage/label-accuracy controller with TenantGuard + D-09 response shape + plumbing spec)
+Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 Plans 01+02+03 pure additions; Plan 04 activates the feedback→event→queue→counter chain end-to-end and exposes gauges/counter on /metrics; Plan 05 exposes the HTTP read surface — frontend-visible effect still waits on Plan 06 badge pill.
+Next: Plan 06 (Wave 6 — frontend: translations + TanStack hook + LabelAccuracyBadge pill + LabelTreeItem wiring per D-10/D-11/D-12)
 Last activity: 2026-04-20
 
-Progress: [█████████░] 94% (v13.0 Phase 147 done + 148-01/02/03/04 done, 2 plans remain in Phase 148, 9 phases remain in milestone)
+Progress: [█████████▓] 97% (v13.0 Phase 147 done + 148-01/02/03/04/05 done, 1 plan remains in Phase 148, 9 phases remain in milestone)
 
 ## Performance Metrics
 
@@ -94,6 +94,13 @@ Progress: [█████████░] 94% (v13.0 Phase 147 done + 148-01/02
 - [Phase 148-04]: B-5 invariant pre-write gate: `grep -B2 -A8 "added_personal_label" backend/src/modules/ai/services/triage-feedback.service.ts` confirmed the `// else: added_personal_label — silent no-op` at line 192 with NO adjacent `recordFeedback` call. Backfill counter math is correct because the Phase 147 D-04 invariant holds.
 - [Phase 148-04]: Backfill script Redis dedup sets — `triage:accuracy-backfill:feedback-seen:${tenantId}` (feedback.id members) + `triage:accuracy-backfill:credited:${tenantId}` (`${emailId}:${labelId}` members) with 7d TTL. Script is idempotent on re-run; CLI only exposes `--tenant=<id>` + `--dry-run` (no counter values accepted per T-148-04-04).
 - [Phase 148-04]: All 14-day / 44-day offsets in backfill are DERIVED from `TP_IMPLICIT_WINDOW_DAYS` import (B-1 single source of truth). Only local window constant is `BACKFILL_LOOKBACK_DAYS = 30`. `grep -cE "(= |: )(14|44)(;|\s*//)"` returns 0 in the script.
+- [Phase 148-05]: New controller file at `backend/src/modules/ai/controllers/triage-accuracy.controller.ts` (not merged into `TriageOverridesController`) — each triage read/write surface stays single-concern; Phase 147's overrides controller was already carrying override + promotion endpoints and doesn't need accuracy on top.
+- [Phase 148-05]: Controller uses `@Controller('ai/triage')` — module-relative only — because `app.setGlobalPrefix('api/v1')` in `backend/src/main.ts:616` applies `api/v1` automatically. Double-prefixing (`@Controller('api/v1/ai/triage')`) would produce `/api/v1/api/v1/...` and break Plan 06's `apiClient` which also prefixes `/api/v1`. B-3 gate enforces this at execute time.
+- [Phase 148-05]: NO `RolesGuard` and NO `@Roles(...)` decorators on the accuracy controller — D-09 says every authenticated tenant member reads their tenant's accuracy (not admin-only). Diverges intentionally from Phase 147's `TriageOverridesController` which IS gated on mutations.
+- [Phase 148-05]: tenantId sourced exclusively from `req.user.tenantId` (T-148-05-01 cross-tenant info-disclosure mitigation). The plumbing spec includes a dedicated tenant-isolation case that stuffs a rogue `tenantId: 'tenant-B'` on the query DTO and asserts the controller still calls `read('tenant-A', ...)` — defensive test against future refactors accidentally introducing query-based tenant resolution.
+- [Phase 148-05]: `GetLabelAccuracyQueryDto` uses `@Matches(/^(?:7d|30d|all)(?:,(?:7d|30d|all))*$/)` on `windows` (closed enum regex, rejects injection) + `@Matches(/^(?:true|false)$/)` on `includeBreakdown` plus `@Transform(({ value }) => value === 'true')`. Belt-and-braces in-controller `.filter(s => s === '7d' || ...)` adds a second line of defense inside the handler.
+- [Phase 148-05]: Plumbing spec named `.plumbing.spec.ts` (W5 honesty — Phase 147 Plan 05 precedent). 6 `it(` blocks: cold-start / populated / tenant-isolation / windows parser / windows default / includeBreakdown passthrough. `TenantGuard` overrideGuard'd; `LabelAccuracyService` mocked via `{ read: readMock }` useValue. True end-to-end validation deferred to Plan 06 frontend TanStack hook or Railway smoke test.
+- [Phase 148-05]: W-4 AiModule registration gate requires `grep -z` (null-delimited) to span newlines; plain `grep -qE` fails on GNU grep. Used multi-line `controllers: [...]` format (standard NestJS idiom at 7 entries) and documented the plan-gate quirk — semantic intent (`TriageAccuracyController` in the controllers array) is verified and supplementary `grep -c 'TriageAccuracyController' = 2` passes (import + array entry).
 
 ### Roadmap Evolution
 
@@ -112,6 +119,6 @@ Progress: [█████████░] 94% (v13.0 Phase 147 done + 148-01/02
 
 ## Session Continuity
 
-Last session: 2026-04-20T10:20:00Z
-Stopped at: Phase 148 Plan 04 complete — TriageFeedbackService emits ACCURACY_APPLIED_TOPIC fire-and-forget + MetricsModule wires 3 Gauges + 1 Counter (triage_accuracy_*) + LabelAccuracyService.runSweep refreshes real gauges + applyDelta kind='tp_credited' mapping + 30d idempotent backfill script; 37/37 tests green; ready for Plan 05 (Wave 5)
-Resume file: .planning/phases/148-label-accuracy/148-05-PLAN.md
+Last session: 2026-04-20T12:40:00Z
+Stopped at: Phase 148 Plan 05 complete — TriageAccuracyController at GET /api/v1/ai/triage/label-accuracy (TenantGuard class-level, NOT admin-only per D-09; tenantId from req.user.tenantId only) + GetLabelAccuracyQueryDto (class-validator @Matches closed-enum + class-transformer boolean coercion) + ai.module.ts controllers-array wiring + plumbing spec with 6 cases (cold-start / populated / tenant-isolation rogue-query-tenantId / windows parser / windows default / includeBreakdown passthrough); B-3 confirmed, 6/6 tests green, tsc clean; only Plan 06 frontend remains in Phase 148
+Resume file: .planning/phases/148-label-accuracy/148-06-PLAN.md
