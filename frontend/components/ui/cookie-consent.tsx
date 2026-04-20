@@ -12,6 +12,7 @@ import {
   Stack,
 } from '@mui/material';
 import { X, Cookie, ChevronDown, ChevronUp } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAiOverlay } from '@/stores/ai-overlay-store';
 
@@ -26,6 +27,7 @@ interface CookiePreferences {
 export function CookieConsent() {
   const translations = useTranslations();
   const cookieCopy = translations.cookies;
+  const router = useRouter();
   const aiOverlayOpen = useAiOverlay((state) => state.isOpen);
   const aiOverlayWidth = useAiOverlay((state) => state.width);
   const [visible, setVisible] = useState(false);
@@ -35,6 +37,8 @@ export function CookieConsent() {
     analytics: false,
     marketing: false,
   });
+  const isTasksWorkspace = router.pathname === '/dashboard/tasks';
+  const compactWorkspaceMode = aiOverlayOpen || isTasksWorkspace;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -79,23 +83,23 @@ export function CookieConsent() {
       sx={{
         position: 'fixed',
         bottom: 0,
-        left: { xs: 0, sm: 'auto' },
-        right: { xs: 0, sm: aiOverlayOpen ? `${aiOverlayWidth + 16}px` : 0 },
+        left: { xs: 0, sm: compactWorkspaceMode ? 0 : 'auto' },
+        right: { xs: 0, sm: compactWorkspaceMode ? 'auto' : aiOverlayOpen ? `${aiOverlayWidth + 16}px` : 0 },
         zIndex: 9999,
-        p: { xs: 1, sm: 2 },
+        p: { xs: 1, sm: compactWorkspaceMode ? 1.5 : 2 },
         display: 'flex',
-        justifyContent: { xs: 'center', sm: 'flex-end' },
+        justifyContent: { xs: 'center', sm: compactWorkspaceMode ? 'flex-start' : 'flex-end' },
         pointerEvents: 'none',
       }}
     >
       <Paper
         elevation={8}
         sx={{
-          maxWidth: { xs: '100%', sm: 380 },
+          maxWidth: { xs: '100%', sm: compactWorkspaceMode ? 336 : 380 },
           width: '100%',
-          p: { xs: 2, sm: 3 },
+          p: { xs: 2, sm: compactWorkspaceMode ? 2.25 : 3 },
           pointerEvents: 'auto',
-          borderRadius: { xs: 2, sm: 3 },
+          borderRadius: { xs: 3, sm: compactWorkspaceMode ? 3.5 : 3 },
           border: 1,
           borderColor: 'divider',
         }}
@@ -103,10 +107,28 @@ export function CookieConsent() {
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: { xs: 1, sm: 2 } }}>
           <Cookie size={24} style={{ flexShrink: 0, marginTop: 4 }} />
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                mb: 0.75,
+                fontSize: { xs: '1rem', sm: compactWorkspaceMode ? '1.1rem' : '1.25rem' },
+              }}
+            >
               {cookieCopy.title}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: { xs: '0.8125rem', sm: '0.875rem' } }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                mb: 1.5,
+                fontSize: { xs: '0.8125rem', sm: compactWorkspaceMode ? '0.83rem' : '0.875rem' },
+                display: '-webkit-box',
+                overflow: 'hidden',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: showDetails ? 'unset' : compactWorkspaceMode ? 4 : 6,
+              }}
+            >
               {cookieCopy.description}{' '}
               <Link href="/privacy" underline="hover" sx={{ color: 'primary.main' }}>
                 {cookieCopy.privacyLink}
@@ -118,7 +140,7 @@ export function CookieConsent() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                mb: showDetails ? 2 : 0,
+                mb: showDetails ? 1.5 : 0,
                 cursor: 'pointer',
                 minHeight: 44, // Touch target
               }}
@@ -194,7 +216,7 @@ export function CookieConsent() {
               </Stack>
             </Collapse>
 
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
               {showDetails ? (
                 <>
                   <Button variant="outlined" onClick={handleRejectAll} size="small" sx={{ minHeight: 36 }}>
