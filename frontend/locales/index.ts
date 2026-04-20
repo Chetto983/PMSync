@@ -1936,6 +1936,46 @@ export interface AppTranslations {
       addViewAriaLabel: string;
       deleteViewAriaLabel: string;
     };
+
+    workspaceView: {
+      eyebrow: string;
+      summaryTemplate: string;
+      defaultViewLabel: string;
+      savedViewsHint: string;
+      commandTitle: string;
+      commandDescription: string;
+      clearSearch: string;
+      searchResultsLabel: string;
+      queueTitle: string;
+      queueDescription: string;
+      searchEmptyTitle: string;
+      searchEmptyDescription: string;
+      noDescription: string;
+      detailEyebrow: string;
+      contextTitle: string;
+      relatedTitle: string;
+      noRelatedContext: string;
+      nextActionTitle: string;
+      contactContextTitle: string;
+      contactContextTemplate: string;
+      updatedLabel: string;
+      boardTitle: string;
+      boardDescription: string;
+      metricHelpers: {
+        overdue: string;
+        today: string;
+        inProgress: string;
+        waiting: string;
+      };
+      quickViews: {
+        open: string;
+        today: string;
+        overdue: string;
+        manual: string;
+        ticket: string;
+        completed: string;
+      };
+    };
   };
   contacts: {
     title: string;

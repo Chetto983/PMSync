@@ -1,26 +1,39 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
-  Box,
-  Typography,
-  Button,
   Alert,
-  Skeleton,
-  IconButton,
-  Tooltip,
+  Box,
+  Button,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
+  Divider,
+  IconButton,
+  InputAdornment,
   MenuItem,
+  Paper,
+  Skeleton,
+  Stack,
+  TablePagination,
   TextField,
-  ToggleButtonGroup,
   ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+  useMediaQuery,
 } from '@mui/material';
-import { Plus, Trash2, List, Kanban, CheckSquare } from 'lucide-react';
+import { alpha, useTheme } from '@mui/material/styles';
+import {
+  Bell,
+  CalendarDays,
+  CheckSquare,
+  Clock3,
+  Handshake,
+  Kanban,
+  List,
+  Plus,
+  Search,
+  Ticket,
+  Trash2,
+  UserRound,
+  X,
+} from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
@@ -31,9 +44,10 @@ import { useGlobalToast } from '@/lib/context/toast-context';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
 import { CreateTaskDialog } from './CreateTaskDialog';
-import { TasksKanbanBoard } from './TasksKanbanBoard';
 import { SavedViewsBar } from './SavedViewsBar';
 import { SavedViewDialog } from './SavedViewDialog';
+import { TaskDetailDrawer } from './TaskDetailDrawer';
+import { TasksKanbanBoard } from './TasksKanbanBoard';
 import type {
   UnifiedTask,
   ListTasksQuery,
@@ -44,10 +58,19 @@ import type {
 } from '@/lib/api/tasks';
 
 type ViewMode = 'list' | 'kanban';
+type QuickView = 'open' | 'today' | 'overdue' | 'manual' | 'ticket' | 'completed';
 
 const SOURCE_TYPE_OPTIONS: TaskSourceType[] = ['follow_up', 'reminder', 'deal_action', 'ticket', 'manual'];
 const STATUS_OPTIONS: UnifiedTaskStatus[] = ['pending', 'in_progress', 'completed', 'dismissed', 'expired'];
 const PRIORITY_OPTIONS: UnifiedTaskPriority[] = ['low', 'medium', 'high', 'urgent'];
+
+const SOURCE_ICONS: Record<TaskSourceType, React.ElementType> = {
+  follow_up: Clock3,
+  reminder: Bell,
+  deal_action: Handshake,
+  ticket: Ticket,
+  manual: CheckSquare,
+};
 
 function statusChipColor(status: UnifiedTaskStatus): 'warning' | 'info' | 'success' | 'default' {
   if (status === 'pending') return 'warning';
@@ -70,9 +93,272 @@ function isOverdue(dueDate: string | null): boolean {
   return d < now;
 }
 
+function isDueToday(dueDate: string | null): boolean {
+  if (!dueDate) return false;
+  const d = new Date(dueDate);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function startOfToday() {
+  const now = new Date();
+  return now.toISOString().slice(0, 10);
+}
+
+function yesterday() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function matchesSearch(task: UnifiedTask, query: string) {
+  if (!query) return true;
+  const haystack = [
+    task.title,
+    task.description,
+    task.contactName,
+    task.sourceType,
+    task.status,
+    task.priority,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return haystack.includes(query.toLowerCase());
+}
+
+interface MetricCardProps {
+  label: string;
+  value: number;
+  tone: 'danger' | 'warning' | 'info' | 'neutral';
+  helper: string;
+}
+
+function MetricCard({ label, value, tone, helper }: MetricCardProps) {
+  const theme = useTheme();
+
+  const toneMap = {
+    danger: {
+      fg: theme.palette.error.dark,
+      bg: alpha(theme.palette.error.light, 0.14),
+      border: alpha(theme.palette.error.main, 0.2),
+    },
+    warning: {
+      fg: theme.palette.warning.dark,
+      bg: alpha(theme.palette.warning.light, 0.16),
+      border: alpha(theme.palette.warning.main, 0.18),
+    },
+    info: {
+      fg: theme.palette.info.dark,
+      bg: alpha(theme.palette.info.light, 0.16),
+      border: alpha(theme.palette.info.main, 0.18),
+    },
+    neutral: {
+      fg: theme.palette.text.primary,
+      bg: alpha(theme.palette.primary.light, 0.08),
+      border: alpha(theme.palette.divider, 0.9),
+    },
+  }[tone];
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        borderRadius: 3,
+        border: 1,
+        borderColor: toneMap.border,
+        bgcolor: toneMap.bg,
+        minHeight: 118,
+      }}
+    >
+      <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        {label}
+      </Typography>
+      <Typography variant="h4" sx={{ mt: 1, fontWeight: 800, color: toneMap.fg }}>
+        {value}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+        {helper}
+      </Typography>
+    </Paper>
+  );
+}
+
+interface TaskQueueItemProps {
+  task: UnifiedTask;
+  selected: boolean;
+  isMobile: boolean;
+  formatDate: (dateStr: string | null) => string;
+  onOpen: (task: UnifiedTask) => void;
+  onComplete: (task: UnifiedTask) => void;
+  onDelete: (task: UnifiedTask) => void;
+  isCompleting: boolean;
+}
+
+function TaskQueueItem({
+  task,
+  selected,
+  isMobile,
+  formatDate,
+  onOpen,
+  onComplete,
+  onDelete,
+  isCompleting,
+}: TaskQueueItemProps) {
+  const t = useTranslations();
+  const theme = useTheme();
+  const SourceIcon = SOURCE_ICONS[task.sourceType];
+  const overdue = isOverdue(task.dueDate);
+  const dueToday = isDueToday(task.dueDate);
+
+  return (
+    <Paper
+      elevation={0}
+      onClick={() => onOpen(task)}
+      sx={{
+        p: { xs: 1.75, md: 2 },
+        borderRadius: 3,
+        border: 1,
+        borderColor: selected ? 'primary.main' : alpha(theme.palette.divider, 0.92),
+        bgcolor: selected ? alpha(theme.palette.primary.light, 0.1) : alpha(theme.palette.background.paper, 0.92),
+        cursor: 'pointer',
+        transition: 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
+        '&:hover': {
+          borderColor: 'primary.light',
+          boxShadow: `0 14px 28px ${alpha(theme.palette.common.black, 0.08)}`,
+          transform: 'translateY(-1px)',
+        },
+      }}
+    >
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.8fr) minmax(280px, 0.95fr) auto' },
+          gap: 2,
+          alignItems: 'center',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, minWidth: 0 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: alpha(theme.palette.primary.light, 0.14),
+              color: 'primary.main',
+              flexShrink: 0,
+            }}
+          >
+            <SourceIcon size={18} />
+          </Box>
+
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+              {task.title}
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                mt: 0.4,
+                display: '-webkit-box',
+                overflow: 'hidden',
+                WebkitLineClamp: isMobile ? 2 : 1,
+                WebkitBoxOrient: 'vertical',
+              }}
+            >
+              {task.description || t.tasks.workspaceView.noDescription}
+            </Typography>
+
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1.1 }}>
+              <Chip size="small" variant="outlined" label={t.tasks.sourceTypes[task.sourceType]} />
+              <Chip size="small" color={statusChipColor(task.status)} label={t.tasks.statuses[task.status]} />
+              <Chip
+                size="small"
+                color={priorityChipColor(task.priority)}
+                variant={task.priority === 'low' ? 'outlined' : 'filled'}
+                label={t.tasks.priorities[task.priority]}
+              />
+            </Stack>
+          </Box>
+        </Box>
+
+        <Stack spacing={1.1}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CalendarDays size={15} />
+            <Typography
+              variant="body2"
+              sx={{
+                color: overdue ? 'error.main' : dueToday ? 'warning.main' : 'text.primary',
+                fontWeight: overdue || dueToday ? 700 : 500,
+              }}
+            >
+              {formatDate(task.dueDate)}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <UserRound size={15} />
+            <Typography variant="body2" color="text.secondary">
+              {task.contactName ?? '\u2014'}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Clock3 size={15} />
+            <Typography variant="body2" color="text.secondary">
+              {formatDate(task.updatedAt ?? task.createdAt)}
+            </Typography>
+          </Box>
+        </Stack>
+
+        <Stack direction={{ xs: 'row', md: 'column' }} spacing={1} sx={{ justifySelf: { md: 'end' } }}>
+          {task.status !== 'completed' && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<CheckSquare size={15} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                onComplete(task);
+              }}
+              disabled={isCompleting}
+            >
+              {t.tasks.completeTask}
+            </Button>
+          )}
+          {task.sourceType === 'manual' && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<Trash2 size={15} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(task);
+              }}
+            >
+              {t.common.delete}
+            </Button>
+          )}
+        </Stack>
+      </Box>
+    </Paper>
+  );
+}
+
 export function TasksList() {
   const t = useTranslations();
   const tc = t.common;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const toast = useGlobalToast();
   const router = useRouter();
   const timezone = useUserTimezone();
@@ -86,7 +372,6 @@ export function TasksList() {
     [timezone, locale],
   );
 
-  // URL-synced state
   const q = router.query;
   const [viewMode, setViewMode] = useState<ViewMode>(() => (q.viewMode === 'kanban' ? 'kanban' : 'list'));
   const [filterSourceType, setFilterSourceType] = useState(() => (typeof q.type === 'string' ? q.type : ''));
@@ -95,6 +380,7 @@ export function TasksList() {
   const [filterDueBefore, setFilterDueBefore] = useState(() => (typeof q.dueBefore === 'string' ? q.dueBefore : ''));
   const [filterDueAfter, setFilterDueAfter] = useState(() => (typeof q.dueAfter === 'string' ? q.dueAfter : ''));
   const [filterContactId, setFilterContactId] = useState(() => (typeof q.contactId === 'string' ? q.contactId : ''));
+  const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(() => {
     const p = parseInt(typeof q.page === 'string' ? q.page : '', 10);
     return isNaN(p) ? 0 : p;
@@ -102,21 +388,21 @@ export function TasksList() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [activeViewId, setActiveViewId] = useState<string | null>(
-    () => (typeof q.view === 'string' ? q.view : null),
-  );
+  const [activeViewId, setActiveViewId] = useState<string | null>(() => (typeof q.view === 'string' ? q.view : null));
   const [deleteTarget, setDeleteTarget] = useState<UnifiedTask | null>(null);
+  const [selectedTask, setSelectedTask] = useState<UnifiedTask | null>(null);
+
+  const deferredSearch = useDeferredValue(searchQuery.trim());
 
   const { data: smartViewsData } = useSmartViews();
   const completeTask = useCompleteTask();
   const deleteTask = useDeleteTask();
 
-  // Hydrate filters from ?view=<id> on mount (cross-session persistence)
   useEffect(() => {
     if (!router.isReady) return;
     const viewId = typeof q.view === 'string' ? q.view : null;
     if (!viewId || !smartViewsData) return;
-    const view = smartViewsData.find((v: TaskSmartView) => v.id === viewId);
+    const view = smartViewsData.find((item: TaskSmartView) => item.id === viewId);
     if (!view) return;
     const f = view.filters as Partial<ListTasksQuery>;
     setFilterSourceType(f.sourceType?.[0] ?? '');
@@ -126,10 +412,8 @@ export function TasksList() {
     setFilterDueAfter(f.dueAfter ?? '');
     setFilterContactId(f.contactId ?? '');
     setActiveViewId(view.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, smartViewsData]);
+  }, [q.view, router.isReady, smartViewsData]);
 
-  // ?action=create triggers dialog
   useEffect(() => {
     if (!router.isReady || router.query.action !== 'create') return;
     setCreateOpen(true);
@@ -137,7 +421,6 @@ export function TasksList() {
     void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
   }, [router.isReady, router.pathname, router.query]);
 
-  // Sync state -> URL
   useEffect(() => {
     const params: Record<string, string> = {};
     if (filterSourceType) params.type = filterSourceType;
@@ -150,22 +433,61 @@ export function TasksList() {
     if (viewMode !== 'list') params.viewMode = viewMode;
     if (activeViewId) params.view = activeViewId;
     void router.replace({ pathname: router.pathname, query: params }, undefined, { shallow: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId, page, viewMode, activeViewId]);
+  }, [
+    activeViewId,
+    filterContactId,
+    filterDueAfter,
+    filterDueBefore,
+    filterPriority,
+    filterSourceType,
+    filterStatus,
+    page,
+    router,
+    viewMode,
+  ]);
 
-  // Build query
-  const filters: ListTasksQuery = useMemo(() => ({
-    sourceType: filterSourceType ? [filterSourceType as TaskSourceType] : undefined,
-    status: filterStatus ? [filterStatus as UnifiedTaskStatus] : ['pending', 'in_progress'],
-    priority: filterPriority ? [filterPriority as UnifiedTaskPriority] : undefined,
-    dueBefore: filterDueBefore || undefined,
-    dueAfter: filterDueAfter || undefined,
-    contactId: filterContactId || undefined,
-    page: page + 1,
-    limit: rowsPerPage,
-  }), [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId, page, rowsPerPage]);
+  const filters: ListTasksQuery = useMemo(
+    () => ({
+      sourceType: filterSourceType ? [filterSourceType as TaskSourceType] : undefined,
+      status: filterStatus ? [filterStatus as UnifiedTaskStatus] : ['pending', 'in_progress'],
+      priority: filterPriority ? [filterPriority as UnifiedTaskPriority] : undefined,
+      dueBefore: filterDueBefore || undefined,
+      dueAfter: filterDueAfter || undefined,
+      contactId: filterContactId || undefined,
+      page: page + 1,
+      limit: rowsPerPage,
+    }),
+    [filterContactId, filterDueAfter, filterDueBefore, filterPriority, filterSourceType, filterStatus, page, rowsPerPage],
+  );
 
   const { data, isLoading, isError, error } = useTasks(filters);
+
+  const rows = data?.data ?? [];
+  const total = data?.meta?.total ?? 0;
+
+  useEffect(() => {
+    if (!selectedTask) return;
+    const fresh = rows.find((task) => task.id === selectedTask.id);
+    if (fresh) setSelectedTask(fresh);
+  }, [rows, selectedTask]);
+
+  const visibleRows = useMemo(
+    () => rows.filter((task) => matchesSearch(task, deferredSearch)),
+    [rows, deferredSearch],
+  );
+
+  const metrics = useMemo(() => ({
+    overdue: visibleRows.filter((task) => isOverdue(task.dueDate)).length,
+    today: visibleRows.filter((task) => isDueToday(task.dueDate)).length,
+    inProgress: visibleRows.filter((task) => task.status === 'in_progress').length,
+    waiting: visibleRows.filter((task) => task.sourceType === 'follow_up').length,
+  }), [visibleRows]);
+
+  const activeTaskCount = metrics.overdue + metrics.today + metrics.inProgress + metrics.waiting;
+  const overdueLabel = t.common.overdue ?? t.tasks.overdue;
+  const dueTodayLabel = t.common.today ?? t.tasks.dueToday;
+  const inProgressLabel = t.tasks.statuses.in_progress ?? 'In progress';
+  const waitingLabel = t.tasks.waitingFor ?? 'Waiting';
 
   const handleComplete = useCallback(
     async (task: UnifiedTask) => {
@@ -176,7 +498,7 @@ export function TasksList() {
         toast.error(t.tasks.completeError);
       }
     },
-    [completeTask, toast, t],
+    [completeTask, t.tasks.completeError, t.tasks.completed, toast],
   );
 
   const handleDelete = useCallback(async () => {
@@ -184,11 +506,14 @@ export function TasksList() {
     try {
       await deleteTask.mutateAsync({ sourceType: deleteTarget.sourceType, id: deleteTarget.sourceId });
       toast.success(t.tasks.deleted);
+      if (selectedTask?.id === deleteTarget.id) {
+        setSelectedTask(null);
+      }
     } catch {
       toast.error(t.tasks.deleteError);
     }
     setDeleteTarget(null);
-  }, [deleteTarget, deleteTask, toast, t]);
+  }, [deleteTarget, deleteTask, selectedTask?.id, t.tasks.deleteError, t.tasks.deleted, toast]);
 
   const applyView = useCallback(
     (view: TaskSmartView) => {
@@ -200,9 +525,10 @@ export function TasksList() {
       setFilterDueAfter(f.dueAfter ?? '');
       setFilterContactId(f.contactId ?? '');
       setActiveViewId(view.id);
+      setPage(0);
       toast.success(t.tasks.smartViews.applied);
     },
-    [t, toast],
+    [t.tasks.smartViews.applied, toast],
   );
 
   const currentFilters: Partial<ListTasksQuery> = useMemo(
@@ -214,76 +540,187 @@ export function TasksList() {
       ...(filterDueAfter && { dueAfter: filterDueAfter }),
       ...(filterContactId && { contactId: filterContactId }),
     }),
-    [filterSourceType, filterStatus, filterPriority, filterDueBefore, filterDueAfter, filterContactId],
+    [filterContactId, filterDueAfter, filterDueBefore, filterPriority, filterSourceType, filterStatus],
   );
 
   const hasFilters = !!(filterSourceType || filterStatus || filterPriority || filterDueBefore || filterDueAfter || filterContactId);
-  const rows = data?.data ?? [];
-  const total = data?.meta?.total ?? 0;
+  const hasSearch = !!deferredSearch;
 
-  // Loading
+  const clearFilters = useCallback(() => {
+    setFilterSourceType('');
+    setFilterStatus('');
+    setFilterPriority('');
+    setFilterDueBefore('');
+    setFilterDueAfter('');
+    setFilterContactId('');
+    setActiveViewId(null);
+    setPage(0);
+  }, []);
+
+  const applyQuickView = useCallback((quickView: QuickView) => {
+    const today = startOfToday();
+
+    setPage(0);
+    setActiveViewId(null);
+    setFilterPriority('');
+    setFilterContactId('');
+
+    if (quickView === 'open') {
+      setFilterSourceType('');
+      setFilterStatus('');
+      setFilterDueBefore('');
+      setFilterDueAfter('');
+      return;
+    }
+
+    if (quickView === 'today') {
+      setFilterSourceType('');
+      setFilterStatus('');
+      setFilterDueAfter(today);
+      setFilterDueBefore(today);
+      return;
+    }
+
+    if (quickView === 'overdue') {
+      setFilterSourceType('');
+      setFilterStatus('');
+      setFilterDueAfter('');
+      setFilterDueBefore(yesterday());
+      return;
+    }
+
+    if (quickView === 'manual') {
+      setFilterSourceType('manual');
+      setFilterStatus('');
+      setFilterDueBefore('');
+      setFilterDueAfter('');
+      return;
+    }
+
+    if (quickView === 'ticket') {
+      setFilterSourceType('ticket');
+      setFilterStatus('');
+      setFilterDueBefore('');
+      setFilterDueAfter('');
+      return;
+    }
+
+    setFilterSourceType('');
+    setFilterStatus('completed');
+    setFilterDueBefore('');
+    setFilterDueAfter('');
+  }, []);
+
   if (isLoading) {
     return (
-      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
-        <Skeleton width="30%" height={32} animation="wave" sx={{ mb: 2 }} />
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} variant="rounded" height={48} animation="wave" sx={{ mb: 0.5 }} />
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1360 }}>
+        <Skeleton width="30%" height={36} animation="wave" sx={{ mb: 2 }} />
+        <Skeleton variant="rounded" height={120} animation="wave" sx={{ mb: 2 }} />
+        <Skeleton variant="rounded" height={84} animation="wave" sx={{ mb: 2 }} />
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton key={index} variant="rounded" height={92} animation="wave" sx={{ mb: 1 }} />
         ))}
       </Box>
     );
   }
 
-  // Error
   if (isError) {
     return (
-      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1360 }}>
         <Alert severity="error">{(error as Error)?.message ?? t.tasks.errorLoading}</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box>
-          <Typography variant="h5" fontWeight={600}>
-            {t.tasks.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t.tasks.description}
-          </Typography>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1360 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 2.25, md: 3 },
+          borderRadius: 5,
+          border: 1,
+          borderColor: alpha(theme.palette.primary.main, 0.14),
+          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.18)} 0%, ${alpha(theme.palette.background.paper, 0.98)} 46%, ${alpha(theme.palette.info.light, 0.08)} 100%)`,
+        }}
+      >
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.4fr) auto' },
+            gap: 2,
+            alignItems: 'start',
+          }}
+        >
+          <Box>
+            <Typography variant="overline" sx={{ color: 'primary.dark', fontWeight: 800, letterSpacing: '0.14em' }}>
+              {t.tasks.workspaceView.eyebrow}
+            </Typography>
+            <Typography variant="h3" sx={{ mt: 0.5, fontWeight: 800, letterSpacing: '-0.03em' }}>
+              {t.tasks.title}
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
+              {t.tasks.description}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
+              {t.tasks.workspaceView.summaryTemplate.replace('{count}', String(activeTaskCount))}
+            </Typography>
+          </Box>
+
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.25}>
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(_, value) => {
+                if (!value) return;
+                setViewMode(value as ViewMode);
+                setActiveViewId(null);
+              }}
+              size="small"
+              sx={{
+                bgcolor: alpha(theme.palette.background.paper, 0.82),
+                borderRadius: 999,
+                '& .MuiToggleButton-root': {
+                  px: 1.6,
+                  border: 0,
+                  borderRadius: '999px !important',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  gap: 0.75,
+                },
+              }}
+            >
+              <ToggleButton value="list" aria-label={t.tasks.viewList}>
+                <List size={16} />
+                {!isMobile && t.tasks.viewList}
+              </ToggleButton>
+              <ToggleButton value="kanban" aria-label={t.tasks.viewKanban}>
+                <Kanban size={16} />
+                {!isMobile && t.tasks.viewKanban}
+              </ToggleButton>
+            </ToggleButtonGroup>
+
+            <Button variant="contained" size="large" startIcon={<Plus size={18} />} onClick={() => setCreateOpen(true)}>
+              {t.tasks.createTask}
+            </Button>
+          </Stack>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={(_, v) => { if (v) { setViewMode(v as ViewMode); setActiveViewId(null); } }}
-            size="small"
-            aria-label={t.tasks.viewList}
-          >
-            <ToggleButton value="list" aria-label={t.tasks.viewList}>
-              <Tooltip title={t.tasks.viewList}>
-                <Box sx={{ display: 'flex' }}><List size={18} /></Box>
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="kanban" aria-label={t.tasks.viewKanban}>
-              <Tooltip title={t.tasks.viewKanban}>
-                <Box sx={{ display: 'flex' }}><Kanban size={18} /></Box>
-              </Tooltip>
-            </ToggleButton>
-          </ToggleButtonGroup>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setCreateOpen(true)}
-          >
-            {t.tasks.createTask}
-          </Button>
-        </Box>
+      </Paper>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' },
+          gap: 1.5,
+          mt: 2,
+        }}
+      >
+        <MetricCard label={overdueLabel} value={metrics.overdue} tone="danger" helper={t.tasks.workspaceView.metricHelpers.overdue} />
+        <MetricCard label={dueTodayLabel} value={metrics.today} tone="warning" helper={t.tasks.workspaceView.metricHelpers.today} />
+        <MetricCard label={inProgressLabel} value={metrics.inProgress} tone="info" helper={t.tasks.workspaceView.metricHelpers.inProgress} />
+        <MetricCard label={waitingLabel} value={metrics.waiting} tone="neutral" helper={t.tasks.workspaceView.metricHelpers.waiting} />
       </Box>
 
-      {/* Saved views bar */}
       <SavedViewsBar
         activeViewId={activeViewId}
         onApplyView={applyView}
@@ -292,213 +729,260 @@ export function TasksList() {
         currentFilters={currentFilters}
       />
 
-      {/* Filter bar */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          label={t.tasks.filters.sourceType}
-          value={filterSourceType}
-          onChange={(e) => { setFilterSourceType(e.target.value); setPage(0); setActiveViewId(null); }}
-          size="small"
-          select
-          sx={{ minWidth: 150 }}
+      <Paper elevation={0} sx={{ mt: 2, p: { xs: 2, md: 2.25 }, borderRadius: 4, border: 1, borderColor: 'divider' }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.3fr) auto' },
+            gap: 2,
+            alignItems: 'start',
+          }}
         >
-          <MenuItem value="">{t.tasks.sourceTypes.all}</MenuItem>
-          {SOURCE_TYPE_OPTIONS.map((st) => (
-            <MenuItem key={st} value={st}>{t.tasks.sourceTypes[st]}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label={t.tasks.filters.status}
-          value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value); setPage(0); setActiveViewId(null); }}
-          size="small"
-          select
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="">{t.tasks.statuses.all}</MenuItem>
-          {STATUS_OPTIONS.map((s) => (
-            <MenuItem key={s} value={s}>{t.tasks.statuses[s]}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label={t.tasks.filters.priority}
-          value={filterPriority}
-          onChange={(e) => { setFilterPriority(e.target.value); setPage(0); setActiveViewId(null); }}
-          size="small"
-          select
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="">{t.tasks.priorities.all}</MenuItem>
-          {PRIORITY_OPTIONS.map((p) => (
-            <MenuItem key={p} value={p}>{t.tasks.priorities[p]}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label={t.tasks.filters.dueAfter}
-          type="date"
-          value={filterDueAfter}
-          onChange={(e) => { setFilterDueAfter(e.target.value); setPage(0); setActiveViewId(null); }}
-          size="small"
-          sx={{ minWidth: 150 }}
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField
-          label={t.tasks.filters.dueBefore}
-          type="date"
-          value={filterDueBefore}
-          onChange={(e) => { setFilterDueBefore(e.target.value); setPage(0); setActiveViewId(null); }}
-          size="small"
-          sx={{ minWidth: 150 }}
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField
-          label={t.tasks.filters.contact}
-          value={filterContactId}
-          onChange={(e) => { setFilterContactId(e.target.value); setPage(0); setActiveViewId(null); }}
-          size="small"
-          sx={{ minWidth: 150 }}
-          placeholder={t.tasks.filters.contact}
-        />
-        <Chip
-          variant="outlined"
-          size="small"
-          label={t.tasks.counts.total.replace('{count}', String(total))}
-        />
-      </Box>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              {t.tasks.workspaceView.commandTitle}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t.tasks.workspaceView.commandDescription}
+            </Typography>
+          </Box>
 
-      {/* Kanban view */}
-      {viewMode === 'kanban' ? (
-        <TasksKanbanBoard
-          tasks={rows}
-          filters={filters as unknown as Record<string, unknown>}
-        />
-      ) : (
-        <>
-          {/* Empty state */}
-          {rows.length === 0 && !hasFilters ? (
-            <EmptyState
-              icon={CheckSquare}
-              title={t.tasks.emptyTitle}
-              description={t.tasks.emptyDescription}
-              actionLabel={t.tasks.createTask}
-              onAction={() => setCreateOpen(true)}
+          <TextField
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t.tasks.searchPlaceholder}
+            size="small"
+            sx={{ minWidth: { lg: 300 } }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={16} />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchQuery('')} aria-label={t.tasks.workspaceView.clearSearch}>
+                    <X size={16} />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            }}
+          />
+        </Box>
+
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}>
+          {(['open', 'today', 'overdue', 'manual', 'ticket', 'completed'] as QuickView[]).map((quickView) => (
+            <Button
+              key={quickView}
+              size="small"
+              variant="outlined"
+              onClick={() => applyQuickView(quickView)}
+              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
+            >
+              {t.tasks.workspaceView.quickViews[quickView]}
+            </Button>
+          ))}
+        </Stack>
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr)) auto' },
+            gap: 1.5,
+            mt: 2,
+            alignItems: 'center',
+          }}
+        >
+          <TextField
+            label={t.tasks.filters.sourceType}
+            value={filterSourceType}
+            onChange={(event) => {
+              setFilterSourceType(event.target.value);
+              setPage(0);
+              setActiveViewId(null);
+            }}
+            size="small"
+            select
+          >
+            <MenuItem value="">{t.tasks.sourceTypes.all}</MenuItem>
+            {SOURCE_TYPE_OPTIONS.map((type) => (
+              <MenuItem key={type} value={type}>
+                {t.tasks.sourceTypes[type]}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            label={t.tasks.filters.status}
+            value={filterStatus}
+            onChange={(event) => {
+              setFilterStatus(event.target.value);
+              setPage(0);
+              setActiveViewId(null);
+            }}
+            size="small"
+            select
+          >
+            <MenuItem value="">{t.tasks.statuses.all}</MenuItem>
+            {STATUS_OPTIONS.map((status) => (
+              <MenuItem key={status} value={status}>
+                {t.tasks.statuses[status]}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            label={t.tasks.filters.priority}
+            value={filterPriority}
+            onChange={(event) => {
+              setFilterPriority(event.target.value);
+              setPage(0);
+              setActiveViewId(null);
+            }}
+            size="small"
+            select
+          >
+            <MenuItem value="">{t.tasks.priorities.all}</MenuItem>
+            {PRIORITY_OPTIONS.map((priority) => (
+              <MenuItem key={priority} value={priority}>
+                {t.tasks.priorities[priority]}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            label={t.tasks.filters.dueAfter}
+            type="date"
+            value={filterDueAfter}
+            onChange={(event) => {
+              setFilterDueAfter(event.target.value);
+              setPage(0);
+              setActiveViewId(null);
+            }}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+          />
+
+          <TextField
+            label={t.tasks.filters.dueBefore}
+            type="date"
+            value={filterDueBefore}
+            onChange={(event) => {
+              setFilterDueBefore(event.target.value);
+              setPage(0);
+              setActiveViewId(null);
+            }}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+          />
+
+          <Stack direction={{ xs: 'row', sm: 'row', xl: 'column' }} spacing={1} sx={{ justifySelf: { xl: 'end' } }}>
+            <Chip
+              label={t.tasks.workspaceView.searchResultsLabel.replace('{count}', String(hasSearch ? visibleRows.length : total))}
+              color="primary"
+              variant="outlined"
             />
-          ) : (
-            <>
-              <TableContainer sx={{ flex: 1 }}>
-                <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t.tasks.dialog.titleLabel}</TableCell>
-                      <TableCell>{t.tasks.filters.sourceType}</TableCell>
-                      <TableCell>{t.tasks.filters.status}</TableCell>
-                      <TableCell>{t.tasks.filters.priority}</TableCell>
-                      <TableCell>{t.tasks.dialog.dueDateLabel}</TableCell>
-                      <TableCell>{t.tasks.filters.contact}</TableCell>
-                      <TableCell width={100} />
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {rows.map((task: UnifiedTask) => (
-                      <TableRow key={task.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={500} color="primary">
-                            {task.title}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={t.tasks.sourceTypes[task.sourceType]}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={t.tasks.statuses[task.status]}
-                            size="small"
-                            color={statusChipColor(task.status)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={t.tasks.priorities[task.priority]}
-                            size="small"
-                            color={priorityChipColor(task.priority)}
-                            variant={task.priority === 'low' ? 'outlined' : 'filled'}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            color={task.dueDate && isOverdue(task.dueDate) ? 'error.main' : 'text.primary'}
-                          >
-                            {formatDate(task.dueDate)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {task.contactName ?? '\u2014'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {task.status !== 'completed' && (
-                              <Tooltip title={t.tasks.completeTask}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleComplete(task)}
-                                  disabled={completeTask.isPending}
-                                  sx={{ minWidth: 36, minHeight: 36 }}
-                                >
-                                  <CheckSquare size={16} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {task.sourceType === 'manual' && (
-                              <Tooltip title={t.tasks.deleteTask}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => setDeleteTarget(task)}
-                                  sx={{ minWidth: 36, minHeight: 36 }}
-                                >
-                                  <Trash2 size={16} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {rows.length === 0 && hasFilters && (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">{t.tasks.noFilterResults}</Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <TablePagination
-                component="div"
-                count={total}
-                page={page}
-                onPageChange={(_, newPage) => setPage(newPage)}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                rowsPerPageOptions={[10, 25, 50]}
-                labelRowsPerPage={tc?.rowsPerPage ?? 'Rows per page:'}
-                labelDisplayedRows={({ from, to, count }) =>
-                  (tc?.displayedRows ?? '{from}-{to} of {count}')
-                    .replace('{from}', String(from))
-                    .replace('{to}', String(to))
-                    .replace('{count}', count !== -1 ? String(count) : `more than ${to}`)
-                }
+            {(hasFilters || hasSearch) && (
+              <Button variant="text" size="small" onClick={() => {
+                clearFilters();
+                setSearchQuery('');
+              }}>
+                {t.tasks.filters.clearAll}
+              </Button>
+            )}
+          </Stack>
+        </Box>
+
+        {filterContactId && (
+          <Chip
+            sx={{ mt: 1.5 }}
+            label={`${t.tasks.filters.contact}: ${filterContactId}`}
+            onDelete={() => setFilterContactId('')}
+          />
+        )}
+      </Paper>
+
+      {viewMode === 'kanban' ? (
+        <Box sx={{ mt: 2 }}>
+          <TasksKanbanBoard tasks={visibleRows} filters={filters as unknown as Record<string, unknown>} onTaskClick={setSelectedTask} />
+        </Box>
+      ) : (
+        <Paper elevation={0} sx={{ mt: 2, borderRadius: 4, border: 1, borderColor: 'divider', overflow: 'hidden' }}>
+          <Box sx={{ px: { xs: 2, md: 2.5 }, py: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              {t.tasks.workspaceView.queueTitle}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t.tasks.workspaceView.queueDescription}
+            </Typography>
+          </Box>
+
+          {rows.length === 0 && !hasFilters ? (
+            <Box sx={{ p: 2 }}>
+              <EmptyState
+                icon={CheckSquare}
+                title={t.tasks.emptyTitle}
+                description={t.tasks.emptyDescription}
+                actionLabel={t.tasks.createTask}
+                onAction={() => setCreateOpen(true)}
               />
-            </>
+            </Box>
+          ) : visibleRows.length === 0 ? (
+            <Box sx={{ p: 3 }}>
+              <EmptyState
+                icon={Search}
+                title={hasSearch ? t.tasks.workspaceView.searchEmptyTitle : t.tasks.emptyTitle}
+                description={hasSearch ? t.tasks.workspaceView.searchEmptyDescription : t.tasks.noFilterResults}
+                actionLabel={hasFilters || hasSearch ? t.tasks.filters.clearAll : t.tasks.createTask}
+                onAction={() => {
+                  if (hasFilters || hasSearch) {
+                    clearFilters();
+                    setSearchQuery('');
+                    return;
+                  }
+                  setCreateOpen(true);
+                }}
+              />
+            </Box>
+          ) : (
+            <Stack spacing={1.25} sx={{ p: { xs: 1.5, md: 2 } }}>
+              {visibleRows.map((task) => (
+                <TaskQueueItem
+                  key={task.id}
+                  task={task}
+                  selected={selectedTask?.id === task.id}
+                  isMobile={isMobile}
+                  formatDate={formatDate}
+                  onOpen={setSelectedTask}
+                  onComplete={handleComplete}
+                  onDelete={setDeleteTarget}
+                  isCompleting={completeTask.isPending}
+                />
+              ))}
+            </Stack>
           )}
-        </>
+
+          <Divider />
+          <TablePagination
+            component="div"
+            count={total}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
+            labelRowsPerPage={tc?.rowsPerPage ?? 'Rows per page:'}
+            labelDisplayedRows={({ from, to, count }) =>
+              (tc?.displayedRows ?? '{from}-{to} of {count}')
+                .replace('{from}', String(from))
+                .replace('{to}', String(to))
+                .replace('{count}', count !== -1 ? String(count) : `more than ${to}`)
+            }
+          />
+        </Paper>
       )}
 
       <CreateTaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
@@ -507,6 +991,16 @@ export function TasksList() {
         open={saveDialogOpen}
         onClose={() => setSaveDialogOpen(false)}
         currentFilters={currentFilters}
+      />
+
+      <TaskDetailDrawer
+        task={selectedTask}
+        open={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onComplete={handleComplete}
+        onDelete={setDeleteTarget}
+        formatDate={formatDate}
+        isCompleting={completeTask.isPending}
       />
 
       <ConfirmDialog

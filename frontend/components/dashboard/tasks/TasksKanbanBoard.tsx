@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
+  Paper,
   Typography,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   DndContext,
   DragOverlay,
@@ -66,13 +68,13 @@ const StatusColumn = React.memo(function StatusColumn({
     <Box
       ref={setNodeRef}
       sx={{
-        minWidth: 280,
-        maxWidth: 320,
-        flex: '0 0 280px',
+        minWidth: 300,
+        maxWidth: 340,
+        flex: '0 0 300px',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: highlighted ? 'action.hover' : 'background.default',
-        borderRadius: 2,
+        borderRadius: 3,
         border: 1,
         borderColor: highlighted ? 'primary.main' : 'divider',
         transition: 'border-color 0.2s, background-color 0.2s',
@@ -80,7 +82,7 @@ const StatusColumn = React.memo(function StatusColumn({
       }}
     >
       {/* Header */}
-      <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ px: 1.75, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
             sx={{
@@ -103,11 +105,11 @@ const StatusColumn = React.memo(function StatusColumn({
       {/* Cards */}
       <Box
         sx={{
-          p: 1,
+          p: 1.25,
           flex: 1,
           minHeight: 100,
           overflowY: 'auto',
-          maxHeight: 'calc(100dvh - 300px)',
+          maxHeight: 'calc(100dvh - 320px)',
         }}
       >
         {columnTasks.length === 0 ? (
@@ -138,6 +140,7 @@ interface TasksKanbanBoardProps {
 
 export function TasksKanbanBoard({ tasks, filters, onTaskClick }: TasksKanbanBoardProps) {
   const t = useTranslations();
+  const theme = useTheme();
   const toast = useGlobalToast();
   const queryClient = useQueryClient();
   const updateTask = useUpdateTask();
@@ -230,35 +233,63 @@ export function TasksKanbanBoard({ tasks, filters, onTaskClick }: TasksKanbanBoa
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <Box
+      <Paper
+        elevation={0}
         sx={{
-          display: 'flex',
-          gap: 2,
-          overflowX: 'auto',
-          p: 1,
-          pb: 2,
-          minHeight: 400,
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'thin',
-          '&::-webkit-scrollbar': { height: 6 },
-          '&::-webkit-scrollbar-thumb': {
-            bgcolor: 'action.disabled',
-            borderRadius: 3,
-          },
+          borderRadius: 4,
+          border: 1,
+          borderColor: 'divider',
+          overflow: 'hidden',
+          backgroundImage: 'none',
         }}
       >
-        {KANBAN_STATUSES.map((status) => (
-          <StatusColumn
-            key={status}
-            status={status}
-            tasks={tasks}
-            isOverCurrent={overColumnId === status}
-            statusLabel={t.tasks.statuses[status]}
-            noTasksLabel={t.tasks.kanban.noTasks}
-            onTaskClick={onTaskClick}
-          />
-        ))}
-      </Box>
+        <Box
+          sx={{
+            px: { xs: 2, md: 2.5 },
+            py: 1.75,
+            borderBottom: 1,
+            borderColor: 'divider',
+            background: `linear-gradient(180deg, ${alpha(theme.palette.primary.light, 0.12)} 0%, transparent 100%)`,
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            {t.tasks.workspaceView.boardTitle}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t.tasks.workspaceView.boardDescription}
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            overflowX: 'auto',
+            p: 2,
+            pb: 2.5,
+            minHeight: 440,
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'thin',
+            '&::-webkit-scrollbar': { height: 8 },
+            '&::-webkit-scrollbar-thumb': {
+              bgcolor: alpha(theme.palette.text.primary, 0.16),
+              borderRadius: 999,
+            },
+          }}
+        >
+          {KANBAN_STATUSES.map((status) => (
+            <StatusColumn
+              key={status}
+              status={status}
+              tasks={tasks}
+              isOverCurrent={overColumnId === status}
+              statusLabel={t.tasks.statuses[status]}
+              noTasksLabel={t.tasks.kanban.noTasks}
+              onTaskClick={onTaskClick}
+            />
+          ))}
+        </Box>
+      </Paper>
 
       {/* Drag overlay */}
       <DragOverlay dropAnimation={null}>
