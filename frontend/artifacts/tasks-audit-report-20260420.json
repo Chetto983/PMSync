@@ -1,0 +1,355 @@
+{
+  "auditedAt": "2026-04-20T06:32:09.341Z",
+  "desktop": {
+    "url": "https://mail-agent-indol.vercel.app/dashboard/tasks",
+    "title": "Attivita | PMSync",
+    "headings": [],
+    "rows": 25,
+    "chips": [
+      "IT",
+      "60 attivita",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media"
+    ],
+    "buttons": [
+      {
+        "text": "Assistente AI",
+        "aria": "Assistente AI (Ctrl+J)",
+        "disabled": false
+      },
+      {
+        "text": "IT",
+        "aria": "Lingua",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Cambia tema",
+        "disabled": false
+      },
+      {
+        "text": "0",
+        "aria": "Notifiche",
+        "disabled": false
+      },
+      {
+        "text": "AU",
+        "aria": "Account",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Vista elenco",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Vista kanban",
+        "disabled": false
+      },
+      {
+        "text": "Crea attivita",
+        "aria": null,
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Aggiungi vista salvata",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      }
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "label": "Contatto",
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": "25"
+      }
+    ],
+    "hasHorizontalOverflow": false,
+    "bodySnippet": "Vai al contenuto principale\nPMSync\nDashboard\n\nHome\n\nPosta\n\nCalendario\n\nContatti\n\nAttività\n\nPromemoria\n\nFollow-up\n\nImpostazioni\n\nAssistente AI\nIT\n0\nAU\nAttivita\n\nGestisci follow-up, promemoria, azioni deal, ticket e attivita manuali in un unico posto.\n\nCrea attivita\nTipo\n​\nTipo\nStato\n​\nStato\nPriorita\n​\nPriorita\nScade dopo\nScade dopo\nScade prima di\nScade prima di\nContatto\nContatto\n60 attivita\nTITOLO\tTIPO\tSTATO\tPRIORITA\tDATA DI SCADENZA\tCONTATTO\t\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\nRighe per pagina:\n\n25\n\n1-25 di 60"
+  },
+  "mobile": {
+    "url": "https://mail-agent-indol.vercel.app/dashboard/tasks",
+    "title": "Attivita | PMSync",
+    "headings": [],
+    "rows": 25,
+    "chips": [
+      "60 attivita",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket",
+      "In corso",
+      "Media",
+      "Ticket"
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "aria": "Apri barra laterale",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Assistente AI (Ctrl+J)",
+        "disabled": false
+      },
+      {
+        "text": "0",
+        "aria": "Notifiche",
+        "disabled": false
+      },
+      {
+        "text": "AU",
+        "aria": "Account",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Vista elenco",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Vista kanban",
+        "disabled": false
+      },
+      {
+        "text": "Crea attivita",
+        "aria": null,
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Aggiungi vista salvata",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      },
+      {
+        "text": "",
+        "aria": "Completa",
+        "disabled": false
+      }
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "label": null,
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "label": "Contatto",
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": null,
+        "label": null,
+        "value": "25"
+      }
+    ],
+    "hasHorizontalOverflow": false,
+    "bodySnippet": "Vai al contenuto principale\n0\nAU\nAttivita\n\nGestisci follow-up, promemoria, azioni deal, ticket e attivita manuali in un unico posto.\n\nCrea attivita\nTipo\n​\nTipo\nStato\n​\nStato\nPriorita\n​\nPriorita\nScade dopo\nScade dopo\nScade prima di\nScade prima di\nContatto\nContatto\n60 attivita\nTITOLO\tTIPO\tSTATO\tPRIORITA\tDATA DI SCADENZA\tCONTATTO\t\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\n\n\nInvoice PDF not downloading\n\n\t\nTicket\n\t\nIn corso\n\t\nMedia\n\t\n\n—\n\n\t\n\n—\n\n\t\n\nRighe per pagina:\n\n25\n\n1-25 di 60\n\nAggiungi PMSync alla schermata iniziale\nScopri come"
+  }
+}
