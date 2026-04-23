@@ -6,7 +6,10 @@
  *
  * Storage: Redis lists for signal buffering + Redis hash (triage:sender-scores:{tenantId}).
  * Atomic Lua drain script for buffer flush. No in-memory state.
- * 30-day TTL on Redis score hashes. 10-min TTL on buffer lists. Zero DB writes.
+ * Phase 149 D-02/D-03: time-aware EMA blend using `lastUpdated` timestamp for
+ * recency weighting; Redis TTL = 4× half-life (outer hygiene backstop).
+ * Default half-life 14 days (env: TRIAGE_DECAY_HALF_LIFE_DAYS).
+ * 10-min TTL on buffer lists. Zero DB writes.
  *
  * @see AttentionScoreService - consumes sender behavior during scoring
  * @see TriageBackfillSchedulerService - triggers recalculation using learned weights
@@ -18,6 +21,7 @@ import {
   OnModuleDestroy,
   Optional,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -71,10 +75,11 @@ const FLUSH_THRESHOLD = 5;
 /** Flush all buffers on this interval (ms) */
 const FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-/** TTL for Redis hash keys (seconds) */
-const REDIS_TTL_SECONDS = 30 * 24 * 3600; // 30 days
-
-/** EMA weight for previous score (0.0-1.0) */
+/**
+ * Base EMA weight for previous score (applied when dt=0). Phase 149 D-02
+ * time-aware decay scales this by exp(-ln2/halfLife * dtDays). Redis TTL
+ * (D-03) computed at runtime as `halfLifeDays * 4 * 86400` in flushSenderSignals.
+ */
 const EMA_PREV_WEIGHT = 0.7;
 
 // ============================================================================
@@ -82,14 +87,23 @@ const EMA_PREV_WEIGHT = 0.7;
 // ============================================================================
 
 /**
- * EMA-blend two SenderBehaviorScores.
- * prevWeight controls how much history matters (0.7 = 70% previous, 30% new).
+ * EMA-blend two SenderBehaviorScores with Phase 149 D-02 time-aware decay.
+ * effectivePrevWeight = basePrevWeight * exp(-ln2/halfLifeDays * max(0, dtDays))
+ * Boyd/Luxenberg 2024 EWMM (arXiv:2404.08136). Score halves every halfLifeDays
+ * of idle time. Math.max(0, dtDays) blocks clock-skew (T-149-03-03); caller
+ * must pass finite halfLifeDays >= 1 (enforced in onModuleInit, T-149-03-02).
  */
 function blendScores(
   prev: SenderBehaviorScore,
   curr: SenderBehaviorScore,
-  prevWeight: number,
+  basePrevWeight: number,
+  dtDays: number,
+  halfLifeDays: number,
 ): SenderBehaviorScore {
+  const decayFactor = Math.exp(
+    (-Math.LN2 / halfLifeDays) * Math.max(0, dtDays),
+  );
+  const prevWeight = basePrevWeight * decayFactor;
   const currWeight = 1 - prevWeight;
   return {
     replyRate: prev.replyRate * prevWeight + curr.replyRate * currWeight,
@@ -157,6 +171,9 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   /** Periodic flush interval handle */
   private flushIntervalHandle: ReturnType<typeof setInterval> | null = null;
 
+  /** Phase 149 D-02 + D-03: env-driven decay half-life (days). Read once at init. */
+  private halfLifeDays: number = 14;
+
   /** Lua script: atomically drain a Redis list (LRANGE + DEL) */
   private readonly DRAIN_SCRIPT = `
     local items = redis.call("LRANGE", KEYS[1], 0, -1)
@@ -168,12 +185,25 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly redisConnection: RedisConnectionService,
+    private readonly configService: ConfigService,
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly consentService?: ConsentEnforcementService,
   ) {}
 
   onModuleInit() {
     this.redis = this.redisConnection.client;
+
+    // Phase 149 D-02: read half-life from env (default 14). Clamp floor to 1 day
+    // to prevent divide-by-zero in blendScores / TTL compute (T-149-03-02).
+    const rawHalfLife = parseInt(
+      this.configService.get<string>('TRIAGE_DECAY_HALF_LIFE_DAYS', '14'),
+      10,
+    );
+    this.halfLifeDays = Math.max(
+      1,
+      Number.isFinite(rawHalfLife) ? rawHalfLife : 14,
+    );
+
     // Start periodic flush interval
     this.flushIntervalHandle = setInterval(() => {
       this.flushAllBuffers().catch((err) => {
@@ -184,7 +214,7 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
     }, FLUSH_INTERVAL_MS);
 
     this.logger.log(
-      `TriageLearningService initialized (flush interval: ${FLUSH_INTERVAL_MS / 1000}s, threshold: ${FLUSH_THRESHOLD} signals)`,
+      `TriageLearningService initialized (flush interval: ${FLUSH_INTERVAL_MS / 1000}s, threshold: ${FLUSH_THRESHOLD} signals, decay half-life: ${this.halfLifeDays}d)`,
     );
   }
 
@@ -370,13 +400,32 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
 
     const newScore = computeScoreFromSignals(signals);
 
-    // EMA-blend with existing score (if any)
+    // EMA-blend with existing score (if any).
+    // Phase 149 D-02: compute dt-days since prev update for time-aware EMA decay.
+    // Corrupt ISO string → NaN → fall back to 0 (treats as fresh; conservative
+    // per T-149-03-01). Math.max(0, ...) blocks clock-skew (T-149-03-03).
     const prevScore = await this.getSenderBehavior(tenantId, senderEmail);
+    let dtDays = 0;
+    if (prevScore) {
+      const prevMs = Date.parse(prevScore.lastUpdated);
+      if (Number.isFinite(prevMs)) {
+        dtDays = Math.max(0, (Date.now() - prevMs) / 86_400_000);
+      }
+    }
+
     const blended = prevScore
-      ? blendScores(prevScore, newScore, EMA_PREV_WEIGHT)
+      ? blendScores(
+          prevScore,
+          newScore,
+          EMA_PREV_WEIGHT,
+          dtDays,
+          this.halfLifeDays,
+        )
       : newScore;
 
-    // Persist to Redis hash
+    // Persist to Redis hash. Phase 149 D-03: TTL = 4× half-life as outer hygiene
+    // backstop (~56d at default 14d half-life). Decay math does the real aging.
+    const redisTtlSeconds = this.halfLifeDays * 4 * 86400;
     try {
       await this.redis.hset(
         `${REDIS_KEY_PREFIX}:${tenantId}`,
@@ -385,11 +434,11 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
       );
       await this.redis.expire(
         `${REDIS_KEY_PREFIX}:${tenantId}`,
-        REDIS_TTL_SECONDS,
+        redisTtlSeconds,
       );
 
       this.logger.debug(
-        `Flushed ${signals.length} signals for ${senderEmail} (tenant ${tenantId}), totalSignals=${blended.totalSignals}`,
+        `Flushed ${signals.length} signals for ${senderEmail} (tenant ${tenantId}), totalSignals=${blended.totalSignals}, dtDays=${dtDays.toFixed(2)}`,
       );
     } catch (error) {
       this.logger.error(

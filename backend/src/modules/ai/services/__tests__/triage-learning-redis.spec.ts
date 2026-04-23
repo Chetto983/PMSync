@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { TriageLearningService, TriageSignal } from '../triage-learning.service';
 import { RedisConnectionService } from '../../../../common/services/redis-connection.service';
 
@@ -24,6 +25,12 @@ const mockRedis = createMockRedis();
 
 const mockRedisConnection = {
   client: mockRedis,
+};
+
+// Mock ConfigService — returns default '14' for TRIAGE_DECAY_HALF_LIFE_DAYS
+// (Phase 149 D-02: injected into TriageLearningService for time-aware EMA).
+const mockConfigService = {
+  get: jest.fn((key: string, defaultValue?: string) => defaultValue ?? '14'),
 };
 
 // ---------------------------------------------------------------------------
@@ -58,6 +65,7 @@ describe('TriageLearningService (Redis externalization)', () => {
       providers: [
         TriageLearningService,
         { provide: RedisConnectionService, useValue: mockRedisConnection },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -77,6 +85,7 @@ describe('TriageLearningService (Redis externalization)', () => {
         providers: [
           TriageLearningService,
           { provide: RedisConnectionService, useValue: mockRedisConnection },
+          { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
 
