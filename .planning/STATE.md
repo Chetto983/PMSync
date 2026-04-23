@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v12.0
 milestone_name: UX Unification — 4-Pillar Simplification
 status: in_progress
-stopped_at: Phase 149 planned (5 plans, 4 waves — Ready to execute)
-last_updated: "2026-04-23T00:00:00.000Z"
+stopped_at: Phase 149 COMPLETE — exponential decay helper + time-aware EMA + decay-GC sweep shipped; verifier PASSED 32/32 must-haves
+last_updated: "2026-04-23T12:00:00.000Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 37
-  completed_plans: 28
-  percent: 76
+  completed_plans: 33
+  percent: 89
 ---
 
 # Project State
@@ -21,20 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 147 COMPLETE (UAT 7/7 PASS @ 10/10 against live prod). Ready to plan Phase 148 (Per-Label Accuracy Profiles).
+**Current focus:** Phase 149 COMPLETE (verifier PASSED 32/32 must-haves, 2 documented non-blocker deviations). Ready to plan Phase 150 (Graph-Based Triage Memory).
 
 ## Current Position
 
-Phase: 149 — Temporal Memory Decay (PLANNED — 5 plans across 4 waves, ready to execute)
-Just completed: Phase 148 Plan 06 — frontend badge pill end-to-end. Translations under `t.email.labels.accuracy.*` (en + it + AppTranslations type, U+2026 ellipsis enforced); `frontend/lib/api/triage-accuracy.ts` wraps Plan 05 endpoint (no double `/api/v1` prefix); `frontend/hooks/queries/use-label-accuracy.ts` TanStack hook with CLAUDE.md cache settings (5min stale / 30min gc / retry 1); `LabelAccuracyBadge.tsx` extracted MUI Chip+Tooltip pill (Phase 155 reuse) with D-10 traffic-light colors via `success/warning/error.main` sx tokens (NO hex, NO Tailwind), D-11 `Learning…` cold-start state when sampleSize<20, D-12 tooltip strings via local `fmt()` interpolation (XSS-safe — only `{key}` replacement, all values numeric); mounted in `LabelTreeItem.tsx` between aggregate count and three-dot menu; W-8 barrel single-line growth verified (6→7 exports, 0 deletions); 6 RTL tests pass with hoist-safe `jest.mock` factory pattern that keeps `better-auth/react` ESM out of jsdom; `npx tsc --noEmit` + `npm run type-check` clean; `npm run lint` clean for ALL Plan-06-touched files (pre-existing repo lint backlog logged in `.planning/phases/148-label-accuracy/deferred-items.md`); 4 deviations all auto-fixed (3 Rule 1 micro-quirks + 1 Rule 3 jest ESM blocker); commits 3f2a1538 / 57dbe017 / 94d43ff7 (2026-04-20)
-Previously shipped (Phase 148, this session set): 148-01 — schema + wilsonInterval + TP_IMPLICIT_WINDOW_DAYS; 148-02 — Prisma migration generated offline; 148-03 — LabelAccuracyService counter engine + AccuracyDelta contract + queue + listener; 148-04 — TriageFeedbackService emit + MetricsModule 3 gauges + 1 counter + runSweep refreshGauges + 30d backfill script; 148-05 — TriageAccuracyController + GetLabelAccuracyQueryDto + plumbing spec (6 cases) (2026-04-20)
+Phase: 149 — Temporal Memory Decay (COMPLETE — shipped 2026-04-23 in 5 plans across 4 waves)
+Just completed: Phase 149 — temporal memory decay unified across 4 services. 149-01 `weightCorrection` swapped to `Math.exp(-Math.LN2 / halfLifeDays * max(0, ageDays))` with `opts: { halfLifeDays, minWeight }` bag; `TP_IMPLICIT_WINDOW_DAYS = 14` preserved verbatim (148 D-01 contract). 149-02 `TriageCorrectionService` migrated to the helper, `DECAY_HALF_LIFE_DAYS` const removed, `ConfigService` injected to read `TRIAGE_DECAY_HALF_LIFE_DAYS` — closes Phase 147 D-12 divergence. 149-03 `TriageLearningService.blendScores` now scales `prevWeight` by `exp(-LN2/halfLife * dtDays)` computed from `prev.lastUpdated`; flat `REDIS_TTL_SECONDS` constant deleted; per-flush TTL = `halfLifeDays * 4 * 86400`. 149-04 scheduler gained `BackfillJobData.type='decay-gc'` branch, nightly-decay-gc repeatable at cron `'0 3 * * *'` with stable `jobId: 'triage-nightly-decay-gc'` (BullMQ dedup), legacy `'nightly-recalculation'` kept in cleanup list; 3 Prometheus providers registered (`triage_patterns_gc_total` Counter + `triage_decay_half_life_seconds` + `triage_decay_last_run_timestamp_seconds` Gauges) injected `@Optional() @InjectMetric`. 149-05 `processDecayGc` body implements per-tenant Redis sender-scores sweep (HGETALL → weightCorrection → HDEL < 0.3) + TriageOverride sweep using D-06 **STRICT** two-condition match (`Email.from` pattern AND `newValue === override.action` at Prisma where) → `deleteMany` below 0.3; D-09 ordering: GC first, `lastRunGauge.set(Date.now()/1000)` at end, then `return this.processRecalculation(job)`; D-10 `findActiveTenants` + 500ms sleep + per-tenant try/catch isolates failures. New helper file `backend/src/modules/ai/services/triage-decay-gc.helpers.ts` (270 LF) extracted to keep scheduler at 614 LF (under Plan 04's 700 LF hard cap; over CLAUDE.md's 500 soft cap — documented deviation). Multi-tenant invariant verified across all 9 Prisma/Redis touchpoints. 17 commits on main (Waves 1–2 merged from worktrees, Waves 3–4 sequential on main after a Windows NTFS-junction incident wiped `backend/node_modules` — restored via `npm ci`, 2135 packages). VERIFICATION.md at `.planning/phases/149-temporal-decay/149-VERIFICATION.md` (commit dd0bbf22). `npx tsc --noEmit` exits 0. All 5 plan SUMMARY.md files committed. `deferred-items.md` captures the one pre-existing tsc drift in `triage-correction.service.ts:57` (unrelated to this phase).
+Previously shipped (Phase 148): label accuracy end-to-end with backend counter engine + HTTP API + frontend MUI Chip badge (2026-04-20)
 Previously shipped (Phase 147, v13.0): 147-01/02/03/04/05 — all 5 plans done, 7/7 UAT PASS @ 10/10 on Railway prod
 Previous (v12.0 trailing): Phase 157 PARTIAL — 157-01/02/03 shipped; 157-04/05 deferred pending Railway `staging`.
-Production health: backend deployment fe363ef5 is SUCCESS. Phase 147 fully live on prod. Phase 148 end-to-end chain live: feedback → event → queue → counter → HTTP API → MUI Chip pill. Day-1 UX: ops should run `cd backend && npx ts-node scripts/148-backfill-label-accuracy.ts` once after deploy so users see real badges instead of "Learning…" on every label for 30 days.
-Next: Execute Phase 149 — `/gsd-execute-phase 149`. 5 plans staged: 149-01 `weightCorrection` swap + spec rewrite (D-01/D-13), 149-02 `TriageCorrectionService` unification closing 147 D-12 divergence, 149-03 time-aware EMA blend (D-02) + Redis TTL = `halfLifeDays * 4 * 86400` (D-03) split across additive-only Task 1 + atomic Task 2, 149-04 scheduler wiring + 3 Prometheus providers (D-07/D-08/D-11), 149-05 `processDecayGc` body with strict D-06 two-condition match (`Email.from` pattern AND `EmailTriageFeedback.newValue === override.action`) + tenant-scoped `deleteMany` + D-09 GC-then-recalc delegation. No schema changes (D-05), no backfill script (D-14), no new feature flag (D-12 env kill switch).
-Last activity: 2026-04-20
+Production health: Phase 149 code merged to `main` locally — NOT pushed to origin this session (git push discipline per CLAUDE.md). User must push when ready; Railway will apply on deploy. No schema changes (D-05), no migrations, no env vars required (D-12 kill switch = `TRIAGE_DECAY_HALF_LIFE_DAYS=9999` if ever needed).
+Next: Plan Phase 150 — Graph-Based Triage Memory (depends on 148 + 149, requirements GRAPH-01/02/03). Recommended: `/gsd-discuss-phase 150` to gather context before planning. Alt: `/gsd-plan-phase 150`.
+Last activity: 2026-04-23
 
-Progress: [██████████] 100% Phase 148 (32/32 plans across project; v13.0 Phases 147+148 done, 8 phases remain in milestone)
+Progress: [█████████░] 89% v13.0 (Phases 147 + 148 + 149 complete, 7 phases remain — 150 Graph Memory, 151 Dreaming, 152 Safety Governance, 153 Label Hardening, 154 Batch Reclass, 155 Observability, 156 E2E Validation)
 
 ## Performance Metrics
 
