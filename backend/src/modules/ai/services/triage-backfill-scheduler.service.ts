@@ -6,9 +6,11 @@ import { EmailTriageService } from './email-triage.service';
 import { TriageLearningService } from './triage-learning.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import type { Counter, Gauge } from 'prom-client';
 
 interface BackfillJobData {
-  type: 'scheduled' | 'manual' | 'recalculation';
+  type: 'scheduled' | 'manual' | 'recalculation' | 'decay-gc';
   tenantId?: string; // Optional: specific tenant
   userId?: string; // Optional: specific user
 }
@@ -36,12 +38,20 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   private readonly INTERVAL_MS: number;
   private readonly BATCH_SIZE: number;
   private readonly MAX_AGE_HOURS: number;
+  /** Phase 149 D-02/D-03: configured decay half-life in days (env TRIAGE_DECAY_HALF_LIFE_DAYS, default 14). */
+  private readonly halfLifeDays: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly triageService: EmailTriageService,
     private readonly configService: ConfigService,
     @Optional() private readonly triageLearningService?: TriageLearningService,
+    @Optional() @InjectMetric('triage_patterns_gc_total')
+    private readonly gcCounter?: Counter<string>,
+    @Optional() @InjectMetric('triage_decay_half_life_seconds')
+    private readonly halfLifeGauge?: Gauge<string>,
+    @Optional() @InjectMetric('triage_decay_last_run_timestamp_seconds')
+    private readonly lastRunGauge?: Gauge<string>,
   ) {
     this.ENABLED =
       (this.configService.get<string>('TRIAGE_BACKFILL_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -58,6 +68,17 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       10,
     );
     this.MAX_AGE_HOURS = maxAgeDays * 24;
+
+    // Phase 149 D-02: same env var used by TriageLearningService and TriageCorrectionService.
+    // Clamp floor to 1 to prevent divide-by-zero in GC math (T-149-04-03).
+    const rawHalfLife = parseInt(
+      this.configService.get<string>('TRIAGE_DECAY_HALF_LIFE_DAYS', '14'),
+      10,
+    );
+    this.halfLifeDays = Math.max(
+      1,
+      Number.isFinite(rawHalfLife) ? rawHalfLife : 14,
+    );
   }
 
   async onModuleInit() {
@@ -87,6 +108,11 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       QUEUE_NAMES.TRIAGE_BACKFILL || 'triage-backfill',
       async (job: Job<BackfillJobData>) => {
         return withoutTenantScopingAsync(async () => {
+          // Phase 149 D-09: decay-gc branch checked FIRST so the new job type
+          // takes precedence; the GC sweep runs before recalc reads patterns.
+          if (job.data.type === 'decay-gc') {
+            return this.processDecayGc(job);
+          }
           if (job.data.type === 'recalculation') {
             return this.processRecalculation(job);
           }
@@ -119,6 +145,9 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       `TriageBackfillScheduler enabled: interval ${this.INTERVAL_MS / 60000}min, max age ${this.MAX_AGE_HOURS / 24}d`,
     );
 
+    // Phase 149 D-11: expose configured half-life as a gauge (seconds — Prometheus base unit).
+    this.halfLifeGauge?.set(this.halfLifeDays * 86400);
+
     // Run immediately on startup (don't wait for first interval)
     this.triggerManualBackfill().catch((err) => {
       this.logger.warn(`Initial backfill trigger failed: ${err?.message || err}`);
@@ -131,12 +160,14 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   }
 
   private async setupRepeatableJob() {
-    // Remove existing repeatable jobs
+    // Remove existing repeatable jobs — includes legacy 'nightly-recalculation'
+    // so old deploys' repeatable entries get cleaned up (BullMQ multi-instance safety).
     const repeatableJobs = await this.queue.getRepeatableJobs();
     for (const job of repeatableJobs) {
       if (
         job.name === 'scheduled-triage-backfill' ||
-        job.name === 'nightly-recalculation'
+        job.name === 'nightly-recalculation' ||
+        job.name === 'nightly-decay-gc'
       ) {
         await this.queue.removeRepeatableByKey(job.key);
       }
@@ -154,17 +185,23 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       },
     );
 
-    // Nightly recalculation job (updates priorities using learned weights)
+    // Phase 149 D-08/D-09: nightly decay-GC job. Runs GC sweep first, then
+    // delegates to processRecalculation internally (D-09 ordering: clean
+    // patterns before recalc reads them). Replaces legacy 'nightly-recalculation'
+    // — the old name is in the cleanup list above so prior-deploy repeatables
+    // don't double-fire during transition.
     await this.queue.add(
-      'nightly-recalculation',
-      { type: 'recalculation' },
+      'nightly-decay-gc',
+      { type: 'decay-gc' },
       {
         repeat: { pattern: '0 3 * * *' }, // 3 AM daily
-        jobId: 'triage-nightly-recalculation',
+        jobId: 'triage-nightly-decay-gc',
       },
     );
 
-    this.logger.debug('Repeatable jobs configured: hourly backfill + nightly recalculation');
+    this.logger.debug(
+      'Repeatable jobs configured: hourly backfill + nightly decay-GC',
+    );
   }
 
   /**
@@ -344,6 +381,36 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       failed: totalFailed, skipped: totalRecalculated - totalChanged - totalFailed,
       tenantsProcessed: activeTenants.length,
     };
+  }
+
+  /**
+   * Phase 149 D-07/D-09: nightly decay-based GC sweep.
+   *
+   * Plan 04: STUB — delegates to processRecalculation to preserve existing
+   * nightly-recalc behavior during the deploy-transition window.
+   *
+   * Plan 05: replaces this body with the actual two-store sweep:
+   *   (1) Redis `triage:sender-scores:{tenantId}` HGETALL → decay per field →
+   *       HDEL below-0.3 → increment triage_patterns_gc_total{store='redis_sender_scores', tenant_id}
+   *   (2) TriageOverride rows → D-06 recompute-at-GC-time against EmailTriageFeedback
+   *       weighted by weightCorrection(ageDays, { halfLifeDays }) → deleteMany below-0.3
+   *       → increment triage_patterns_gc_total{store='triage_override', tenant_id}
+   * Then delegates to processRecalculation (D-09 GC-then-recalc ordering).
+   * Finally sets triage_decay_last_run_timestamp_seconds to now.
+   */
+  private async processDecayGc(
+    job: Job<BackfillJobData>,
+  ): Promise<BackfillResult> {
+    this.logger.debug(
+      `processDecayGc: Plan 04 stub — delegating to processRecalculation. Plan 05 implements GC sweep. halfLife=${this.halfLifeDays}d`,
+    );
+
+    // Plan 05 placeholder: stamp last-run gauge so alerting works on day 1
+    // even before the sweep is wired. Plan 05 moves this to the end of the
+    // real sweep.
+    this.lastRunGauge?.set(Date.now() / 1000);
+
+    return this.processRecalculation(job);
   }
 
   /** Recalculate triage for a single tenant's stale emails (>24h old, limit 100). */
