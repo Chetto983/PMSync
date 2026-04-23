@@ -5,9 +5,11 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailTriageService } from './email-triage.service';
 import { TriageLearningService } from './triage-learning.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Counter, Gauge } from 'prom-client';
+import type { Redis } from 'ioredis';
 
 interface BackfillJobData {
   type: 'scheduled' | 'manual' | 'recalculation' | 'decay-gc';
@@ -40,12 +42,15 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   private readonly MAX_AGE_HOURS: number;
   /** Phase 149 D-02/D-03: configured decay half-life in days (env TRIAGE_DECAY_HALF_LIFE_DAYS, default 14). */
   private readonly halfLifeDays: number;
+  /** Phase 149 D-04: Redis client for GC sweeps. Lazy-init at onModuleInit. */
+  private redis: Redis | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly triageService: EmailTriageService,
     private readonly configService: ConfigService,
     @Optional() private readonly triageLearningService?: TriageLearningService,
+    @Optional() private readonly redisConnection?: RedisConnectionService,
     @Optional() @InjectMetric('triage_patterns_gc_total')
     private readonly gcCounter?: Counter<string>,
     @Optional() @InjectMetric('triage_decay_half_life_seconds')
@@ -147,6 +152,10 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
 
     // Phase 149 D-11: expose configured half-life as a gauge (seconds — Prometheus base unit).
     this.halfLifeGauge?.set(this.halfLifeDays * 86400);
+
+    // Phase 149 D-04: capture Redis client for GC sweeps. Null if RedisConnectionService
+    // is not provided (test harnesses) — GC body no-ops on the Redis store.
+    this.redis = this.redisConnection?.client ?? null;
 
     // Run immediately on startup (don't wait for first interval)
     this.triggerManualBackfill().catch((err) => {
