@@ -102,6 +102,30 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
       labelNames: ['signal', 'triage_source', 'kind'],
     }),
 
+    // Phase 149 D-11: decay GC audit trail + decay config observability.
+    // Counter: per-delete audit. tenant_id label is acceptable here because GC
+    // events are low-frequency (nightly) — ~50 tenants × 2 stores × 1 run/day
+    // = ≤100 series/day. Bounded.
+    makeCounterProvider({
+      name: 'triage_patterns_gc_total',
+      help: 'Total triage patterns garbage-collected by store × tenant',
+      labelNames: ['store', 'tenant_id'],
+    }),
+    // Gauge: configured half-life in seconds (Prometheus canonical base unit).
+    // Set at module init in TriageBackfillSchedulerService (= halfLifeDays × 86400).
+    makeGaugeProvider({
+      name: 'triage_decay_half_life_seconds',
+      help: 'Configured triage decay half-life in seconds',
+      labelNames: [],
+    }),
+    // Gauge: epoch seconds of last decay-GC pass. Powers alerts on silent job
+    // failures (`now - gauge > 90000` = >25h since last run).
+    makeGaugeProvider({
+      name: 'triage_decay_last_run_timestamp_seconds',
+      help: 'Epoch seconds at end of last triage decay GC pass',
+      labelNames: [],
+    }),
+
     // Phase 46-02: Scheduled queue depth collector
     QueueMetricsCollector,
   ],
@@ -119,6 +143,10 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
     getToken('triage_accuracy_recall'),
     getToken('triage_accuracy_f1'),
     getToken('triage_accuracy_corrections_total'),
+    // Phase 149 D-11 decay metrics
+    getToken('triage_patterns_gc_total'),
+    getToken('triage_decay_half_life_seconds'),
+    getToken('triage_decay_last_run_timestamp_seconds'),
   ],
 })
 export class MetricsModule {}
