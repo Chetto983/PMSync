@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { weightCorrection } from '../utils/triage-correction-weight';
 
 export interface FewShotExample {
   pattern: string;
@@ -10,21 +12,22 @@ export interface FewShotExample {
 
 const LOOKBACK_DAYS = 30;
 const MAX_EXAMPLES = 3;
-const DECAY_HALF_LIFE_DAYS = 14;
 
 /**
  * Returns few-shot examples of how a tenant has corrected AI label
  * suggestions for a given sender. Used by EmailAnalysisService.
  *
- * Decay: count * exp(-ageDays / 14). Phase 149 will unify with
- * the `weightCorrection` helper; Phase 147 intentionally uses
- * exponential decay here while `weightCorrection` is still flat
- * (D-12 divergence note in 147-CONTEXT.md).
+ * Decay: count * weightCorrection(ageDays, { halfLifeDays }). Phase 149 D-01
+ * unifies this service with TriageFeedbackService behind the shared helper —
+ * tuning the half-life is a single TRIAGE_DECAY_HALF_LIFE_DAYS env change.
  */
 @Injectable()
 export class TriageCorrectionService {
   private readonly logger = new Logger(TriageCorrectionService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async getFewShotExamples(
     tenantId: string,
@@ -33,6 +36,17 @@ export class TriageCorrectionService {
     const domain = this.extractDomain(senderFrom);
     const sender = senderFrom?.toLowerCase().trim() ?? '';
     if (!sender) return [];
+
+    // Phase 149 D-01: env-driven half-life (default 14). Clamp floor to 1 day to
+    // prevent divide-by-zero / Infinity blowup if operator sets 0 or negative (T-149-02-01).
+    const rawHalfLife = parseInt(
+      this.configService.get<string>('TRIAGE_DECAY_HALF_LIFE_DAYS', '14'),
+      10,
+    );
+    const halfLifeDays = Math.max(
+      1,
+      Number.isFinite(rawHalfLife) ? rawHalfLife : 14,
+    );
 
     const cutoff = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
@@ -77,7 +91,7 @@ export class TriageCorrectionService {
         0,
         (now - row.createdAt.getTime()) / (24 * 60 * 60 * 1000),
       );
-      const weight = Math.exp(-ageDays / DECAY_HALF_LIFE_DAYS);
+      const weight = weightCorrection(ageDays, { halfLifeDays });
       const existing = bucket.get(target);
       if (existing) {
         existing.count += weight;
