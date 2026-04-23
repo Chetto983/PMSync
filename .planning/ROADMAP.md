@@ -332,15 +332,23 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
 **Plans:** TBD (estimated ~30)
 
 - [x] **Phase 147: Close the Feedback Loop** - Wire triage corrections back into future classifications (shipped 2026-04-20, 5/5 plans, UAT 7/7 PASS @ 10/10)
-- [ ] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time (6 plans, 5 waves, 4/6 complete)
+- [x] **Phase 148: Per-Label Accuracy Profiles** - Track precision/recall per label over time (shipped 2026-04-20, 6/6 plans complete)
   Plans:
   - [x] 148-01-PLAN.md — Prisma models (LabelAccuracyProfile + LabelAccuracySourceBreakdown), Wilson utility, queue + cron registration (shipped 2026-04-20)
   - [x] 148-02-PLAN.md — [BLOCKING] Prisma migration for the two new models (shipped 2026-04-20)
   - [x] 148-03-PLAN.md — LabelAccuracyService (applyDelta / sweepTps / rolloverWindows / read) + AccuracyDelta event contract + BullMQ queue + listener + constructor-sync sweeper handler (shipped 2026-04-20)
   - [x] 148-04-PLAN.md — TriageFeedbackService emits ACCURACY_APPLIED_TOPIC + 3 Prometheus gauges + 1 corrections counter + runSweep gauge-refresh block + 30-day idempotent backfill script (shipped 2026-04-20)
-  - [ ] 148-05-PLAN.md — GET /api/ai/triage/label-accuracy controller with TenantGuard + D-09 response shape + plumbing spec
-  - [ ] 148-06-PLAN.md — Frontend translations + API module + TanStack hook + LabelAccuracyBadge + LabelTreeItem wiring
+  - [x] 148-05-PLAN.md — GET /api/ai/triage/label-accuracy controller with TenantGuard + D-09 response shape + plumbing spec (shipped 2026-04-20)
+  - [x] 148-06-PLAN.md — Frontend translations + API module + TanStack hook + LabelAccuracyBadge + LabelTreeItem wiring (shipped 2026-04-20)
 - [ ] **Phase 149: Temporal Memory Decay** - Replace flat 30-day TTL with exponential decay (14-day half-life)
+  **Plans:** 5 plans
+  Plans:
+  - [ ] 149-01-PLAN.md — weightCorrection helper swap to exponential decay (14-day half-life default, opts bag) + rewrite test suite to property-based invariants
+  - [ ] 149-02-PLAN.md — TriageCorrectionService unification: remove inlined Math.exp / DECAY_HALF_LIFE_DAYS; inject ConfigService; call weightCorrection helper (closes 147 D-12 divergence)
+  - [ ] 149-03-PLAN.md — TriageLearningService time-aware EMA blend using lastUpdated dt-decay (D-02) + Redis TTL becomes halfLifeDays × 4 × 86400 (D-03)
+  - [ ] 149-04-PLAN.md — TriageBackfillScheduler: decay-gc job type + nightly-decay-gc repeatable (0 3 * * *) + 3 Prometheus providers (counter + 2 gauges) + processDecayGc stub
+  - [ ] 149-05-PLAN.md — processDecayGc body: Redis sender-scores HDEL sweep + TriageOverride D-06 recompute-at-GC-time deleteMany + metric emissions + D-09 delegation to processRecalculation
+- [x] **Phase 149.1: Email Triage Incoherence Audit** - Parallel audit of triage inconsistencies across classifier, follow-up, and downstream task/dashboard surfaces; docs-only findings feed Phases 150-156 and any immediate bug-fix follow-up (completed 2026-04-23)
 - [ ] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating
 - [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
 - [ ] **Phase 152: Triage Safety Governance** - SSGM-inspired anti-poisoning, contradiction gates, auto-rollback
