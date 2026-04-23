@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { TriageCorrectionService } from '../triage-correction.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 
@@ -8,6 +9,11 @@ describe('TriageCorrectionService.getFewShotExamples', () => {
     emailTriageFeedback: { findMany: jest.fn() },
     email: { findMany: jest.fn() },
   };
+  const configMock = {
+    // Phase 149 D-01: default to '14' so the service's halfLifeDays resolves to 14
+    // (matches previous inlined DECAY_HALF_LIFE_DAYS = 14 semantics for existing cases).
+    get: jest.fn((_key: string, defaultValue?: string) => defaultValue ?? '14'),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -15,6 +21,7 @@ describe('TriageCorrectionService.getFewShotExamples', () => {
       providers: [
         TriageCorrectionService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
     service = mod.get(TriageCorrectionService);
