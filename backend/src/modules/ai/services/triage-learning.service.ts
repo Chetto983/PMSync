@@ -18,6 +18,7 @@ import {
   OnModuleDestroy,
   Optional,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -157,6 +158,9 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   /** Periodic flush interval handle */
   private flushIntervalHandle: ReturnType<typeof setInterval> | null = null;
 
+  /** Phase 149 D-02 + D-03: env-driven decay half-life (days). Read once at init. */
+  private halfLifeDays: number = 14;
+
   /** Lua script: atomically drain a Redis list (LRANGE + DEL) */
   private readonly DRAIN_SCRIPT = `
     local items = redis.call("LRANGE", KEYS[1], 0, -1)
@@ -168,12 +172,25 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly redisConnection: RedisConnectionService,
+    private readonly configService: ConfigService,
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly consentService?: ConsentEnforcementService,
   ) {}
 
   onModuleInit() {
     this.redis = this.redisConnection.client;
+
+    // Phase 149 D-02: read half-life from env (default 14). Clamp floor to 1 day
+    // to prevent divide-by-zero in blendScores / TTL compute (T-149-03-02).
+    const rawHalfLife = parseInt(
+      this.configService.get<string>('TRIAGE_DECAY_HALF_LIFE_DAYS', '14'),
+      10,
+    );
+    this.halfLifeDays = Math.max(
+      1,
+      Number.isFinite(rawHalfLife) ? rawHalfLife : 14,
+    );
+
     // Start periodic flush interval
     this.flushIntervalHandle = setInterval(() => {
       this.flushAllBuffers().catch((err) => {
@@ -184,7 +201,7 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
     }, FLUSH_INTERVAL_MS);
 
     this.logger.log(
-      `TriageLearningService initialized (flush interval: ${FLUSH_INTERVAL_MS / 1000}s, threshold: ${FLUSH_THRESHOLD} signals)`,
+      `TriageLearningService initialized (flush interval: ${FLUSH_INTERVAL_MS / 1000}s, threshold: ${FLUSH_THRESHOLD} signals, decay half-life: ${this.halfLifeDays}d)`,
     );
   }
 
