@@ -46,7 +46,12 @@ describe('weightCorrection (Phase 149 — exponential decay)', () => {
   });
 
   it('D-12 kill switch: large halfLifeDays keeps weight ~1', () => {
-    // TRIAGE_DECAY_HALF_LIFE_DAYS=9999 rollback switch invariant
-    expect(weightCorrection(30, { halfLifeDays: 9999 })).toBeCloseTo(1, 3);
+    // TRIAGE_DECAY_HALF_LIFE_DAYS=9999 rollback switch invariant.
+    // weightCorrection(30, { halfLifeDays: 9999 }) = exp(-LN2/9999 * 30) ~= 0.99792,
+    // which differs from 1 by ~0.00208. precision=2 (threshold 0.005) expresses
+    // "kill switch keeps weight essentially 1" without false precision.
+    // Deviation from plan body (which specified precision=3): plan's precision
+    // value was off-by-one; the D-12 invariant itself holds.
+    expect(weightCorrection(30, { halfLifeDays: 9999 })).toBeCloseTo(1, 2);
   });
 });
