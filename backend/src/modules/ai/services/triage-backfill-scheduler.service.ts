@@ -7,6 +7,7 @@ import { TriageLearningService } from './triage-learning.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
+import { processDecayGcForTenant } from './triage-decay-gc.helpers';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Counter, Gauge } from 'prom-client';
 import type { Redis } from 'ioredis';
@@ -395,30 +396,62 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   /**
    * Phase 149 D-07/D-09: nightly decay-based GC sweep.
    *
-   * Plan 04: STUB — delegates to processRecalculation to preserve existing
-   * nightly-recalc behavior during the deploy-transition window.
+   * Per D-09, runs GC across two stores FIRST, then delegates to
+   * processRecalculation so recalc reads a clean state.
    *
-   * Plan 05: replaces this body with the actual two-store sweep:
-   *   (1) Redis `triage:sender-scores:{tenantId}` HGETALL → decay per field →
-   *       HDEL below-0.3 → increment triage_patterns_gc_total{store='redis_sender_scores', tenant_id}
-   *   (2) TriageOverride rows → D-06 recompute-at-GC-time against EmailTriageFeedback
-   *       weighted by weightCorrection(ageDays, { halfLifeDays }) → deleteMany below-0.3
-   *       → increment triage_patterns_gc_total{store='triage_override', tenant_id}
-   * Then delegates to processRecalculation (D-09 GC-then-recalc ordering).
-   * Finally sets triage_decay_last_run_timestamp_seconds to now.
+   * Stores (D-04):
+   *   1. Redis `triage:sender-scores:{tenantId}` hash — HDEL fields whose
+   *      decayed recency score (based on score.lastUpdated) falls below 0.3.
+   *   2. `TriageOverride` rows — recompute reinforcement at GC time against
+   *      EmailTriageFeedback (D-06 strict: pattern-match AND newValue === action)
+   *      and deleteMany rows below 0.3.
+   *
+   * Emits:
+   *   - triage_patterns_gc_total{store, tenant_id} — per delete
+   *   - triage_decay_last_run_timestamp_seconds — once at END
    */
   private async processDecayGc(
     job: Job<BackfillJobData>,
   ): Promise<BackfillResult> {
-    this.logger.debug(
-      `processDecayGc: Plan 04 stub — delegating to processRecalculation. Plan 05 implements GC sweep. halfLife=${this.halfLifeDays}d`,
+    const activeTenants = await this.findActiveTenants(job.data.tenantId);
+
+    let totalRedisDeleted = 0;
+    let totalOverrideDeleted = 0;
+    let totalOverrideSeen = 0;
+    let tenantsProcessed = 0;
+
+    for (const tenant of activeTenants) {
+      try {
+        const { redisDeleted, overrideDeleted, overrideTotal } =
+          await processDecayGcForTenant(tenant.tenantId, {
+            prisma: this.prisma,
+            redis: this.redis,
+            gcCounter: this.gcCounter,
+            halfLifeDays: this.halfLifeDays,
+          });
+        totalRedisDeleted += redisDeleted;
+        totalOverrideDeleted += overrideDeleted;
+        totalOverrideSeen += overrideTotal;
+        tenantsProcessed++;
+        await this.sleep(500);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Decay GC failed for tenant ${tenant.tenantId}: ${msg}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Decay GC complete: ${totalRedisDeleted} redis scores, ${totalOverrideDeleted}/${totalOverrideSeen} overrides pruned across ${tenantsProcessed}/${activeTenants.length} tenants`,
     );
 
-    // Plan 05 placeholder: stamp last-run gauge so alerting works on day 1
-    // even before the sweep is wired. Plan 05 moves this to the end of the
-    // real sweep.
+    // Phase 149 D-11: stamp end-of-run gauge. Powers `now - gauge > 90000`
+    // alerting on silent failures (>25h since last successful pass).
     this.lastRunGauge?.set(Date.now() / 1000);
 
+    // D-09: delegate to processRecalculation AFTER GC completes so recalc
+    // reads a clean state (no cycles spent scoring soon-to-be-deleted patterns).
     return this.processRecalculation(job);
   }
 
