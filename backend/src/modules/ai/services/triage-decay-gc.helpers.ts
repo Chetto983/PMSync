@@ -31,6 +31,7 @@ import type { Redis } from 'ioredis';
 import type { Counter } from 'prom-client';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { weightCorrection } from '../utils/triage-correction-weight';
+import { extractDomain as sharedExtractDomain } from '../utils/domain-extraction';
 
 /** Phase 149 D-04: Redis key prefix for sender-score hashes. Mirrors TriageLearningService. */
 export const DECAY_GC_REDIS_KEY_PREFIX = 'triage:sender-scores';
@@ -44,12 +45,15 @@ export const DECAY_GC_LOOKBACK_DAYS = 30;
 /** Phase 150 D-06: affinity edges below this recomputed weighted-sum are hard-deleted. Matches Phase 149 override threshold. */
 export const AFFINITY_EDGE_DECAY_CUTOFF = 0.3;
 
-/** Phase 149: extract domain from "user@host" or "Name <user@host>". Mirrors TriageCorrectionService. */
-export function extractDomain(from: string | null | undefined): string | null {
-  if (!from) return null;
-  const match = from.match(/@([^>\s]+)/);
-  return match ? match[1].toLowerCase().trim() : null;
-}
+/**
+ * Phase 149: extract domain from "user@host" or "Name <user@host>".
+ *
+ * Phase 150.1 WR-04: consolidated with triage-graph-lookup.service.ts into
+ * `../utils/domain-extraction.ts`. Re-exported here so existing callers
+ * (triage-affinity-promotion.helpers.ts + this file's internal usage)
+ * keep working without a wider import rewrite.
+ */
+export const extractDomain = sharedExtractDomain;
 
 export interface DecayGcTenantResult {
   redisDeleted: number;

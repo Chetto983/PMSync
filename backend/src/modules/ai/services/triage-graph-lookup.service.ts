@@ -27,6 +27,9 @@ import { ConfigService } from '@nestjs/config';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Counter } from 'prom-client';
 import { PrismaService } from '../../../prisma/prisma.service';
+// Phase 150.1 WR-04: shared extractDomain — single source of truth for
+// D-04a (NO subdomain collapsing, NO + local-part stripping).
+import { extractDomain } from '../utils/domain-extraction';
 
 export interface GraphLookupResult {
   predictedLabelId: string;
@@ -55,11 +58,12 @@ export class TriageGraphLookupService {
   }
 
   async lookup(tenantId: string, senderEmail: string): Promise<GraphLookupResult | null> {
-    // D-04a: trim + lowercase, NO +-stripping, NO subdomain collapsing.
+    // Phase 150.1 WR-04: extractDomain from the shared utility honors D-04a
+    // (NO subdomain collapsing, NO + local-part stripping) — single source
+    // of truth shared with triage-affinity-promotion.helpers.ts so a future
+    // "helpful" refactor can't silently diverge the two normalization paths.
     const normalized = senderEmail.trim().toLowerCase();
-    const atIdx = normalized.indexOf('@');
-    const domain =
-      atIdx > 0 && atIdx < normalized.length - 1 ? normalized.slice(atIdx + 1) : null;
+    const domain = extractDomain(normalized);
     if (!domain) {
       this.lookupCounter?.inc({
         outcome: 'missed',
