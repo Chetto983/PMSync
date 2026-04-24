@@ -10,8 +10,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ## Current State
 
-**Version:** v12.0 in progress (2026-04-02, Phase 140 complete)
-**Status:** Phase 140 (Email Contextual Sidebar) complete — contact tags display in sidebar, collapse/expand persists via localStorage. CTX-01, CTX-02, CTX-06 verified.
+**Version:** v13.0 in progress (Intelligent Triage & Memory Consolidation)
+**Status:** Phase 150 (Graph-Based Triage Memory) complete (2026-04-24) — GraphEdge carries confidence/validFrom/validUntil; TriageGraphLookupService wired as Layer 2 between override-miss and LLM behind `TRIAGE_GRAPH_CONFIDENCE_CUTOFF=9999` kill switch; nightly BullMQ `affinity-promotion` job precedes decay-gc; GRAPH-01/02/03 verified at code level (SC-4 LLM-reduction ≥20% measurement deferred to Phase 156). Previously shipped in v13.0: 147 (override promotion), 148 (label accuracy), 149 (temporal decay).
 **Previous:** v11.0 shipped (2026-04-01, 10 phases, 18 plans, 16/16 requirements)
 **Previous:** v10.0 shipped (2026-03-30, 13 phases, 49/50 requirements)
 **Known gap:** WRITE-03 (IMAP/SMTP send) — Railway blocks SMTP ports 465/587; code exists and compiles but cannot be live-validated
@@ -340,4 +340,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-01 after v12.0 milestone started*
+*Last updated: 2026-04-24 after Phase 150 (Graph-Based Triage Memory) complete*
