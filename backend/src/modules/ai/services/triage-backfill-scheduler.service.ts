@@ -8,12 +8,18 @@ import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 import { processDecayGcForTenant } from './triage-decay-gc.helpers';
+import { processAffinityPromotionForTenant } from './triage-affinity-promotion.helpers';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Counter, Gauge } from 'prom-client';
 import type { Redis } from 'ioredis';
 
 interface BackfillJobData {
-  type: 'scheduled' | 'manual' | 'recalculation' | 'decay-gc';
+  type:
+    | 'scheduled'
+    | 'manual'
+    | 'recalculation'
+    | 'decay-gc'
+    | 'affinity-promotion'; // Phase 150 D-01
   tenantId?: string; // Optional: specific tenant
   userId?: string; // Optional: specific user
 }
@@ -58,6 +64,11 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     private readonly halfLifeGauge?: Gauge<string>,
     @Optional() @InjectMetric('triage_decay_last_run_timestamp_seconds')
     private readonly lastRunGauge?: Gauge<string>,
+    // Phase 150 D-07a: affinity promotion metrics (Task 4.5 registers providers).
+    @Optional() @InjectMetric('triage_graph_promotion_total')
+    private readonly promotionCounter?: Counter<string>,
+    @Optional() @InjectMetric('triage_graph_edges_active')
+    private readonly activeEdgesGauge?: Gauge<string>,
   ) {
     this.ENABLED =
       (this.configService.get<string>('TRIAGE_BACKFILL_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -114,6 +125,13 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       QUEUE_NAMES.TRIAGE_BACKFILL || 'triage-backfill',
       async (job: Job<BackfillJobData>) => {
         return withoutTenantScopingAsync(async () => {
+          // Phase 150 D-01: affinity-promotion branch. Serial BullMQ
+          // concurrency:1 + setupRepeatableJob enqueue order (promotion BEFORE
+          // decay-gc) ensures fresh edges exist before the nightly decay sweep
+          // runs (Landmine §5).
+          if (job.data.type === 'affinity-promotion') {
+            return this.processAffinityPromotion(job);
+          }
           // Phase 149 D-09: decay-gc branch checked FIRST so the new job type
           // takes precedence; the GC sweep runs before recalc reads patterns.
           if (job.data.type === 'decay-gc') {
@@ -177,7 +195,8 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       if (
         job.name === 'scheduled-triage-backfill' ||
         job.name === 'nightly-recalculation' ||
-        job.name === 'nightly-decay-gc'
+        job.name === 'nightly-decay-gc' ||
+        job.name === 'nightly-affinity-promotion' // Phase 150 D-01
       ) {
         await this.queue.removeRepeatableByKey(job.key);
       }
@@ -195,6 +214,21 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       },
     );
 
+    // Phase 150 D-01 — nightly affinity promotion.
+    // ORDERING NOTE (Landmine §5): enqueued BEFORE decay-gc. BullMQ FIFO
+    // with concurrency:1 guarantees promotion runs first so fresh edges are
+    // visible to the decay sweep (which reads GraphEdge in-flight). If a
+    // future phase reorders these two add() calls, the promotion→decay
+    // invariant breaks. Do not reorder.
+    await this.queue.add(
+      'nightly-affinity-promotion',
+      { type: 'affinity-promotion' },
+      {
+        repeat: { pattern: '0 3 * * *' }, // 3 AM daily
+        jobId: 'triage-nightly-affinity-promotion',
+      },
+    );
+
     // Phase 149 D-08/D-09: nightly decay-GC job. Runs GC sweep first, then
     // delegates to processRecalculation internally (D-09 ordering: clean
     // patterns before recalc reads them). Replaces legacy 'nightly-recalculation'
@@ -209,9 +243,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       },
     );
 
-    this.logger.debug(
-      'Repeatable jobs configured: hourly backfill + nightly decay-GC',
-    );
+    this.logger.debug('Repeatable jobs: hourly backfill + nightly promotion + nightly decay-GC');
   }
 
   /**
@@ -453,6 +485,59 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     // D-09: delegate to processRecalculation AFTER GC completes so recalc
     // reads a clean state (no cycles spent scoring soon-to-be-deleted patterns).
     return this.processRecalculation(job);
+  }
+
+  /**
+   * Phase 150 D-01: nightly affinity-promotion sweep. Mirrors processDecayGc's
+   * per-tenant loop (findActiveTenants + 500ms pacing + per-tenant try/catch);
+   * promotion math lives in triage-affinity-promotion.helpers. Queued BEFORE
+   * decay-gc (Landmine §5) so fresh edges exist when the decay sweep reads.
+   */
+  private async processAffinityPromotion(
+    job: Job<BackfillJobData>,
+  ): Promise<BackfillResult> {
+    const activeTenants = await this.findActiveTenants(job.data.tenantId);
+    const jobTimestamp = new Date();
+    let totalSenders = 0;
+    let totalDomains = 0;
+    let tenantsProcessed = 0;
+
+    for (const tenant of activeTenants) {
+      try {
+        const r = await processAffinityPromotionForTenant(
+          tenant.tenantId,
+          {
+            prisma: this.prisma,
+            promotionCounter: this.promotionCounter,
+            activeEdgesGauge: this.activeEdgesGauge,
+            halfLifeDays: this.halfLifeDays,
+          },
+          job.id ?? 'unknown',
+          jobTimestamp,
+        );
+        totalSenders += r.sendersPromoted + r.sendersUpdated;
+        totalDomains += r.domainsPromoted + r.domainsUpdated;
+        tenantsProcessed++;
+        await this.sleep(500); // same pacing as processDecayGc
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `Affinity promotion failed for tenant ${tenant.tenantId}: ${msg}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Affinity promotion complete: ${totalSenders} sender edges, ${totalDomains} domain edges across ${tenantsProcessed}/${activeTenants.length} tenants`,
+    );
+
+    return {
+      processed: totalSenders + totalDomains,
+      successful: totalSenders + totalDomains,
+      failed: 0,
+      skipped: 0,
+      tenantsProcessed,
+    };
   }
 
   /** Recalculate triage for a single tenant's stale emails (>24h old, limit 100). */
