@@ -82,6 +82,8 @@ import { TriageCorrectionService } from './services/triage-correction.service';
 import { TriagePromotionService } from './services/triage-promotion.service';
 import { TriagePromotionQueueService } from './services/triage-promotion.queue';
 import { TriageOverridesController } from './controllers/triage-overrides.controller';
+// Phase 150 Plan 04: graph-memory read path (Layer 2 of 3-layer triage stack)
+import { TriageGraphLookupService } from './services/triage-graph-lookup.service';
 // Phase 148 Plan 03: label accuracy counter engine + queue + listener
 import { LabelAccuracyService } from './services/label-accuracy.service';
 import { LabelAccuracySweeperService } from './services/label-accuracy.sweeper.service';
@@ -172,6 +174,8 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageCorrectionService,
     TriagePromotionService,
     TriagePromotionQueueService,
+    // Phase 150 Plan 04: graph-memory read path (Open Q5 — provider-only, NOT exported)
+    TriageGraphLookupService,
     // Phase 148 Plan 03: label accuracy counter engine + queue + listener
     LabelAccuracyService,
     LabelAccuracySweeperService,
