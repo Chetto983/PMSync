@@ -19,6 +19,7 @@ import { Redis } from 'ioredis';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
+import { InsightUtilsService } from './insight-utils.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
 import { TriageActionService } from './triage-action.service';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
@@ -133,6 +134,12 @@ export class EmailTriageService implements OnModuleInit {
     // "required parameter cannot follow optional parameter" rule. Nest will
     // fail loudly if ConfigService isn't registered (no silent DI miss).
     private readonly configService: ConfigService,
+    // Phase 150.1 WR-01 fix: direct injection of InsightUtilsService so the
+    // graph short-circuit branch can write the EmailLabel junction rows that
+    // power "emails-in-label" views. The LLM path already calls
+    // linkEmailToUserLabels via email-analysis.service.ts:268; this restores
+    // parity. Mandatory — InsightUtilsService is a provider on AiModule.
+    private readonly insightUtils: InsightUtilsService,
     @Optional() private readonly triageActionService?: TriageActionService,
     @Optional() private readonly crmSuggestionTrigger?: CrmSuggestionTriggerService,
     @Optional() private readonly triageOverrideService?: TriageOverrideService,
@@ -420,6 +427,17 @@ export class EmailTriageService implements OnModuleInit {
                   modelUsed: 'graph',
                 },
               });
+              // Phase 150.1 WR-01 fix: wire the EmailLabel junction table so the
+              // graph-short-circuited email shows up in label views.
+              // LabelsService.getEmailsForLabel (labels.service.ts:749) filters on
+              // emailLabels.some and would otherwise return empty. Parity with the
+              // LLM path at email-analysis.service.ts:268. Callee resolves label
+              // NAMES -> UserLabel.id internally (insight-utils.service.ts:89).
+              await this.insightUtils.linkEmailToUserLabels(
+                tenantId,
+                emailId,
+                [g.predictedLabelName],
+              );
               this.logger.log(
                 `Graph short-circuit: ${g.source} -> ${g.predictedLabelName} (conf=${g.confidence.toFixed(2)}, email=${emailId})`,
               );

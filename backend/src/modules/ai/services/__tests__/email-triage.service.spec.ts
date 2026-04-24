@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EmailTriageService } from '../email-triage.service';
 import { EmailInsightsService } from '../email-insights.service';
+import { InsightUtilsService } from '../insight-utils.service';
 import { TriageActionService } from '../triage-action.service';
 import { TriageOverrideService } from '../triage-override.service';
 // Phase 150 Plan 04: graph-memory Layer 2 mock + ConfigService mock (W-2)
@@ -14,6 +15,9 @@ import { RedisConnectionService } from '../../../../common/services/redis-connec
 describe('EmailTriageService.triageEmail — Phase 147 D-07 override application + Phase 150 Plan 04 graph lookup', () => {
   let service: EmailTriageService;
   let insightsMock: { analyzeEmailUnified: jest.Mock };
+  // Phase 150.1 WR-01: mock InsightUtilsService.linkEmailToUserLabels so the
+  // graph short-circuit assertion can check its invocation without hitting DB.
+  let insightUtilsMock: { linkEmailToUserLabels: jest.Mock };
   let overrideServiceMock: { applyOverrides: jest.Mock };
   let actionServiceMock: { processTriageSignals: jest.Mock };
   // Phase 150 Plan 04 W-2: explicit ConfigService + TriageGraphLookupService mocks.
@@ -30,6 +34,8 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
         EmailTriageService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: EmailInsightsService, useValue: insightsMock },
+        // Phase 150.1 WR-01: InsightUtilsService is mandatory (not @Optional).
+        { provide: InsightUtilsService, useValue: insightUtilsMock },
         { provide: SubscriptionService, useValue: {} },
         { provide: RedisConnectionService, useValue: { client: { eval: jest.fn().mockResolvedValue(1) } } },
         { provide: TriageActionService, useValue: actionServiceMock },
@@ -67,6 +73,7 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
     };
     overrideServiceMock = { applyOverrides: jest.fn().mockResolvedValue({ matched: false }) };
     actionServiceMock = { processTriageSignals: jest.fn().mockResolvedValue(undefined) };
+    insightUtilsMock = { linkEmailToUserLabels: jest.fn().mockResolvedValue(undefined) };
     configMock = {
       get: jest.fn((_key: string, dflt?: string) => dflt ?? '9999'),
     };
@@ -230,7 +237,25 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
         create: expect.objectContaining({ triageSource: 'graph_sender' }),
       }),
     );
+    // Phase 150.1 WR-01: junction-table write fires so label views populate.
+    expect(insightUtilsMock.linkEmailToUserLabels).toHaveBeenCalledWith(
+      't1',
+      'e1',
+      ['Work'],
+    );
     expect(result.success).toBe(true);
     expect(result.aiLabels).toEqual(['Work']);
+  });
+
+  // Phase 150.1 WR-01: negative case — no short-circuit, no junction write.
+  it('does NOT call linkEmailToUserLabels when graph lookup returns no edge', async () => {
+    overrideServiceMock.applyOverrides.mockResolvedValue({ matched: false });
+    graphLookupMock.lookup.mockResolvedValue(null);
+
+    await service.triageEmail('e1', { tenantId: 't1', userId: 'u1' });
+
+    // LLM path still owns the junction write via email-analysis.service.ts;
+    // EmailTriageService must not double-write on the miss path.
+    expect(insightUtilsMock.linkEmailToUserLabels).not.toHaveBeenCalled();
   });
 });
