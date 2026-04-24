@@ -23,6 +23,13 @@ describe('TriageGraphLookupService.lookup', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Plan 04 hygiene fix (Rule 1): jest.clearAllMocks() does NOT reset
+    // mockImplementation, so the cutoff=0.9 set in test 3 was leaking into
+    // test 7 (which expects the default cutoff=9999 behavior). Reset the
+    // configMock.get impl back to the suite default before each test.
+    configMock.get.mockImplementation(
+      (_key: string, defaultValue?: string) => defaultValue ?? '9999',
+    );
     const mod = await Test.createTestingModule({
       providers: [
         TriageGraphLookupService,
