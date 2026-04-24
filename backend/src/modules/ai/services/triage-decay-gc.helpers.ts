@@ -29,9 +29,32 @@
 
 import type { Redis } from 'ioredis';
 import type { Counter } from 'prom-client';
+import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { weightCorrection } from '../utils/triage-correction-weight';
 import { extractDomain as sharedExtractDomain } from '../utils/domain-extraction';
+
+/**
+ * Phase 150.1 IN-03: type-narrowing helper for reading
+ * `GraphEdge.metadata.derivedFromOverrideIds` from a `Prisma.JsonValue`.
+ *
+ * Prisma exposes the metadata column as `Prisma.JsonValue` which unions
+ * null | string | number | boolean | JsonObject | JsonArray. The decay
+ * reader needs a `string[]` — the previous code used a double-`as any`
+ * cast which tripped on corrupt JSON (e.g., metadata stored as a bare
+ * string or an array) and silently threw at the property access.
+ *
+ * This helper returns a defensive empty array in any non-object-shape
+ * situation, honoring the "corrupt edge → weightedSum=0 → delete"
+ * contract at :294-296 without ever throwing.
+ */
+export function readOverrideIds(
+  metadata: Prisma.JsonValue | null | undefined,
+): string[] {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return [];
+  const ids = (metadata as Record<string, unknown>).derivedFromOverrideIds;
+  return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : [];
+}
 
 /** Phase 149 D-04: Redis key prefix for sender-score hashes. Mirrors TriageLearningService. */
 export const DECAY_GC_REDIS_KEY_PREFIX = 'triage:sender-scores';
@@ -325,9 +348,11 @@ export async function processAffinityEdgeDecayForTenant(
   }
 
   // Collect all override IDs referenced by all edges (deduped) for batch fetch.
+  // Phase 150.1 IN-03: type-narrowed via readOverrideIds so corrupt metadata
+  // shapes yield [] instead of throwing at `.derivedFromOverrideIds` lookup.
   const allOverrideIds = new Set<string>();
   for (const e of edges) {
-    const ids = (((e as any).metadata as any)?.derivedFromOverrideIds ?? []) as string[];
+    const ids = readOverrideIds((e as { metadata: Prisma.JsonValue | null }).metadata);
     for (const id of ids) allOverrideIds.add(id);
   }
 
@@ -341,9 +366,9 @@ export async function processAffinityEdgeDecayForTenant(
   // Map id → override for per-edge lookup.
   const overrideById = new Map<string, { pattern: string; action: string }>();
   for (const o of overrides) {
-    overrideById.set((o as any).id, {
-      pattern: ((o as any).pattern ?? '').trim().toLowerCase(),
-      action: (o as any).action,
+    overrideById.set(o.id, {
+      pattern: (o.pattern ?? '').trim().toLowerCase(),
+      action: o.action,
     });
   }
 
@@ -361,9 +386,9 @@ export async function processAffinityEdgeDecayForTenant(
       : [];
 
   // Batch-fetch the emails those feedback rows reference, tenant-scoped.
-  const emailIds = (feedbackRows as any[])
+  const emailIds = feedbackRows
     .map((f) => f.emailId)
-    .filter(Boolean);
+    .filter((id): id is string => Boolean(id));
   const emails =
     emailIds.length > 0
       ? await prisma.email.findMany({
@@ -371,14 +396,14 @@ export async function processAffinityEdgeDecayForTenant(
         })
       : [];
   const emailFromById = new Map<string, string>();
-  for (const e of emails as any[]) {
-    emailFromById.set(e.id, ((e.from ?? '') as string).trim().toLowerCase());
+  for (const e of emails) {
+    emailFromById.set(e.id, (e.from ?? '').trim().toLowerCase());
   }
 
   // Build a (pattern, action) → feedback[] index so per-edge recompute is
   // O(|overrides| * avg_feedback_per_key).
   const evidenceByKey = new Map<string, Array<{ createdAt: Date }>>();
-  for (const fb of feedbackRows as any[]) {
+  for (const fb of feedbackRows) {
     const from = emailFromById.get(fb.emailId);
     if (!from) continue;
     const key = `${from}|${fb.newValue}`;
@@ -387,9 +412,10 @@ export async function processAffinityEdgeDecayForTenant(
   }
 
   const nowMs = now.getTime();
-  for (const edge of edges as any[]) {
-    const overrideIds = ((edge.metadata as any)?.derivedFromOverrideIds ??
-      []) as string[];
+  for (const edge of edges) {
+    // Phase 150.1 IN-03: narrow through the shared helper so corrupt
+    // metadata JSON yields [] (edge aged-out on empty evidence, per :294-296).
+    const overrideIds = readOverrideIds(edge.metadata);
     let weightedSum = 0;
     for (const oid of overrideIds) {
       const ov = overrideById.get(oid);
