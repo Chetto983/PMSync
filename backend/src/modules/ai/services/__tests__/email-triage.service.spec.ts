@@ -243,6 +243,23 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
       'e1',
       ['Work'],
     );
+    // Phase 150.1 WR-02: cross-signals the graph path doesn't know about are
+    // nulled to prevent stale state (re-triage) or internally-inconsistent
+    // row (aiLabels set but aiLane from a prior run). Mirrors muting-override.
+    expect(prismaMock.email.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'e1', tenantId: 't1' },
+        data: expect.objectContaining({
+          aiLabels: ['Work'],
+          aiPriority: null,
+          aiPriorityReason: null,
+          aiSentiment: null,
+          aiCategory: null,
+          aiLane: null,
+          isAutoTriaged: true,
+        }),
+      }),
+    );
     expect(result.success).toBe(true);
     expect(result.aiLabels).toEqual(['Work']);
   });

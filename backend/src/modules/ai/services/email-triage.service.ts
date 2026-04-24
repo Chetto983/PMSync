@@ -408,10 +408,26 @@ export class EmailTriageService implements OnModuleInit {
               // B-8: snake_case lock — Plan 05 Task 2 mirrors these in i18n.
               const triageSource: 'graph_sender' | 'graph_domain' =
                 g.source === 'sender' ? 'graph_sender' : 'graph_domain';
+              // Phase 150.1 WR-02 fix: null the cross-signals the graph path
+              // does NOT know about. Graph short-circuit only predicts a LABEL;
+              // aiPriority / aiLane / aiPriorityReason / aiSentiment / aiCategory
+              // would otherwise survive from a prior LLM run (re-triage case)
+              // or stay null (freshly-arrived case). Mirrors the muting-override
+              // pattern at :327-338 (Phase 147 CR-01) — without this the row is
+              // internally inconsistent (e.g., aiLabels=['Work'] + stale
+              // aiLane='system-alerts' from a previous run). Lane-sort UIs and
+              // "Urgent" filters downstream rely on the invariant that these
+              // fields only hold values produced by the same triage pass that
+              // wrote aiLabels.
               await this.prisma.email.updateMany({
                 where: { id: emailId, tenantId },
                 data: {
                   aiLabels: [g.predictedLabelName],
+                  aiPriority: null,
+                  aiPriorityReason: null,
+                  aiSentiment: null,
+                  aiCategory: null,
+                  aiLane: null,
                   isAutoTriaged: true,
                   autoTriagedAt: now,
                 },
