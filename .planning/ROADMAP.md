@@ -350,6 +350,13 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
   - [x] 149-05-PLAN.md — processDecayGc body: Redis sender-scores HDEL sweep + TriageOverride D-06 recompute-at-GC-time deleteMany + metric emissions + D-09 delegation to processRecalculation (shipped 2026-04-23)
 - [x] **Phase 149.1: Email Triage Incoherence Audit** - Parallel audit of triage inconsistencies across classifier, follow-up, and downstream task/dashboard surfaces; docs-only findings feed Phases 150-156 and any immediate bug-fix follow-up (completed 2026-04-23)
 - [ ] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating
+  **Plans:** 5 plans
+  Plans:
+  - [ ] 150-01-PLAN.md — Wave 0 duplicate scan SQL + 3 RED spec scaffolds (22 it blocks) — Nyquist contract
+  - [ ] 150-02-PLAN.md — Prisma migration (3 nullable columns + 2 indexes) + triage-affinity-promotion.helpers + scheduler nightly dispatch
+  - [ ] 150-03-PLAN.md — Phase 149 decay-gc third-store extension (processAffinityEdgeDecayForTenant) + scheduler wiring
+  - [ ] 150-04-PLAN.md — TriageGraphLookupService + EmailTriageService Layer 2 integration + 3 Prometheus metrics + TRIAGE_GRAPH_CONFIDENCE_CUTOFF env
+  - [ ] 150-05-PLAN.md — LabelsService D-04 mirror sync (5 sites) + Phase 148 i18n graphSender/graphDomain (Landmine §2 + §3)
 - [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
 - [ ] **Phase 152: Triage Safety Governance** - SSGM-inspired anti-poisoning, contradiction gates, auto-rollback
 - [ ] **Phase 153: Label Creation Hardening** - Semantic overlap detection, mutual exclusivity enforcement, label merge
