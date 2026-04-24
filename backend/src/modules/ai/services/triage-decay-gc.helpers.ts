@@ -41,6 +41,9 @@ export const DECAY_GC_CONFIDENCE_THRESHOLD = 0.3;
 /** Phase 149 D-06: lookback for recomputing TriageOverride reinforcement from EmailTriageFeedback. */
 export const DECAY_GC_LOOKBACK_DAYS = 30;
 
+/** Phase 150 D-06: affinity edges below this recomputed weighted-sum are hard-deleted. Matches Phase 149 override threshold. */
+export const AFFINITY_EDGE_DECAY_CUTOFF = 0.3;
+
 /** Phase 149: extract domain from "user@host" or "Name <user@host>". Mirrors TriageCorrectionService. */
 export function extractDomain(from: string | null | undefined): string | null {
   if (!from) return null;
@@ -267,4 +270,145 @@ export async function recomputeOverrideConfidence(
   }
 
   return weightedCount;
+}
+
+export interface GraphEdgeDecayResult {
+  graphEdgeDeleted: number;
+}
+
+/**
+ * Phase 150 D-06: third decay-gc store. Sweeps affinity edges whose
+ * recomputed weighted-sum confidence drops below AFFINITY_EDGE_DECAY_CUTOFF.
+ *
+ * Called AFTER processDecayGcForTenant's Redis + TriageOverride sweeps so
+ * recomputed override weights drive affinity-edge confidence recomputation
+ * (Phase 149 D-09 ordering invariant extended).
+ *
+ * B-2 contract: EmailTriageFeedback has NO `overrideId` column. Recompute
+ * walks `edge.metadata.derivedFromOverrideIds` → `TriageOverride.findMany`
+ * (tenant-scoped) → matches feedback by `(override.pattern, override.action)`
+ * via `email.from` + `feedback.newValue`. Same matching logic used by
+ * Plan 02 Task 3 promotion — if the writer promoted the edge, this reader
+ * will find the same evidence.
+ *
+ * Defensive semantics:
+ *   - Edge with empty/missing `metadata.derivedFromOverrideIds` → weightedSum = 0 → delete
+ *     (no traceable evidence → stale by construction).
+ *   - Edge referencing overrides that no longer exist (Phase 149 TriageOverride
+ *     sweep ran first and deleted them) → findMany returns fewer rows → the
+ *     missing overrides contribute 0 to weightedSum → may push edge below cutoff.
+ *
+ * Multi-tenant invariant: every Prisma call includes `tenantId` in `where`.
+ */
+export async function processAffinityEdgeDecayForTenant(
+  tenantId: string,
+  deps: DecayGcDeps,
+): Promise<GraphEdgeDecayResult> {
+  const { prisma, gcCounter, halfLifeDays } = deps;
+  const now = new Date();
+  let deleted = 0;
+
+  const edges = await prisma.graphEdge.findMany({
+    where: {
+      tenantId,
+      edgeType: { in: ['SENDER_LABEL_AFFINITY', 'DOMAIN_LABEL_AFFINITY'] },
+      OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+    },
+  });
+
+  if (edges.length === 0) {
+    return { graphEdgeDeleted: 0 };
+  }
+
+  // Collect all override IDs referenced by all edges (deduped) for batch fetch.
+  const allOverrideIds = new Set<string>();
+  for (const e of edges) {
+    const ids = (((e as any).metadata as any)?.derivedFromOverrideIds ?? []) as string[];
+    for (const id of ids) allOverrideIds.add(id);
+  }
+
+  // Batch-fetch the referenced overrides (tenant-scoped).
+  const overrides =
+    allOverrideIds.size > 0
+      ? await prisma.triageOverride.findMany({
+          where: { tenantId, id: { in: Array.from(allOverrideIds) } },
+        })
+      : [];
+  // Map id → override for per-edge lookup.
+  const overrideById = new Map<string, { pattern: string; action: string }>();
+  for (const o of overrides) {
+    overrideById.set((o as any).id, {
+      pattern: ((o as any).pattern ?? '').trim().toLowerCase(),
+      action: (o as any).action,
+    });
+  }
+
+  // Derive distinct action values needed for feedback filtering.
+  const actionsOfInterest = new Set<string>();
+  for (const o of overrideById.values()) actionsOfInterest.add(o.action);
+
+  // Batch-fetch candidate feedback rows (tenant-scoped). If no overrides survived,
+  // there is nothing to recompute — every edge falls to zero-weight and is deleted.
+  const feedbackRows =
+    actionsOfInterest.size > 0
+      ? await prisma.emailTriageFeedback.findMany({
+          where: { tenantId, newValue: { in: Array.from(actionsOfInterest) } },
+        })
+      : [];
+
+  // Batch-fetch the emails those feedback rows reference, tenant-scoped.
+  const emailIds = (feedbackRows as any[])
+    .map((f) => f.emailId)
+    .filter(Boolean);
+  const emails =
+    emailIds.length > 0
+      ? await prisma.email.findMany({
+          where: { tenantId, id: { in: emailIds } },
+        })
+      : [];
+  const emailFromById = new Map<string, string>();
+  for (const e of emails as any[]) {
+    emailFromById.set(e.id, ((e.from ?? '') as string).trim().toLowerCase());
+  }
+
+  // Build a (pattern, action) → feedback[] index so per-edge recompute is
+  // O(|overrides| * avg_feedback_per_key).
+  const evidenceByKey = new Map<string, Array<{ createdAt: Date }>>();
+  for (const fb of feedbackRows as any[]) {
+    const from = emailFromById.get(fb.emailId);
+    if (!from) continue;
+    const key = `${from}|${fb.newValue}`;
+    if (!evidenceByKey.has(key)) evidenceByKey.set(key, []);
+    evidenceByKey.get(key)!.push({ createdAt: fb.createdAt });
+  }
+
+  const nowMs = now.getTime();
+  for (const edge of edges as any[]) {
+    const overrideIds = ((edge.metadata as any)?.derivedFromOverrideIds ??
+      []) as string[];
+    let weightedSum = 0;
+    for (const oid of overrideIds) {
+      const ov = overrideById.get(oid);
+      if (!ov) continue; // override no longer exists — contributes 0
+      const key = `${ov.pattern}|${ov.action}`;
+      const rows = evidenceByKey.get(key) ?? [];
+      for (const r of rows) {
+        const ageDays = Math.max(
+          0,
+          (nowMs - r.createdAt.getTime()) / 86_400_000,
+        );
+        weightedSum += weightCorrection(ageDays, { halfLifeDays });
+      }
+    }
+
+    if (weightedSum < AFFINITY_EDGE_DECAY_CUTOFF) {
+      await prisma.graphEdge.deleteMany({
+        where: { tenantId, id: edge.id },
+      });
+      gcCounter?.inc({ store: 'graph_edge', tenant_id: tenantId });
+      deleted += 1;
+    }
+  }
+
+  return { graphEdgeDeleted: deleted };
 }
