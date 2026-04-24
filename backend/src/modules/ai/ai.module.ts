@@ -174,7 +174,24 @@ import { SuggestionModule } from '../crm/suggestion/suggestion.module';
     TriageCorrectionService,
     TriagePromotionService,
     TriagePromotionQueueService,
-    // Phase 150 Plan 04: graph-memory read path (Open Q5 — provider-only, NOT exported)
+    /**
+     * Phase 150 Plan 04 — graph-memory read path.
+     *
+     * DO NOT EXPORT — read-path internal to EmailTriageService.
+     *
+     * Rationale (Open Q5, locked 2026-04-24): this service is the Layer 2
+     * lookup between override application and LLM analysis. It has a single
+     * legitimate caller — EmailTriageService.triageEmail — and exposing it
+     * to other modules would let callers bypass the override-first precedence
+     * or the TRIAGE_GRAPH_CONFIDENCE_CUTOFF kill switch. If a future module
+     * needs the graph-memory lookup, factor its invariants into a purpose-
+     * built facade instead of re-exporting this service verbatim.
+     *
+     * A future "tidy up provider/export alignment" PR that routes this
+     * provider into the exports[] array below MUST trip code review —
+     * this comment + the absence of TriageGraphLookupService from exports[]
+     * are the only guardrails. No ESLint rule currently enforces it.
+     */
     TriageGraphLookupService,
     // Phase 148 Plan 03: label accuracy counter engine + queue + listener
     LabelAccuracyService,
