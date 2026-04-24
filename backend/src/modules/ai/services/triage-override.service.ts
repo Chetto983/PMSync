@@ -156,7 +156,7 @@ export class TriageOverrideService {
   }
 }
 
-function extractEmail(from: string): string | null {
+export function extractEmail(from: string): string | null {
   const match = from.match(/<([^>]+)>/);
   if (match) return match[1].toLowerCase();
   if (from.includes('@')) return from.toLowerCase().trim();
