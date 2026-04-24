@@ -1,5 +1,10 @@
 #!/bin/sh
-# Pre-commit hook for MailAgent
+# Pre-commit hook for PMSync
 
-# Run type-check to ensure no TypeScript errors
+# Migration safety check — blocks destructive SQL in new Prisma migrations
+# unless the migration declares `-- ALLOW-DESTRUCTIVE: <reason>`.
+# Runs first so destructive migrations fail fast before the longer type-check.
+node backend/scripts/check-migration-safety.js --staged || exit 1
+
+# Type-check the backend to prevent TypeScript regressions landing on main.
 cd backend && npm run type-check
