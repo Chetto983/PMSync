@@ -292,6 +292,9 @@ describe('LabelsService triage onboarding', () => {
   });
 
   it('creates a nested wizard label and invalidates analysis cache', async () => {
+    // Phase 150.1 WR-03: upsertLabelNode helper opens a $transaction —
+    // mock must expose one that passes through the callback with the tx
+    // primitives upsertLabelNode uses ($queryRaw, graphNode.create/update).
     const prisma = {
       emailAnalysis: {
         updateMany: jest.fn().mockResolvedValue({ count: 3 }),
@@ -310,6 +313,16 @@ describe('LabelsService triage onboarding', () => {
           _count: { emailLabels: 0 },
         })),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          $queryRaw: jest.fn().mockResolvedValue([]),
+          graphNode: {
+            create: jest.fn().mockResolvedValue({ id: 'gn-child-1' }),
+            update: jest.fn().mockResolvedValue({ id: 'gn-child-1' }),
+          },
+        };
+        return fn(tx);
+      }),
     };
 
     const service = new LabelsService(

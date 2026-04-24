@@ -65,14 +65,21 @@ export class LabelsService {
    * `triage-affinity-promotion.helpers.ts`, re-implemented locally because that
    * helper is non-exported and importing it from ai/ is unnecessary for a 20-LF
    * seam (keeps labels.service independent of ai-module internals).
+   *
+   * Phase 150.1 WR-03: accepts optional `tx: Prisma.TransactionClient` so
+   * callers can run the UserLabel write + mirror upsert + any downstream
+   * cleanup under a single atomic transaction. When `tx` is omitted, opens
+   * its own short-lived $transaction (legacy path, preserved for direct
+   * callers that don't need outer atomicity).
    */
   private async upsertLabelNode(
     tenantId: string,
     labelId: string,
     labelName: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.$queryRaw<Array<{ id: string }>>`
+    const run = async (client: Prisma.TransactionClient) => {
+      const existing = await client.$queryRaw<Array<{ id: string }>>`
         SELECT id FROM graph_nodes
         WHERE "tenantId" = ${tenantId}
           AND "nodeType" = 'label'
@@ -81,12 +88,12 @@ export class LabelsService {
         LIMIT 1
       `;
       if (existing.length > 0) {
-        await tx.graphNode.update({
+        await client.graphNode.update({
           where: { id: existing[0].id },
           data: { label: labelName },
         });
       } else {
-        await tx.graphNode.create({
+        await client.graphNode.create({
           data: {
             tenantId,
             nodeType: 'label',
@@ -95,7 +102,12 @@ export class LabelsService {
           },
         });
       }
-    });
+    };
+    if (tx) {
+      await run(tx);
+    } else {
+      await this.prisma.$transaction(run);
+    }
   }
 
   async findAllByTenant(tenantId: string) {
@@ -221,32 +233,42 @@ export class LabelsService {
       _max: { orderIndex: true },
     });
 
-    const newLabel = await this.prisma.userLabel.create({
-      data: {
-        tenantId,
-        name: dto.name,
-        slug,
-        color: dto.color
-          ? ({ ...dto.color } as Prisma.InputJsonValue)
-          : undefined,
-        icon: dto.icon,
-        aiPrompt: dto.aiPrompt ?? null,
-        parentId: dto.parentId ?? null,
-        level,
-        orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
-        type: 'USER',
-      },
-      include: {
-        children: {
-          where: { isArchived: false },
-          orderBy: { orderIndex: 'asc' },
+    // Phase 150.1 WR-03: wrap userLabel.create + mirror GraphNode upsert in
+    // a single $transaction so a failure between the two can't leave the
+    // user with a label that lacks a mirror (though the promotion service's
+    // find-or-create self-heals, atomicity is cleaner + matches delete/bulkDelete).
+    const newLabel = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.userLabel.create({
+        data: {
+          tenantId,
+          name: dto.name,
+          slug,
+          color: dto.color
+            ? ({ ...dto.color } as Prisma.InputJsonValue)
+            : undefined,
+          icon: dto.icon,
+          aiPrompt: dto.aiPrompt ?? null,
+          parentId: dto.parentId ?? null,
+          level,
+          orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
+          type: 'USER',
         },
-        _count: { select: { emailLabels: true } },
-      },
-    });
+        include: {
+          children: {
+            where: { isArchived: false },
+            orderBy: { orderIndex: 'asc' },
+          },
+          _count: { select: { emailLabels: true } },
+        },
+      });
 
-    // Phase 150 D-04: mirror GraphNode for affinity-edge targeting.
-    await this.upsertLabelNode(tenantId, newLabel.id, newLabel.name);
+      // Phase 150 D-04 (+ WR-03 atomicity): mirror GraphNode for affinity-edge
+      // targeting, same tx client — serializes with the $queryRaw SELECT FOR
+      // UPDATE inside upsertLabelNode so concurrent creators don't race.
+      await this.upsertLabelNode(tenantId, created.id, created.name, tx);
+
+      return created;
+    });
 
     // Emit WebSocket event for new label
     this.realtimeEvents.emitLabelNew(tenantId, {
@@ -488,25 +510,36 @@ export class LabelsService {
     // Append timestamp to slug to free it up for future labels
     const deletedSlug = `${label.slug}-deleted-${Date.now()}`;
 
-    await this.prisma.userLabel.update({
-      where: { id },
-      data: {
-        isArchived: true,
-        slug: deletedSlug,
-      },
-    });
+    // Phase 150.1 WR-03: wrap the soft-delete + descendant archival + mirror
+    // hard-delete in a single $transaction. Before this, a crash between the
+    // userLabel.update and the graphNode.deleteMany would leave the label
+    // soft-deleted but the mirror + its affinity edges alive — graph-lookup
+    // would return "Learned pattern" for a label the user deleted an hour
+    // ago, and the decay-gc sweep doesn't reap orphans (it prunes by
+    // confidence, not by orphan-detection). Under a single $transaction,
+    // either all three writes commit together or all roll back.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userLabel.update({
+        where: { id },
+        data: {
+          isArchived: true,
+          slug: deletedSlug,
+        },
+      });
 
-    // Cascade soft-delete to all descendants
-    await this.archiveDescendants(tenantId, id);
+      // Cascade soft-delete to all descendants, same tx.
+      await this.archiveDescendants(tenantId, id, tx);
 
-    // Phase 150 D-04 + Landmine §2: explicit GraphNode hard-delete.
-    // UserLabel is soft-deleted (isArchived=true) so GraphEdge's onDelete:Cascade
-    // only fires when we HARD-delete the mirror node. Cascade then drops affinity
-    // edges automatically (GraphEdge FKs: source/target → GraphNode, onDelete:Cascade).
-    // GDPR: the mirror carries no user data beyond the labelName (which persists on the
-    // soft-deleted UserLabel), so hard-deletion here is non-destructive for compliance.
-    await this.prisma.graphNode.deleteMany({
-      where: { tenantId, nodeType: 'label', externalId: id },
+      // Phase 150 D-04 + Landmine §2: explicit GraphNode hard-delete.
+      // UserLabel is soft-deleted (isArchived=true) so GraphEdge's
+      // onDelete:Cascade only fires when we HARD-delete the mirror node.
+      // Cascade then drops affinity edges automatically (GraphEdge FKs:
+      // source/target → GraphNode, onDelete:Cascade). GDPR: the mirror carries
+      // no user data beyond the labelName (which persists on the
+      // soft-deleted UserLabel), so hard-deletion here is non-destructive.
+      await tx.graphNode.deleteMany({
+        where: { tenantId, nodeType: 'label', externalId: id },
+      });
     });
 
     // Emit WebSocket event for deleted label
@@ -538,57 +571,65 @@ export class LabelsService {
     if (validIds.length === 0) return { deleted: 0 };
 
     const now = Date.now();
-    // Phase 150 D-04: collect descendant ids across tx boundary so the post-
-    // transaction GraphNode cleanup can hard-delete them alongside validIds.
-    let descendantIds: string[] = [];
 
-    await this.prisma.$transaction(async (tx) => {
-      // Soft-delete all matching labels
-      await tx.userLabel.updateMany({
-        where: { id: { in: validIds } },
-        data: { isArchived: true },
-      });
-
-      // Append timestamp to slugs to free them up (individually to avoid collision)
-      for (const label of labels) {
-        await tx.userLabel.update({
-          where: { id: label.id },
-          data: { slug: `${label.slug}-deleted-${now}` },
-        });
-      }
-
-      // Also archive all descendants of deleted labels
-      const descendants = await tx.userLabel.findMany({
-        where: { tenantId, parentId: { in: validIds }, isArchived: false },
-        select: { id: true, slug: true },
-      });
-      if (descendants.length > 0) {
-        descendantIds = descendants.map((d) => d.id);
+    // Phase 150.1 WR-03: fold the mirror GraphNode hard-delete INTO the same
+    // $transaction as the userLabel soft-deletes. Prior code committed the
+    // userLabel updates first, then issued a post-transaction graphNode.delete
+    // Many — a crash between the two left every bulk-deleted label's mirror
+    // + affinity edges alive. Now the whole bulk operation is atomic.
+    // Explicit 10s timeout to accommodate large bulk deletes (default is 5s,
+    // insufficient for tenants with thousands of descendant labels).
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Soft-delete all matching labels
         await tx.userLabel.updateMany({
-          where: { id: { in: descendantIds } },
+          where: { id: { in: validIds } },
           data: { isArchived: true },
         });
-        for (const desc of descendants) {
+
+        // Append timestamp to slugs to free them up (individually to avoid collision)
+        for (const label of labels) {
           await tx.userLabel.update({
-            where: { id: desc.id },
-            data: { slug: `${desc.slug}-deleted-${now}` },
+            where: { id: label.id },
+            data: { slug: `${label.slug}-deleted-${now}` },
           });
         }
-      }
-    });
 
-    // Phase 150 D-04 + Landmine §2: hard-delete mirror GraphNodes for every
-    // soft-deleted label (self + descendants). Fires GraphEdge onDelete:Cascade.
-    const allDeletedIds = [...validIds, ...descendantIds];
-    if (allDeletedIds.length > 0) {
-      await this.prisma.graphNode.deleteMany({
-        where: {
-          tenantId,
-          nodeType: 'label',
-          externalId: { in: allDeletedIds },
-        },
-      });
-    }
+        // Also archive all descendants of deleted labels
+        const descendants = await tx.userLabel.findMany({
+          where: { tenantId, parentId: { in: validIds }, isArchived: false },
+          select: { id: true, slug: true },
+        });
+        const descendantIds = descendants.map((d) => d.id);
+        if (descendants.length > 0) {
+          await tx.userLabel.updateMany({
+            where: { id: { in: descendantIds } },
+            data: { isArchived: true },
+          });
+          for (const desc of descendants) {
+            await tx.userLabel.update({
+              where: { id: desc.id },
+              data: { slug: `${desc.slug}-deleted-${now}` },
+            });
+          }
+        }
+
+        // Phase 150 D-04 + Landmine §2 (WR-03 atomic): hard-delete mirror
+        // GraphNodes for every soft-deleted label (self + descendants) in
+        // the same tx. Fires GraphEdge onDelete:Cascade on commit.
+        const allDeletedIds = [...validIds, ...descendantIds];
+        if (allDeletedIds.length > 0) {
+          await tx.graphNode.deleteMany({
+            where: {
+              tenantId,
+              nodeType: 'label',
+              externalId: { in: allDeletedIds },
+            },
+          });
+        }
+      },
+      { timeout: 10_000 },
+    );
 
     // Emit WS events
     for (const id of validIds) {
@@ -848,12 +889,22 @@ export class LabelsService {
    * affinity edges pointing at the removed label. Done per-child rather
    * than as a single deleteMany at the end because the recursion already
    * enumerates every descendant individually.
+   *
+   * Phase 150.1 WR-03: accepts optional `tx: Prisma.TransactionClient` so
+   * the recursive soft-delete + mirror hard-delete run under the same
+   * atomic boundary as the parent's `delete()` call. On process crash
+   * between the userLabel.update and the graphNode.deleteMany, the whole
+   * chain rolls back — no orphaned mirrors escape cascade-deletion.
+   * When `tx` is omitted, falls back to the direct `this.prisma` client
+   * (legacy behavior).
    */
   private async archiveDescendants(
     tenantId: string,
     parentId: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    const children = await this.prisma.userLabel.findMany({
+    const client: Prisma.TransactionClient | PrismaService = tx ?? this.prisma;
+    const children = await client.userLabel.findMany({
       where: { tenantId, parentId, isArchived: false },
       select: { id: true, slug: true },
     });
@@ -863,18 +914,18 @@ export class LabelsService {
     const childIds = children.map((c) => c.id);
 
     for (const child of children) {
-      await this.prisma.userLabel.update({
+      await client.userLabel.update({
         where: { id: child.id },
         data: {
           isArchived: true,
           slug: `${child.slug}-deleted-${Date.now()}`,
         },
       });
-      await this.archiveDescendants(tenantId, child.id);
+      await this.archiveDescendants(tenantId, child.id, tx);
     }
 
     // Hard-delete mirrors for this batch of children in a single call.
-    await this.prisma.graphNode.deleteMany({
+    await client.graphNode.deleteMany({
       where: {
         tenantId,
         nodeType: 'label',

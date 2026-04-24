@@ -20,6 +20,17 @@ describe('LabelsService cache invalidation', () => {
   });
 
   it('expires tenant email analyses after creating a label', async () => {
+    // Phase 150.1 WR-03: create() now runs inside a $transaction. Mock passes
+    // through the tx callback with a client that mirrors userLabel.create +
+    // the SELECT-FOR-UPDATE/graphNode.create pattern from upsertLabelNode.
+    const createdLabel = {
+      id: 'label-1',
+      tenantId: 'tenant-1',
+      name: 'CI Incident',
+      slug: 'ci-incident',
+      children: [],
+      _count: { emailLabels: 0 },
+    };
     const prisma = {
       emailAnalysis: {
         updateMany: jest.fn().mockResolvedValue({ count: 7 }),
@@ -27,15 +38,20 @@ describe('LabelsService cache invalidation', () => {
       userLabel: {
         findUnique: jest.fn().mockResolvedValue(null),
         aggregate: jest.fn().mockResolvedValue({ _max: { orderIndex: 2 } }),
-        create: jest.fn().mockResolvedValue({
-          id: 'label-1',
-          tenantId: 'tenant-1',
-          name: 'CI Incident',
-          slug: 'ci-incident',
-          children: [],
-          _count: { emailLabels: 0 },
-        }),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          userLabel: {
+            create: jest.fn().mockResolvedValue(createdLabel),
+          },
+          graphNode: {
+            create: jest.fn().mockResolvedValue({ id: 'gn-1' }),
+            update: jest.fn().mockResolvedValue({ id: 'gn-1' }),
+          },
+          $queryRaw: jest.fn().mockResolvedValue([]),
+        };
+        return fn(tx);
+      }),
     };
 
     const service = new LabelsService(
@@ -104,6 +120,7 @@ describe('LabelsService cache invalidation', () => {
   });
 
   it('expires tenant email analyses after deleting a label', async () => {
+    // Phase 150.1 WR-03: delete() now runs inside a $transaction.
     const prisma = {
       emailAnalysis: {
         updateMany: jest.fn().mockResolvedValue({ count: 4 }),
@@ -116,9 +133,20 @@ describe('LabelsService cache invalidation', () => {
           children: [],
           _count: { emailLabels: 0 },
         }),
-        update: jest.fn().mockResolvedValue(undefined),
-        findMany: jest.fn().mockResolvedValue([]),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          userLabel: {
+            update: jest.fn().mockResolvedValue(undefined),
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+          graphNode: {
+            deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          $queryRaw: jest.fn().mockResolvedValue([]),
+        };
+        return fn(tx);
+      }),
     };
 
     const service = new LabelsService(
