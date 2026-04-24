@@ -354,7 +354,7 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
   Plans:
   - [x] 150-01-PLAN.md — Wave 0 duplicate scan SQL + 3 RED spec scaffolds (22 it blocks) — Nyquist contract (shipped 2026-04-24)
   - [x] 150-02-PLAN.md — Prisma migration (3 nullable columns + 2 indexes) + triage-affinity-promotion.helpers (Option B, 7/7 spec GREEN) + scheduler nightly dispatch before decay-gc (Landmine §5) + 3 MetricsModule providers (shipped 2026-04-24)
-  - [ ] 150-03-PLAN.md — Phase 149 decay-gc third-store extension (processAffinityEdgeDecayForTenant) + scheduler wiring
+  - [x] 150-03-PLAN.md — Phase 149 decay-gc third-store extension (processAffinityEdgeDecayForTenant) + scheduler wiring (shipped 2026-04-24)
   - [ ] 150-04-PLAN.md — TriageGraphLookupService + EmailTriageService Layer 2 integration + 3 Prometheus metrics + TRIAGE_GRAPH_CONFIDENCE_CUTOFF env
   - [ ] 150-05-PLAN.md — LabelsService D-04 mirror sync (5 sites) + Phase 148 i18n graphSender/graphDomain (Landmine §2 + §3)
 - [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
