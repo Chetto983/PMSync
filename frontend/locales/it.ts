@@ -1312,6 +1312,11 @@ export const it: AppTranslations = {
           llm: 'Modello AI',
           rule: 'Regola',
           llmRule: 'AI + Regola',
+          // Phase 150 B-8: snake_case matches triageSource emit verbatim so
+          // t.email.labels.accuracy.source[triageSource] lookups resolve without
+          // a mapping layer. Do not convert to camelCase.
+          graph_sender: 'Pattern appreso (mittente)',
+          graph_domain: 'Pattern appreso (dominio)',
         },
       },
       errors: {

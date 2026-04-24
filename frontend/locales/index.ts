@@ -1225,6 +1225,9 @@ export interface AppTranslations {
           llm: string;
           rule: string;
           llmRule: string;
+          // Phase 150 B-8: snake_case keys matching Plan 04 triageSource emit.
+          graph_sender: string;
+          graph_domain: string;
         };
       };
       errors: {
