@@ -349,7 +349,7 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
   - [x] 149-04-PLAN.md — TriageBackfillScheduler: decay-gc job type + nightly-decay-gc repeatable (0 3 * * *) + 3 Prometheus providers (counter + 2 gauges) + processDecayGc stub (shipped 2026-04-23)
   - [x] 149-05-PLAN.md — processDecayGc body: Redis sender-scores HDEL sweep + TriageOverride D-06 recompute-at-GC-time deleteMany + metric emissions + D-09 delegation to processRecalculation (shipped 2026-04-23)
 - [x] **Phase 149.1: Email Triage Incoherence Audit** - Parallel audit of triage inconsistencies across classifier, follow-up, and downstream task/dashboard surfaces; docs-only findings feed Phases 150-156 and any immediate bug-fix follow-up (completed 2026-04-23)
-- [x] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating + 150.1 gap closure (code shipped 2026-04-24 + 4 warnings + 3 info review findings closed 2026-04-24; Railway debug pending final redeploy verification)
+- [x] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating + 150.1 gap closure — shipped + Railway verified green 2026-04-24 (commit bf832c11; 4 warnings + 3 info review findings closed; inert behind TRIAGE_GRAPH_CONFIDENCE_CUTOFF=9999 kill switch)
   **Plans:** 5 plans
   Plans:
   - [x] 150-01-PLAN.md — Wave 0 duplicate scan SQL + 3 RED spec scaffolds (22 it blocks) — Nyquist contract (shipped 2026-04-24)
