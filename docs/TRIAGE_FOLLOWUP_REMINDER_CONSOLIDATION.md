@@ -1,5 +1,11 @@
 # Triage + Follow-Up + Reminder Consolidation Roadmap
 
+> Historical design note. The core follow-up plumbing is now partially live:
+> `TriageActionService` creates `EmailFollowUp` records after live triage,
+> `FollowUpDetectionService` is fenced to a backfill role for un-triaged emails with no existing follow-up,
+> and `ReminderSchedulerService` exists for due-date notifications.
+> Treat the "Current State" section below as an outdated baseline, not current architecture truth.
+
 > **Goal**: Unify auto-triage detection, follow-up tracking, and reminder creation into a single cohesive pipeline. Zero additional LLM calls for the happy path.
 
 ## Current State (As-Is)
@@ -10,28 +16,28 @@ EmailTriageService.triageEmail()
        ├─ Saves EmailAnalysis (hasDeadline, deadlineDate, needsFollowUp)
        ├─ Updates Email (aiPriority, aiLabels, isAutoTriaged)
        └─ Links user labels
-       ❌ Does NOT create EmailFollowUp records
+       ✅ TriageActionService now creates/upserts EmailFollowUp records from live triage output
        ❌ Does NOT create reminders/calendar events
 
 FollowUpDetectionService.detectFollowUps()  ← SEPARATE Mistral call (redundant)
   └─ Batch LLM analysis of recent emails
-     ❌ Results are returned but never persisted to EmailFollowUp
+     ✅ Backfill results are now persisted to EmailFollowUp for un-triaged emails without an existing follow-up
 
 EmailFollowUp model exists with:
   - dueDate, status, followUpType, commitments, waitingFor, actionItems
   - detectedDeadline, deadlineSource
-  ❌ No service creates these records from triage output
+  ✅ Live triage and guarded backfill both create these records
 
 BriefingService reads EmailFollowUp for daily briefings
 AiController exposes GET /ai/follow-ups and GET /ai/deadlines
-  ❌ Both return empty because nothing creates follow-ups
+  ✅ These endpoints can return live data because follow-ups are now created upstream
 ```
 
 **Key problems:**
-1. Triage detects deadlines/follow-ups but discards the signals
+1. Passive-notification suppression is still too weak in the live triage → follow-up path
 2. `FollowUpDetectionService` duplicates work with a second LLM call
-3. No reminder mechanism exists (no calendar events, no notifications)
-4. Follow-up API endpoints exist but return nothing
+3. Reminder scheduling exists, but it is less mature than the follow-up creation path
+4. The old "follow-up endpoints are empty" assumption is stale and should not drive new planning
 
 ---
 

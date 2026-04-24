@@ -14,6 +14,12 @@ import { FollowUpStatus, FollowUpType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 
+const PASSIVE_ROLE_ACCOUNT_PATTERN = /\b(?:no-?reply|notifications?|updates?)@/i;
+const PASSIVE_SUBJECT_PATTERN =
+  /\b(?:release notes|changelog|newsletter|digest|weekly activity|product update|announcements?)\b/i;
+const ACTIONABLE_SUBJECT_PATTERN =
+  /\b(?:failed|failure|incident|outage|degraded|rollback|blocked|confirm|reply|respond|eta|deadline|due|action required|required)\b/i;
+
 /** Minimal email fields needed to determine follow-up type */
 interface TriageEmailContext {
   emailId: string;
@@ -68,7 +74,7 @@ export class TriageActionService {
     };
 
     // Use actionability field to decide follow-up creation
-    if (!this.shouldCreateFollowUp(analysis)) {
+    if (!this.shouldCreateFollowUp(context, analysis)) {
       return empty;
     }
 
@@ -213,13 +219,43 @@ export class TriageActionService {
    * - actionability=none → only if deadline exists
    * - hasDeadline always creates a follow-up regardless
    */
-  private shouldCreateFollowUp(analysis: UnifiedEmailAnalysis): boolean {
+  private shouldCreateFollowUp(
+    context: TriageEmailContext,
+    analysis: UnifiedEmailAnalysis,
+  ): boolean {
     // Deadline always wins
     if (analysis.hasDeadline) return true;
     // Actionability-based decision
     if (analysis.actionability === 'todo' || analysis.actionability === 'waiting') return true;
+    // Keep follow-up creation aligned with EmailAnalysisService/locale policy:
+    // passive notifications should stay quiet unless they carry a real action signal.
+    if (this.isPassiveNotification(context, analysis)) return false;
     // needsFollowUp from LLM as fallback
     if (analysis.needsFollowUp) return true;
     return false;
+  }
+
+  private isPassiveNotification(
+    context: TriageEmailContext,
+    analysis: UnifiedEmailAnalysis,
+  ): boolean {
+    if (analysis.escalationRisk) return false;
+    if (analysis.actionability === 'todo' || analysis.actionability === 'waiting') return false;
+
+    const sample = `${context.subject ?? ''} ${context.from}`.toLowerCase();
+    if (ACTIONABLE_SUBJECT_PATTERN.test(sample)) return false;
+
+    if (analysis.category === 'newsletter') {
+      return true;
+    }
+
+    if (analysis.intent !== 'fyi') {
+      return false;
+    }
+
+    return (
+      PASSIVE_ROLE_ACCOUNT_PATTERN.test(sample) &&
+      PASSIVE_SUBJECT_PATTERN.test(sample)
+    );
   }
 }
