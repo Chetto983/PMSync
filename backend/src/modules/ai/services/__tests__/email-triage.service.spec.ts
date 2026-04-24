@@ -1,19 +1,50 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { EmailTriageService } from '../email-triage.service';
 import { EmailInsightsService } from '../email-insights.service';
 import { TriageActionService } from '../triage-action.service';
 import { TriageOverrideService } from '../triage-override.service';
+// Phase 150 Plan 04: graph-memory Layer 2 mock + ConfigService mock (W-2)
+import { TriageGraphLookupService } from '../triage-graph-lookup.service';
 import { CrmSuggestionTriggerService } from '../../../crm/suggestion/services/crm-suggestion-trigger.service';
 import { SubscriptionService } from '../../../subscription/services/subscription.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisConnectionService } from '../../../../common/services/redis-connection.service';
 
-describe('EmailTriageService.triageEmail — Phase 147 D-07 override application', () => {
+describe('EmailTriageService.triageEmail — Phase 147 D-07 override application + Phase 150 Plan 04 graph lookup', () => {
   let service: EmailTriageService;
   let insightsMock: { analyzeEmailUnified: jest.Mock };
   let overrideServiceMock: { applyOverrides: jest.Mock };
   let actionServiceMock: { processTriageSignals: jest.Mock };
+  // Phase 150 Plan 04 W-2: explicit ConfigService + TriageGraphLookupService mocks.
+  let configMock: { get: jest.Mock };
+  let graphLookupMock: { lookup: jest.Mock };
   let prismaMock: any;
+
+  // Helper: build the testing module so individual tests can rebuild it after
+  // mutating configMock.get's mockImplementation (the cutoff is read once at
+  // construction time inside EmailTriageService).
+  const buildModule = async () => {
+    const mod = await Test.createTestingModule({
+      providers: [
+        EmailTriageService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: EmailInsightsService, useValue: insightsMock },
+        { provide: SubscriptionService, useValue: {} },
+        { provide: RedisConnectionService, useValue: { client: { eval: jest.fn().mockResolvedValue(1) } } },
+        { provide: TriageActionService, useValue: actionServiceMock },
+        { provide: CrmSuggestionTriggerService, useValue: null },
+        { provide: TriageOverrideService, useValue: overrideServiceMock },
+        // Phase 150 Plan 04 W-2: ConfigService is mandatory per B-5.
+        { provide: ConfigService, useValue: configMock },
+        // Phase 150 Plan 04 W-2: graph lookup is optional — useValue, not null.
+        { provide: TriageGraphLookupService, useValue: graphLookupMock },
+      ],
+    }).compile();
+    const svc = mod.get(EmailTriageService);
+    (svc as unknown as { redis: unknown }).redis = { eval: jest.fn().mockResolvedValue(1) };
+    return svc;
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -36,6 +67,12 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
     };
     overrideServiceMock = { applyOverrides: jest.fn().mockResolvedValue({ matched: false }) };
     actionServiceMock = { processTriageSignals: jest.fn().mockResolvedValue(undefined) };
+    configMock = {
+      get: jest.fn((_key: string, dflt?: string) => dflt ?? '9999'),
+    };
+    graphLookupMock = {
+      lookup: jest.fn().mockResolvedValue(null),
+    };
 
     prismaMock = {
       email: {
@@ -52,29 +89,7 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
       },
     };
 
-    const redisStub = {
-      eval: jest.fn().mockResolvedValue(1),
-    };
-    const redisConnectionStub = {
-      client: redisStub,
-    };
-
-    const mod = await Test.createTestingModule({
-      providers: [
-        EmailTriageService,
-        { provide: PrismaService, useValue: prismaMock },
-        { provide: EmailInsightsService, useValue: insightsMock },
-        { provide: SubscriptionService, useValue: {} },
-        { provide: RedisConnectionService, useValue: redisConnectionStub },
-        { provide: TriageActionService, useValue: actionServiceMock },
-        { provide: CrmSuggestionTriggerService, useValue: null },
-        { provide: TriageOverrideService, useValue: overrideServiceMock },
-      ],
-    }).compile();
-
-    service = mod.get(EmailTriageService);
-    // Simulate onModuleInit since we're not calling it in isolated tests
-    (service as unknown as { redis: unknown }).redis = redisStub;
+    service = await buildModule();
   });
 
   it('muting override short-circuits the LLM and writes triageSource=rule', async () => {
@@ -159,5 +174,63 @@ describe('EmailTriageService.triageEmail — Phase 147 D-07 override application
     const optsArg = insightsMock.analyzeEmailUnified.mock.calls[0][3];
     expect(optsArg.overrideHint).toBeNull();
     expect(optsArg.matchedOverrideAction).toBeNull();
+  });
+
+  // ====================================================================
+  // Phase 150 Plan 04 — graph-memory Layer 2 integration (3 new it blocks)
+  // ====================================================================
+
+  it('calls graph lookup AFTER override-miss, BEFORE LLM', async () => {
+    overrideServiceMock.applyOverrides.mockResolvedValue({ matched: false });
+    graphLookupMock.lookup.mockResolvedValue(null);
+
+    await service.triageEmail('e1', { tenantId: 't1', userId: 'u1' });
+
+    expect(graphLookupMock.lookup).toHaveBeenCalledTimes(1);
+    expect(insightsMock.analyzeEmailUnified).toHaveBeenCalledTimes(1);
+    const lookupOrder = graphLookupMock.lookup.mock.invocationCallOrder[0];
+    const llmOrder = insightsMock.analyzeEmailUnified.mock.invocationCallOrder[0];
+    expect(lookupOrder).toBeLessThan(llmOrder);
+  });
+
+  it('SKIPS graph lookup when any override matched — Open Q2 Option A', async () => {
+    overrideServiceMock.applyOverrides.mockResolvedValue({
+      matched: true,
+      override: { action: 'always-important', pattern: 'boss@x.com', type: 'sender' },
+      suppressFollowUp: false,
+    });
+
+    await service.triageEmail('e1', { tenantId: 't1', userId: 'u1' });
+
+    expect(graphLookupMock.lookup).toHaveBeenCalledTimes(0);
+  });
+
+  it('short-circuits LLM when graph confidence >= cutoff', async () => {
+    // Set cutoff=0.9 BEFORE rebuilding the module — constructor reads cutoff once.
+    configMock.get.mockImplementation((k: string, d?: string) =>
+      k === 'TRIAGE_GRAPH_CONFIDENCE_CUTOFF' ? '0.9' : (d ?? '9999'),
+    );
+    const svc = await buildModule();
+    overrideServiceMock.applyOverrides.mockResolvedValue({ matched: false });
+    graphLookupMock.lookup.mockResolvedValue({
+      predictedLabelId: 'L1',
+      predictedLabelName: 'Work',
+      confidence: 0.95,
+      source: 'sender',
+    });
+
+    const result = await svc.triageEmail('e1', { tenantId: 't1', userId: 'u1' });
+
+    // SHORT-CIRCUIT: LLM not called.
+    expect(insightsMock.analyzeEmailUnified).not.toHaveBeenCalled();
+    // B-8: snake_case triageSource written to EmailAnalysis.upsert.
+    expect(prismaMock.emailAnalysis.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ triageSource: 'graph_sender' }),
+        create: expect.objectContaining({ triageSource: 'graph_sender' }),
+      }),
+    );
+    expect(result.success).toBe(true);
+    expect(result.aiLabels).toEqual(['Work']);
   });
 });
