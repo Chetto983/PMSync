@@ -49,10 +49,12 @@ const LOOKBACK_DAYS = 30;
 const MIN_CORRECTIONS_FOR_PROMOTION = 3;
 const CONCENTRATION_RATIO = 0.8;
 const MIN_CORRECTIONS_FOR_DOMAIN = 8;
-const MIN_DISTINCT_SENDERS_FOR_DOMAIN = 3;
+// Phase 150 B-1: exported for reuse by triage-affinity-promotion.helpers
+export const MIN_DISTINCT_SENDERS_FOR_DOMAIN = 3;
 
 // RFC 2142 + SaneBox anti-pattern exclusion list (D-04)
-const ROLE_ACCOUNT_LOCAL_PARTS = new Set([
+// Phase 150 B-1: exported for reuse by triage-affinity-promotion.helpers
+export const ROLE_ACCOUNT_LOCAL_PARTS = new Set([
   'noreply', 'no-reply', 'notifications', 'billing', 'support', 'info', 'admin',
   'mailer-daemon', 'postmaster', 'root', 'webmaster', 'hostmaster',
   'news', 'marketing', 'sales', 'helpdesk', 'abuse', 'security',
