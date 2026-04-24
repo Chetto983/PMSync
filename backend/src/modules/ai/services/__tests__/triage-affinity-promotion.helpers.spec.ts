@@ -13,14 +13,57 @@
 import { processAffinityPromotionForTenant } from '../triage-affinity-promotion.helpers';
 
 describe('processAffinityPromotionForTenant', () => {
-  const prismaMock = {
+  // Phase 150 Option B (orchestrator resume signal): the plan 02 migration
+  // does NOT add (tenantId, nodeType, externalId) as a composite unique on
+  // graph_nodes because the pre-migration dup-scan state was unknown. Under
+  // Option B, the helper cannot use `prisma.graphNode.upsert({ where: {
+  // tenantId_nodeType_externalId: {...} } })` — that compound key doesn't
+  // exist on GraphNodeWhereUniqueInput. Instead, GraphNode writes go through
+  // a find-or-create wrapped in `prisma.$transaction(async tx => { const
+  // existing = await tx.$queryRaw`SELECT ... FOR UPDATE LIMIT 1`; if (!existing)
+  // return tx.graphNode.create(...); return existing[0]; })`.
+  //
+  // To satisfy the Option-B code path without weakening the spec, the mock
+  // adds a `$transaction` passthrough that invokes the callback with a tx
+  // object exposing `$queryRaw` (returning `[]` by default = "no existing
+  // node, call create") and a `graphNode` proxy where `create` returns the
+  // preset `graphNode.upsert` mock value. This keeps all behavioral
+  // assertions (upsert mock returns {id:'node1'}) intact while letting the
+  // actual production code flow exercise the transaction wrapper.
+  const prismaMock: any = {
     triageOverride: { findMany: jest.fn() },
     emailTriageFeedback: { findMany: jest.fn() },
     email: { findMany: jest.fn() },
     graphNode: { findFirst: jest.fn(), create: jest.fn(), upsert: jest.fn() },
     graphEdge: { upsert: jest.fn(), count: jest.fn() },
     userLabel: { findFirst: jest.fn(), findMany: jest.fn() },
+    $transaction: jest.fn(),
   };
+  // Default $transaction passthrough: invokes callback with a tx proxy whose
+  // $queryRaw returns no rows (forces the create path) and whose
+  // graphNode.create mirrors to prismaMock.graphNode.upsert's resolved value
+  // (so legacy tests that set graphNode.upsert.mockResolvedValue({id:'node1'})
+  // still produce node1). This mirror is necessary because spec code written
+  // pre-resume-signal configured `upsert` as the node-write sink.
+  prismaMock.$transaction.mockImplementation(async (fn: any) => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      graphNode: {
+        create: jest.fn(async () => {
+          const upsertMock = prismaMock.graphNode.upsert as jest.Mock;
+          const results = upsertMock.mock.results;
+          if (results.length > 0 && results[results.length - 1].type === 'return') {
+            return results[results.length - 1].value;
+          }
+          // Call the upsert mock to get its configured resolvedValue, then
+          // return it as the "create" result. This keeps the spec's
+          // `graphNode.upsert.mockResolvedValue({id:'node1'})` pattern working.
+          return upsertMock({ mirrored: true });
+        }),
+      },
+    };
+    return fn(tx);
+  });
   const promotionCounter = { inc: jest.fn() };
   const activeEdgesGauge = { set: jest.fn() };
   const deps = () => ({
@@ -32,6 +75,24 @@ describe('processAffinityPromotionForTenant', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Re-install $transaction passthrough (jest.clearAllMocks wipes
+    // implementations). Same mirror shape as top-level default.
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
+      const tx = {
+        $queryRaw: jest.fn().mockResolvedValue([]),
+        graphNode: {
+          create: jest.fn(async () => {
+            const upsertMock = prismaMock.graphNode.upsert as jest.Mock;
+            const results = upsertMock.mock.results;
+            if (results.length > 0 && results[results.length - 1].type === 'return') {
+              return results[results.length - 1].value;
+            }
+            return upsertMock({ mirrored: true });
+          }),
+        },
+      };
+      return fn(tx);
+    });
     // Default: no inputs — helper returns zero-counts without touching Prisma writes
     prismaMock.triageOverride.findMany.mockResolvedValue([]);
     prismaMock.emailTriageFeedback.findMany.mockResolvedValue([]);
@@ -39,6 +100,10 @@ describe('processAffinityPromotionForTenant', () => {
     prismaMock.userLabel.findFirst.mockResolvedValue({ id: 'L1' });
     prismaMock.userLabel.findMany.mockResolvedValue([]);
     prismaMock.graphEdge.count.mockResolvedValue(0);
+    // Default graphNode.upsert resolution for the $transaction mirror to
+    // hand back when create is invoked in tests that didn't explicitly
+    // configure it (e.g., test #2/#3 where no edge upsert happens).
+    prismaMock.graphNode.upsert.mockResolvedValue({ id: 'default-node' });
   });
 
   it('creates edge when weighted-sum >= 0.8 AND feedback rows >= 3', async () => {
