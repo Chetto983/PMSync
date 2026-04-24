@@ -239,7 +239,13 @@ export class TriageFeedbackService {
         0,
         (now - row.createdAt.getTime()) / (24 * 60 * 60 * 1000),
       );
-      const w = weightCorrection(ageDays); // Phase 147: 1 if <=30d else 0 (D-12)
+      // Phase 147 D-12: step function — 1 if <=30d else 0. NOT exponential decay.
+      // Do NOT replace with `weightCorrection(ageDays, { halfLifeDays })` — that
+      // would silently alter the Phase 147 D-03/D-04 promotion gate math.
+      // Phase 150.1 IN-02: inlined to remove the ONLY caller of weightCorrection's
+      // default-args branch, preventing a future "make everything consistent"
+      // refactor from accidentally swapping step → decay here.
+      const w = ageDays <= 30 ? 1 : 0;
       if (w === 0) continue;
 
       let sB = senderBuckets.get(sender);
