@@ -349,14 +349,14 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
   - [x] 149-04-PLAN.md — TriageBackfillScheduler: decay-gc job type + nightly-decay-gc repeatable (0 3 * * *) + 3 Prometheus providers (counter + 2 gauges) + processDecayGc stub (shipped 2026-04-23)
   - [x] 149-05-PLAN.md — processDecayGc body: Redis sender-scores HDEL sweep + TriageOverride D-06 recompute-at-GC-time deleteMany + metric emissions + D-09 delegation to processRecalculation (shipped 2026-04-23)
 - [x] **Phase 149.1: Email Triage Incoherence Audit** - Parallel audit of triage inconsistencies across classifier, follow-up, and downstream task/dashboard surfaces; docs-only findings feed Phases 150-156 and any immediate bug-fix follow-up (completed 2026-04-23)
-- [ ] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating
+- [x] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating (shipped 2026-04-24)
   **Plans:** 5 plans
   Plans:
   - [x] 150-01-PLAN.md — Wave 0 duplicate scan SQL + 3 RED spec scaffolds (22 it blocks) — Nyquist contract (shipped 2026-04-24)
   - [x] 150-02-PLAN.md — Prisma migration (3 nullable columns + 2 indexes) + triage-affinity-promotion.helpers (Option B, 7/7 spec GREEN) + scheduler nightly dispatch before decay-gc (Landmine §5) + 3 MetricsModule providers (shipped 2026-04-24)
   - [x] 150-03-PLAN.md — Phase 149 decay-gc third-store extension (processAffinityEdgeDecayForTenant) + scheduler wiring (shipped 2026-04-24)
   - [x] 150-04-PLAN.md — TriageGraphLookupService + EmailTriageService Layer 2 integration + graphHint LLM threading + W-1/B-4/B-5/B-8 closures (10/10 + 7/7 + 49/49 + 12/12 GREEN) (shipped 2026-04-24)
-  - [ ] 150-05-PLAN.md — LabelsService D-04 mirror sync (5 sites) + Phase 148 i18n graphSender/graphDomain (Landmine §2 + §3)
+  - [x] 150-05-PLAN.md — LabelsService D-04 mirror sync (5 sites) + Phase 148 i18n graph_sender/graph_domain snake_case (Landmine §2 + §3 + B-8 closed) (shipped 2026-04-24)
 - [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
 - [ ] **Phase 152: Triage Safety Governance** - SSGM-inspired anti-poisoning, contradiction gates, auto-rollback
 - [ ] **Phase 153: Label Creation Hardening** - Semantic overlap detection, mutual exclusivity enforcement, label merge
