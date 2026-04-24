@@ -38,6 +38,12 @@ export interface AnalyzeEmailUnifiedOptions {
    *  final lane after the LLM call and to tag triageSource='llm+rule' on persist.
    *  Null when no override matched (pure-LLM path → triageSource='llm'). */
   matchedOverrideAction?: string | null;
+  /** Phase 150 Plan 04 B-4: structured graph-memory hint. Threaded into the LLM
+   *  system prompt below the USER_OVERRIDE block via buildTaggedPromptSection.
+   *  Present only when graph lookup returned a result whose confidence was below
+   *  TRIAGE_GRAPH_CONFIDENCE_CUTOFF (i.e., not strong enough to short-circuit
+   *  the LLM but strong enough to inform it). */
+  graphHint?: { predictedLabel: string; confidence: number; source: 'sender' | 'domain' } | null;
 }
 
 @Injectable()
@@ -124,7 +130,9 @@ export class EmailAnalysisService {
         })
       : [];
     const systemPrompt = await this.buildAnalyzeSystemPrompt(
-      t, tenantId, labelDefs, allowedLabels, options, corrections, options?.overrideHint ?? null,
+      t, tenantId, labelDefs, allowedLabels, options, corrections,
+      options?.overrideHint ?? null,
+      options?.graphHint ?? null,
     );
     const userPrompt = this.buildEmailPrompt(email, lang);
 
@@ -316,6 +324,9 @@ export class EmailAnalysisService {
     options?: AnalyzeEmailUnifiedOptions,
     corrections: FewShotExample[] = [],
     overrideHint: string | null = null,
+    // Phase 150 Plan 04 B-4: graph-memory hint threaded into the system prompt
+    // below USER_OVERRIDE. Bounded 200 chars via buildTaggedPromptSection.
+    graphHint: AnalyzeEmailUnifiedOptions['graphHint'] = null,
   ): Promise<string> {
     const allowedLabelsText = allowedLabels.join(', ');
     // Phase 147 D-10: base prompt now uses the 5-arg signature — passing '' for the
@@ -378,12 +389,24 @@ export class EmailAnalysisService {
       ? buildTaggedPromptSection('USER_OVERRIDE', [overrideHint], 200)
       : '';
 
+    // Phase 150 Plan 04 B-4: GRAPH_HINT block — appended to the override slot
+    // (locale signature has 5 positional args; concatenation here keeps the
+    // contract intact). 200-char cap via buildTaggedPromptSection. The LLM is
+    // free to override when content contradicts (Open Q2 lane).
+    const graphHintText = graphHint
+      ? `Past user corrections suggest label "${graphHint.predictedLabel}" (${graphHint.source}, confidence ${graphHint.confidence.toFixed(2)}). Consider this unless content clearly contradicts.`
+      : null;
+    const graphHintBlock = graphHintText
+      ? buildTaggedPromptSection('GRAPH_HINT', [graphHintText], 200)
+      : '';
+    const overrideAndGraphBlock = [overrideBlock, graphHintBlock].filter(Boolean).join('\n');
+
     const systemPrompt = t.insights.analyzeUnified.systemPrompt(
       allowedLabelsText,
       labelPromptBlock,
       triageContext,
       correctionsBlock,
-      overrideBlock,
+      overrideAndGraphBlock,
     );
 
     if (systemPrompt.length > EmailAnalysisService.MAX_ANALYZE_SYSTEM_PROMPT_LENGTH) {

@@ -14,6 +14,7 @@
  */
 
 import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -22,7 +23,9 @@ import { SubscriptionService } from '../../subscription/services/subscription.se
 import { TriageActionService } from './triage-action.service';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { CrmSuggestionTriggerService } from '../../crm/suggestion/services/crm-suggestion-trigger.service';
-import { TriageOverrideService, MUTING_ACTIONS, ACTION_TO_LANE } from './triage-override.service';
+import { TriageOverrideService, MUTING_ACTIONS, ACTION_TO_LANE, extractEmail } from './triage-override.service';
+// Phase 150 Plan 04: Layer 2 graph-memory lookup (D-03)
+import { TriageGraphLookupService } from './triage-graph-lookup.service';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 20;
@@ -116,15 +119,31 @@ export class EmailTriageService implements OnModuleInit {
     return redis.call("ZCARD", KEYS[1])
   `;
 
+  // Phase 150 Plan 04 — graph-memory short-circuit cutoff. Constructed once at
+  // DI time from TRIAGE_GRAPH_CONFIDENCE_CUTOFF env (default '9999' = disabled).
+  private readonly graphCutoff: number;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
     private readonly subscriptionService: SubscriptionService,
     private readonly redisConnection: RedisConnectionService,
+    // Phase 150 Plan 04 B-5: ConfigService is MANDATORY — no @Optional and no
+    // default value. Placed before the @Optional() block to satisfy TS's
+    // "required parameter cannot follow optional parameter" rule. Nest will
+    // fail loudly if ConfigService isn't registered (no silent DI miss).
+    private readonly configService: ConfigService,
     @Optional() private readonly triageActionService?: TriageActionService,
     @Optional() private readonly crmSuggestionTrigger?: CrmSuggestionTriggerService,
     @Optional() private readonly triageOverrideService?: TriageOverrideService,
-  ) {}
+    // Phase 150 Plan 04: graph lookup is @Optional (kill-switched via cutoff env).
+    @Optional() private readonly triageGraphLookupService?: TriageGraphLookupService,
+  ) {
+    const rawCutoff = parseFloat(
+      this.configService.get<string>('TRIAGE_GRAPH_CONFIDENCE_CUTOFF', '9999'),
+    );
+    this.graphCutoff = Number.isFinite(rawCutoff) ? rawCutoff : 9999;
+  }
 
   onModuleInit() {
     this.redis = this.redisConnection.client;
@@ -357,6 +376,70 @@ export class EmailTriageService implements OnModuleInit {
         }
       }
 
+      // Phase 150 Plan 04 D-03 Layer 2 graph lookup.
+      // Open Q2 Option A: skip Layer 2 entirely if ANY override matched
+      // (muting OR visible) — user's explicit rule beats inferred patterns.
+      // Note: muting overrides have already returned above; here matchedOverrideAction
+      // is only set for visible overrides that fall through to the LLM path.
+      // B-4: non-short-circuit branch builds a structured graphHint that threads
+      // into the LLM system prompt via AnalyzeEmailUnifiedOptions.graphHint.
+      let graphHint:
+        | { predictedLabel: string; confidence: number; source: 'sender' | 'domain' }
+        | null = null;
+      if (!matchedOverrideAction && this.triageGraphLookupService) {
+        const emailForGraph = await this.prisma.email.findFirst({
+          where: { id: emailId, tenantId },
+          select: { from: true },
+        });
+        if (emailForGraph?.from) {
+          const senderEmail = extractEmail(emailForGraph.from);
+          if (senderEmail) {
+            const g = await this.triageGraphLookupService.lookup(tenantId, senderEmail);
+            if (g && g.confidence >= this.graphCutoff) {
+              // SHORT-CIRCUIT — skip LLM, write triageSource=graph_sender|graph_domain.
+              const now = new Date();
+              // B-8: snake_case lock — Plan 05 Task 2 mirrors these in i18n.
+              const triageSource: 'graph_sender' | 'graph_domain' =
+                g.source === 'sender' ? 'graph_sender' : 'graph_domain';
+              await this.prisma.email.updateMany({
+                where: { id: emailId, tenantId },
+                data: {
+                  aiLabels: [g.predictedLabelName],
+                  isAutoTriaged: true,
+                  autoTriagedAt: now,
+                },
+              });
+              await this.prisma.emailAnalysis.upsert({
+                where: { emailId_tenantId: { emailId, tenantId } },
+                update: { triageSource, processedAt: now, modelUsed: 'graph' },
+                create: {
+                  emailId,
+                  tenantId,
+                  triageSource,
+                  processedAt: now,
+                  modelUsed: 'graph',
+                },
+              });
+              this.logger.log(
+                `Graph short-circuit: ${g.source} -> ${g.predictedLabelName} (conf=${g.confidence.toFixed(2)}, email=${emailId})`,
+              );
+              return {
+                emailId,
+                success: true,
+                aiLabels: [g.predictedLabelName],
+              };
+            } else if (g) {
+              // B-4: structured hint — analysis service converts to prompt text.
+              graphHint = {
+                predictedLabel: g.predictedLabelName,
+                confidence: g.confidence,
+                source: g.source,
+              };
+            }
+          }
+        }
+      }
+
       // UNIFIED ANALYSIS: Single LLM call for all insights
       // analyzeEmailUnified() also saves to EmailAnalysis + Email tables
       const analysis = await this.emailInsights.analyzeEmailUnified(
@@ -367,6 +450,7 @@ export class EmailTriageService implements OnModuleInit {
           includeSmartReplies: false,
           overrideHint,
           matchedOverrideAction,
+          graphHint,
         },
       );
 
