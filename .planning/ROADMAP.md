@@ -349,7 +349,7 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
   - [x] 149-04-PLAN.md — TriageBackfillScheduler: decay-gc job type + nightly-decay-gc repeatable (0 3 * * *) + 3 Prometheus providers (counter + 2 gauges) + processDecayGc stub (shipped 2026-04-23)
   - [x] 149-05-PLAN.md — processDecayGc body: Redis sender-scores HDEL sweep + TriageOverride D-06 recompute-at-GC-time deleteMany + metric emissions + D-09 delegation to processRecalculation (shipped 2026-04-23)
 - [x] **Phase 149.1: Email Triage Incoherence Audit** - Parallel audit of triage inconsistencies across classifier, follow-up, and downstream task/dashboard surfaces; docs-only findings feed Phases 150-156 and any immediate bug-fix follow-up (completed 2026-04-23)
-- [ ] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating (code shipped 2026-04-24, Railway debug pending before completion)
+- [x] **Phase 150: Graph-Based Triage Memory** - Sender→label and domain→label graph edges with confidence gating + 150.1 gap closure (code shipped 2026-04-24 + 4 warnings + 3 info review findings closed 2026-04-24; Railway debug pending final redeploy verification)
   **Plans:** 5 plans
   Plans:
   - [x] 150-01-PLAN.md — Wave 0 duplicate scan SQL + 3 RED spec scaffolds (22 it blocks) — Nyquist contract (shipped 2026-04-24)
@@ -357,6 +357,7 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
   - [x] 150-03-PLAN.md — Phase 149 decay-gc third-store extension (processAffinityEdgeDecayForTenant) + scheduler wiring (shipped 2026-04-24)
   - [x] 150-04-PLAN.md — TriageGraphLookupService + EmailTriageService Layer 2 integration + graphHint LLM threading + W-1/B-4/B-5/B-8 closures (10/10 + 7/7 + 49/49 + 12/12 GREEN) (shipped 2026-04-24)
   - [x] 150-05-PLAN.md — LabelsService D-04 mirror sync (5 sites) + Phase 148 i18n graph_sender/graph_domain snake_case (Landmine §2 + §3 + B-8 closed) (shipped 2026-04-24)
+  - [x] 150.1 gap closure — 7 commits addressing all 4 warnings + 3 info findings from 150-REVIEW.md (WR-01 linkEmailToUserLabels on graph short-circuit + WR-02 null cross-signals + WR-03 labels.service $transaction atomicity + WR-04 shared extractDomain + D-04a FQDN regression test + IN-02 inline step function + IN-03 readOverrideIds type-narrow helper + IN-05 DO-NOT-EXPORT doc comment). 2 findings deferred as accepted debt (IN-01 + IN-04). 58/58 GREEN; tsc exit 0 (shipped 2026-04-24)
 - [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
 - [ ] **Phase 152: Triage Safety Governance** - SSGM-inspired anti-poisoning, contradiction gates, auto-rollback
 - [ ] **Phase 153: Label Creation Hardening** - Semantic overlap detection, mutual exclusivity enforcement, label merge
