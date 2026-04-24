@@ -359,6 +359,14 @@ See `milestones/v13.0-ROADMAP.md` for full phase details.
   - [x] 150-05-PLAN.md — LabelsService D-04 mirror sync (5 sites) + Phase 148 i18n graph_sender/graph_domain snake_case (Landmine §2 + §3 + B-8 closed) (shipped 2026-04-24)
   - [x] 150.1 gap closure — 7 commits addressing all 4 warnings + 3 info findings from 150-REVIEW.md (WR-01 linkEmailToUserLabels on graph short-circuit + WR-02 null cross-signals + WR-03 labels.service $transaction atomicity + WR-04 shared extractDomain + D-04a FQDN regression test + IN-02 inline step function + IN-03 readOverrideIds type-narrow helper + IN-05 DO-NOT-EXPORT doc comment). 2 findings deferred as accepted debt (IN-01 + IN-04). 58/58 GREEN; tsc exit 0 (shipped 2026-04-24)
 - [ ] **Phase 151: Dreaming Consolidation Loop** - OpenClaw-inspired 3-phase (Light/Deep/REM) memory consolidation
+  **Plans:** 6 plans
+  Plans:
+  - [ ] 151-01-PLAN.md — [BLOCKING] Prisma migration: TriageCorrectionCluster + TriageConsolidationAudit models + Tenant back-refs + migrate dev against local Postgres (additive-only, Guards A/E/F)
+  - [ ] 151-02-PLAN.md — Public forceFlushSenderSignalsForTenant wrapper on TriageLearningService + 4 new Prometheus providers (1 contradictions counter + 3 phase-last-run gauges) + SC-5 naming-delta comment
+  - [ ] 151-03-PLAN.md — ConsolidationModule + TriageConsolidationScheduler (3 cron jobs) + processLightConsolidation body + triage-light-consolidation.helpers (pgvector cosine dedup, cluster upsert, force-flush)
+  - [ ] 151-04-PLAN.md — processDeepConsolidation body (decay-gc → promotion → LabelAccuracyQueue fan-out) + atomic deletion of Phase 150 affinity-promotion from TriageBackfillSchedulerService
+  - [ ] 151-05-PLAN.md — processRemConsolidation body + triage-rem-consolidation.helpers (D-C4 sub-threshold rollup + Kind 1 + Kind 2 contradiction SQL + audit insert + 0.79 demote with metadata preservation)
+  - [ ] 151-06-PLAN.md — Unit tests: Light helper spec (≥5 it), REM helper spec (≥6 it incl. D-D3 metadata-preservation contract), Scheduler plumbing spec (≥4 it)
 - [ ] **Phase 152: Triage Safety Governance** - SSGM-inspired anti-poisoning, contradiction gates, auto-rollback
 - [ ] **Phase 153: Label Creation Hardening** - Semantic overlap detection, mutual exclusivity enforcement, label merge
 - [ ] **Phase 154: Batch Reclassification Engine** - RLM-inspired partition+map+aggregate re-triage on aiPrompt change
