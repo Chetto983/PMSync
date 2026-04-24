@@ -126,6 +126,31 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
       labelNames: [],
     }),
 
+    // Phase 150 D-07a: graph-based triage affinity observability.
+    // Three metrics for the read/write split (D-03 read path + D-01 write path):
+    //   - lookup_total: per-triage-call observability (read path, Plan 04 emits)
+    //   - promotion_total: per-edge-upsert audit (write path, Plan 02 emits)
+    //   - edges_active: sampled gauge per-tenant at end of nightly run
+    // Cardinality analysis per D-07a / D-13 notes:
+    //   - promotion_total: 50 tenants × 2 edge_types × 4 actions = 400 series. OK.
+    //   - edges_active: 50 tenants × 2 edge_types = 100 series. OK.
+    //   - lookup_total: 50 tenants × 4 outcomes × 3 edge_sources = 600 series. OK.
+    makeCounterProvider({
+      name: 'triage_graph_lookup_total',
+      help: 'Total graph lookup attempts in triage pipeline by outcome, source, tenant',
+      labelNames: ['outcome', 'edge_source', 'tenant_id'],
+    }),
+    makeCounterProvider({
+      name: 'triage_graph_promotion_total',
+      help: 'Total affinity edges promoted by nightly promotion job',
+      labelNames: ['tenant_id', 'edge_type', 'action'],
+    }),
+    makeGaugeProvider({
+      name: 'triage_graph_edges_active',
+      help: 'Count of active affinity edges per tenant and edge type (validUntil IS NULL OR > now)',
+      labelNames: ['tenant_id', 'edge_type'],
+    }),
+
     // Phase 46-02: Scheduled queue depth collector
     QueueMetricsCollector,
   ],
@@ -147,6 +172,10 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
     getToken('triage_patterns_gc_total'),
     getToken('triage_decay_half_life_seconds'),
     getToken('triage_decay_last_run_timestamp_seconds'),
+    // Phase 150 D-07a graph triage metrics
+    getToken('triage_graph_lookup_total'),
+    getToken('triage_graph_promotion_total'),
+    getToken('triage_graph_edges_active'),
   ],
 })
 export class MetricsModule {}
