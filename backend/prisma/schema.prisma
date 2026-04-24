@@ -2270,7 +2270,7 @@ model ChurnSignal {
 model GraphNode {
   id         String                 @id @default(cuid())
   tenantId   String
-  nodeType   String // 'contact', 'email', 'thread', 'calendar_event', 'topic', 'memory'
+  nodeType   String // 'contact', 'email', 'thread', 'calendar_event', 'topic', 'memory', 'sender', 'email_domain', 'label'
   externalId String? // FK to source record (emailId, contactId, etc.)
   label      String // Display name / subject / topic name
   metadata   Json                   @default("{}")
@@ -2291,14 +2291,17 @@ model GraphNode {
 }
 
 model GraphEdge {
-  id        String   @id @default(cuid())
-  tenantId  String
-  sourceId  String
-  targetId  String
-  edgeType  String // 'sent', 'received', 'mentions', 'replies_to', 'about', 'attended', 'anchored_to'
-  weight    Float    @default(1.0)
-  metadata  Json     @default("{}")
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  tenantId   String
+  sourceId   String
+  targetId   String
+  edgeType   String // 'sent', 'received', 'mentions', 'replies_to', 'about', 'attended', 'anchored_to', 'SENDER_LABEL_AFFINITY', 'DOMAIN_LABEL_AFFINITY'
+  weight     Float     @default(1.0)
+  confidence Float? // Phase 150 D-02: probabilistic confidence for affinity edges. NULL for legacy 7 edge types.
+  validFrom  DateTime? // Phase 150 D-02: edge-creation timestamp for affinity edges. NULL for legacy types.
+  validUntil DateTime? // Phase 150 D-02: explicit expiry. NULL = currently valid (Phase 151 SAFE-03 may set this).
+  metadata   Json      @default("{}")
+  createdAt  DateTime  @default(now())
 
   tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   source GraphNode @relation("EdgeSource", fields: [sourceId], references: [id], onDelete: Cascade)
@@ -2310,6 +2313,8 @@ model GraphEdge {
   @@index([targetId])
   @@index([tenantId, edgeType])
   @@index([sourceId, edgeType])
+  @@index([tenantId, edgeType, confidence]) // Phase 150 D-02 hot-path filter
+  @@index([tenantId, edgeType, validUntil]) // Phase 150 D-02 decay-gc sweep
   @@map("graph_edges")
 }
 
