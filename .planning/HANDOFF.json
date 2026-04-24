@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-04-24T14:57:25.459Z",
+  "phase": "151",
+  "phase_name": "dreaming-consolidation",
+  "phase_dir": ".planning/phases/151-dreaming-consolidation",
+  "plan": null,
+  "task": null,
+  "total_tasks": 14,
+  "status": "planned",
+  "stage": "post-plan / pre-execute",
+  "completed_tasks": [
+    {"id": "plan-research", "name": "Research decision (user chose skip — CONTEXT.md already embeds 9 external sources)", "status": "done"},
+    {"id": "plan-patterns", "name": "Pattern mapping — 151-PATTERNS.md produced", "status": "done"},
+    {"id": "plan-planner", "name": "gsd-planner produced 6 plans across 5 waves, 14 tasks total", "status": "done"},
+    {"id": "plan-checker-1", "name": "plan-checker iteration 1 — 0 blockers, 5 warnings", "status": "done"},
+    {"id": "plan-revision-1", "name": "planner revised 4 plans targeting W-151-01..05", "status": "done"},
+    {"id": "plan-checker-2", "name": "plan-checker iteration 2 — VERIFICATION PASSED", "status": "done"},
+    {"id": "plan-coverage-gate", "name": "DREAM-01/02/03 coverage verified across plans 01/02/03/04/05/06", "status": "done"},
+    {"id": "plan-state-update", "name": "STATE.md updated via gsd-tools state planned-phase", "status": "done"}
+  ],
+  "remaining_tasks": [
+    {"id": "commit-plans", "name": "Commit planning artifacts (6 PLAN.md + PATTERNS.md + ROADMAP.md + v13.0-ROADMAP.md + STATE.md)", "status": "not_started", "blocker": "git-push-discipline requires explicit user ask"},
+    {"id": "execute-phase", "name": "Run /gsd-execute-phase 151 — 6 plans, 14 tasks, 5 sequential waves", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {
+      "action": "Decide whether to commit plan artifacts now or defer",
+      "context": "7 new + 3 modified files are uncommitted per git-push-discipline (CLAUDE.md forbids auto-commit). Suggested commit command is in the resume doc.",
+      "blocking": false
+    },
+    {
+      "action": "Run /clear before /gsd-execute-phase 151",
+      "context": "Planner + checker ran in-context. A fresh window before execute avoids context-budget pressure on the executor.",
+      "blocking": false
+    },
+    {
+      "action": "Confirm local Postgres at localhost:5432/pmsync_local is running before Plan 01 Task 2 migrate dev",
+      "context": "Plan 01 Task 2 runs `npx prisma migrate dev --name add_triage_consolidation_tables` against local. Backend/.env already points at localhost per Guard B. If Postgres is down, migrate dev falls back to offline generation (acceptable).",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {"decision": "Skipped gsd-phase-researcher", "rationale": "CONTEXT.md already cites 9 external sources (OpenClaw, CrewAI, Graphiti/Zep, KARMA, Martian, SSGM arXiv, Karpathy Zettelkasten, NestJS/BullMQ, Prometheus naming) with links + integrated code file paths. Running a fresh researcher was redundant.", "phase": "151"},
+    {"decision": "Injected Prisma migration (not db push)", "rationale": "CLAUDE.md hard rule — 3 prod wipes from db push class of command. Plan 01 Task 2 mandates `npx prisma migrate dev` against localhost only.", "phase": "151"},
+    {"decision": "Patched 5 warnings before final pass", "rationale": "Checker identified broken awk ordering gate (W-151-02), runtime-discovery hand-waves for pgvector table + Redis buffer-key constants (W-151-03/04), non-deterministic BullMQ cleanup (W-151-05), and residual raw-SQL integration-test gap (W-151-01). All 5 patched with enforceable grep/awk criteria; residual raw-SQL risk captured as 151-RESIDUAL-RISK.md follow-up for Phase 155/156.", "phase": "151"},
+    {"decision": "Retained Phase 150 `'nightly-affinity-promotion'` cleanup branch for one deploy cycle (not immediate excision)", "rationale": "BullMQ repeatable jobs persist in Redis independent of code. Immediate deletion would leave a stale Redis repeatable producing failed jobs on next deploy. Plan 04 Task 2 mandates retention + TODO(Phase 155 cleanup removal) anchor.", "phase": "151"},
+    {"decision": "Phase 149 `decay-gc` standalone job stays on TriageBackfillSchedulerService (safety net)", "rationale": "Per CONTEXT D-A3. Deep handler now invokes the decay-gc helpers directly, but the standalone cron stays as safety net until observability confirms redundancy. Prevents Guard F drift risk on recently-shipped Phase 149.", "phase": "151"}
+  ],
+  "uncommitted_files": [
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/milestones/v13.0-ROADMAP.md",
+    ".planning/phases/151-dreaming-consolidation/151-01-PLAN.md",
+    ".planning/phases/151-dreaming-consolidation/151-02-PLAN.md",
+    ".planning/phases/151-dreaming-consolidation/151-03-PLAN.md",
+    ".planning/phases/151-dreaming-consolidation/151-04-PLAN.md",
+    ".planning/phases/151-dreaming-consolidation/151-05-PLAN.md",
+    ".planning/phases/151-dreaming-consolidation/151-06-PLAN.md",
+    ".planning/phases/151-dreaming-consolidation/151-PATTERNS.md"
+  ],
+  "next_action": "Optional: commit planning artifacts (suggested command in .continue-here.md), then /clear and /gsd-execute-phase 151. Wave 1 launches Plan 01 (Prisma migration — BLOCKING) and Plan 02 (flush wrapper + metrics) in parallel.",
+  "context_notes": "Phase 151 planning is fully closed. 6 plans, 14 tasks, 5 sequential waves — plans 04/05 share the scheduler file so must run sequentially. Migration task is BLOCKING wave-1 and uses `npx prisma migrate dev` (NEVER db push) against localhost per CLAUDE.md Guard B. Plan-checker approved on iteration 2 after targeted revision — no blockers, all warnings resolved with enforceable gates. PATTERNS.md flagged two items the executor needs to respect: (a) pgvector `<=>` cosine is the first use in this codebase (existing code uses `<->` L2 distance) — Plan 03 Task 2 pins the exact table/column names from schema.prisma lines 748-768; (b) `flushSenderSignals` is private — Plan 02 Task 1 builds public wrapper `forceFlushSenderSignalsForTenant` with byte-for-byte buffer-key match enforced via grep."
+}
