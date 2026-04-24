@@ -7,7 +7,10 @@ import { TriageLearningService } from './triage-learning.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
-import { processDecayGcForTenant } from './triage-decay-gc.helpers';
+import {
+  processDecayGcForTenant,
+  processAffinityEdgeDecayForTenant, // Phase 150 D-06: third store (affinity edges)
+} from './triage-decay-gc.helpers';
 import { processAffinityPromotionForTenant } from './triage-affinity-promotion.helpers';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Counter, Gauge } from 'prom-client';
@@ -426,21 +429,11 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   }
 
   /**
-   * Phase 149 D-07/D-09: nightly decay-based GC sweep.
-   *
-   * Per D-09, runs GC across two stores FIRST, then delegates to
-   * processRecalculation so recalc reads a clean state.
-   *
-   * Stores (D-04):
-   *   1. Redis `triage:sender-scores:{tenantId}` hash — HDEL fields whose
-   *      decayed recency score (based on score.lastUpdated) falls below 0.3.
-   *   2. `TriageOverride` rows — recompute reinforcement at GC time against
-   *      EmailTriageFeedback (D-06 strict: pattern-match AND newValue === action)
-   *      and deleteMany rows below 0.3.
-   *
-   * Emits:
-   *   - triage_patterns_gc_total{store, tenant_id} — per delete
-   *   - triage_decay_last_run_timestamp_seconds — once at END
+   * Phase 149 D-07/D-09 + Phase 150 D-06: nightly decay-based GC sweep.
+   * Runs GC across three stores FIRST, then delegates to processRecalculation.
+   * Stores: (1) Redis sender-scores hash, (2) TriageOverride rows,
+   * (3) affinity GraphEdges. Emits triage_patterns_gc_total{store, tenant_id}
+   * per delete + triage_decay_last_run_timestamp_seconds once at END.
    */
   private async processDecayGc(
     job: Job<BackfillJobData>,
@@ -450,21 +443,31 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     let totalRedisDeleted = 0;
     let totalOverrideDeleted = 0;
     let totalOverrideSeen = 0;
+    let totalGraphEdgeDeleted = 0;
     let tenantsProcessed = 0;
 
     for (const tenant of activeTenants) {
       try {
+        const deps = {
+          prisma: this.prisma,
+          redis: this.redis,
+          gcCounter: this.gcCounter,
+          halfLifeDays: this.halfLifeDays,
+        };
         const { redisDeleted, overrideDeleted, overrideTotal } =
-          await processDecayGcForTenant(tenant.tenantId, {
-            prisma: this.prisma,
-            redis: this.redis,
-            gcCounter: this.gcCounter,
-            halfLifeDays: this.halfLifeDays,
-          });
+          await processDecayGcForTenant(tenant.tenantId, deps);
+        // Phase 150 D-06: third store (affinity edges) — runs AFTER override
+        // sweep so recomputed override evidence drives edge recompute.
+        const { graphEdgeDeleted } =
+          await processAffinityEdgeDecayForTenant(tenant.tenantId, deps);
         totalRedisDeleted += redisDeleted;
         totalOverrideDeleted += overrideDeleted;
         totalOverrideSeen += overrideTotal;
+        totalGraphEdgeDeleted += graphEdgeDeleted;
         tenantsProcessed++;
+        this.logger.log(
+          `decay-gc tenant=${tenant.tenantId} redis=${redisDeleted} override=${overrideDeleted}/${overrideTotal} graph_edge=${graphEdgeDeleted}`,
+        );
         await this.sleep(500);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -475,15 +478,12 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     }
 
     this.logger.log(
-      `Decay GC complete: ${totalRedisDeleted} redis scores, ${totalOverrideDeleted}/${totalOverrideSeen} overrides pruned across ${tenantsProcessed}/${activeTenants.length} tenants`,
+      `Decay GC complete: ${totalRedisDeleted} redis scores, ${totalOverrideDeleted}/${totalOverrideSeen} overrides, ${totalGraphEdgeDeleted} graph_edges pruned across ${tenantsProcessed}/${activeTenants.length} tenants`,
     );
 
-    // Phase 149 D-11: stamp end-of-run gauge. Powers `now - gauge > 90000`
-    // alerting on silent failures (>25h since last successful pass).
+    // Phase 149 D-11: stamp end-of-run gauge (alerts on now-gauge>90000 ≈ 25h).
     this.lastRunGauge?.set(Date.now() / 1000);
-
-    // D-09: delegate to processRecalculation AFTER GC completes so recalc
-    // reads a clean state (no cycles spent scoring soon-to-be-deleted patterns).
+    // D-09: delegate to processRecalculation AFTER GC completes.
     return this.processRecalculation(job);
   }
 
