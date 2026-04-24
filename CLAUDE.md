@@ -22,9 +22,9 @@ Be critical, sincere, and cynical. Don't please me.
 - SCOPE CONTROL. Do exactly what was asked. Never add unrequested features, refactors, or improvements.
 - **NEVER RUN `prisma db push` OR ANY DESTRUCTIVE DB COMMAND.** Production was wiped by this exact class of mistake TWICE: **2026-04-01** and **2026-04-20**. Both wipes cost real user data (tenants, emails, tasks, chat history, labels, feedback). For schema changes: create a Prisma migration with `npx prisma migrate dev --name <name>`, commit the migration file, and let Railway's deploy pipeline apply it. NEVER use `prisma db push`, `prisma migrate reset`, `prisma migrate dev` (against prod), `prisma db seed` (against prod), or any direct `TRUNCATE`/`DELETE FROM`. If a migration would be destructive (drop column, drop table), STOP and ASK before proceeding.
 
-**DB Safety (HARD RULES — two wipes already: 2026-04-01 + 2026-04-20):**
+**DB Safety (HARD RULES — three wipes: 2026-04-01 + 2026-04-20 + 2026-04-24):**
 
-The loaded gun: `backend/.env` DATABASE_URL points at Railway **production** (`ballast.proxy.rlwy.net:39634/railway`). Any `npx prisma *` run from this directory hits prod unless the env is overridden. Muscle-memory commands have now cost real user data twice.
+The loaded gun was defused on 2026-04-24: `backend/.env` now points at `localhost:5432/pmsync_local`. The original prod URL is preserved in gitignored `backend/.env.prod.DANGER-DO-NOT-LOAD` — DO NOT source, cp, or otherwise load this file in normal workflow. If you need prod DB access, pass `DATABASE_URL=...` inline per-command and set `ALLOW_PROD_DB_OP=yes`.
 
 Before running ANY `npx prisma` command (even "safe" ones like `generate`, `validate`, `format`), the working agent MUST:
 
@@ -33,7 +33,27 @@ Before running ANY `npx prisma` command (even "safe" ones like `generate`, `vali
 3. For migrations: only `npx prisma migrate dev --name <name>` is allowed, and only against a LOCAL dev DB. Commit the migration file. Railway's build pipeline applies it via `prisma migrate deploy` on push (non-destructive).
 4. `backend/entrypoint.sh` contains an `else` branch that runs `prisma db push --skip-generate` + `prisma db seed` — both destructive. It is not the Docker entrypoint (Dockerfile.railway CMD is the entrypoint), but the file is a loaded gun for anyone invoking it manually or via CI. Treat entrypoint.sh as if it is broken until explicitly fixed.
 5. Seeds: `prisma db seed` is NEVER run against prod. The seed script's Default Tenant + 3 seed users are for local dev only. If you see `Default Tenant` appearing on prod, a destructive command ran.
-6. **BACKUP BEFORE TOUCH (added 2026-04-20 after 2nd wipe + user recovery):** Before ANY mutating operation against prod — row-level updates, single inserts, small Prisma upserts, however small — take a Railway Postgres backup first (Railway dashboard → Postgres service → Backups → "Backup now", or `pg_dump` via Railway CLI) and confirm the backup timestamp with the user before proceeding. Read-only SELECTs do not require a backup; the rule is mutations only. If no backup mechanism is available, STOP and ask the user to accept the risk explicitly.
+6. **BACKUP BEFORE TOUCH (added 2026-04-20 after 2nd wipe + user recovery):** Before ANY mutating operation against prod — row-level updates, single inserts, small Prisma upserts, however small — take a Railway Postgres backup first (Railway dashboard → Postgres service → Backups → "Backup now", or `pg_dump` via Railway CLI) and confirm the backup timestamp with the user before proceeding. Read-only SELECTs do not require a backup; the rule is mutations only. If no backup mechanism is available, STOP and ask the user to accept the risk explicitly. **Note 2026-04-24:** Railway backups are Pro-plan only and not available on this project. Until that changes, prod DB mutations have no rollback — treat every one as irreversible.
+
+**Active guardrails (installed 2026-04-24 after 3rd wipe):**
+
+The 3rd wipe exposed that **the real root cause of "corruption" was schema drift**: 30+ commits over 6 weeks shipped schema.prisma changes via `prisma db push` without migration files. Reminder columns added on 2026-04-01 (commit 55e3d1a2) never made it to prod → `reminder.findMany` crashed every 5 min for 23 days → user read it as data corruption → demanded a wipe that wasn't actually needed. Six defense layers now enforce the migrate-don't-push discipline:
+
+- **Guard A — Migration safety linter** (`backend/scripts/check-migration-safety.js`): pre-commit + CI. Rejects destructive SQL (`DROP TABLE/COLUMN`, `TRUNCATE`, `DELETE FROM`) in new migrations. Bypass: `-- ALLOW-DESTRUCTIVE: <reason>` header on first line.
+- **Guard B — Prisma preflight** (`backend/scripts/prisma-preflight.js` + IIFE in `backend/prisma.config.ts`): blocks `prisma db push` universally (any DB, not just prod), and blocks other destructive prisma commands (`migrate dev/reset`, `db seed/execute`) against prod hosts. Bypass: `ALLOW_DB_PUSH=yes` for push, `ALLOW_PROD_DB_OP=yes` for prod-destructive.
+- **Guard D — CI migration check**: PR-level enforcement of Guard A. Fails merge.
+- **Guard E — Schema/migration sync** (`backend/scripts/check-schema-migration-sync.js`): pre-commit + CI. Rejects commits that edit `schema.prisma` without a matching migration file. Bypass: `// ALLOW-SCHEMA-WITHOUT-MIGRATION: <reason>` on an added line (for comment-only / generator / datasource edits).
+- **Guard F — Runtime drift fail-fast** (`backend/scripts/start-prod.sh`, called by `Dockerfile.railway` CMD): on container boot, runs `prisma migrate diff --exit-code` after `migrate deploy`. On drift: logs the SQL and exits 1 (deploy rolls back). Bypass: `ALLOW_RUNTIME_DRIFT=yes` env var on Railway.
+- **Guard G — Prod DB identifier scan**: pre-commit + CI. Rejects diffs containing `ballast.proxy.rlwy.net`, `postgresql://*.rlwy.net`, or `postgresql://*.railway.app`. Catches accidentally-tracked .env files and hardcoded prod URLs.
+
+Correct schema-change workflow:
+1. Edit `backend/prisma/schema.prisma` locally.
+2. `cd backend && npx prisma migrate dev --name <descriptive>` against LOCAL Postgres. This creates the migration file.
+3. Review the generated SQL — if destructive (DROP/TRUNCATE), add the `-- ALLOW-DESTRUCTIVE:` header with a reason.
+4. Stage schema + migration together. Pre-commit runs A/E/G.
+5. Push → CI runs A/D/E/G. Railway deploys → Dockerfile CMD runs `migrate deploy` + drift check (Guard F). On success, app boots.
+
+If you must bypass any guard, log the reason in the commit message so future incidents can be traced.
 
 **Git push discipline (added 2026-04-20 after auto-push surprised the user):**
 

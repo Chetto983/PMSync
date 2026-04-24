@@ -25,5 +25,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./
 COPY --from=builder /app/node_modules ./node_modules
 
+COPY --from=builder /app/scripts/start-prod.sh ./scripts/start-prod.sh
+RUN chmod +x ./scripts/start-prod.sh
+
 EXPOSE ${PORT:-3000}
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+# Startup script: migrate deploy -> drift check (fail-fast, escape hatch
+# via ALLOW_RUNTIME_DRIFT=yes) -> launch app. See scripts/start-prod.sh.
+CMD ["sh", "./scripts/start-prod.sh"]

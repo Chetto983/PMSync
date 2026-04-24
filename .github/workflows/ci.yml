@@ -28,7 +28,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Migration safety check
+      - name: Resolve diff base SHA
+        id: diffbase
         working-directory: ${{ github.workspace }}
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
@@ -38,8 +39,15 @@ jobs:
           if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
             BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || echo "")
           fi
+          echo "sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Migration safety check (Guard A/D)
+        working-directory: ${{ github.workspace }}
+        env:
+          BASE_SHA: ${{ steps.diffbase.outputs.sha }}
+        run: |
           if [ -z "$BASE_SHA" ]; then
-            echo "No base ref available — skipping migration safety check."
+            echo "No base ref — skipping migration safety check."
             exit 0
           fi
           ADDED=$(git diff --name-only --diff-filter=A "$BASE_SHA" HEAD -- 'backend/prisma/migrations/**/migration.sql' || true)
@@ -50,6 +58,37 @@ jobs:
           echo "Checking new migrations:"
           echo "$ADDED"
           echo "$ADDED" | xargs node backend/scripts/check-migration-safety.js
+
+      - name: Schema/migration sync check (Guard E)
+        working-directory: ${{ github.workspace }}
+        env:
+          BASE_SHA: ${{ steps.diffbase.outputs.sha }}
+        run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "No base ref — skipping schema/migration sync check."
+            exit 0
+          fi
+          node backend/scripts/check-schema-migration-sync.js --base "$BASE_SHA"
+
+      - name: Prod DB identifier scan (Guard G)
+        working-directory: ${{ github.workspace }}
+        env:
+          BASE_SHA: ${{ steps.diffbase.outputs.sha }}
+        run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "No base ref — skipping prod URL scan."
+            exit 0
+          fi
+          # Only scan ADDED lines (`+` prefix) in source/config. Excludes docs
+          # and CI/hooks that legitimately reference the patterns as metadata.
+          PATTERN="ballast\.proxy\.rlwy\.net|postgresql://[^\"' ]+(rlwy\.net|railway\.app)"
+          HITS=$(git diff "$BASE_SHA" HEAD -U0 -- ':!*.md' ':!.husky/**' ':!.github/workflows/**' | grep -E "^\+[^+]" | grep -iE "$PATTERN" || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::Production DB identifier detected in added source/config lines"
+            echo "$HITS" | head -10
+            exit 1
+          fi
+          echo "No prod DB identifiers found in added source/config lines."
 
       - name: Generate Prisma client
         run: npx prisma generate

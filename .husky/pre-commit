@@ -1,10 +1,36 @@
 #!/bin/sh
 # Pre-commit hook for PMSync
 
-# Migration safety check — blocks destructive SQL in new Prisma migrations
-# unless the migration declares `-- ALLOW-DESTRUCTIVE: <reason>`.
-# Runs first so destructive migrations fail fast before the longer type-check.
+# Migration safety check (Guard A) — blocks destructive SQL in new Prisma
+# migrations unless the migration declares `-- ALLOW-DESTRUCTIVE: <reason>`.
 node backend/scripts/check-migration-safety.js --staged || exit 1
+
+# Schema/migration sync check (Guard E) — blocks schema.prisma changes that
+# don't ship with a matching migration file. The 2026-04-01 drift incident
+# (commit 55e3d1a2) would have been blocked here.
+node backend/scripts/check-schema-migration-sync.js --staged || exit 1
+
+# Prod DB identifier scan (Guard G) — reject ADDED lines containing a
+# Railway production host in source/config files. Excludes docs (.md), git
+# hooks (.husky/), and CI workflows (.github/workflows/), which legitimately
+# reference the patterns as metadata about this very guard.
+# Only `+` lines (added content) are scanned.
+PATTERN="ballast\.proxy\.rlwy\.net|postgresql://[^\"' ]+(rlwy\.net|railway\.app)"
+HITS=$(git diff --cached -U0 -- ':!*.md' ':!.husky/**' ':!.github/workflows/**' | grep -E "^\+[^+]" | grep -iE "$PATTERN" || true)
+if [ -n "$HITS" ]; then
+  echo ""
+  echo "========================================================================"
+  echo "[prod-url-scan] BLOCKED — production DB identifier in staged additions."
+  echo "  Search patterns: ballast.proxy.rlwy.net, postgresql://*.rlwy.net,"
+  echo "                   postgresql://*.railway.app"
+  echo ""
+  echo "  Hits (added source/config lines only — docs/hooks/CI excluded):"
+  echo "$HITS" | head -10
+  echo ""
+  echo "  If this is a .env file: gitignore it. If hardcoded: use an env var."
+  echo "========================================================================"
+  exit 1
+fi
 
 # Type-check the backend to prevent TypeScript regressions landing on main.
 cd backend && npm run type-check
